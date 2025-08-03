@@ -1,0 +1,23 @@
+db.getName();          
+show collections;
+
+const farmaciaId = ObjectId("67d73b3a6348d5c1f9b74313");
+
+db.inventariofarmacias.deleteMany({});
+
+db.productos.aggregate([
+  {
+    $project: {
+      _id: 0,
+      farmacia: farmaciaId,
+      producto: "$_id",
+      existencia: { $ceil: { $divide: [ { $ifNull: ["$stockMaximo", 0] }, 2 ] } },
+      stockMax:   { $ceil: { $divide: [ { $ifNull: ["$stockMaximo", 0] }, 2 ] } },
+      stockMin:   { $ceil: { $divide: [ { $ifNull: ["$stockMinimo", 0] }, 2 ] } },
+      precioVenta: "$precio"
+    }
+  },
+  { $merge: { into: "inventariofarmacias", whenNotMatched: "insert" } }
+]);
+
+db.inventariofarmacias.createIndex({ farmacia: 1, producto: 1 }, { unique: true });

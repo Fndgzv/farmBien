@@ -1,0 +1,28 @@
+[LOGO FARMACIA - alineado a la izquierda]
+FARMACIA DEL BIENESTAR
+Sucursal: [Nombre de la sucursal]
+Dirección: [Calle, Número, Colonia, CP]
+Tel: [Número de teléfono]
+----------------------------------------
+PRODUCTO
+P.UNIT CANT      IMPORTE          Promo  
+----------------------------------------
+Amikacina 100 mg / 2 mL AMSA C/2 Amp ... 
+$27.00   2        $54.0   Martes-INAPAM
+-20% - 5%             	        $42.04
+Vitamina C  
+$32.00   1       $32.00     Martes-Cliente 			   
+-20%		                $28.00   
+
+----------------------------------------
+                         Total: $70.04
+
+Usted ahorró:           $15.96
+Abonó a su monedero:    $ 0.64      
+----------------------------------------
+      ¡Gracias por su compra!
+       Bienestar para todos
+       Folio: [FOLIO12345]
+     Fecha: [DD/MM/AAAA HH:MM]
+  Atendió: [Nombre del empleado]
+  Cliente: [Nombre del cliente]
