@@ -1,0 +1,11 @@
+# Ignorar node_modules de cualquier subcarpeta
+node_modules/
+
+# Ignorar dist de Angular
+frontFarm/dist/
+backFarm/dist/
+
+# Ignorar archivos temporales
+*.log
+.DS_Store
+Thumbs.db
