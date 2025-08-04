@@ -29,7 +29,8 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api', apiRoutes);
 
 // ----------------- SERVIR ANGULAR -----------------
-const angularPath = path.join(__dirname, '../frontFarm/dist/front-farm');
+/* const angularPath = path.join(__dirname, '../frontFarm/dist/front-farm'); */
+const angularPath = path.join(__dirname, 'public');
 console.log("Sirviendo Angular desde:", angularPath);
 
 // Servir archivos estáticos de Angular

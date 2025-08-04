@@ -6,14 +6,16 @@ services:
 
     # Comandos de build para backend y frontend
     buildCommand: |
-      cd backFarm
+      cd backBien
       npm install
       cd ../frontFarm
       npm install
       npm run build -- --configuration production
+      mkdir -p ../backBien/public
+      cp -r dist/front-farm/* ../backBien/public/
 
     # Comando para iniciar tu server.js unificado
-    startCommand: node backFarm/server.js
+    startCommand: node backBien/server.js
 
     envVars:
       - key: NODE_VERSION
