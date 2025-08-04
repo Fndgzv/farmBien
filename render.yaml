@@ -4,17 +4,25 @@ services:
     env: node
     plan: free
 
-    # Comandos de build para backend y frontend
     buildCommand: |
+      # Backend
       cd backBien
       npm install
+
+      # Frontend
       cd ../frontFarm
       npm install
       npm run build -- --configuration production
+
+      echo "===== Contenido de dist ====="
+      ls -R dist
+
       mkdir -p ../backBien/public
       cp -r dist/front-farm/* ../backBien/public/
 
-    # Comando para iniciar tu server.js unificado
+      echo "===== Contenido final en backBien/public ====="
+      ls -R ../backBien/public
+
     startCommand: node backBien/server.js
 
     envVars:
@@ -23,6 +31,6 @@ services:
       - key: PORT
         value: 5000
       - key: MONGODB_URI
-        sync: false  # La agregas en el panel de Render
+        sync: false
 
     autoDeploy: true
