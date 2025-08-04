@@ -1,0 +1,27 @@
+.pagination {
+  text-align: center;
+  font-size: large;
+  font-weight: 500;
+  color: blueviolet;
+}
+
+.pagination button {
+  color: aqua;
+  background-color: blueviolet;
+}
+
+.pagination button:disabled,
+.pagination button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+  color: gray;
+}
+
+.pagination button.activo {
+  background-color: white;
+  color: blueviolet;
+  font-weight: bold;
+  border: 2px solid blueviolet;
+  transition: all 0.3s ease;
+}
+

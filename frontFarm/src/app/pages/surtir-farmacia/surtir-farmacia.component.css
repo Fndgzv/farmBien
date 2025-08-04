@@ -1,0 +1,68 @@
+.surtir-farmacia {
+    max-width: 800px;
+    margin: 1rem auto;
+    padding: 0 1rem;
+}
+
+form {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    font-weight: bold;
+    color: #333;
+}
+
+input,
+select {
+    padding: 0.3rem;
+    font-size: 1rem;
+    border-radius: 5px;
+    height: 41px;
+}
+
+input {
+    width: 150px;
+}
+
+select {
+    width: 320px;  
+}
+
+select:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+.botones-accion {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.a-la-derecha {
+    margin-left: auto;
+}
+
+.falta {
+    color: darkred;
+    font-weight:500;
+}

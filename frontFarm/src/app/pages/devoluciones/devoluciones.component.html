@@ -1,0 +1,123 @@
+<div class="container mt-4">
+  <div class="titulo-container">
+    <h1 class="titulo">Devoluciones</h1>
+  </div>
+
+  <div class="row">
+    <div class="col-1"></div>
+    <div class="col-2">
+      <label class="lbl-folio-venta" for="filtroFolio">Folio de la venta:</label>
+      <div class="position-relative">
+        <input id="filtroFolio" [(ngModel)]="filtroFolio" (ngModelChange)="onFolioChange($event)"
+          class="form-control pr-4" placeholder="Últimos 6 caracteres" maxlength="6" pattern="[A-Za-z0-9]{6}" />
+        <button *ngIf="filtroFolio.length > 0" (click)="limpiarFolio()"
+          class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <h2 *ngIf="ventas.length > 0" class="subtitulo">Datos de la venta</h2>
+  <table class="tabla" *ngIf="ventas.length > 0">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Folio</th>
+        <th>Cliente</th>
+        <th>Total</th>
+        <th>Total Descuento</th>
+        <th># Art.</th>
+        <th>Fecha</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <ng-container *ngFor="let venta of ventas">
+        <tr>
+          <td>
+            <button class="btn-gris btn-icono"
+              (click)="ventaDetalleAbiertoId === venta._id ? cerrarDetalleVenta(venta) : abrirDetalleVenta(venta)">
+              <fa-icon [icon]="ventaDetalleAbiertoId === venta._id ? 'minus' : 'plus'"
+                [ngClass]="ventaDetalleAbiertoId === venta._id ? 'icono-rotado' : 'icono-normal'">
+              </fa-icon>
+            </button>
+          </td>
+          <td>{{ venta.folio }}</td>
+          <td>{{ venta.cliente?.nombre || 'Mostrador' }}</td>
+          <td>{{ venta.total | currency }}</td>
+          <td>{{ venta.totalDescuento | currency }}</td>
+          <td>{{ venta.cantidadProductos }}</td>
+          <td>{{ venta.fecha | date: 'dd/MM/yyyy':'America/Mexico_City' }}</td>
+
+        </tr>
+
+        <tr *ngIf="ventaDetalleAbiertoId === venta._id">
+          <td colspan="9">
+            <div class="detalle-tabla-wrapper">
+              <h5>Selecciona productos a devolver</h5>
+              <table class="detalle-tabla">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Producto</th>
+                    <th>Cant.</th>
+                    <th>P. U. c/dcto</th>
+                    <th>Promo</th>
+                    <th>Devolver</th>
+                    <th>Motivo de devolución</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let p of venta.productos">
+                    <td>
+                      <input type="checkbox" [(ngModel)]="p.seleccionado"
+                        [disabled]="esPromocionNoReembolsable(p.tipoDescuento, p.producto.categoria)"
+                        [ngClass]="{ 'checkbox-disabled': esPromocionNoReembolsable(p.tipoDescuento, p.producto.categoria) }"
+                        [title]="esPromocionNoReembolsable(p.tipoDescuento, p.producto.categoria) ? 'No se permite devolución en promo 2x1, 3x2 ó 4x3' : 'Editar cant. a devolver y motivo'" />
+                    </td>
+
+                    <td>{{ p.producto.nombre }}</td>
+                    <td>{{ p.cantidad }}</td>
+                    <td>{{ p.precio | currency }}</td>
+                    <td>{{ p.tipoDescuento }}</td>
+                    <td>
+                      <input type="number" min="1" [max]="p.cantidad" [(ngModel)]="p.cantidadDevuelta"
+                        [disabled]="!p.seleccionado || esPromocionNoReembolsable(p.tipoDescuento, p.producto.categoria)"
+                        class="form-control"
+                        [title]="esPromocionNoReembolsable(p.tipoDescuento, p.producto.categoria) ? 'No se permite devolución en promo 2x1, 3x2 ó 4x3' : 'Modificar cantidad'" />
+                    </td>
+                    <td>
+                      <select class="form-select" [(ngModel)]="p.motivoIndex"
+                        [disabled]="!p.seleccionado || esPromocionNoReembolsable(p.tipoDescuento, p.producto.categoria)"
+                        [title]="esPromocionNoReembolsable(p.tipoDescuento, p.producto.categoria) ? 'No se permite devolución en promo 2x1, 3x2 ó 4x3' : 'Elegir motivo'">
+                        <option [ngValue]="null" disabled>Seleccione motivo</option>
+                        <option *ngFor="let m of motivosDevolucion; let i = index" [ngValue]="i">{{ m }}</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <button class="btn-rojo mt-2" (click)="confirmarDevolucion(venta)">
+                Confirmar devolución
+              </button>
+            </div>
+          </td>
+        </tr>
+
+      </ng-container>
+    </tbody>
+  </table>
+  <p *ngIf="filtroFolio.length === 6 && ventas.length === 0" class="no-found-error">
+    No se encontró ninguna venta con ese folio en los últimos 7 días.
+  </p>
+</div>
+
+<div #contenedorTicket>
+  <app-devolucion-ticket
+    *ngIf="paraImpresion && mostrarTicket"
+    [venta]="paraImpresion"
+    class="ticket-impresion">
+  </app-devolucion-ticket>
+</div>

@@ -1,0 +1,106 @@
+<div class="ticket-impresion">
+
+  <!-- Encabezado -->
+  <app-ticket-header [nombreFarmacia]="venta.farmacia.nombre" [direccion]="venta.farmacia.direccion"
+    [telefono]="venta.farmacia.telefono">
+  </app-ticket-header>
+
+  <hr />
+
+  <!-- Tabla de productos -->
+  <table class="productos">
+    <thead>
+      <tr>
+        <th colspan="4">PRODUCTO</th>
+      </tr>
+      <tr class="productos-header-lineBottom">
+        <th style="width: 25%;">P.UNIT</th>
+        <th style="width: 15%;">CANT</th>
+        <th style="width: 20%;">Promo</th>
+        <th style="width: 40%;">IMPORTE</th>
+      </tr>
+    </thead>
+    <tbody>
+      <ng-container *ngFor="let p of venta.productos">
+        <!-- Nombre truncado -->
+        <tr>
+          <td colspan="4">
+            <span class="producto-nombre">
+              {{ p.barrasYNombre || p.producto?.nombre }}
+            </span>
+          </td>
+        </tr>
+        <tr>
+          <td>${{ p.precioOriginal | number:'1.2-2' }}</td>
+          <td>{{ p.cantidad }}</td>
+          <td>{{ p.descuento > 0 ? p.tipoDescuento : '' }}</td>
+          <td>
+            <ng-container *ngIf="p.descuento === 0; else sinNegritas">
+              <strong>${{ (p.precioOriginal * p.cantidad) | number:'1.2-2' }}</strong>
+            </ng-container>
+            <ng-template #sinNegritas>
+              ${{ (p.precioOriginal * p.cantidad) | number:'1.2-2' }}
+            </ng-template>
+          </td>
+        </tr>
+        <tr *ngIf="p.descuento > 0">
+          <td colspan="2">Desc. {{ p.cadenaDescuento }}</td>
+          <td colspan="2" class="text-right">
+            <strong>${{ (p.precio * p.cantidad) | number:'1.2-2' }}</strong>
+          </td>
+        </tr>
+      </ng-container>
+    </tbody>
+  </table>
+
+  <hr />
+
+  <!-- Totales -->
+  <div class="totales">
+    <div class="text-right">Total: 
+      <strong>${{ venta.total | number:'1.2-2' }}</strong>
+    </div>
+    <!-- <div class="text-right" style="font-style: italic;"><strong>Forma de pago:</strong></div> -->
+<!--     <div *ngIf="venta.formaPago.efectivo" class="text-right">Efectivo: 
+      <strong>${{ venta.formaPago.efectivo | number:'1.2-2' }}</strong>
+    </div>
+    <div *ngIf="venta.formaPago.tarjeta" class="text-right">Tarjeta: 
+      <strong>${{ venta.formaPago.tarjeta | number:'1.2-2'  }}</strong>
+    </div>
+    <div *ngIf="venta.formaPago.transferencia" class="text-right">Transferencia: 
+      <strong>${{ venta.formaPago.transferencia | number:'1.2-2'  }}</strong>
+    </div> -->
+    <div *ngIf="venta.formaPago.vale" class="text-right">Felicidades!!! usted usó su monedero: 
+      <strong>${{ venta.formaPago.vale | number:'1.2-2'  }}</strong>
+    </div>
+    
+    <div>Cantidad de productos: <strong>{{ venta.cantidadProductos }}</strong></div>
+  </div>
+
+  <hr />
+  <!-- Beneficios cliente -->
+  <div class="totales">
+    <div *ngIf="venta.totalDescuento > 0">Usted ahorró: 
+      <strong>${{ venta.totalDescuento | number:'1.2-2' }}</strong>
+    </div>
+    <div *ngIf="venta.totalMonederoCliente > 0">Abonó a su monedero: 
+      <strong>${{ venta.totalMonederoCliente | number:'1.2-2' }}</strong>
+    </div>
+    <div *ngIf="venta.AsiQuedaMonedero > 0">Su monedero ahora cuenta con:  
+      <strong>${{ venta.AsiQuedaMonedero | number:'1.2-2' }}</strong>
+    </div>
+  </div>
+
+    <hr />
+
+  <!-- Info general -->
+  <div class="info-general">
+    <div style="font-size: 15px;">Folio: {{ venta.folio }}</div>
+    Fecha: {{ venta.fecha | date:'dd/MM/yyyy HH:mm' }} hrs.<br />
+    Atendió: {{ venta.usuario }}<br />
+    Cliente: {{ venta.cliente || 'Público general' }}
+  </div>
+
+  <hr />
+
+  <app-ticket-footer></app-ticket-footer>

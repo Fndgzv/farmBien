@@ -1,0 +1,102 @@
+<div class="sidebar" [class.open]="open">
+  <ul>
+    <img src="assets/images/farmBienLogo.png" alt="Farmacia del Bienestar" class="sidebar-image">
+
+    <!-- Catálogos (solo admin) -->
+    <li *ngIf="userRol === 'admin'" class="menu-title">
+      <span (click)="toggleMenu('catalogs')">
+        Catálogos {{ expandedMenu === 'catalogs' ? '▲' : '▶' }}
+      </span>
+    </li>
+
+    <ul *ngIf="expandedMenu === 'catalogs'" class="submenu">
+      <li class="has-submenu">
+        <span (click)="toggleSubMenu('farmacias')">
+          Farmacias <fa-icon [icon]="'warehouse'" class="menu-icon"></fa-icon>
+          {{ expandedSubMenu === 'farmacias' ? '▲' : '▶' }}
+        </span>
+        <ul *ngIf="expandedSubMenu === 'farmacias'" class="submenu">
+          <li [routerLink]="'/farmacias'" routerLinkActive="active" class="submenu-item">
+            Mantenimiento <fa-icon [icon]="'truck'" class="menu-icon"></fa-icon>
+          </li>
+          <li [routerLink]="'/inventario-farmacias'" routerLinkActive="active" class="submenu-item">
+            Inventario <fa-icon [icon]="'file-signature'" class="menu-icon"></fa-icon>
+          </li>
+        </ul>
+      </li>
+      <li [routerLink]="'/usuarios'" routerLinkActive="active">Usuarios <fa-icon [icon]="'user'"
+          class="menu-icon"></fa-icon></li>
+      <li>Clientes <fa-icon [icon]="'users'" class="menu-icon"></fa-icon></li>
+      <li *ngIf="userRol === 'admin'" class="has-submenu">
+        <span (click)="toggleSubMenu('almacen')">
+          Almacén <fa-icon [icon]="'warehouse'" class="menu-icon"></fa-icon>
+          {{ expandedSubMenu === 'almacen' ? '▲' : '▶' }}
+        </span>
+        <ul *ngIf="expandedSubMenu === 'almacen'" class="submenu">
+          <li [routerLink]="'/compras'" routerLinkActive="active" class="submenu-item">
+            Compras <fa-icon [icon]="'truck'" class="menu-icon"></fa-icon>
+          </li>
+          <li [routerLink]="'/surtir-farmacia'" routerLinkActive="active" class="submenu-item">
+            Surtir Farmacia <fa-icon [icon]="'shopping-cart'" class="menu-icon"></fa-icon>
+          </li>
+          <li [routerLink]="'/ajustes-inventario'" routerLinkActive="active" class="submenu-item">
+            Ajustes inventario <fa-icon [icon]="'file-signature'" class="menu-icon"></fa-icon>
+          </li>
+        </ul>
+      </li>
+
+      <li [routerLink]="'/proveedores'" routerLinkActive="active">Proveedores
+        <fa-icon [icon]="'truck'" class="menu-icon"></fa-icon>
+      </li>
+
+      <li [routerLink]="'/cortes-de-caja'" routerLinkActive="active">Cortes de caja
+        <fa-icon [icon]="'file-signature'" class="menu-icon"></fa-icon>
+      </li>
+      
+    </ul>
+
+    <!-- Movimientos -->
+    <li class="menu-title">
+      <span (click)="toggleMenu('movements')">
+        Movimientos {{ expandedMenu === 'movements' ? '▲' : '▶' }}
+      </span>
+    </li>
+    <ul *ngIf="expandedMenu === 'movements'" class="submenu">
+
+      <li *ngIf="userRol === 'admin' || userRol === 'empleado'" [routerLink]="'/ventas'" routerLinkActive="active">
+        Ventas <fa-icon [icon]="'cash-register'" class="menu-icon"></fa-icon>
+      </li>
+      <li *ngIf="userRol === 'admin' || userRol === 'empleado'" [routerLink]="'/devoluciones'"
+        routerLinkActive="active">
+        Devoluciones <fa-icon [icon]="'undo'" class="menu-icon"></fa-icon>
+      </li>
+      <li *ngIf="userRol === 'admin' || userRol === 'empleado'" [routerLink]="'/pedidos'" routerLinkActive="active">
+        Pedidos especiales<fa-icon [icon]="'shopping-cart'" class="menu-icon"></fa-icon>
+      </li>
+      <li *ngIf="userRol === 'admin' || userRol === 'empleado'" [routerLink]="'/inicio-turno'"
+        routerLinkActive="active">
+        Corte de caja<fa-icon [icon]="'file-signature'" class="menu-icon"></fa-icon>
+      </li>
+      <li *ngIf="userRol === 'admin' || userRol === 'medico'">
+        Consultas médicas <fa-icon [icon]="'stethoscope'" class="menu-icon"></fa-icon>
+      </li>
+      <li *ngIf="userRol === 'admin' || userRol === 'medico'">
+        Recetas <fa-icon [icon]="'prescription'" class="menu-icon"></fa-icon>
+      </li>
+    </ul>
+
+
+    <!-- Reportes (solo admin) -->
+    <li *ngIf="userRol === 'admin'" class="menu-title">
+      <span (click)="toggleMenu('reports')">
+        Reportes {{ expandedMenu === 'reports' ? '▲' : '▶' }}
+      </span>
+    </li>
+    <ul *ngIf="expandedMenu === 'reports'" class="submenu">
+      <li>Ventas</li>
+      <li>Compras</li>
+      <li>Balance</li>
+    </ul>
+
+  </ul>
+</div>

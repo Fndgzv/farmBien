@@ -1,0 +1,54 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: rgb(141, 250, 247);
+  padding: 20px;
+  border-radius: 8px;
+  width: 1000px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  font-size: medium;
+  display: flex;
+  justify-content: space-between;
+}
+
+.subtitulo-edit {
+  color: rgb(2, 4, 124);
+  font-weight: 500;
+}
+
+.edit-seccion {
+  margin-bottom: 0.5rem;
+}
+
+.edit-seccion label {
+  margin-right: 10px;
+}
+
+.edit-seccion input {
+  margin-right: 3rem;
+}
+
+.promo-dia label {
+  margin-right: 10px;
+}
+
+.modal-buttons {
+  display: flex;
+  margin-left: 2rem;
+  margin-right: 2rem;
+}
+
+.btn-right{
+  margin-left: auto;
+  margin-right: 0px !important;
+}

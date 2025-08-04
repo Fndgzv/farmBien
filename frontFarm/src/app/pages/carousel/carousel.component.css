@@ -1,0 +1,104 @@
+/* Ajuste del carrusel */
+.carousel {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    padding-top: 50px;
+}
+
+.mt-6{
+    margin-top: 4rem;
+}
+
+/* Asegura que el carrusel no se desborde */
+.carousel-inner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.carousel-item {
+    margin-right: 0;
+    backface-visibility: hidden;
+    transition: transform .6s ease-in-out;
+}
+
+/* Estilos de las tarjetas dentro del carrusel */
+.custom-carousel-card {
+    width: 100%;
+    max-width: 800px;
+    margin: auto;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    background-color: #007bff;
+    color: white;
+}
+
+/* Tamaño de la imagen dentro de la card */
+.custom-carousel-image {
+    width: 100%;
+    /* height: 250px; */
+    object-fit: cover;
+}
+
+/* Botones de navegación */
+.carousel-control-prev,
+.carousel-control-next {
+    filter: invert(100%);
+    width: 6%;
+    opacity: 0.8;
+    transition: all 0.3s ease-in-out;
+}
+
+.carousel-control-prev {
+    left: 8rem;
+}
+
+.carousel-control-next {
+    right: 8rem;
+}
+
+.carousel-control-prev:hover, 
+.carousel-control-next:hover {
+    opacity: 1;
+    transform: scale(1.2); /* Efecto de agrandar ligeramente */
+}
+
+/* 🔹 Asegura que el texto dentro de la card sea visible */
+.card-body {
+    padding: 5px;
+}
+
+.card-text {
+    margin-bottom: 0;
+}
+
+/* 🔹 Asegura que los indicadores estén bien posicionados */
+.carousel-indicators {
+    position: relative;
+    bottom: -10px;
+    margin-top: 0px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 🔹 Ajusta la apariencia de los indicadores para que sean redondos */
+.carousel-indicators button {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: none;
+    margin: 10px;
+    transition: background-color 0.3s ease-in-out;
+}
+
+/* 🔹 Indicador activo */
+.carousel-indicators .active {
+    background-color: #007bff;
+    width: 14px;
+    height: 14px;
+}

@@ -1,0 +1,204 @@
+/* 📌 Contenedor General */
+.ventas-container {
+  font-family: Arial, sans-serif;
+}
+
+.cliente {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.cliente-tel {
+  font-size: large;
+}
+
+/* 📌 Estilo Especial para Nombre del Cliente */
+.cliente-nombre {
+  background-color: rgb(2, 4, 124);
+  color: white;
+  font-weight: bold;
+  padding: 10px 15px;
+  border-radius: 5px;
+  margin-left: 15px;
+}
+
+.consultar-precio {
+  margin-left: auto;
+  /* esto mueve el botón hasta el extremo derecho */
+}
+
+.productos-container {
+  display: flex;
+  align-items: center;
+}
+
+/* 📌 Contenedor del Total */
+.total-container {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  margin-top: 10px;
+  padding: 10px;
+  border-top: 2px solid #ccc;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.left {
+  text-align: left;
+}
+
+.center {
+  text-align: center;
+}
+
+.right {
+  text-align: right;
+}
+
+/* 📌 Botones de Venta */
+.botones-container {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.botones-container button {
+  height: 45px;
+  min-width: 130px;
+  font-size: 16px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  vertical-align: middle;
+  margin-right: 2rem;
+}
+
+.btn-right {
+  margin-left: auto;
+  margin-right: 0px !important;
+}
+
+/* Modal consultar precio */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  width: 400px;
+  align-items: center;
+  background-color: var(--fondo-modal);
+  padding: 5px;
+}
+
+.select {
+  width: 300px;
+  height: 41px;
+}
+
+.input-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Modal finalizar venta */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  padding-top: 100px;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+
+/* Centra el contenido del modal */
+.modal-dialog {
+  width: 400px;
+  margin: auto;
+}
+
+/* Mostrar modal cuando se activa */
+.show-modal {
+  display: block !important;
+}
+
+
+.input-field {
+  flex-grow: 1;
+  width: 80%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.deshabilitado {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+.cambio {
+  font-size: 30px;
+  color: rgb(3, 7, 83);
+  font-weight: bold;
+}
+
+.total-pago {
+  font-size: 20px;
+  color: rgb(3, 7, 83);
+  font-weight: bold;
+}
+
+.modal-body .col-form-label {
+  text-align: left !important;
+}
+
+.monedero-container {
+  padding-top: 1rem;
+  border-top: 1px solid rgb(3, 7, 83);
+  border-bottom: 1px solid rgb(3, 7, 83);
+  color: rgb(3, 7, 83);
+}
+
+/* botones Cancelar e Imprimir, dentro del modal Método de pago */
+.btns-container {
+  display: flex;
+  justify-content: space-between !important;
+  width: 90%;
+  border-top: 1px solid rgb(3, 7, 83);
+  padding: 1rem 1rem;
+}
+
+/* boton habilitar pagos, dentro del modal Método de pago */
+.button-container {
+  flex-grow: 1;
+  text-align: center;
+}
+
+.mr-2 {
+  margin-right: 8px !important;
+}
+
+.btn{
+    width: 1.7rem;
+    margin-right: 15px;
+}

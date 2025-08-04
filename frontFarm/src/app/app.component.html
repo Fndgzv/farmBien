@@ -1,0 +1,27 @@
+<app-header></app-header>
+
+<!-- Sidebar solo si el usuario está autenticado y no es cliente -->
+<ng-container *ngIf="authService.isLoggedIn && userRol !== 'cliente'">
+  <app-sidebar (sidebarToggled)="isSidebarOpen.set($event)"></app-sidebar>
+</ng-container>
+
+<ng-container *ngIf="authService.isLoginVisible | async">
+  <app-login></app-login>
+</ng-container>
+
+<!-- Mostrar el componente de cambio de contraseña -->
+<ng-container *ngIf="authService.isChangePasswordVisible | async">
+  <app-change-password></app-change-password>
+</ng-container>
+
+
+<!-- Mostrar el componente de actualización de usuario -->
+<ng-container *ngIf="authService.isEditProfileVisible | async">
+  <app-edit-profile></app-edit-profile>
+</ng-container>
+
+
+<!-- Contenido principal -->
+<div [class.sidebar-open]="isSidebarOpen() && isLoggedIn()" class="content">
+  <router-outlet></router-outlet>
+</div>

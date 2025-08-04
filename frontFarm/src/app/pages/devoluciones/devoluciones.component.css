@@ -1,0 +1,32 @@
+.icono-normal,
+.icono-rotado {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.icono-normal {
+  transform: rotate(0deg);
+}
+
+.icono-rotado {
+  transform: rotate(180deg);
+}
+
+.checkbox-disabled,
+input[disabled],
+select[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.folio-venta {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.lbl-folio-venta {
+  font-size: large;
+  margin-right: 10px;
+}
+

@@ -1,0 +1,76 @@
+.panel {
+  padding: 5px;
+}
+
+.filtros-container {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 2rem;
+}
+
+.masivos {
+  font-size: small;
+  width: 100%;
+  background-color: rgb(183, 251, 228);
+}
+
+.center-content {
+  text-align: center;
+}
+
+.container-masivos {
+  display: flex;
+  justify-content: space-between;
+}
+
+.tit-promo {
+  color: rgb(2, 4, 124);
+  font-weight: 500;
+}
+
+.btn-right {
+  margin-left: auto;
+  margin-right: 0px !important;
+}
+
+.disabled-label {
+  color: grey;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.selected-radio {
+  color: blue;
+}
+
+.selected-checkbox {
+  color: black;
+}
+
+.fila-modificada {
+  background-color: #e6ffe6 !important;
+}
+
+.paginacion {
+  text-align: center;
+  font-size: large;
+  font-weight: 500;
+  color: blueviolet;
+}
+
+.paginacion button {
+  color: aqua;
+  background-color: blueviolet;
+}
+
+.paginacion button:disabled,
+.paginacion button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+  color: gray;
+}
+
+.btn-grabar {
+  text-align: center;
+} 

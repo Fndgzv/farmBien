@@ -1,0 +1,99 @@
+<div class="cortes-caja-container">
+    <div class="titulo-container">
+        <h1 class="titulo">Cortes de Caja</h1>
+    </div>
+
+    <form [formGroup]="filtroForm" class="row mb-2">
+        <div class="col-md-3">
+            <div class="d-flex align-items-center position-relative w-100">
+                <label class="me-2 mb-0" style="white-space: nowrap;">Desde:</label>
+
+                <input type="date" formControlName="fechaInicioDesde" class="form-control pe-5 flex-grow-1" />
+
+                <button *ngIf="filtroForm.get('fechaInicioDesde')?.value" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    style="z-index: 2; margin-right: 6px;" (click)="filtroForm.get('fechaInicioDesde')?.setValue('')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="d-flex align-items-center position-relative w-100">
+                <label class="me-2 mb-0" style="white-space: nowrap;">Hasta:</label>
+
+                <input type="date" formControlName="fechaInicioHasta" class="form-control pe-5 flex-grow-1" />
+
+                <button *ngIf="filtroForm.get('fechaInicioHasta')?.value" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    style="z-index: 2; margin-right: 6px;" (click)="filtroForm.get('fechaInicioHasta')?.setValue('')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="d-flex align-items-center position-relative w-100">
+                <label class="me-2 mb-0" style="white-space: nowrap;">Usuario:</label>
+
+                <input type="text" formControlName="nombreUsuario" class="form-control pe-4 flex-grow-1" />
+
+                <button *ngIf="filtroForm.get('nombreUsuario')?.value" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="filtroForm.get('nombreUsuario')?.setValue('')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <button (click)="buscarCortes()" class="btn-gris">Buscar</button>
+        </div>
+    </form>
+
+    <div class="mt-3 d-flex justify-content-center" *ngIf="cortes && cortes.length > 0; else sinResultados">
+        <table class="tabla mx-auto">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Efec. inicial</th>
+                    <th>Efectivo</th>
+                    <th>Tarjeta</th>
+                    <th>Transferencia</th>
+                    <th>Monedero</th>
+                    <th>Abonos Monedero</th>
+                    <th>Fecha Fin</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let corte of cortes">
+                    <td>{{ corte.usuario?.nombre || 'N/A' }}</td>
+                    <td>{{ corte.efectivoInicial | currency }}</td>
+                    <td>{{ corte.totalEfectivoEnCaja | currency }}</td>
+                    <td>{{ corte.totalTarjeta | currency }}</td>
+                    <td>{{ corte.totalTransferencia | currency }}</td>
+                    <td>{{ corte.totalVale | currency }}</td>
+                    <td>{{ corte.abonosMonederos | currency }}</td>
+                    <td>{{ corte.fechaFin ? (corte.fechaFin | date:'dd/MM/yyyy HH:mm') : 'abierto' }}</td>
+                    <td>
+                        <button class="btn-icon-chico btn-gris-chico" (click)="autorizarTurnoExtra(corte)" [disabled]="corte.turnoExtraAutorizado"
+                            matTooltip="Autorizar turno extra">
+                            <fa-icon [icon]="'user-check'"></fa-icon>
+                        </button>
+                        <button class="btn-icon-chico btn-verde-chico" (click)="mostrarDetalle(corte)" matTooltip="Ver detalle">
+                            <fa-icon [icon]="'eye'"></fa-icon>
+                        </button>
+                        <button class="btn-icon-chico btn-amarillo-chico" (click)="vistaPreviaFinalizar(corte)" matTooltip="Vista previa corte">
+                            <fa-icon [icon]="'file-invoice'"></fa-icon>
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <ng-template #sinResultados>
+        <p style="color: brown;">No hay cortes de caja para mostrar.</p>
+    </ng-template>
+</div>

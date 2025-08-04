@@ -1,0 +1,323 @@
+<div class="ventas-container">
+  <div class="titulo-container">
+    <h1 class="titulo">Ventas</h1>
+  </div>
+
+  <div class="row align-items-center mb-2">
+    <div class="col-md-1">
+      <h2 class="subtitulo">Cliente:</h2>
+    </div>
+
+    <div class="col-md-2 text-end">
+      <label class="cliente-tel">Teléfono:</label>
+    </div>
+
+    <div class="col-md-2 position-relative">
+      <input type="text"
+        [(ngModel)]="telefonoCliente"
+        (input)="buscarCliente()"
+        [disabled]="carrito.length > 0"
+        class="form-control pe-5"/>
+      <button *ngIf="telefonoCliente" type="button"
+        [disabled]="carrito.length > 0" (click)="limpiarCliente()"
+        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+        <fa-icon [icon]="faTimes"></fa-icon>
+      </button>
+    </div>
+
+    <div class="col-md-4">
+      <span *ngIf="nombreCliente" class="cliente-nombre">{{ nombreCliente }}</span>
+    </div>
+ 
+    <div class="col-md-3">
+      <button (click)="abrirModalConsultaPrecio()" class="btn-gris consultar-precio">Consultar Precio</button>
+    </div>
+  </div>
+
+
+<div class="productos-container">
+  <h2 class="subtitulo mr-2">Productos:</h2>
+  <input type="text" id="codigoBarras" [(ngModel)]="codigoBarras" (keyup.enter)="agregarProductoPorCodigo()"
+    placeholder="Código de barras" class="input-text">
+  <input type="text" [(ngModel)]="busquedaProducto" (input)="filtrarProductos()" placeholder="Nombre producto"
+    class="input-text mx-2">
+
+  <select (change)="seleccionarProducto($event)" class="input-text select mr-2">
+    <option value="">-- Selecciona un producto --</option>
+    <option *ngFor="let prod of productosFiltrados" [value]="prod._id">{{ prod.nombre }}</option>
+  </select>
+  <button (click)="limpiarProducto()" class="btn-rojo-tache"><i class="fas fa-times"></i></button>
+</div>
+
+<div *ngIf="mostrarModalConsultaPrecio" class="modal-overlay">
+  <div class="modal-content">
+    <h2>Consultar Precio</h2>
+    <div class="input-container position-relative">
+      <input type="text" [(ngModel)]="codigoConsulta" (keyup.enter)="consultarPrecio()"
+        placeholder="Código de barras"
+        class="input-field">
+      <button (click)="limpiarBarras()" 
+        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+        <fa-icon [icon]="faTimes"></fa-icon>
+      </button>
+    </div>
+    <div *ngIf="productoConsultado">
+      <p><strong>Nombre:</strong>{{ productoConsultado.nombre }}</p>
+      <p><strong>Precio Normal:</strong> {{ productoConsultado.precioNormal | currency }}</p>
+      <p *ngIf="productoConsultado.promo1"><strong>{{ productoConsultado.promo1 }}</strong>{{
+        productoConsultado.precioLunes }}</p>
+      <p *ngIf="productoConsultado.lunesMasInapam">{{ productoConsultado.lunesMasInapam }}</p>
+
+      <p *ngIf="productoConsultado.promo2"><strong>{{ productoConsultado.promo2 }}</strong>{{
+        productoConsultado.precioMartes }}</p>
+      <p *ngIf="productoConsultado.martesMasInapam">{{ productoConsultado.martesMasInapam }}</p>
+
+      <p *ngIf="productoConsultado.promo3"><strong>{{ productoConsultado.promo3 }}</strong>{{
+        productoConsultado.precioMiercoles }}</p>
+      <p *ngIf="productoConsultado.miercolesMasInapam">{{ productoConsultado.miercolesMasInapam }}</p>
+
+      <p *ngIf="productoConsultado.promo4"><strong>{{ productoConsultado.promo4 }}</strong>{{
+        productoConsultado.precioJueves }}</p>
+      <p *ngIf="productoConsultado.juevesMasInapam">{{ productoConsultado.juevesMasInapam }}</p>
+
+      <p *ngIf="productoConsultado.promo5"><strong>{{ productoConsultado.promo5 }}</strong>{{
+        productoConsultado.precioViernes }}</p>
+      <p *ngIf="productoConsultado.viernesMasInapam">{{ productoConsultado.viernesMasInapam }}</p>
+
+      <p *ngIf="productoConsultado.promo6"><strong>{{ productoConsultado.promo6 }}</strong>{{
+        productoConsultado.precioSabado }}</p>
+      <p *ngIf="productoConsultado.sabadoMasInapam">{{ productoConsultado.sabadoMasInapam }}</p>
+
+      <p *ngIf="productoConsultado.promo0"><strong>{{ productoConsultado.promo0 }}</strong>{{
+        productoConsultado.precioDomingo }}</p>
+      <p *ngIf="productoConsultado.domingoMasInapam">{{ productoConsultado.domingoMasInapam }}</p>
+
+      <p *ngIf="productoConsultado.promo"><strong>Promo:</strong>{{ productoConsultado.promo }}</p>
+      <p *ngIf="productoConsultado.precioConDescuento"><strong>Precio c/promo:</strong>{{
+        productoConsultado.precioConDescuento }}</p>
+      <p *ngIf="productoConsultado.precioDescuentoMasInapam"><strong>Precio promo + inapam:</strong>{{
+        productoConsultado.precioDescuentoMasInapam }}</p>
+      <p *ngIf="productoConsultado.precioInapam"><strong>Precio Inapam:</strong>{{ productoConsultado.precioInapam }}
+      </p>
+      <p *ngIf="productoConsultado.promoCliente">{{ productoConsultado.promoCliente }}</p>
+
+
+    </div>
+
+    <button (click)="cerrarModalConsultaPrecio()" class="btn-rojo-tache">Cerrar</button>
+  </div>
+</div>
+
+<table class="tabla">
+  <thead>
+    <tr>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th>Producto</th>
+      <th>Cant.</th>
+      <th>P. U.</th>
+      <th>Imp. normal</th>
+      <th>Promo</th>
+      <th>% desc.</th>
+      <th>Monedero</th>
+      <th>Desc.</th>
+      <th>Precio Final</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let p of carrito; let i = index">
+      <td>
+        <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis"
+          title="Eliminar"
+          class="btn-icono btn-rojo-tache"
+          (click)="eliminarProducto(i)">
+          <i class="fas fa-times"></i>
+        </button>
+      </td>
+      <td>
+        <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis"
+          title="Aumentar uno"
+          class="btn-icono btn-verde"
+          (click)="incrementarCantidad(i)">
+          <i class="fas fa-plus"></i>
+        </button>
+      </td>
+      <td>
+        <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis"
+          title="Quitar uno"
+          class="btn-icono btn-gris"
+          (click)="decrementarCantidad(i)">
+          <i class="fas fa-minus"></i>
+        </button>
+      </td>
+      <td>{{ p.nombre }}</td>
+      <td>{{ p.cantidad }}</td>
+      <td>{{ p.precioOriginal | currency }}</td> <!-- precio unitario -->
+      <td>{{ (p.precioOriginal * p.cantidad) | currency }}</td> <!-- importe sin descuento -->
+      <td>{{ p.tipoDescuento !== 'Ninguno' ? p.tipoDescuento : '-' }}</td>
+      <!-- muestra cadena de promociones aplicadas -->
+      <td>{{ p.cadDesc }}</td> <!-- muestra cadena de porcentajes -->
+      <td>{{ p.alMonedero * p.cantidad | currency }}</td>
+      <td>{{ (p.descuentoUnitario * p.cantidad) | currency }}</td>
+      <td>{{ (p.precioFinal * p.cantidad) | currency }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="total-container">
+  <div class="left">Total de artículos: {{ totalArticulos }}</div>
+  <div class="center">Abono al Monedero: {{ totalAlmonedero | currency }}</div>
+  <div class="center">Usted ahorró: {{ totalDescuento | currency }}</div>
+  <div class="right">Total: {{ total | currency }}</div>
+</div>
+
+<div *ngIf="carrito.length" class="botones-container">
+  <button (click)="pausarVenta()" class="btn-amarillo">Pausar Venta</button>
+  <button (click)="cancelarVenta()" class="btn-rojo">Cancelar Venta</button>
+  <button (click)="abrirModalPago()" class="btn-verde btn-right">Finalizar Venta</button>
+</div>
+
+<div *ngIf="ventasPausadas.length" class="mt-4">
+  <h2 class="subtitulo">Ventas Pausadas</h2>
+  <button *ngFor="let venta of ventasPausadas; let i = index" (click)="reanudarVenta(i)"
+    class="btn-gris d-block w-100 mb-2">
+    {{ venta.captionButtomReanudar }}
+  </button>
+</div>
+
+</div>
+
+<!-- Modal Método de Pago -->
+<form #payForm="ngForm">
+  <div class="modal" tabindex="-1" [ngClass]="{'show-modal': mostrarModalPago}">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-info-subtle text-blue">
+          <h5 class="modal-title">Método de Pago</h5>
+        </div>
+        <div class="modal-body">
+
+          <p class="total-pago">Total a pagar: <strong>{{ total | currency }}</strong></p>
+
+          <!-- Input efectivo recibido -->
+          <div class="form-group row mb-2">
+            <label for="efectivoRecibido" class="col-sm-4 col-form-label text-left">Efectivo:</label>
+            <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
+              <input id="efectivoRecibido" name="efectivoRecibido" type="number" class="form-control text-end"
+                [(ngModel)]="efectivoRecibido" (ngModelChange)="calculaCambio()" [min]="0" step="0.1"
+                [disabled]="ocultarEfectivo" />
+            </div>
+          </div>
+
+          <!-- Tarjeta -->
+          <div class="form-group row mb-2">
+            <label for="montoTarjeta" class="col-sm-4 col-form-label text-left">Tarjeta:</label>
+            <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
+              <input id="montoTarjeta" name="montoTarjeta" type="number" class="form-control text-end"
+                [(ngModel)]="montoTarjeta" (ngModelChange)="pagoTarjeta()" [min]="0"
+                [max]=" total - montoTransferencia - montoVale " step="0.1" [disabled]="ocultaTarjeta" />
+            </div>
+          </div>
+
+          <!-- Transferencia -->
+          <div class="form-group row mb-2">
+            <label for="montoTransferencia" class="col-sm-4 col-form-label">Transferencia:</label>
+            <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
+              <input id="montoTransferencia" name="montoTransferencia" type="number" class="form-control text-end"
+                [(ngModel)]="montoTransferencia" (ngModelChange)="pagoTransferencia()" [min]="0"
+                [max]="total - montoTarjeta - montoVale" step="0.1" [disabled]="ocultaTransferencia">
+            </div>
+          </div>
+
+          <!-- Monedero -->
+          <div class="monedero-container" *ngIf="montoMonederoCliente > 0">
+            <!-- 1) Mostrar cuánto tiene acumulado -->
+            <div class="form-group row mb-2">
+              <label class="col-12 text-center" style="color: rgb(3, 7, 83); font-weight: bold; font-size: large;">
+                Tiene en monedero: {{ montoMonederoCliente | currency }}
+              </label>
+            </div>
+
+            <!-- 2) Mostrar checkbox "Desea usar su monedero" -->
+            <div class="form-group row mb-2">
+              <div class="col-sm-8">
+                <label for="usarMonedero" class="col-form-label">Usar monedero:</label>
+              </div>
+              <div class="col-sm-4 d-flex align-items-center">
+                <input id="usarMonedero" type="checkbox" class="form-check-input" name="usarMonedero"
+                  [(ngModel)]="usarMonedero" (ngModelChange)="onToggleMonedero()" />
+                <label for="usarMonedero" class="ms-2">Sí</label>
+              </div>
+            </div>
+
+            <!-- 3–4) Cuando el checkbox está marcado, mostramos el monto asignado de manera automática -->
+            <div class="form-group row mb-2" *ngIf="usarMonedero">
+              <label class="col-sm-8 col-form-label text-left">Monto monedero usado:</label>
+              <div class="col-sm-4 d-flex justify-content-end">
+                <!-- Simplemente mostramos el valor calculado; el usuario ya no lo edita manualmente -->
+                <span class="form-control-plaintext text-end">
+                  {{ montoVale | currency }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+
+          <!-- Mensajes de validación -->
+          <div class="text-danger" *ngIf="payForm.submitted || payForm.form.controls['folioVale']?.touched">
+            <small *ngIf="montoVale > 0 && payForm.form.controls['folioVale']?.errors?.['required']">
+              El folio es obligatorio cuando pagas con vale.
+            </small>
+            <small
+              *ngIf="payForm.form.controls['folioVale']?.errors?.['minlength'] || payForm.form.controls['folioVale']?.errors?.['maxlength']">
+              El folio debe tener exactamente 6 caracteres.
+            </small>
+            <small *ngIf="payForm.form.controls['folioVale']?.errors?.['pattern']">
+              Sólo se permiten letras y números.
+            </small>
+          </div>
+
+          <!-- Mostrar cambio -->
+          <p class="mt-3 cambio">
+            Cambio: <strong>{{ cambio | currency }}</strong>
+          </p>
+
+          <p *ngIf="efectivoRecibido + montoTarjeta + montoTransferencia + montoVale < total" class="text-danger mt-3">
+            Aún falta cubrir el total de la venta.
+          </p>
+
+          <p *ngIf="efectivoRecibido + montoTarjeta + montoTransferencia + montoVale >= total"
+            class="text-success mt-3">
+            El total de la venta ha sido cubierto.
+          </p>
+
+        </div>
+
+
+        <div class="btns-container">
+          <button class="btn-rojo-tache" (click)="cancelarPago()">Cancelar</button>
+          <button class="btn-gris" [disabled]="efectivoRecibido + montoTarjeta + montoTransferencia + montoVale < total"
+            (click)="finalizarVenta()">Imprimir
+          </button>
+        </div>
+
+        <!-- Botón para habilitar los inputs y limpiar los valores -->
+        <div class="button-container">
+          <button *ngIf="inputsHabilitados" class="btn-amarillo" (click)="habilitarInputs()">
+            <i class="fas fa-sync-alt"></i> Habilitar pagos
+          </button>
+        </div>
+
+
+      </div>
+    </div>
+  </div>
+</form>
+
+<app-venta-ticket
+  *ngIf="ventaParaImpresion && mostrarTicket"
+  [venta]="ventaParaImpresion"
+  class="ticket-impresion"
+></app-venta-ticket>
+

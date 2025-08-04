@@ -1,0 +1,69 @@
+<!-- devolucion-ticket.component.html -->
+<div class="ticket-impresion" *ngIf="venta">
+
+    <app-ticket-header [nombreFarmacia]="venta.farmacia.nombre" [direccion]="venta.farmacia.direccion"
+        [telefono]="venta.farmacia.telefono">
+    </app-ticket-header>
+
+    <hr />
+
+    <table class="productos">
+        <thead>
+            <tr>
+                <th colspan="3">PRODUCTO DEVUELTO</th>
+            </tr>
+            <tr class="productos-header-bottom">
+                <th>P.UNIT</th>
+                <th>CANT</th>
+                <th style="text-align: right;">IMPORTE</th>
+            </tr>
+        </thead>
+        <tbody>
+            <ng-container *ngFor="let p of venta.devolucion.productosDevueltos">
+                <!-- 1. cóg barras 3 digitos finales y Nombre del producto -->
+                <tr>
+                    <td colspan="3">
+                    <span class="producto-nombre">
+                        {{ p.barrasYNombre || p.producto?.nombre }}
+                    </span>
+                </tr>
+
+                <!-- 2. Precio unitario, cantidad, total  -->
+                <tr>
+                    <td>${{ p.precio | number:'1.2-2' }}</td>
+                    <td>{{ p.cantidad }}</td>
+                    <td style="text-align: right;">${{ (p.precio * p.cantidad) |
+                        number:'1.2-2' }}
+                    </td>
+                </tr>
+
+                <!-- 3. Motivo devolución -->
+                <tr>
+                    <td colspan="3">Motivo: {{ p.motivo }}</td>
+                </tr>
+            </ng-container>
+        </tbody>
+    </table>
+
+    <hr />
+
+    <div class="totales">
+        <div style="text-align: right;">Total: <strong>${{ venta.totalADevolver | number:'1.2-2' }}</strong></div>
+        <div style="text-align: right;" *ngIf="venta.totalDevolverVales > 0">Abonó a su monedero: <strong>${{
+                venta.totalDevolverVales | number:'1.2-2' }}</strong></div>
+        <div style="text-align: right;" *ngIf="venta.totalDevolverEfectivo > 0">Devolución de efectivo: <strong>${{
+                venta.totalDevolverEfectivo | number:'1.2-2'}}</strong></div>
+    </div>
+
+    <hr />
+    <div class="info-general">
+        <div style="font-size: 15px;">Folio venta: {{ venta.devolucion.folioVenta }}</div>
+        Fecha devolución: {{ fechaActual | date:'dd/MM/yyyy HH:mm' }} hrs.<br />
+        Atendió: {{ venta.usuario }}<br />
+        Cliente: {{ venta.cliente || 'Público general' }}
+    </div>
+    <hr />
+
+    <app-ticket-footer></app-ticket-footer>
+
+</div>

@@ -1,0 +1,26 @@
+<!-- pedido-ticket.component.html -->
+<div class="ticket-impresion" id="ticketPedido">
+    <app-ticket-header [nombreFarmacia]="pedido.farmaNombre" [direccion]="pedido.farmaDireccion"
+        [telefono]="pedido.farmaTelefono">
+    </app-ticket-header>
+
+    <hr />
+
+    <div class="info-pedido">
+        <div>Pedido: <strong>{{ pedido.pedido.descripcion }}</strong></div>
+        <div style="text-align: right;">Total: <strong>${{ pedido.pedido.total | number:'1.2-2' }}</strong></div>
+        <div style="text-align: right;">Anticipo: <strong>${{ pedido.pedido.aCuenta | number:'1.2-2' }}</strong></div>
+        <div style="text-align: right;">Resta: <strong>${{ pedido.pedido.total - pedido.pedido.aCuenta | number:'1.2-2' }}</strong>
+    </div>
+
+    <hr />
+
+    <div class="info-general">
+        <div style="font-size: 15px;">Folio pedido: {{ pedido.pedido.folio }}</div>
+        Fecha: {{ fechaActual | date:'dd/MM/yyyy HH:mm' }} hrs.<br />
+        Atendió: {{ pedido.userName }}<br />
+        Cliente: {{ pedido.client || 'Público general' }}
+    </div>
+    <hr />
+    <app-ticket-footer></app-ticket-footer>
+</div>

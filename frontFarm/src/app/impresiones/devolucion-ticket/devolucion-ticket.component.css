@@ -1,0 +1,28 @@
+.info-general,
+.totales
+ {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.productos-header-bottom {
+  border-bottom: 1px solid black;
+} 
+
+hr {
+  border: none;
+  border-top: 1px dashed #000;
+  margin: 8px 0;
+}
+
+.producto-nombre {
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0 2px;
+}

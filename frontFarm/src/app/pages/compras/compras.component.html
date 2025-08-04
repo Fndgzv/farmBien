@@ -1,0 +1,292 @@
+<div class="compras-container">
+
+    <!-- TÍTULO -->
+    <div class="titulo-container">
+        <h1 class="titulo">Compras</h1>
+    </div>
+
+    <!-- CABECERA: PROVEEDOR -->
+    <form [formGroup]="headerForm" class="header-form">
+        <label> Proveedor:</label>
+        <select class="input-text select" style="width: max-content;" formControlName="proveedor">
+            <option [ngValue]="null">-- Selecciona --</option>
+            <option *ngFor="let p of proveedores" [ngValue]="p._id">{{ p.nombre }}</option>
+        </select>
+    </form>
+
+    <!-- FORMULARIO DE INGRESO DE PRODUCTO -->
+    <div class="item-form" [formGroup]="itemForm">
+        <div class="buscar">
+            <label>
+                Código de barras:
+                <input type="text" formControlName="codigoBarras" (keydown.enter)="onBuscarProducto()"
+                    placeholder="Escanea aquí" />
+            </label>
+            <button *ngIf="nombreProducto.length > 0" (click)="limpiarProducto()" class="btn-rojo-tache">
+                <i class="fas fa-times"></i>
+            </button>
+            <span *ngIf="nombreProducto.length > 0" class="producto-nombre">{{ nombreProducto }}</span>
+        </div>
+
+        <div class="detalles-producto" *ngIf="nombreProducto.length > 0">
+            <label style="width: 10%;">Cantidad: <input type="number" formControlName="cantidad" min="1" /></label>
+            <label style="width: 10%;">Lote: <input type="text" formControlName="lote" /></label>
+            <label>Caducidad: <input type="date" formControlName="fechaCaducidad" /></label>
+            <label style="width: 10%;">Costo U.: <input type="number" formControlName="costoUnitario"
+                    step="0.01" /></label>
+            <label style="width: 10%;">Precio U.: <input type="number" formControlName="precioUnitario"
+                    step="0.01" /></label>
+            <label style="width: 10%;">Stock mínimo.: <input type="number" formControlName="stockMinimo"
+                    step="1" /></label>
+            <label style="width: 10%;">Stock máximo.: <input type="number" formControlName="stockMaximo"
+                    step="1" /></label>
+
+            <button [disabled]="itemForm.invalid" class="btn-verde" type="button" (click)="onAgregarItem()">Agregar al
+                carrito</button>
+        </div>
+    </div>
+
+    <!-- TABLA DEL CARRITO -->
+    <table *ngIf="carrito.length" class="tabla">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th>Lote</th>
+                <th>Caducidad</th>
+                <th>Costo U.</th>
+                <th>Precio U.</th>
+                <th>Stock Mín.</th>
+                <th>Stock Máx.</th>
+                <th>Subtotal</th>
+                <th></th>
+            </tr>
+        </thead>
+
+        <tbody>
+            <ng-container *ngFor="let it of carrito; let i = index">
+                <tr>
+                    <td>
+                        <button (click)="onEliminarItem(i)" class="btn-icono btn-rojo-tache">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </td>
+                    <td>{{ it.nombre }}</td>
+                    <td>{{ it.cantidad }}</td>
+                    <td>{{ it.lote }}</td>
+                    <td>{{ it.fechaCaducidad | date:'dd/MM/yyyy' }}</td>
+                    <td>{{ it.costoUnitario | currency }}</td>
+                    <td>{{ it.precioUnitario | currency }}</td>
+                    <td>{{ it.stockMinimo }}</td>
+                    <td>{{ it.stockMaximo }}</td>
+                    <td>{{ (it.costoUnitario * it.cantidad) | currency }}</td>
+                    <td>
+                        <button class="btn-verde-chico" (click)="toggleEditPromo(i)">
+                            {{ editingPromoIndex === i ? 'Cerrar' : 'Editar' }}
+                        </button>
+                    </td>
+                </tr>
+
+                <!-- EDICIÓN -->
+                <tr *ngIf="editingPromoIndex === i" class="promo-editor">
+                    <td colspan="11">
+
+                        <!-- DATOS GENERALES EDITABLES DEL ITEM -->
+                        <div class="row mb-3 text-center align-items-center"
+                            style="background-color: #f5f5f5; padding-bottom: 10px;">
+                            <div class="col-1">
+                                <label><strong>Cant.:</strong></label>
+                                <input type="number" [(ngModel)]="it.cantidad" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-3">
+                                <label><strong>Lote:</strong></label>
+                                <input type="text" [(ngModel)]="it.lote" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-2">
+                                <label><strong>Caducidad:</strong></label>
+                                <input type="date" [(ngModel)]="it.fechaCaducidad" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-2">
+                                <label><strong>Costo:</strong></label>
+                                <input type="number" [(ngModel)]="it.costoUnitario" step="0.1"
+                                    class="form-control form-control-sm">
+                            </div>
+                            <div class="col-2">
+                                <label><strong>Precio:</strong></label>
+                                <input type="number" [(ngModel)]="it.precioUnitario"
+                                    class="form-control form-control-sm">
+                            </div>
+                            <div class="col-1">
+                                <label><strong>Mín:</strong></label>
+                                <input type="number" [(ngModel)]="it.stockMinimo" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-1">
+                                <label><strong>Máx:</strong></label>
+                                <input type="number" [(ngModel)]="it.stockMaximo" class="form-control form-control-sm">
+                            </div>
+                        </div>
+
+                        <!-- SELECCIÓN DE TIPO DE PROMO -->
+                        <div class="row text-center mb-1">
+                            <div class="col-2 fw-bold">
+                                <label>Elige promoción:</label>
+                            </div>
+                            <div class="col-2">
+                                <label [ngClass]="{'selected-radio': editPromos.tipoPromocion === 'ninguna'}">
+                                    <input type="radio" name="promo-{{i}}" [(ngModel)]="editPromos.tipoPromocion"
+                                        value="ninguna" />
+                                    Ninguna
+                                </label>
+                            </div>
+                            <div class="col-2"><label
+                                    [ngClass]="{'selected-radio': editPromos.tipoPromocion === 'dia'}">
+                                    <input type="radio" name="promo-{{i}}" [(ngModel)]="editPromos.tipoPromocion"
+                                        value="dia" />
+                                    Por día
+                                </label>
+                            </div>
+                            <div class="col-2"><label
+                                    [ngClass]="{'selected-radio': editPromos.tipoPromocion === 'cantidad'}">
+                                    <input type="radio" name="promo-{{i}}" [(ngModel)]="editPromos.tipoPromocion"
+                                        value="cantidad" />
+                                    Cantidad
+                                </label>
+                            </div>
+                            <div class="col-2"><label
+                                    [ngClass]="{'selected-radio': editPromos.tipoPromocion === 'temporada'}">
+                                    <input type="radio" name="promo-{{i}}" [(ngModel)]="editPromos.tipoPromocion"
+                                        value="temporada" />
+                                    Temporada
+                                </label>
+                            </div>
+                            <!-- INAPAM -->
+                            <div class="col-2">
+                                <label [ngClass]="{'selected-checkbox': editPromos.descuentoINAPAM}">
+                                    INAPAM(+5%)
+                                    <input type="checkbox" class="form-check-input"
+                                        [(ngModel)]="editPromos.descuentoINAPAM" />
+                                </label>
+                            </div>
+
+                        </div>
+
+                        <!-- POR DÍA -->
+                        <div *ngIf="editPromos.tipoPromocion === 'dia'" class="mb-4">
+                            <div class="row fw-bold text-center align-items-center">
+                                <div class="col-2 text-end" style="padding-top: 10px;">Día</div>
+                                <div class="col-2" style="padding-top: 10px;">% Desc.</div>
+                                <div class="col-3" style="padding-top: 10px;">Inicia</div>
+                                <div class="col-3" style="padding-top: 10px;">Termina</div>
+                                <div class="col-2 text-start" style="padding-top: 10px;">Monedero</div>
+                            </div>
+
+                            <div *ngFor="let dia of diasSemana" class="row mb-2 align-items-center">
+                                <div class="col-2 text-end text-primary fw-bold">{{ dia.name }}</div>
+                                <div class="col-2">
+                                    <input type="number" [(ngModel)]="editPromos[dia.prop].porcentaje"
+                                        class="form-control form-control-sm">
+                                </div>
+                                <div class="col-3">
+                                    <input type="date" [(ngModel)]="editPromos[dia.prop].inicio"
+                                        class="form-control form-control-sm">
+                                </div>
+                                <div class="col-3">
+                                    <input type="date" [(ngModel)]="editPromos[dia.prop].fin"
+                                        class="form-control form-control-sm">
+                                </div>
+                                <div class="col-2">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input"
+                                            [(ngModel)]="editPromos[dia.prop].monedero">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <!-- POR CANTIDAD -->
+                        <div *ngIf="editPromos.tipoPromocion==='cantidad'" class="row mb-4 align-items-center">
+                            <div class="row fw-bold text-center align-items-center">
+                                <div class="col-2" style="padding-top: 10px;">Cantidad</div>
+                                <div class="col-5" style="padding-top: 10px;">Inicia</div>
+                                <div class="col-5" style="padding-top: 10px;">Termina</div>
+                            </div>
+                            <div class="row">
+                                <div class="col-2">
+                                    <select [(ngModel)]="editPromos.promoCantidadRequerida"
+                                        class="form-control form-control-sm">
+                                        <option [ngValue]="null">--</option>
+                                        <option [ngValue]="2">2x1</option>
+                                        <option [ngValue]="3">3x2</option>
+                                        <option [ngValue]="4">4x3</option>
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <input type="date" [(ngModel)]="editPromos.inicioPromoCantidad"
+                                        class="form-control form-control-sm">
+                                </div>
+                                <div class="col-5">
+                                    <input type="date" [(ngModel)]="editPromos.finPromoCantidad"
+                                        class="form-control form-control-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- POR TEMPORADA -->
+                        <div *ngIf="editPromos.tipoPromocion==='temporada'" class="row mb-3">
+                            <div class="row fw-bold text-center align-items-center">
+                                <div class="col-2" style="padding-top: 10px;">% Desc.</div>
+                                <div class="col-4" style="padding-top: 10px;">Inicia</div>
+                                <div class="col-4" style="padding-top: 10px;">Termina</div>
+                                <div class="col-2 text-start" style="padding-top: 10px;">Monedero</div>
+                            </div>
+                            <div class="col-2">
+                                <input type="number" [(ngModel)]="editPromos.promoDeTemporada.porcentaje"
+                                    class="form-control form-control-sm">
+                            </div>
+                            <div class="col-4">
+                                <input type="date" [(ngModel)]="editPromos.promoDeTemporada.inicio"
+                                    class="form-control form-control-sm">
+                            </div>
+                            <div class="col-4">
+                                <input type="date" [(ngModel)]="editPromos.promoDeTemporada.fin"
+                                    class="form-control form-control-sm">
+                            </div>
+                            <div class="col-2">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input"
+                                        [(ngModel)]="editPromos.promoDeTemporada.monedero">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BOTONES -->
+                        <div class="guardar-cancelar">
+                            <button class="btn-rojo-chico" style="margin-left: 2rem;"
+                                (click)="cancelPromos()">Cancelar</button>
+                            <button class="btn-verde-chico" style="margin-right: 2rem;"
+                                (click)="savePromos(i)">Guardar</button>
+                        </div>
+
+                    </td>
+                </tr>
+
+            </ng-container>
+        </tbody>
+
+        <tfoot>
+            <tr>
+                <td colspan="9" class="total-label">Total:</td>
+                <td colspan="2" style="text-align: start;">{{ total | currency }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- BOTONES DE ACCIÓN -->
+    <div class="acciones">
+        <button class="btn-rojo" (click)="carrito = []; total = 0" [disabled]="!carrito.length">Cancelar</button>
+        <button class="btn-gris" (click)="onRegistrarCompra()" [disabled]="!carrito.length">Registrar Compra</button>
+    </div>
+
+</div>

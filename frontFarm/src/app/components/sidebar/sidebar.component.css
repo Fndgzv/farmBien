@@ -1,0 +1,171 @@
+.sidebar {
+  width: 0;
+  transition: width 0.3s ease-in-out;
+  background: #007bff;
+  overflow-x: hidden;
+  height: 100%;
+  padding: 0;
+}
+
+.sidebar.open {
+  width: 250px;
+  padding: 0px;
+}
+
+.sidebar:not(.open) ul {
+  display: none;
+}
+
+/* Botón para abrir/cerrar el sidebar */
+.close-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: white;
+  margin-left: auto;
+}
+
+.sidebar-image {
+  width: 60%;
+  max-width: 150px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+}
+
+/* Estilos de los menús */
+ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+
+li {
+  margin: 10px 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: normal;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+}
+
+li:hover {
+  color: rgb(66, 66, 2);
+  background-color: rgb(249, 159, 24);
+}
+
+.menu-icon {
+  color: rgb(1, 14, 38);
+  font-size: 16px;
+  margin-left: 10px;
+}
+
+.menu-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: rgb(217, 239, 10);
+  text-align: left;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.submenu {
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.submenu li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  font-size: 14px;
+  color: white;
+}
+
+.submenu li:hover {
+  color: rgb(66, 66, 2);
+  background-color: blanchedalmond;
+}
+
+/* nuevos estilos */
+/* Quitar cualquier padding por defecto en submenús */
+.sidebar ul.submenu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Detectamos el li que contiene el submenú (“Almacén”) */
+.sidebar li.has-submenu {
+  position: relative;
+}
+
+/* Estilizamos únicamente el submenú dentro de .has-submenu */
+.sidebar li.has-submenu>ul.submenu {
+  margin-left: 1.5rem;
+  /* Indentado hacia la derecha */
+  margin-top: 0.3rem;
+  /* Separación desde "Almacén" */
+}
+
+/* Opcional: espacia cada item dentro del submenú */
+.sidebar li.has-submenu>ul.submenu li {
+  margin: 0.2rem 0;
+  padding-left: 0.5rem;
+  /* Un pelín de espacio antes del texto */
+  font-size: 0.95rem;
+}
+
+/* ── Anida el submenú de “Almacén” debajo de su título ───────────────────── */
+
+/* El <li> de Almacén deja de ser flex por defecto y se vuelve block */
+.sidebar li.has-submenu {
+  display: block;
+}
+
+/* El span que contiene “Almacén” mantiene su padding y flex para texto + icono */
+.sidebar li.has-submenu > span {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+}
+
+/* El UL dentro de ese LI: indentado y separadito */
+.sidebar li.has-submenu > ul.submenu {
+  list-style-type: disc;       /* viñetas rellenas */
+  list-style-position: inside;  /* viñeta dentro del padding */
+  margin: 0.4rem 0 0 1.5rem;
+  padding: 0;
+}
+
+/* Cada ítem del submenú */
+.sidebar li.has-submenu > ul.submenu li {
+  display: list-item;          /* para que respete list-style */
+  padding: 4px 10px;
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Elimina cualquier marcador (::before) que hubieras agregado */
+.sidebar li.has-submenu > ul.submenu li::before {
+  content: none;
+}
+
+.submenu-item {
+  color: rgb(251, 138, 57) !important;
+}
+
+.submenu-item:hover {
+  color: brown !important;
+  background-color: aliceblue !important;
+}

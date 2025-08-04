@@ -1,0 +1,298 @@
+<div class="panel">
+    <div class="titulo-container">
+        <h1 class="titulo">Ajuste de Inventario en Almacen</h1>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row mb-2 filtros-container">
+        <div class="col-md-3">
+            <label>Nombre</label>
+            <div class="position-relative">
+                <input type="text" [(ngModel)]="filtros.nombre" name="nombre" class="form-control pr-4">
+                <button *ngIf="filtros.nombre" type="button"
+                    class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('nombre')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <label>Código de barras</label>
+            <div class="position-relative">
+                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras" class="form-control pr-4">
+                <button *ngIf="filtros.codigoBarras" type="button"
+                    class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('codigoBarras')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <label>Categoría</label>
+            <div class="position-relative">
+                <input type="text" [(ngModel)]="filtros.categoria" name="categoria" class="form-control pr-4">
+                <button *ngIf="filtros.categoria" type="button"
+                    class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('categoria')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-1">
+            <label>INAPAM</label>
+            <div class="position-relative">
+                <select [(ngModel)]="filtros.descuentoINAPAM" name="descuentoINAPAM" class="form-control pr-4">
+                    <option [ngValue]="null">--</option>
+                    <option [ngValue]="true">Sí</option>
+                    <option [ngValue]="false">No</option>
+                </select>
+                <button *ngIf="filtros.descuentoINAPAM !== null" type="button"
+                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                        (click)="limpiarFiltro('descuentoINAPAM')">
+                        <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-1">
+            <label>Genérico?</label>
+            <div class="position-relative">
+                <select [(ngModel)]="filtros.generico" name="generico" class="form-control pr-4">
+                    <option [ngValue]="null">--</option>
+                    <option [ngValue]="true">Sí</option>
+                    <option [ngValue]="false">No</option>
+                </select>
+                <button *ngIf="filtros.generico !== null" type="button"
+                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                        (click)="limpiarFiltro('generico')">
+                        <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-1 text-end mt-3">
+            <button (click)="aplicarFiltros()" class="btn-gris">Buscar</button>
+        </div>
+    </div>
+
+
+
+    <!-- Cambios Masivos -->
+    <form [formGroup]="formularioMasivo" class="masivos">
+        <div class="center-content">
+            <label class="subtitulo" style="margin-right: 10px;">Cambio masivo</label>
+            <label>(aplica a productos seleccionados en la tabla)</label>
+        </div>
+
+        <!-- 🟢 Zona General -->
+        <div class="container-masivos mb-1">
+            <div>
+                <label class="tit-promo" style="margin-right: 2rem;">Datos básicos:</label>
+                <label style="margin-right: 10px;">Stock Mínimo:</label>
+                <input style="width: 50px; margin-right: 2rem;" type="number" formControlName="stockMinimo">
+                <label style="margin-right: 10px;">Stock Máximo:</label>
+                <input style="width: 50px; margin-right: 2rem;" type="number" formControlName="stockMaximo">
+                <label style="margin-right: 10px;">INAPAM:</label>
+                <select formControlName="descuentoINAPAM">
+                    <option [ngValue]="null">--</option>
+                    <option [ngValue]="true">Sí</option>
+                    <option [ngValue]="false">No</option>
+                </select>
+            </div>
+            <!-- 🟡 Zona Ajuste de Precios -->
+            <div>
+                <label class="tit-promo" style="margin-right: 2rem;">Aumentar o disminuir Precios:</label>
+
+                <label [ngClass]="{'selected-radio': formularioMasivo.get('ajustePrecioModo')?.value === 'porcentaje'}"
+                    style="margin-right: 1rem;">
+                    <input type="radio" formControlName="ajustePrecioModo" value="porcentaje">Porcentaje
+                </label>
+                <label [class.disabled-label]="formularioMasivo.get('ajustePrecioModo')?.value != 'porcentaje'"
+                    style="margin-right: 10px;">%:</label>
+                <input [class.disabled-label]="formularioMasivo.get('ajustePrecioModo')?.value != 'porcentaje'"
+                    type="number" style="width: 50px; margin-right: 4rem;" formControlName="ajustePrecioPorcentaje">
+
+                <label [ngClass]="{'selected-radio': formularioMasivo.get('ajustePrecioModo')?.value === 'cantidad'}"
+                    style="margin-right: 1rem;">
+                    <input type="radio" formControlName="ajustePrecioModo" value="cantidad">Cantidad
+                </label>
+                <label [class.disabled-label]="formularioMasivo.get('ajustePrecioModo')?.value != 'cantidad'"
+                    style="margin-right: 10px;">$:</label>
+                <input [class.disabled-label]="formularioMasivo.get('ajustePrecioModo')?.value != 'cantidad'"
+                    type="number" style="width: 50px; margin-right: 5rem;" formControlName="ajustePrecioCantidad">
+            </div>
+        </div>
+
+        <!-- Zona Promociones -->
+        <div>
+
+            <!-- 🔵 Promo Cantidad Requerida -->
+            <div class="container-masivos mb-1">
+                <div>
+                    <label style="margin-right: 10px;" class="tit-promo">Promo Cantidad Requerida:</label>
+                    <select formControlName="promoCantidadRequerida" style="margin-right: 1rem;">
+                        <option [ngValue]="null">--</option>
+                        <option [ngValue]="2">2x1</option>
+                        <option [ngValue]="3">3x2</option>
+                        <option [ngValue]="4">4x3</option>
+                    </select>
+                    <label style="margin-right: 10px;">Inicia:</label>
+                    <input type="date" formControlName="inicioPromoCantidad" style="margin-right: 1rem;">
+                    <label style="margin-right: 10px;">Termina:</label>
+                    <input type="date" formControlName="finPromoCantidad">
+                </div>
+
+                <!-- 🟣 Promo Temporada -->
+                <div>
+                    <label class="tit-promo" style="margin-right: 10px;">Promo Temporada:</label>
+                    <label style="margin-right: 10px;">% Desc.:</label>
+                    <input style="width: 50px; margin-right: 1rem;" type="number"
+                        formControlName="promoDeTemporadaPorcentaje">
+                    <label style="margin-right: 10px;">Inicia:</label>
+                    <input style="margin-right: 1rem;" type="date" formControlName="promoDeTemporadaInicio">
+                    <label style="margin-right: 10px;">Termina:</label>
+                    <input style="margin-right: 1rem;" type="date" formControlName="promoDeTemporadaFin">
+                    <label style="margin-right: 10px;">Monedero:</label>
+                    <select formControlName="promoDeTemporadaMonedero" style="margin-right: 2rem;">
+                        <option [ngValue]="null">--</option>
+                        <option [ngValue]="true">Sí</option>
+                        <option [ngValue]="false">No</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 🟤 Promo por Día -->
+            <div [formGroup]="promosPorDiaForm" style="margin-top: 10px;">
+                <div *ngFor="let dia of diasSemana">
+                    <div [formGroupName]="'promo' + dia" class="row" style="margin-bottom: 5px;">
+
+                        <div class="col-2"><label class="tit-promo" style="margin-left: 3rem;">Promo {{ dia }}:</label>
+                        </div>
+
+                        <div class="col-2"><label style="margin-right: 10px;">% Desc.:</label>
+                            <input type="number" formControlName="porcentaje" style="width:50px; height: 20px;">
+                        </div>
+
+                        <div class="col-3"><label style="margin-right: 10px;">Inicia:</label>
+                            <input type="date" formControlName="inicio">
+                        </div>
+
+                        <div class="col-3"><label style="margin-right: 10px;">Termina:</label>
+                            <input type="date" formControlName="fin">
+                        </div>
+
+                        <div class="col-2"><label style="margin-right: 10px;">Monedero:</label>
+                            <select formControlName="monedero">
+                                <option [ngValue]="null">--</option>
+                                <option [ngValue]="true">Sí</option>
+                                <option [ngValue]="false">No</option>
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="container-masivos">
+            <button class="btn-rojo-chico" style="margin-left: 4rem;" type="button"
+                (click)="limpiarCamposCambioMasivo()">Cancelar
+            </button>
+            <button class="btn-verde-chico" style="margin-right: 4rem;" type="button"
+                [disabled]="!cambiosMasivosValidos" (click)="aplicarCambiosMasivos()">
+                Aplicar Cambios
+            </button>
+        </div>
+    </form>
+
+    <table class="tabla">
+        <thead>
+            <tr>
+                <th>
+                    <input type="checkbox" (change)="seleccionarTodos($event)">
+                </th>
+                <th (click)="ordenar('nombre')">
+                    Nombre
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'nombre' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'nombre' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'nombre'
+                    }" class="icono-orden"></i>
+                </th>
+                <th (click)="ordenar('codigoBarras')">
+                    Código Barras
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'codigoBarras' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'codigoBarras' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'codigoBarras'
+                    }" class="icono-orden"></i>
+                </th>
+                <th (click)="ordenar('categoria')">
+                    Categoría
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'categoria' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'categoria' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'categoria'
+                    }" class="icono-orden"></i>
+                </th>
+                <th>Genérico</th>
+                <th>Stock Mín.</th>
+                <th>Stock Máx.</th>
+                <th>INAPAM</th>
+                <th>Costo</th>
+                <th>Precio</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let p of productosPagina" [class.fila-modificada]="p['modificado']">
+                <td><input type="checkbox" [(ngModel)]="p.seleccionado"></td>
+                <td>{{ p.nombre }}</td>
+                <td>{{ p.codigoBarras }}</td>
+                <td>{{ p.categoria }}</td>
+                <td style="text-align: center;">
+                    <input type="checkbox" [checked]="p.generico" disabled>
+                </td>
+                <td>{{ p.stockMinimo }}</td>
+                <td>{{ p.stockMaximo }}</td>
+                <td style="text-align: center;">
+                    <input type="checkbox" [checked]="p.descuentoINAPAM" disabled>
+                </td>
+                <td>{{ p.costo | currency }}</td>
+                <td>{{ p.precio |currency }}</td>
+                <td>
+                    <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)">
+                        <fa-icon [icon]="'pen'"></fa-icon>
+                    </button>
+                </td>
+
+            </tr>
+        </tbody>
+    </table>
+    <div class="paginacion">
+        <button (click)="paginaActual = 1" [disabled]="paginaActual === 1" title="Primera página">
+            <i class="fa fa-angle-double-left"></i>
+        </button>
+
+        <button (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1" title="Anterior">
+            <i class="fa fa-angle-left"></i>
+        </button>
+
+        Página {{ paginaActual }} de {{ totalPaginas }}
+        <span class="total-registros">({{ productosFiltrados.length }} productos)</span>
+
+        <button (click)="paginaActual = paginaActual + 1" [disabled]="paginaActual === totalPaginas" title="Siguiente">
+            <i class="fa fa-angle-right"></i>
+        </button>
+
+        <button (click)="paginaActual = totalPaginas" [disabled]="paginaActual === totalPaginas" title="Última página">
+            <i class="fa fa-angle-double-right"></i>
+        </button>
+    </div>
+
+</div>

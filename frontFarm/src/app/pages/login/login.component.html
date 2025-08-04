@@ -1,0 +1,47 @@
+<div class="login-overlay">
+  <div class="login-container">
+
+    <button class="close-button" (click)="closeLogin()">✖</button>
+
+    <!-- Imagen de la farmacia -->
+    <img src="assets/images/farmBienLogo.png" alt="Farmacia del Bienestar" class="login-image">
+
+    <h2>Iniciar sesión</h2>
+
+    <!-- 🔹 Formulario de Login -->
+    <form *ngIf="!showFarmaciaSelector" [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <div class="input-group">
+        <input formControlName="usuario" class="form-control" placeholder="Usuario" required autocomplete="off"
+          spellcheck="false" autocapitalize="off" />
+      </div>
+
+
+      <div class="input-group">
+        <input
+          [type]="'text'"
+          [ngStyle]="{ '-webkit-text-security': mostrarPassword ? 'none' : 'disc' }"
+          formControlName="password"
+          class="form-control"
+          placeholder="Contraseña"
+          autocomplete="new-password"
+          spellcheck="false"
+          autocapitalize="off"
+          required
+        />
+        <button type="button"
+          class="btn-gris"
+          (click)="toggleMostrarPassword()"
+          tabindex="-1"
+          title="Mostrar/Ocultar contraseña">
+          <fa-icon [icon]="mostrarPassword ? 'eye-slash' : 'eye'"></fa-icon>
+        </button>
+      </div>
+
+      <button type="submit" class="login-logout-button mb-3 mt-3" [disabled]="loginForm.invalid">Iniciar</button>
+    </form>
+
+    <app-farmacia-selector *ngIf="showFarmaciaSelector" (farmaciaConfirmada)="onFarmaciaConfirmada($event)">
+    </app-farmacia-selector>
+
+  </div>
+</div>

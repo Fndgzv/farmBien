@@ -1,0 +1,28 @@
+<!-- corte-caja-ticket.component.html -->
+<div class="ticket-corteCaja">
+  <app-ticket-header
+    [nombreFarmacia]="datosCorte.nomFarm"
+    [direccion]="datosCorte.dirFarm"
+    [telefono]="datosCorte.telFarm">
+  </app-ticket-header>
+
+  <div class="corte-caja-encabezado">
+    <div style="text-align: center; font-size: large;">Corte de Caja</div>
+    <strong>{{ datosCorte.responsable }}</strong><br>
+    Inicio: <strong>{{ datosCorte.fechaInicio | date:'dd/MM/yyyy HH:mm' }}</strong><br>
+    Fin: <strong>{{ datosCorte.fechaFin | date:'dd/MM/yyyy HH:mm' }}</strong><br>
+  </div>
+
+  <hr>
+
+  <div class="corte-caja-datos">
+    Ventas: <strong>{{ datosCorte.ventasRealizadas }}</strong><br>
+    Devoluciones: <strong>{{ datosCorte.devolucionesRealizadas }}</strong><br>
+    Pedidos levantados: <strong>{{ datosCorte.pedidosLevantados }}</strong><br>
+    Pedidos entregados: <strong>{{ datosCorte.pedidosEntregados }}</strong><br>
+    Pedidos cancelados: <strong>{{ datosCorte.pedidosCancelados }}</strong><br>
+  </div>
+
+  <hr>
+  <app-ticket-footer></app-ticket-footer>
+</div>

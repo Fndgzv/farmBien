@@ -1,0 +1,232 @@
+<div class="container">
+
+    <div class="titulo-container">
+        <h1 class="titulo">Ajustes de Inventario en {{ nombreFarmaciaSeleccionada }}</h1>
+    </div>
+
+    <form [formGroup]="formFiltros" (ngSubmit)="buscar()">
+        <div class="row">
+
+            <div class="col-md-2">
+                <label>Farmacia</label>
+                <select class="form-control" formControlName="farmacia" required>
+                    <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label>Nombre</label>
+                <div class="position-relative">
+                    <input type="text" formControlName="nombre" class="form-control pr-4">
+                    <button *ngIf="formFiltros.get('nombre')?.value" type="button"
+                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                        (click)="limpiarFiltro('nombre')">
+                        <fa-icon [icon]="faTimes"></fa-icon>
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <label>Código de Barras</label>
+                <div class="position-relative">
+                    <input type="text" formControlName="codigoBarras" class="form-control pr-4">
+                    <button *ngIf="formFiltros.get('codigoBarras')?.value" type="button"
+                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                        (click)="limpiarFiltro('codigoBarras')">
+                        <fa-icon [icon]="faTimes"></fa-icon>
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <label>Categoría</label>
+                <div class="position-relative">
+                    <input type="text" formControlName="categoria" class="form-control pr-4">
+                    <button *ngIf="formFiltros.get('categoria')?.value" type="button"
+                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                        (click)="limpiarFiltro('categoria')">
+                        <fa-icon [icon]="faTimes"></fa-icon>
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-1">
+                <label>INAPAM</label>
+                <div class="position-relative">
+                    <select class="form-control pr-4" formControlName="inapam">
+                        <option value="">--</option>
+                        <option value="true">Sí</option>
+                        <option value="false">No</option>
+                    </select>
+                    <button *ngIf="formFiltros.get('inapam')?.value !== ''" type="button"
+                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                        (click)="limpiarFiltro('inapam')">
+                        <fa-icon [icon]="faTimes"></fa-icon>
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-1">
+                <label>Genérico?</label>
+                <div class="position-relative">
+                    <select class="form-control pr-4" formControlName="generico">
+                        <option value="">--</option>
+                        <option value="true">Sí</option>
+                        <option value="false">No</option>
+                    </select>
+                    <button *ngIf="formFiltros.get('generico')?.value !== ''" type="button"
+                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                        (click)="limpiarFiltro('generico')">
+                        <fa-icon [icon]="faTimes"></fa-icon>
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-md-1 text-end mt-3">
+                <button type="submit" class="btn-gris">Buscar</button>
+            </div>
+        </div>
+
+    </form>
+
+    <hr>
+
+    <div *ngIf="inventario.length > 0" class="mt-3">
+        <table class="tabla">
+            <thead class="text-center">
+                <tr style="color: blue;">
+                    <th>AJUSTE MASIVO</th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th></th>
+                    <th>
+                        <input [(ngModel)]="ajusteMasivo.existencia" class="form-control form-control-sm" type="number">
+                    </th>
+                    <th>
+                        <input [(ngModel)]="ajusteMasivo.stockMax" class="form-control form-control-sm" type="number">
+                    </th>
+                    <th>
+                        <input [(ngModel)]="ajusteMasivo.stockMin" class="form-control form-control-sm" type="number">
+                    </th>
+                    <th>
+                        <button class="btn-gris-chico" (click)="guardarAjusteMasivo()"
+                            [disabled]="deshabilitarBotonAplicar">
+                            Aplicar a todos
+                        </button>
+                    </th>
+                    <th></th>
+                </tr>
+                <tr>
+                    <th>
+                        <input type="checkbox" (change)="seleccionarTodos($event)">
+                    </th>
+                    <th>Nombre</th>
+                    <th>Código barras</th>
+                    <th>Categoria</th>
+                    <th>Genérico</th>
+                    <th>INAPAM</th>
+                    <th>Existencia</th>
+                    <th>Stock Máx</th>
+                    <th>Stock Mín</th>
+                    <th>Precio Venta</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let i of inventarioPaginado;">
+                    <td>
+                        <input type="checkbox" [(ngModel)]="i.seleccionado">
+                    </td>
+
+                    <td>{{ i.producto?.nombre }}</td>
+
+                    <td>{{ i.producto?.codigoBarras }}</td>
+
+                    <td>{{ i.producto?.categoria }}</td>
+
+                    <td class="text-center">
+                        {{ i.producto?.generico ? 'Sí' : 'No' }}
+                    </td>
+
+                    <td class="text-center">
+                        {{ i.producto?.descuentoINAPAM ? 'Sí' : 'No' }}
+                    </td>
+
+                    <td>
+                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.existencia" type="number"
+                            class="form-control form-control-sm">
+                    </td>
+
+                    <td>
+                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMax" type="number"
+                            class="form-control form-control-sm">
+                    </td>
+
+                    <td>
+                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMin" type="number"
+                            class="form-control form-control-sm">
+                    </td>
+
+                    <td>
+                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.precioVenta" type="number"
+                            class="form-control form-control-sm" step="0.1">
+                    </td>
+
+                    <td>
+                        <div class="d-flex justify-content-center">
+                            <!-- Botón Editar -->
+                            <button class="btn-icon-chico btn-gris-chico" [disabled]="estadoEdicion[i._id]"
+                                (click)="habilitarEdicion(i._id)" matTooltip="Editar renglón">
+                                <fa-icon [icon]="faEdit"></fa-icon>
+                            </button>
+
+                            <!-- Botón Guardar -->
+                            <button class="btn-icon-chico btn-verde-chico"
+                                [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
+                                (click)="guardarFila(i)" matTooltip="Guardar">
+                                <fa-icon *ngIf="estadoGuardado[i._id] === 'guardando'" [icon]="faSpinner"
+                                    class="fa-spin"></fa-icon>
+                                <fa-icon *ngIf="estadoGuardado[i._id] === 'exito'" [icon]="faCheck"></fa-icon>
+                                <fa-icon *ngIf="!estadoGuardado[i._id] || estadoGuardado[i._id] === 'idle'"
+                                    [icon]="faSave"></fa-icon>
+                            </button>
+
+                            <!-- Botón Cancelar -->
+                            <button class="btn-icon-chico btn-rojo-chico"
+                                [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
+                                (click)="cancelarEdicion(i)" matTooltip="Cancelar">
+                                <fa-icon [icon]="faTimes"></fa-icon>
+                            </button>
+                        </div>
+                    </td>
+
+                </tr>
+            </tbody>
+
+        </table>
+    </div>
+
+    <div class="paginacion">
+        <button (click)="irAPrimera()" [disabled]="paginaActual === 1" title="Primera página">
+            <i class="fa fa-angle-double-left"></i>
+        </button>
+
+        <button (click)="paginaAnterior()" [disabled]="paginaActual === 1" title="Anterior">
+            <i class="fa fa-angle-left"></i>
+        </button>
+
+        Página {{ paginaActual }} de {{ totalPaginas }}
+        <span class="total-registros">({{ inventario.length }} productos)</span>
+
+        <button (click)="paginaSiguiente()" [disabled]="paginaActual === totalPaginas" title="Siguiente">
+            <i class="fa fa-angle-right"></i>
+        </button>
+
+        <button (click)="irAUltima()" [disabled]="paginaActual === totalPaginas" title="Última página">
+            <i class="fa fa-angle-double-right"></i>
+        </button>
+    </div>
+
+</div>

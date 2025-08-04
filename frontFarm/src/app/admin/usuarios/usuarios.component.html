@@ -1,0 +1,112 @@
+<div class="container mt-4">
+    <h2 class="titulo">Mantenimiento de Usuarios</h2>
+
+    <button class="btn-verde mb-3" (click)="abrirModalAgregar()">
+        <fa-icon [icon]="'plus'"></fa-icon> Agregar Usuario
+    </button>
+
+    <table class="tabla">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>Farmacia</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let u of usuarios">
+                <td>{{ u.nombre }}</td>
+                <td>{{ u.usuario }}</td>
+                <td>{{ u.rol }}</td>
+                <td>{{ u.telefono }}</td>
+                <td>{{ u.email || '-' }}</td>
+                <td>{{ obtenerNombreFarmacia(u.farmacia) }}</td>
+                <td>
+                    <button class="btn-icon-chico btn-gris-chico" (click)="editar(u)" matTooltip ="Editar">
+                        <fa-icon [icon]="'pen'"></fa-icon>
+                    </button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- MODAL -->
+<div class="modal fade" id="modalUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content p-3" style="background-color:azure;">
+            <div class="modal-header">
+                <h5 class="modal-title titulo">
+                    {{ modoEdicion ? 'Editar Usuario' : 'Agregar Usuario' }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <form [formGroup]="formUsuario">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>Nombre:</label>
+                            <input type="text" class="form-control" formControlName="nombre">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Usuario:</label>
+                            <input type="text" class="form-control" formControlName="usuario">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Teléfono:</label>
+                            <input type="text" class="form-control" formControlName="telefono">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Email:</label>
+                            <input type="email" class="form-control" formControlName="email">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Contraseña:</label>
+                            <input type="password" class="form-control" formControlName="password"
+                                [attr.placeholder]="modoEdicion ? 'Dejar vacío para no cambiar' : ''">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Domicilio:</label>
+                            <input type="text" class="form-control" formControlName="domicilio">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Rol:</label>
+                            <select class="form-control" formControlName="rol">
+                                <option value="">-- Selecciona un rol --</option>
+                                <option value="admin">Admin</option>
+                                <option value="empleado">Empleado</option>
+                                <option value="medico">Médico</option>
+                            </select>
+                        </div>
+
+                        <!-- Solo para empleado y médico -->
+                        <div class="col-md-6 mb-2"
+                            *ngIf="formUsuario && (formUsuario.get('rol')?.value === 'empleado' || formUsuario.get('rol')?.value === 'medico')">
+                            <label>Farmacia asignada:</label>
+                            <select class="form-control" formControlName="farmacia">
+                                <option value="">-- Selecciona una farmacia --</option>
+                                <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+                            </select>
+                        </div>
+
+                        <!-- Solo para médico -->
+                        <div class="col-md-6 mb-2" *ngIf="formUsuario && formUsuario.get('rol')?.value === 'medico'">
+                            <label>Cédula profesional:</label>
+                            <input type="text" class="form-control" formControlName="cedulaProfesional">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button class="btn-rojo" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn-gris" [disabled]="formUsuario.invalid || guardando" (click)="guardar()">
+                    {{ guardando ? 'Guardando...' : (modoEdicion ? 'Actualizar' : 'Guardar') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

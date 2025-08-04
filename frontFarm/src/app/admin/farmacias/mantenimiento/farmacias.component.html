@@ -1,0 +1,75 @@
+<div class="container mt-4">
+    <h2 class="titulo">Mantenimiento de Farmacias</h2>
+    <button class="btn-verde mb-3" (click)="abrirModalAgregar()">
+        <fa-icon [icon]="'plus'"></fa-icon> Agregar Farmacia
+    </button>
+
+    <table class="tabla">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Dirección</th>
+                <th>Teléfono</th>
+                <th>Firma</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let f of farmacias">
+                <td>{{ f.nombre }}</td>
+                <td>{{ f.direccion }}</td>
+                <td>{{ f.telefono }}</td>
+                <td>{{ f.firma }}</td>
+                <td>
+                    <button class="btn-icon-chico btn-gris-chico" (click)="editar(f)" matTooltip="Editar">
+                        <fa-icon [icon]="'pen'"></fa-icon>
+                    </button>
+                    <button class="btn-icon-chico btn-rojo-chico" (click)="eliminar(f._id!)" matTooltip="Eliminar">
+                        <fa-icon [icon]="'trash'"></fa-icon>
+                    </button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- MODAL AGREGAR FARMACIA -->
+    <div class="modal fade" id="modalAgregarFarmacia" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content p-3" style="background-color:azure;">
+                <div class="modal-header">
+                    <h5 class="modal-title titulo">
+                        {{ modoEdicion ? 'Editar farmacia' : 'Agregar nueva farmacia' }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <form *ngIf="formFarmacia" [formGroup]="formFarmacia">
+                        <div class="mb-2">
+                            <label>Nombre:</label>
+                            <input type="text" class="form-control" formControlName="nombre">
+                        </div>
+                        <div class="mb-2">
+                            <label>Dirección:</label>
+                            <input type="text" class="form-control" formControlName="direccion">
+                        </div>
+                        <div class="mb-2">
+                            <label>Teléfono:</label>
+                            <input type="text" class="form-control" formControlName="telefono">
+                        </div>
+                        <div class="mb-2">
+                            <label>Firma:</label>
+                            <input type="text" class="form-control" formControlName="firma">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button class="btn-rojo" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn-gris" [disabled]="formFarmacia.invalid || guardando" (click)="guardar()">
+                        {{ guardando ? 'Guardando...' : (modoEdicion ? 'Actualizar' : 'Guardar') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

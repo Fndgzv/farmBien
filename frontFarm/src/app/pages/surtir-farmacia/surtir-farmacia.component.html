@@ -1,0 +1,50 @@
+<!-- surtir-farmacia.component.html -->
+<div class="surtir-farmacia">
+  <div class="titulo-container">
+    <p class="titulo">Surtir Farmacias</p>
+  </div>
+  <form [formGroup]="form" (ngSubmit)="onAceptar()">
+    <label>
+      <span class="subtitulo">Farmacia:</span>
+      <select formControlName="farmaciaId">
+        <option [ngValue]="null">-- Selecciona --</option>
+        <option *ngFor="let f of farmacias" [ngValue]="f._id">
+          {{ f.nombre }}
+        </option>
+      </select>
+    </label>
+    <button type="submit"
+            class="btn-gris"
+            [disabled]="form.invalid || cargando || pendientes.length > 0">
+      {{ cargando ? 'Cargando…' : 'Aceptar' }}
+    </button>
+  </form>
+
+  <table *ngIf="pendientes.length" class="tabla">
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Existencia</th>
+        <th>Stock Mínimo</th>
+        <th>Stock Máximo</th>
+        <th>Cantidad a Surtir</th>
+        <th>Disponible Almacen</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let p of pendientes">
+        <td>{{ p.nombre }}</td>
+        <td>{{ p.existenciaActual }}</td>
+        <td>{{ p.stockMin }}</td>
+        <td>{{ p.stockMax }}</td>
+        <td class="falta">{{ p.falta }}</td>
+        <td>{{ p.disponibleEnAlmacen }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div *ngIf="pendientes.length" class="botones-accion">
+    <button (click)="onCancelar()" class="btn-rojo">Cancelar</button>
+    <button (click)="onSurtir()" class="btn-verde a-la-derecha">Surtir</button>
+  </div>
+</div>

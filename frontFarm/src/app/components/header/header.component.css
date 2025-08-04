@@ -1,0 +1,202 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0.5rem;
+  background-color: #007bff;
+  color: white;
+  height: 80px;
+  gap: 1rem;
+}
+
+
+/* IZQUIERDA */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toggle-sidebar-button {
+  font-size: 24px;
+  margin: 0;
+  padding: 0;
+  color: white;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+
+.header-logo {
+  height: 30px;
+  margin-right: 10px;
+}
+
+.site-title {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.site-sucursal {
+  font-size: 20px;
+  font-weight: 500;
+  color:rgb(181, 181, 252);
+}
+
+/* CENTRO */a
+.header-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-input {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: none;
+  width: 300px;
+}
+
+.clear-button,
+.search-button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  margin-left: 5px;
+  cursor: pointer;
+  color: white;
+}
+
+/* DERECHA */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* 🔹 Estilos para el contenedor de usuario y botones */
+.user-info-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-info {
+  font-size: 14px;
+}
+
+/* 🔹 Botón de configuración ENGRANE*/
+.config-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: white;
+}
+
+.config-button mat-icon {
+  font-size: 24px;
+  vertical-align: middle;
+}
+
+/* Contenedor del menú */
+.relative {
+  position: relative;
+  display: inline-block;
+}
+
+/* Menú desplegable */
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 5px;
+  padding: 10px 0;
+  min-width: 160px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Estilos de opciones del submenú */
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 15px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.dropdown-item:hover {
+  background: #f2f2f2;
+}
+
+.dropdown-divider {
+  border: 0;
+  height: 1px;
+  background-color: #ddd; /* Color de la línea */
+  margin: 5px 0; /* Espaciado arriba y abajo */
+}
+
+/* Estilos de input buscar */
+.search-container {
+  flex: 1;
+  max-width: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.search-input {
+  flex: 1;
+  max-width: 50%;
+  min-width: 200px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+
+.search-button, .clear-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  font-size: 18px;
+}
+
+.clear-button {
+  color: rgb(8, 109, 134);
+  margin-right: 5px;
+}
+
+.icon-button {
+  color: yellowgreen;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  margin: 0;
+  width: 40px;
+  height: 40px;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  background: linear-gradient(45deg, rgb(255, 0, 0), rgb(236, 230, 230));
+  color: yellow;
+}
+
+
+@media (max-width: 768px) {
+  .user-info {
+    display: none;
+  }
+}

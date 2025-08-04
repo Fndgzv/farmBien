@@ -1,0 +1,29 @@
+.modal-overlay {
+    /* background: rgba(0, 0, 0, 0.5); */
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+.modal-content {
+    padding: 8px;
+    background: #f1fbfb;
+    border-radius: 5px;
+    box-shadow: -6px 0 6px rgba(19, 3, 250, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-height: 95vh;
+    overflow-y: auto;
+    position: relative;
+    margin-right: 1px;
+}
+
+.selectPharma {
+    border-radius: 5px;
+    width: 90%;
+    height: 32px;
+    color:blue;
+}

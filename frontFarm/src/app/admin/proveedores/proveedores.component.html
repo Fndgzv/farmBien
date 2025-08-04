@@ -1,0 +1,102 @@
+<div class="container mt-4">
+    <h2 class="titulo">Mantenimiento de Proveedores</h2>
+
+    <button class="btn-verde" (click)="abrirModalAgregar()">
+        <fa-icon [icon]="'plus'"></fa-icon> Agregar Proveedor
+    </button>
+
+    <table class="tabla">
+        <thead>
+            <tr>
+                <th (click)="ordenarPorNombre()" style="cursor: pointer">
+                    Nombre
+                    <fa-icon [icon]="ordenAscendente ? 'sort-alpha-down' : 'sort-alpha-up'"></fa-icon>
+                </th>
+                <th>Contacto</th>
+                <th>Teléfono</th>
+                <th>Domicilio</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let p of proveedoresPaginados">
+                <td>{{ p.nombre }}</td>
+                <td>{{ p.contacto || '-' }}</td>
+                <td>{{ p.telefono || '-' }}</td>
+                <td>{{ p.domicilio || '-' }}</td>
+                <td>
+                    <button class="btn-icon-chico btn-gris-chico" (click)="editar(p)">
+                        <fa-icon [icon]="'pen'"></fa-icon>
+                    </button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <nav *ngIf="totalPaginas > 1" class="d-flex justify-content-center mt-3">
+        <ul class="pagination">
+            <li class="page-item" [class.disabled]="paginaActual === 1">
+                <button class="page-link" (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1">
+                    Anterior
+                </button>
+            </li>
+
+            <li class="page-item" *ngFor="let pagina of [].constructor(totalPaginas); let i = index">
+                <button class="page-link" [class.activo]="paginaActual === i + 1" (click)="paginaActual = i + 1">
+                    {{ i + 1 }}
+                </button>
+            </li>
+
+            <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
+                <button class="page-link" (click)="paginaActual = paginaActual + 1"
+                    [disabled]="paginaActual === totalPaginas">
+                    Siguiente
+                </button>
+            </li>
+        </ul>
+    </nav>
+
+
+</div>
+
+<!-- MODAL -->
+<div class="modal fade" id="modalProveedor" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content p-3" style="background-color:azure;">
+            <div class="modal-header">
+                <h5 class="modal-title titulo">
+                    {{ modoEdicion ? 'Editar Proveedor' : 'Agregar Proveedor' }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <form [formGroup]="formProveedor">
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <label>Nombre:</label>
+                            <input type="text" class="form-control" formControlName="nombre">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Contacto:</label>
+                            <input type="text" class="form-control" formControlName="contacto">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Teléfono:</label>
+                            <input type="text" class="form-control" formControlName="telefono">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label>Domicilio:</label>
+                            <input type="text" class="form-control" formControlName="domicilio">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button class="btn-rojo" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn-gris" [disabled]="formProveedor.invalid || guardando" (click)="guardar()">
+                    {{ guardando ? 'Guardando...' : (modoEdicion ? 'Actualizar' : 'Guardar') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

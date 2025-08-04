@@ -1,0 +1,39 @@
+<div id="carouselExampleIndicators" class="carousel slide mt-6 mx-auto" data-bs-ride="carousel">
+    <div class="carousel-inner text-center">
+        <div *ngFor="let item of carouselItems; let i = index" class="carousel-item" [class.active]="i === 0">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-md-6">
+                        <div class="card custom-carousel-card">
+                            <img [src]="item.image" class="card-img-top custom-carousel-image" [alt]="item.image">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ item.title }}</h5>
+                                <p class="card-text">{{ item.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 🔹 Indicadores -->
+            <div class="carousel-indicators">
+                <button *ngFor="let item of carouselItems; let i = index" type="button"
+                    data-bs-target="#carouselExampleIndicators" 
+                    [attr.data-bs-slide-to]="i" 
+                    [class.active]="i === activeSlideIndex" 
+                    [attr.aria-label]="'Slide ' + (i + 1)">
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <button class="carousel-control-prev" type="button" data-bs-target="#carouselExampleIndicators"
+        data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#carouselExampleIndicators"
+        data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+    </button>
+</div>

@@ -1,0 +1,12 @@
+<div class="home-container">
+  <img *ngIf="!authService.isLoginVisible.value && !authService.isEditProfileVisible.value"
+    src="assets/images/farmBienLogo.png"
+    alt="Imagen Home" class="home-image">
+  <div class="text-container">
+    <h2 class="text-2xl font-bold">Bienvenido a Farmacias del Bienestar</h2>
+    <p class="mt-1">Encuentra los mejores productos y consultorio médico.</p>
+  </div>
+</div>
+
+<app-carousel></app-carousel>
+<!-- <app-catalogo></app-catalogo> -->

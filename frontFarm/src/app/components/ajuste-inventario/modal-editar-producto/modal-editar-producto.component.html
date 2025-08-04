@@ -1,0 +1,110 @@
+<div class="modal-overlay">
+    <div class="modal-content">
+
+        <h3 class="titulo">Almacen editar producto</h3>
+        <form [formGroup]="formulario">
+            <div class="edit-seccion">
+                <label>Nombre:</label>
+                <input type="text" formControlName="nombre" style="width: 26rem;">
+                <label>Costo:</label>
+                <input type="number" formControlName="costo" style="width: 5rem;" step="0.1">
+                <label>Precio:</label>
+                <input type="number" formControlName="precio" style="width: 5rem;" step="0.1">
+            </div>
+            <div class="edit-seccion">
+                <label>Stock Minimo:</label>
+                <input type="number" formControlName="stockMinimo" style="width: 5rem;">
+                <label>Stock Maximo:</label>
+                <input type="number" formControlName="stockMaximo" style="width: 5rem;">
+                <label>IVA:</label>
+                <input type="checkbox" formControlName="iva">
+                <label>INAPAM:</label>
+                <input type="checkbox" formControlName="descuentoINAPAM">
+            </div>
+            <!-- Lotes -->
+            <div formArrayName="lotes">
+                <label class="subtitulo-edit">Lotes:</label>
+                <div *ngFor="let lote of lotesFormArray.controls; let i = index" [formGroupName]="i"
+                    class="edit-seccion">
+                    <label>Lote:</label>
+                    <input type="text" formControlName="lote">
+
+                    <label>Caducidad:</label>
+                    <input type="date" formControlName="fechaCaducidad">
+
+                    <label>Cantidad:</label>
+                    <input type="number" formControlName="cantidad" style="width: 5rem;">
+
+                    <button class="btn-rojo-chico" type="button" (click)="eliminarLote(i)">Eliminar</button>
+                </div>
+                <div style="text-align: center;">
+                    <button type="button" (click)="agregarLote()" class="btn-verde-chico">Agregar Lote</button>
+                </div>
+            </div>
+
+            <!-- Promociones -->
+            <label class="subtitulo-edit">Promociones:</label>
+            <div class="edit-seccion">
+                <label class="subtitulo-edit">Cantidad Requerida:</label>
+                <label style="margin-left: 1rem;">Tipo:</label>
+                <select formControlName="promoCantidadRequerida" style="margin-right: 2rem;">
+                    <option [ngValue]="null">--</option>
+                    <option [ngValue]="2">2x1</option>
+                    <option [ngValue]="3">3x2</option>
+                    <option [ngValue]="4">4x3</option>
+                </select>
+
+                <label>Inicio:</label>
+                <input type="date" formControlName="inicioPromoCantidad">
+
+                <label>Fin:</label>
+                <input type="date" formControlName="finPromoCantidad">
+            </div>
+
+            <div formGroupName="promoDeTemporada" class="edit-seccion">
+                <label class="subtitulo-edit">Temporada:</label>
+
+                <label style="margin-left: 1.5rem;">% desc.:</label>
+                <input type="number" formControlName="porcentaje" style="width:60px">
+
+                <label>Inicio:</label>
+                <input type="date" formControlName="inicio">
+
+                <label>Fin:</label>
+                <input type="date" formControlName="fin">
+
+                <label>Monedero:</label>
+                <input type="checkbox" formControlName="monedero">
+
+            </div>
+
+            <div formGroupName="promosPorDia">
+                <div *ngFor="let dia of ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo']">
+                    <div [formGroupName]="'promo' + dia" class="row promo-dia">
+                        <div class="col-2"><label class="subtitulo-edit">{{ dia }}</label></div>
+
+                        <div class="col-2"><label>% desc.:</label>
+                            <input type="number" formControlName="porcentaje" style="width:60px">
+                        </div>
+                        <div class="col-3"><label>Inicio:</label>
+                            <input type="date" formControlName="inicio">
+                        </div>
+                        <div class="col-3"><label>Fin:</label>
+                            <input type="date" formControlName="fin">
+                        </div>
+                        <div class="col-2"><label>Monedero:</label>
+                            <input type="checkbox" formControlName="monedero">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </form>
+
+        <div class="modal-buttons">
+            <button class="btn-rojo-chico" (click)="cerrarModal()">Cancelar</button>
+            <button class="btn-verde-chico btn-right" (click)="guardarProducto()" [disabled]="formulario.invalid">Guardar</button>
+        </div>
+
+    </div>
+</div>

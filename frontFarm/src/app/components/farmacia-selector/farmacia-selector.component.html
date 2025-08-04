@@ -1,0 +1,11 @@
+<div class="modal-overlay">
+    <div class="modal-content">
+      <h4>Selecciona una farmacia</h4>
+      <select [(ngModel)]="farmaciaSeleccionada" class="selectPharma">
+        <option value="" disabled selected>-- Elige una farmacia --</option>
+        <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+      </select>
+      <button class="mt-3 login-logout-button" (click)="confirmar()">Confirmar</button>  
+    </div>
+  </div>
+  

@@ -1,0 +1,47 @@
+<header class="header">
+
+  <!-- 🔹 IZQUIERDA -->
+  <div class="header-left">
+    <button class="toggle-sidebar-button" (click)="toggleSidebar.emit()">
+      <mat-icon>{{ isSidebarOpen ? 'close' : 'menu' }}</mat-icon>
+    </button>
+    <img src="assets/images/farmBienIcon.png" alt="Logo" class="header-logo" />
+    <span class="site-title">Farmacias del Bienestar para Todos</span>
+    <span *ngIf="farmaciaNombre" class="site-sucursal">{{farmaciaNombre}}</span>
+  </div>
+
+  <div class="header-center">
+    <input type="text" [(ngModel)]="searchQuery" placeholder="¿Qué estás buscando?" class="search-input" />
+    <button *ngIf="searchQuery" (click)="clearSearch()" class="clear-button">✖</button>
+    <button class="search-button">
+      <mat-icon>search</mat-icon>
+    </button>
+  </div>
+
+  <!-- 🔹 DERECHA: Sesión -->
+  <div class="header-right">
+    <!-- Botón Inicio -->
+    <button *ngIf="mostrarInicio"  mat-icon-button 
+      matTooltip="Ir al inicio" (click)="router.navigate(['/home'])" class="icon-button">
+      <mat-icon>home</mat-icon>
+    </button>
+
+    <ng-container *ngIf="!authService.isLoggedIn; else loggedInTemplate">
+      <button mat-icon-button matTooltip="Iniciar sesión" (click)="authService.showLogin()" class="icon-button">
+        <mat-icon>login</mat-icon>
+      </button>
+    </ng-container>
+
+    <ng-template #loggedInTemplate>
+      <div class="user-info-container" style="display: flex; align-items: center; gap: 10px;">
+        <span class="user-info" *ngIf="userNombre">
+          Bienvenido, {{ userNombre }} ({{ userRol }})
+        </span>
+        <button mat-icon-button matTooltip="Cerrar sesión" (click)="authService.logout()" class="icon-button">
+          <mat-icon>logout</mat-icon>
+        </button>
+      </div>
+    </ng-template>
+
+  </div>
+</header>
