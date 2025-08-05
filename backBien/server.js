@@ -11,9 +11,10 @@ app.use(express.json());
 app.use(cors());
 
 // Conectar a la base de datos
+console.log("Intentando conectar a MongoDB con URI:", process.env.MONGODB_URI ? "✅ Detectada" : "❌ No detectada");
 conectarDB();
 
-// Cargar archivos estáticos para uploads
+// Archivos estáticos para uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ----------------- RUTAS API -----------------
@@ -29,14 +30,12 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api', apiRoutes);
 
 // ----------------- SERVIR ANGULAR -----------------
-/* const angularPath = path.join(__dirname, '../frontFarm/dist/front-farm'); */
 const angularPath = path.join(__dirname, 'public');
 console.log("Sirviendo Angular desde:", angularPath);
 
-// Servir archivos estáticos de Angular
 app.use(express.static(angularPath));
 
-// Fallback: cualquier ruta no-API sirve Angular
+// Fallback: cualquier ruta que no sea API sirve Angular
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
     res.sendFile(path.join(angularPath, 'index.html'));
