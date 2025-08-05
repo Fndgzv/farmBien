@@ -10,8 +10,8 @@ services:
       cd ../frontFarm
       npm install
       npm run build -- --configuration production
-      mkdir -p ../backBien/public
-      cp -R dist/front-farm/* ../backBien/public/
+      cd ..
+      node copy-dist.js
 
     startCommand: node backBien/server.js
 
