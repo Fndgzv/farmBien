@@ -4,23 +4,15 @@ services:
     env: node
     plan: free
 
-    buildCommand: |
-      # Backend
-      cd backBien
-      npm install
-
-      # Frontend
-      cd ../frontFarm
-      npm install
-      npm run build -- --configuration production
-
-      echo "===== Contenido de dist ====="
-      ls -R dist
-
-      mkdir -p ../backBien/public
-      cp -r dist/front-farm/* ../backBien/public/
-
-      echo "===== Contenido final en backBien/public ====="
+    buildCommand: >
+      cd backBien && npm install &&
+      cd ../frontFarm && npm install &&
+      npm run build -- --configuration production &&
+      echo "===== Contenido de dist =====" &&
+      ls -R dist &&
+      mkdir -p ../backBien/public &&
+      cp -r dist/front-farm/* ../backBien/public/ &&
+      echo "===== Contenido final en backBien/public =====" &&
       ls -R ../backBien/public
 
     startCommand: node backBien/server.js
