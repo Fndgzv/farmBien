@@ -30,7 +30,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api', apiRoutes);
 
 // ----------------- SERVIR ANGULAR -----------------
-const angularPath = path.join(__dirname, 'public');
+const angularPath = path.join(__dirname, 'public/browser');
 console.log("Sirviendo Angular desde:", angularPath);
 
 app.use(express.static(angularPath));
