@@ -4,7 +4,14 @@ services:
     env: node
     plan: free
 
-    buildCommand: npm run build
+    buildCommand: |
+      cd backBien
+      npm install
+      cd ../frontFarm
+      npm install
+      npm run build -- --configuration production
+      mkdir -p ../backBien/public
+      cp -R dist/front-farm/* ../backBien/public/
 
     startCommand: node backBien/server.js
 
