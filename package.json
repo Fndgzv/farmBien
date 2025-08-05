@@ -1,0 +1,8 @@
+{
+  "name": "farm-bien",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd backBien && npm install && cd ../frontFarm && npm install && npm run build -- --configuration production && mkdir -p ../backBien/public && cp -r dist/front-farm/* ../backBien/public/"
+  }
+}
