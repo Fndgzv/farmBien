@@ -101,7 +101,7 @@ export class AjustesInventarioComponent implements OnInit {
     this.productosFiltrados = this.productos.filter(p => {
       const coincideNombre = this.filtros.nombre ? p.nombre.toLowerCase().includes(this.filtros.nombre.toLowerCase()) : true;
       const coincideCodigo = this.filtros.codigoBarras ? p.codigoBarras?.toLowerCase().includes(this.filtros.codigoBarras.toLowerCase()) : true;
-      const coincideCategoria = this.filtros.categoria ? p.categoria.toLowerCase().includes(this.filtros.categoria.toLowerCase()) : true;
+      const coincideCategoria = this.filtros.categoria ? p.categoria?.toLowerCase().includes(this.filtros.categoria.toLowerCase()) : true;
       const coincideINAPAM = this.filtros.descuentoINAPAM === null
         ? true
         : p.descuentoINAPAM === this.filtros.descuentoINAPAM;
