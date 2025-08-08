@@ -70,10 +70,13 @@
     <div *ngIf="venta.formaPago.transferencia" class="text-right">Transferencia: 
       <strong>${{ venta.formaPago.transferencia | number:'1.2-2'  }}</strong>
     </div> -->
+
     <div *ngIf="venta.formaPago.vale" class="text-right">Felicidades!!! usted usó su monedero: 
-      <strong>${{ venta.formaPago.vale | number:'1.2-2'  }}</strong>
+      <strong>${{ venta.formaPago.vale | number:'1.2-2' }}</strong>
     </div>
     
+    <div>Cambio: <strong>${{ venta.elcambio | number:'1.2-2' }}</strong></div>
+
     <div>Cantidad de productos: <strong>{{ venta.cantidadProductos }}</strong></div>
   </div>
 

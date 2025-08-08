@@ -301,7 +301,7 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   guardarProductoEditado(productoActualizado: Producto) {
-    this.productoService.actualizarProductoIndividual(productoActualizado).subscribe({
+      this.productoService.actualizarProductoIndividual(productoActualizado).subscribe({
       next: () => {
         Swal.fire('Éxito', 'Producto actualizado correctamente', 'success');
         this.cargarProductos(false); // recarga sin borrar filtros

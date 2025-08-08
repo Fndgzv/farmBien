@@ -139,7 +139,7 @@ export class VentasComponent implements OnInit {
 
   ngOnDestroy(): void {
 
-    if ( this.carrito.length > 0 ) {
+    if (this.carrito.length > 0) {
       this.pausarVenta();
     }
 
@@ -966,6 +966,7 @@ export class VentasComponent implements OnInit {
     this.montoTarjeta = Math.max(0, this.montoTarjeta);
     this.montoTransferencia = Math.max(0, this.montoTransferencia);
     this.montoVale = Math.max(0, this.montoVale);
+    this.cambio = Math.max(0, this.cambio);
 
     const totalPagado = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
     const pagosDigitales = this.montoTarjeta + this.montoTransferencia + this.montoVale;
@@ -1019,6 +1020,7 @@ export class VentasComponent implements OnInit {
         vale: this.montoVale
       },
       AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
+      elcambio: this.cambio,
       fecha: new Date().toISOString(),
       usuario: this.nombreUs
     };
@@ -1026,6 +1028,12 @@ export class VentasComponent implements OnInit {
     this.mostrarTicket = true;
 
     setTimeout(() => {
+      window.print();
+      this.mostrarTicket = false;
+      this.guardarVentaDespuesDeImpresion(folio);
+    }, 100);
+
+/*     setTimeout(() => {
       window.print();
       this.mostrarTicket = false;
 
@@ -1042,7 +1050,7 @@ export class VentasComponent implements OnInit {
           Swal.fire('Atención', 'La venta no ha sido registrada. Puedes reintentar la impresión.', 'info');
         }
       });
-    }, 100);
+    }, 100); */
 
 
   }
