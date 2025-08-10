@@ -1,5 +1,6 @@
 // ventas.component.ts
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
+import { take } from 'rxjs/operators';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -14,25 +15,35 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
 
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+
 import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
-
 
 @Component({
   selector: 'app-ventas',
   standalone: true,
-  imports: [CommonModule,
+  imports: [
+    CommonModule,
     FormsModule,
     ReactiveFormsModule,
     FontAwesomeModule,
-    VentaTicketComponent
+    VentaTicketComponent,
+    MatAutocompleteModule,
+    MatInputModule,
+    MatFormFieldModule
   ],
   templateUrl: './ventas.component.html',
   styleUrl: './ventas.component.css'
 })
+export class VentasComponent implements OnInit, AfterViewInit {
+  @ViewChild('codigoBarrasRef') codigoBarrasRef!: ElementRef<HTMLInputElement>;
+  @ViewChild('efectivoRecibidoRef') efectivoRecibidoRef!: ElementRef<HTMLInputElement>; // <-- para enfocar el primer input del modal
 
-
-export class VentasComponent implements OnInit {
+  private pendingFocusEfectivo = false;
+  barcodeFocusTimer: any = null;
 
   telefonoCliente: string = '';
   nombreCliente: string = '';
@@ -51,10 +62,12 @@ export class VentasComponent implements OnInit {
   totalAlmonedero = 0;
   ventasPausadas: any[] = [];
   captionButtomReanudar: string = '';
-  montoTarjeta: number = 0;
-  montoTransferencia: number = 0;
-  montoVale: number = 0;
-  efectivoRecibido: number = 0;
+
+  // Inputs de pago como null para que se vean “vacíos”
+  efectivoRecibido: number | null = null;
+  montoTarjeta: number | null = null;
+  montoTransferencia: number | null = null;
+  montoVale: number | null = null;
   cambio: number = 0;
   inputsHabilitados = false;
 
@@ -73,7 +86,9 @@ export class VentasComponent implements OnInit {
 
   codigoBarras: string = '';
   busquedaProducto: string = '';
+  busquedaPorCodigo: string = '';
   productosFiltrados: any[] = [];
+  productosFiltradosPorCodigo: any[] = [];
   productos: any[] = [];
 
   farmaciaId: string = '';
@@ -102,6 +117,20 @@ export class VentasComponent implements OnInit {
   venta: any = null;
   ventaEnProceso: boolean = false;
 
+  // Helpers numéricos
+  private toNum(v: any): number {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  private round2(n: number): number {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+  }
+  get pagoEfectivo() { return this.toNum(this.efectivoRecibido); }
+  get pagoTarjeta1() { return this.toNum(this.montoTarjeta); }
+  get pagoTransferencia1() { return this.toNum(this.montoTransferencia); }
+  get pagoVale1() { return this.toNum(this.montoVale); }
+  get totalPagado() { return this.round2(this.pagoEfectivo + this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1); }
+
   constructor(
     private fb: FormBuilder,
     private ventasService: VentasService,
@@ -110,12 +139,28 @@ export class VentasComponent implements OnInit {
     private ticketService: TicketService,
     private library: FaIconLibrary,
     private ventaService: VentaService,
+    private cdRef: ChangeDetectorRef,
+    private ngZone: NgZone
   ) {
     this.ventaForm = this.fb.group({
       cliente: [''],
       producto: [''],
       cantidad: [1]
     });
+  }
+
+  ngAfterViewInit(): void {
+    // foco inicial al entrar al componente
+    this.focusBarcode();
+  }
+
+  ngAfterViewChecked() {
+    // si está pendiente, enfoca cuando el DOM del modal ya existe
+    if (this.pendingFocusEfectivo && this.mostrarModalPago) {
+      this.pendingFocusEfectivo = false;
+      // pequeño delay para evitar colisión con animaciones/estilos
+      setTimeout(() => this.efectivoRecibidoRef?.nativeElement?.focus(), 0);
+    }
   }
 
   ngOnInit() {
@@ -138,19 +183,58 @@ export class VentasComponent implements OnInit {
   }
 
   ngOnDestroy(): void {
-
     if (this.carrito.length > 0) {
       this.pausarVenta();
     }
-
     if (this.ventasPausadas.length > 0) {
       this.ventaService.setVentasPausadas(this.ventasPausadas);
     } else {
       this.ventaService.limpiarVentasPausadas();
     }
-
   }
 
+  // Permite disparar "Imprimir" con Enter cuando el modal está abierto y el total está cubierto
+  @HostListener('document:keydown.enter', ['$event'])
+  handleEnter(e: KeyboardEvent) {
+    if (this.mostrarModalPago) {
+      e.preventDefault();
+      if (this.pagoEfectivo + this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1 >= this.total) {
+        this.finalizarVenta();
+      }
+    }
+  }
+
+  private clearBarcodeFocusTimer() {
+    if (this.barcodeFocusTimer) {
+      clearTimeout(this.barcodeFocusTimer);
+      this.barcodeFocusTimer = null;
+    }
+  }
+
+  private focusBarcode(delay = 60) {
+    this.clearBarcodeFocusTimer();
+    this.barcodeFocusTimer = setTimeout(() => {
+      if (!this.mostrarModalPago && this.codigoBarrasRef) {
+        this.codigoBarrasRef.nativeElement.focus();
+      }
+      this.barcodeFocusTimer = null;
+    }, delay);
+  }
+
+  private focusEfectivo(delay = 0) {
+    const doFocus = () => {
+      const el = this.efectivoRecibidoRef?.nativeElement;
+      if (el && !el.disabled) {
+        try {
+          el.focus();
+          el.select();
+        } catch { }
+      }
+    };
+    setTimeout(() => {
+      requestAnimationFrame(() => doFocus());
+    }, delay);
+  }
 
   nombreDiaSemana(dia: number): string {
     const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -176,8 +260,8 @@ export class VentasComponent implements OnInit {
         }
       });
     }
+    this.focusBarcode();
   }
-
 
   mostrarModalCrearCliente() {
     Swal.fire({
@@ -197,7 +281,6 @@ export class VentasComponent implements OnInit {
       }
     });
   }
-
 
   abrirFormularioNuevoCliente() {
     Swal.fire({
@@ -219,9 +302,7 @@ export class VentasComponent implements OnInit {
     }).then((result) => {
       if (result.isConfirmed) {
         this.registrarNuevoCliente(result.value);
-
       } else if (result.dismiss === Swal.DismissReason.cancel) {
-        // 🔹 Si se cancela, limpiar el input de teléfono y nombre
         this.limpiarCliente();
       }
     });
@@ -230,7 +311,7 @@ export class VentasComponent implements OnInit {
   registrarNuevoCliente(nuevoCliente: any) {
     this.clienteService.crearCliente(nuevoCliente).subscribe({
       next: (response: any) => {
-        if (response && response.nombre && response._id) {  // Validar que response tenga datos
+        if (response && response.nombre && response._id) {
           this.nombreCliente = response.nombre;
           this.ventaForm.controls['cliente'].setValue(response._id);
           Swal.fire({
@@ -240,10 +321,8 @@ export class VentasComponent implements OnInit {
             timer: 1500,
             showConfirmButton: false
           });
-
           this.cliente = response._id;
           this.montoMonederoCliente = 0;
-
         } else {
           console.error("⚠️ Respuesta inesperada del backend:", response);
           Swal.fire({
@@ -270,7 +349,6 @@ export class VentasComponent implements OnInit {
     });
   }
 
-
   limpiarCliente() {
     this.cliente = '';
     this.telefonoCliente = '';
@@ -285,54 +363,75 @@ export class VentasComponent implements OnInit {
   }
 
   limpiarProducto() {
-    // Limpiar el valor del input de código de barras
     this.codigoBarras = '';
-
-    // Limpiar el valor del input de búsqueda del producto
     this.busquedaProducto = '';
-
-    // Limpiar el valor del select (devolverlo a su estado inicial)
-    const select = document.querySelector('select') as HTMLSelectElement;
-    select.value = ''; // Esto restablece la selección
-
-    // Opcionalmente, también podrías reiniciar el array de productos filtrados si lo consideras necesario
-    this.productosFiltrados = this.productos; // Esto es solo si quieres restablecer los filtros
-
-    // Llamar al filtro de productos para resetear la visualización
+    this.busquedaPorCodigo = '';
+    this.productosFiltrados = this.productos;
+    this.productosFiltradosPorCodigo = this.productos;
     this.filtrarProductos();
+    this.filtrarPorCodigo();
+    this.focusBarcode();
   }
-
 
   filtrarProductos() {
-    if (!this.busquedaProducto.trim()) {
+    if (this.busquedaProducto) {
+      this.productosFiltrados = this.productos.filter(producto =>
+        producto.nombre.toLowerCase().includes(this.busquedaProducto.toLowerCase())
+      );
+    } else {
       this.productosFiltrados = this.productos;
-      return;
     }
-
-    const termino = this.busquedaProducto.toLowerCase();
-    this.productosFiltrados = this.productos.filter(producto =>
-      producto.nombre.toLowerCase().includes(termino)
-    );
   }
 
-  seleccionarProducto(event: Event) {
-    const selectElement = event.target as HTMLSelectElement;
-    const productoId = selectElement.value;
+  filtrarPorCodigo() {
+    if (this.busquedaPorCodigo) {
+      this.productosFiltradosPorCodigo = this.productos.filter(producto =>
+        producto.codigoBarras.includes(this.busquedaPorCodigo)
+      );
+    } else {
+      this.productosFiltradosPorCodigo = this.productos;
+    }
+  }
 
+  seleccionarProducto(event: any) {
+    const productoId = event.option.value;
     const producto = this.productos.find(p => p._id === productoId);
-
     if (producto) {
+      this.busquedaProducto = producto.nombre;
       this.existenciaProducto(this.farmaciaId, producto._id, 1).then(() => {
         if (!this.hayProducto) return;
-
         this.agregarProductoAlCarrito(producto);
-
       }).catch((error: any) => {
         console.error('Error en existenciaProducto: ', error);
       });
     }
+    this.focusBarcode(100);
   }
 
+  seleccionarPorCodigo(event: any) {
+    const productoId = event.option.value;
+    const productoC = this.productos.find(p => p._id === productoId);
+    if (productoC) {
+      this.busquedaPorCodigo = productoC.codigoBarras;
+      this.existenciaProducto(this.farmaciaId, productoC._id, 1).then(() => {
+        if (!this.hayProducto) return;
+        this.agregarProductoAlCarrito(productoC);
+      }).catch((error: any) => {
+        console.error('Error en existenciaProducto: ', error);
+      });
+    }
+    this.focusBarcode(100);
+  }
+
+  displayNombre = (id?: string): string => {
+    const p = this.productos.find(x => x._id === id);
+    return p ? p.nombre : '';
+  };
+
+  displayCodigo = (id?: string): string => {
+    const p = this.productos.find(x => x._id === id);
+    return p ? `${p.codigoBarras} — ${p.nombre}` : '';
+  };
 
   pausarVenta() {
     this.ventasPausadas.push({
@@ -356,6 +455,7 @@ export class VentasComponent implements OnInit {
     this.nombreCliente = '';
     this.montoMonederoCliente = 0;
     this.captionButtomReanudar = '';
+    this.focusBarcode();
   }
 
   reanudarVenta(index: number) {
@@ -372,8 +472,8 @@ export class VentasComponent implements OnInit {
     this.totalAlmonedero = venta.totalAlmonedero;
     this.captionButtomReanudar = venta.captionButtomReanudar;
     this.ventasPausadas.splice(index, 1);
+    this.focusBarcode(0);
   }
-
 
   obtenerProductos() {
     this.productoService.obtenerProductos().subscribe({
@@ -382,29 +482,40 @@ export class VentasComponent implements OnInit {
     });
   }
 
-
   agregarProductoPorCodigo() {
-    const producto = this.productos.find(p => p.codigoBarras === this.codigoBarras);
-    if (!producto) {
-      Swal.fire('Producto no encontrado', 'Verifica el código de barras', 'warning');
+    if (this.codigoBarras.length === 0 && this.carrito.length > 0) {
+      this.abrirModalPago();
     } else {
+      const producto = this.productos.find(p => p.codigoBarras === this.codigoBarras);
+      if (!producto) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Producto no encontrado',
+          text: 'Verifica el código de barras',
+          timer: 1300,              
+          showConfirmButton: false,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        }).then(() => this.focusBarcode(60)); // vuelve el foco al lector si quieres
 
-      this.existenciaProducto(this.farmaciaId, producto._id, 1).then(() => {
-        if (!this.hayProducto) {
-          this.codigoBarras = '';
-          return
-        }
-        this.agregarProductoAlCarrito(producto);
-
-      }).catch((error: any) => {
-        console.error('Error en existenciaProducto: ', error);
-      });
+      } else {
+        this.existenciaProducto(this.farmaciaId, producto._id, 1).then(() => {
+          if (!this.hayProducto) {
+            this.codigoBarras = '';
+            return;
+          }
+          this.agregarProductoAlCarrito(producto);
+        }).catch((error: any) => {
+          console.error('Error en existenciaProducto: ', error);
+        });
+      }
+      this.codigoBarras = '';
+      this.focusBarcode();
     }
-    this.codigoBarras = '';
   }
 
   async agregarProductoAlCarrito(producto: any) {
-
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
     if (existente) {
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
@@ -413,13 +524,10 @@ export class VentasComponent implements OnInit {
         if (this.esPromocionPorCantidad(existente.tipoDescuento)) {
           this.validarProductoGratis(existente.producto);
         }
-
         this.calcularTotal();
-
       }).catch((error: any) => {
         console.error('Error en existenciaProducto: ', error);
       });
-
     } else {
       let precioFinal = this.precioEnFarmacia;
 
@@ -445,7 +553,7 @@ export class VentasComponent implements OnInit {
         }
       }
 
-      this.tipoDescuento = this.limpiarPromocion(this.tipoDescuento)
+      this.tipoDescuento = this.limpiarPromocion(this.tipoDescuento);
 
       if (this.captionButtomReanudar === '') this.captionButtomReanudar = producto.nombre;
 
@@ -472,7 +580,6 @@ export class VentasComponent implements OnInit {
     this.calcularTotal();
   }
 
-
   limpiarPromocion(promo: string) {
     const str = (promo || '').toString();
     return str.startsWith('-') ? str.slice(1) : str;
@@ -486,59 +593,48 @@ export class VentasComponent implements OnInit {
         icon: 'question',
         title: '¿Tiene credencial INAPAM vigente?',
         html: `<h4>Me la puede mostrar por favor</h4>
-                <p style = "color: green";>Revisa que su credencial de INAPAM:</p>
-                <p style = "color: green";> * Pertenezca al cliente</p>
-                <p style = "color: green";> * No este vencida</p>`,
+                <p style="color: green;">Revisa que su credencial de INAPAM:</p>
+                <p style="color: green;"> * Pertenezca al cliente</p>
+                <p style="color: green;"> * No este vencida</p>`,
         showCancelButton: true,
         allowOutsideClick: false,
         allowEscapeKey: false,
         confirmButtonText: 'Sí cumple',
-        cancelButtonText: 'No cumple'
+        cancelButtonText: 'No cumple',
+        focusCancel: true,
+        didOpen: (popup) => {
+          popup.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              Swal.getCancelButton()?.click(); // 👈 fuerza “No cumple”
+            }
+          });
+        }
       });
-      // Aquí se asegura que el valor se actualiza solo después de recibir la respuesta
       this.aplicaInapam = result.isConfirmed;
     }
   }
 
-
   descuentoMenorA25(producto: any): boolean {
     const fechahoy = new Date();
-    const hoy = fechahoy.getDay();  // numero dia 1, 2, ...  Lunes, Martes, ...
+    const hoy = fechahoy.getDay();
     let descuentoXDia = 0;
     switch (hoy) {
-      case 0:
-        descuentoXDia = producto?.descuentoDomingo ?? null;
-        break;
-      case 1:
-        descuentoXDia = producto?.descuentoLunes ?? null;
-        break;
-      case 2:
-        descuentoXDia = producto?.descuentoMartes ?? null;
-        break;
-      case 3:
-        descuentoXDia = producto?.descuentoMiercoles ?? null;
-        break;
-      case 4:
-        descuentoXDia = producto?.descuentoJueves ?? null;
-        break;
-      case 5:
-        descuentoXDia = producto?.descuentoViernes ?? null;
-        break;
-      case 6:
-        descuentoXDia = producto?.descuentoSabado ?? null;
-        break;
-      default:
-        descuentoXDia = 0;
+      case 0: descuentoXDia = producto?.descuentoDomingo ?? null; break;
+      case 1: descuentoXDia = producto?.descuentoLunes ?? null; break;
+      case 2: descuentoXDia = producto?.descuentoMartes ?? null; break;
+      case 3: descuentoXDia = producto?.descuentoMiercoles ?? null; break;
+      case 4: descuentoXDia = producto?.descuentoJueves ?? null; break;
+      case 5: descuentoXDia = producto?.descuentoViernes ?? null; break;
+      case 6: descuentoXDia = producto?.descuentoSabado ?? null; break;
+      default: descuentoXDia = 0;
     }
-
     if (!descuentoXDia) return true;
-    if (descuentoXDia < 25) return true; else return false;
-
+    return descuentoXDia < 25;
   }
 
   descuentoYpromo(producto: any) {
     const fechahoy = this.soloFecha(new Date());
-
     const hoy = fechahoy.getDay();
 
     this.tipoDescuento = "";
@@ -549,14 +645,13 @@ export class VentasComponent implements OnInit {
     this.fechaIni = this.soloFecha(new Date(fechahoy));
     this.fechaFin = this.soloFecha(new Date(fechahoy));
     this.aplicaGratis = true;
-    let conDescuento = false;
+
     if (producto.promoCantidadRequerida &&
       this.soloFecha(new Date(producto.inicioPromoCantidad)) <= this.soloFecha(fechahoy) &&
       this.soloFecha(new Date(producto.finPromoCantidad)) >= this.soloFecha(fechahoy)) {
-      conDescuento = false
       this.aplicaGratis = false;
       this.cadDesc = '';
-      this.tipoDescuento = `${producto.promoCantidadRequerida}x${producto.promoCantidadRequerida - 1}`
+      this.tipoDescuento = `${producto.promoCantidadRequerida}x${producto.promoCantidadRequerida - 1}`;
       this.productoAplicaMonedero = false;
       if (producto.promoCantidadRequerida === 2) this.aplicaGratis = true;
 
@@ -565,59 +660,21 @@ export class VentasComponent implements OnInit {
         this.tipoDescuento += `-INAPAM`;
         this.cadDesc = '5%';
       }
-
     } else {
       let descuentoXDia = 0;
       let hayDescuentoXDia = false;
-      // indagar descuento por día
       switch (hoy) {
-        case 1:
-          this.fechaIni = producto?.promoLunes?.inicio ?? null;
-          this.fechaFin = producto?.promoLunes?.fin ?? null;
-          descuentoXDia = producto?.promoLunes?.porcentaje ?? null;
-          this.productoAplicaMonedero = producto?.promoLunes?.monedero ?? null;
-          break;
-        case 2:
-          this.fechaIni = producto?.promoMartes?.inicio ?? null;
-          this.fechaFin = producto?.promoMartes?.fin ?? null;
-          descuentoXDia = producto?.promoMartes?.porcentaje ?? null;
-          this.productoAplicaMonedero = producto?.promoMartes?.monedero ?? null;
-          break;
-        case 3:
-          this.fechaIni = producto?.promoMiercoles?.inicio ?? null;
-          this.fechaFin = producto?.promoMiercoles?.fin ?? null;
-          descuentoXDia = producto?.promoMiercoles?.porcentaje ?? null;
-          this.productoAplicaMonedero = producto?.promoMiercoles?.monedero ?? null;
-          break;
-        case 4:
-          this.fechaIni = producto?.promoJueves?.inicio ?? null;
-          this.fechaFin = producto?.promoJueves?.fin ?? null;
-          descuentoXDia = producto?.promoJueves?.porcentaje ?? null;
-          this.productoAplicaMonedero = producto?.promoJueves?.monedero ?? null;
-          break;
-        case 5:
-          this.fechaIni = producto?.promoViernes?.inicio ?? null;
-          this.fechaFin = producto?.promoViernes?.fin ?? null;
-          descuentoXDia = producto?.promoViernes?.porcentaje ?? null;
-          this.productoAplicaMonedero = producto?.promoViernes?.monedero ?? null;
-          break;
-        case 6:
-          this.fechaIni = producto?.promoSabado?.inicio ?? null;
-          this.fechaFin = producto?.promoSabado?.fin ?? null;
-          descuentoXDia = producto?.promoSabado?.porcentaje ?? null;
-          this.productoAplicaMonedero = producto?.promoSadado?.monedero ?? null;
-          break;
-        case 0:
-          this.fechaIni = producto?.promoDomingo?.inicio ?? null;
-          this.fechaFin = producto?.promoDomingo?.fin ?? null;
-          descuentoXDia = producto?.promoDomingo?.porcentaje ?? null;
-          this.productoAplicaMonedero = producto?.promoDomingo?.monedero ?? null;
-          break;
+        case 1: this.fechaIni = producto?.promoLunes?.inicio ?? null; this.fechaFin = producto?.promoLunes?.fin ?? null; descuentoXDia = producto?.promoLunes?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoLunes?.monedero ?? null; break;
+        case 2: this.fechaIni = producto?.promoMartes?.inicio ?? null; this.fechaFin = producto?.promoMartes?.fin ?? null; descuentoXDia = producto?.promoMartes?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoMartes?.monedero ?? null; break;
+        case 3: this.fechaIni = producto?.promoMiercoles?.inicio ?? null; this.fechaFin = producto?.promoMiercoles?.fin ?? null; descuentoXDia = producto?.promoMiercoles?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoMiercoles?.monedero ?? null; break;
+        case 4: this.fechaIni = producto?.promoJueves?.inicio ?? null; this.fechaFin = producto?.promoJueves?.fin ?? null; descuentoXDia = producto?.promoJueves?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoJueves?.monedero ?? null; break;
+        case 5: this.fechaIni = producto?.promoViernes?.inicio ?? null; this.fechaFin = producto?.promoViernes?.fin ?? null; descuentoXDia = producto?.promoViernes?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoViernes?.monedero ?? null; break;
+        case 6: this.fechaIni = producto?.promoSabado?.inicio ?? null; this.fechaFin = producto?.promoSabado?.fin ?? null; descuentoXDia = producto?.promoSabado?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoSadado?.monedero ?? null; break;
+        case 0: this.fechaIni = producto?.promoDomingo?.inicio ?? null; this.fechaFin = producto?.promoDomingo?.fin ?? null; descuentoXDia = producto?.promoDomingo?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoDomingo?.monedero ?? null; break;
       }
-
       if (!descuentoXDia || descuentoXDia <= 0) {
-        this.fechaIni = this.soloFecha(new Date(fechahoy));  // crea un clon de 'hoy'
-        this.fechaIni.setDate(this.fechaIni.getDate() + 5); // súmale 5 días
+        this.fechaIni = this.soloFecha(new Date(fechahoy));
+        this.fechaIni.setDate(this.fechaIni.getDate() + 5);
         this.fechaIni = this.soloFecha(this.fechaIni);
       } else {
         hayDescuentoXDia = true;
@@ -658,16 +715,12 @@ export class VentasComponent implements OnInit {
       }
 
       if (this.ptjeDescuento <= 0) this.productoAplicaMonedero = this.cliente.length > 0;
-
     }
-
   }
-
 
   soloFecha(date: Date): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
-
 
   eliminarProducto(index: number) {
     const producto = this.carrito[index];
@@ -684,41 +737,30 @@ export class VentasComponent implements OnInit {
     this.calcularTotal();
   }
 
-
-
   incrementarCantidad(index: number) {
     const producto = this.carrito[index];
     if (!producto.esGratis) {
-
       this.existenciaProducto(this.farmaciaId, producto.producto, producto.cantidad + 1).then(() => {
         if (!this.hayProducto) return;
-
         producto.cantidad += 1;
-
         if (this.esPromocionPorCantidad(producto.tipoDescuento)) {
           this.validarProductoGratis(producto.producto);
         }
-
         this.calcularTotal();
       }).catch((error: any) => {
         console.error('Error en existenciaProducto: ', error);
       });
-
     }
     this.calcularTotal();
   }
 
-
   decrementarCantidad(index: number) {
     const producto = this.carrito[index];
-
     if (producto.cantidad > 1 && !producto.esGratis) {
       producto.cantidad--;
-
       if (this.esPromocionPorCantidad(producto.tipoDescuento)) {
         this.validarProductoGratis(producto.producto);
       }
-
       this.calcularTotal();
     } else if (producto.cantidad === 1 && !producto.esGratis) {
       producto.cantidad--;
@@ -731,11 +773,8 @@ export class VentasComponent implements OnInit {
     return promos.some(p => tipoDescuento?.startsWith(p));
   }
 
-
   validarProductoGratis(productoId: string) {
-
     const productoNormal = this.carrito.find(p => p.producto === productoId && !p.esGratis);
-
     if (!productoNormal || !productoNormal.promoCantidadRequerida) return;
 
     const totalCantidad = productoNormal.cantidad;
@@ -743,9 +782,7 @@ export class VentasComponent implements OnInit {
     const yaExisteGratis = this.carrito.some(p => p.producto === productoId && p.esGratis);
 
     if (totalCantidad >= (promoRequerida - 1)) {
-
       const cantidadGratis = Math.floor(totalCantidad / (promoRequerida - 1));
-
       this.existenciaProducto(this.farmaciaId, productoId, totalCantidad + cantidadGratis);
       if (!this.hayProducto) return;
 
@@ -770,16 +807,14 @@ export class VentasComponent implements OnInit {
           farmacia: this.farmaciaId
         });
       } else {
-        // colocar la cantidad gratis en el renglon correspondiente
         const productoGratis = this.carrito.find(p => p.producto === productoId && p.esGratis);
         if (productoGratis) {
-          productoGratis.cantidad = cantidadGratis; // Actualizar la cantidad de producto gratis
+          productoGratis.cantidad = cantidadGratis;
           productoGratis.cadDesc = "100%";
           productoGratis.tipoDescuento = `${promoRequerida}x${promoRequerida - 1}-Gratis`;
         }
       }
     } else {
-      // eliminar producto gratis si ya no cumple la promo
       const indexGratis = this.carrito.findIndex(p => p.producto === productoId && p.esGratis);
       if (indexGratis !== -1) {
         this.carrito.splice(indexGratis, 1);
@@ -788,11 +823,10 @@ export class VentasComponent implements OnInit {
   }
 
   calcularTotal() {
-    this.total = this.carrito.reduce((acc, p) => acc + (p.precioFinal * p.cantidad), 0);
-    this.total = parseFloat(this.total.toFixed(2));
-    this.totalDescuento = this.carrito.reduce((acc, p) => acc + (p.descuentoUnitario * p.cantidad), 0);
+    this.total = this.round2(this.carrito.reduce((acc, p) => acc + (p.precioFinal * p.cantidad), 0));
+    this.totalDescuento = this.round2(this.carrito.reduce((acc, p) => acc + (p.descuentoUnitario * p.cantidad), 0));
     this.totalArticulos = this.carrito.reduce((acc, p) => acc + (p.cantidad), 0);
-    this.totalAlmonedero = this.carrito.reduce((acc, p) => acc + (p.alMonedero * p.cantidad), 0);
+    this.totalAlmonedero = this.round2(this.carrito.reduce((acc, p) => acc + (p.alMonedero * p.cantidad), 0));
   }
 
   cancelarVenta() {
@@ -804,11 +838,8 @@ export class VentasComponent implements OnInit {
     this.totalAlmonedero = 0;
     this.aplicaInapam = false;
     this.yaPreguntoInapam = false;
-
     this.folioVentaGenerado = null;
-
     this.limpiarCliente();
-
     this.montoTarjeta = 0;
     this.montoTransferencia = 0;
     this.montoVale = 0;
@@ -823,42 +854,61 @@ export class VentasComponent implements OnInit {
       showCancelButton: true,
       allowOutsideClick: false,
       allowEscapeKey: false,
+      focusConfirm: true,
       confirmButtonText: 'NO, ir a cobrar',
       cancelButtonText: 'SI, agregar más productos'
     }).then(result => {
       if (result.isConfirmed) {
         this.usarMonedero = false;
         this.mostrarModalPago = true;
-        this.montoTarjeta = 0;
-        this.montoTransferencia = 0;
-        this.montoVale = 0;
-        this.efectivoRecibido = 0;
+
+        // limpiar valores a null para que los inputs se vean "vacíos"
+        this.montoTarjeta = null;
+        this.montoTransferencia = null;
+        this.montoVale = null;
+        this.efectivoRecibido = null;
         this.cambio = 0;
+
+        // 1) Evita focos pendientes al lector
+        this.clearBarcodeFocusTimer();
+        this.codigoBarrasRef?.nativeElement?.blur();
+
+        // 2) Enfoca efectivo tras render
+        this.cdRef.detectChanges();
+        setTimeout(() => this.efectivoRecibidoRef?.nativeElement?.focus(), 0);
         this.calcularTotal();
       }
     });
-
   }
 
   calculaCambio() {
-    if (this.montoTarjeta + this.montoTransferencia + this.montoVale >= this.total) {
+
+    console.log('Estoy calculando cambio, total a pagar:', this.total);
+    console.log('efectivo recibido:', this.efectivoRecibido);
+    console.log('pago en efectivo:', this.pagoEfectivo);
+    console.log('pago en tarjeta:', this.pagoTarjeta1);
+    console.log('monto en tarjeta:', this.montoTarjeta);
+    console.log('pago en transferencia:', this.pagoTransferencia1);
+    console.log('monto en transferencia:', this.montoTransferencia);
+
+    if (this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1 >= this.total) {
       this.efectivoRecibido = 0;
       this.cambio = 0;
-    } else if (this.total - this.efectivoRecibido - this.montoTarjeta - this.montoTransferencia - this.montoVale < 0) {
-      this.cambio = this.efectivoRecibido - (this.total - (this.montoTarjeta + this.montoTransferencia + this.montoVale));
+    } else if (this.total - this.pagoEfectivo - this.pagoTarjeta1 - this.pagoTransferencia1 - this.pagoVale1 < 0) {
+      this.cambio = this.pagoEfectivo - (this.total - (this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1));
     } else this.cambio = 0
   }
 
   pagoTarjeta() {
-    if (this.montoTarjeta >= this.total) {
+    if (this.pagoTarjeta1 >= this.total) {
       this.montoTarjeta = this.total;
       this.efectivoRecibido = 0;
       this.montoTransferencia = 0;
       this.montoVale = 0;
       this.cambio = 0;
       this.inhabilitarInputs();
-    } else if (this.montoTarjeta + this.montoTransferencia + this.montoVale >= this.total) {
-      this.montoTarjeta = this.total - this.montoTransferencia - this.montoVale;
+    } else if (this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1 >= this.total) {
+      this.montoTarjeta = this.total - this.pagoTransferencia1 - this.pagoVale1;
       this.efectivoRecibido = 0;
       this.cambio = 0;
       this.inhabilitarInputs();
@@ -872,15 +922,15 @@ export class VentasComponent implements OnInit {
   }
 
   pagoTransferencia() {
-    if (this.montoTransferencia >= this.total) {
+    if (this.pagoTransferencia1 >= this.total) {
       this.montoTransferencia = this.total;
       this.efectivoRecibido = 0;
       this.montoTarjeta = 0;
       this.montoVale = 0;
       this.cambio = 0;
       this.inhabilitarInputs();
-    } else if (this.montoTarjeta + this.montoTransferencia + this.montoVale >= this.total) {
-      this.montoTransferencia = this.total - this.montoTarjeta - this.montoVale;
+    } else if (this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1 >= this.total) {
+      this.montoTransferencia = this.total - this.pagoTarjeta1 - this.pagoVale1;
       this.efectivoRecibido = 0;
       this.cambio = 0;
       this.inhabilitarInputs();
@@ -894,15 +944,15 @@ export class VentasComponent implements OnInit {
   }
 
   pagoVale() {
-    if (this.montoVale >= this.total) {
+    if (this.pagoVale1 >= this.total) {
       this.montoVale = this.total;
       this.efectivoRecibido = 0;
       this.montoTarjeta = 0;
       this.montoTransferencia = 0;
       this.cambio = 0;
       this.inhabilitarInputs();
-    } else if (this.montoTarjeta + this.montoTransferencia + this.montoVale >= this.total) {
-      this.montoVale = this.total - this.montoTarjeta - this.montoTransferencia;
+    } else if (this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1 >= this.total) {
+      this.montoVale = this.total - this.pagoTarjeta1 - this.pagoTransferencia1;
       this.efectivoRecibido = 0;
       this.cambio = 0;
       this.inhabilitarInputs();
@@ -917,21 +967,17 @@ export class VentasComponent implements OnInit {
 
   onToggleMonedero() {
     if (this.usarMonedero) {
-      // 3a) Si tiene suficiente para cubrir TODO el total de la venta:
       if (this.montoMonederoCliente >= this.total) {
         this.montoVale = this.total;
       } else {
-        // 3b) Si su monedero es menor que el total, sólo puede usar lo que tenga
         this.montoVale = this.montoMonederoCliente;
       }
     } else {
-      // si desmarcó el checkbox, simplemente regresamos montoVale a cero
       this.habilitarInputs();
     }
     this.pagoVale();
   }
 
-  // Lógica para habilitar inputs y limpiar valores
   habilitarInputs() {
     this.ocultarEfectivo = false;
     this.ocultaTarjeta = false;
@@ -940,6 +986,7 @@ export class VentasComponent implements OnInit {
     this.inputsHabilitados = false;
     this.montoVale = 0;
     this.usarMonedero = false;
+    this.calculaCambio();
   }
 
   inhabilitarInputs() {
@@ -950,7 +997,6 @@ export class VentasComponent implements OnInit {
     this.inputsHabilitados = true;
   }
 
-  // Cancelar y regresar a venta activa
   cancelarPago() {
     this.efectivoRecibido = 0;
     this.montoTarjeta = 0;
@@ -958,14 +1004,15 @@ export class VentasComponent implements OnInit {
     this.montoVale = 0;
     this.cambio = 0;
     this.mostrarModalPago = false;
+    this.focusBarcode(50);
   }
 
-  // Finalizar venta e imprimir ticket
   finalizarVenta() {
-    this.efectivoRecibido = Math.max(0, this.efectivoRecibido);
-    this.montoTarjeta = Math.max(0, this.montoTarjeta);
-    this.montoTransferencia = Math.max(0, this.montoTransferencia);
-    this.montoVale = Math.max(0, this.montoVale);
+    // Normalizar
+    this.efectivoRecibido = Math.max(0, this.pagoEfectivo);
+    this.montoTarjeta = Math.max(0, this.pagoTarjeta1);
+    this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
+    this.montoVale = Math.max(0, this.pagoVale1);
     this.cambio = Math.max(0, this.cambio);
 
     const totalPagado = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
@@ -975,15 +1022,13 @@ export class VentasComponent implements OnInit {
       Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
       return;
     }
-
     if (totalPagado < this.total) {
       Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
       return;
     }
 
-    // Si ya hay un folio generado previamente, lo reutilizamos 
     const folio = this.folioVentaGenerado || this.generarFolioLocal();
-    this.folioVentaGenerado = folio; // guardarlo para futuros intentos
+    this.folioVentaGenerado = folio;
 
     const productos = this.carrito.map(p => ({
       producto: p.producto,
@@ -1032,30 +1077,8 @@ export class VentasComponent implements OnInit {
       this.mostrarTicket = false;
       this.guardarVentaDespuesDeImpresion(folio);
     }, 100);
-
-/*     setTimeout(() => {
-      window.print();
-      this.mostrarTicket = false;
-
-      Swal.fire({
-        icon: 'question',
-        title: '¿Se imprimió correctamente el ticket?',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, guardar venta',
-        cancelButtonText: 'No, reintentar'
-      }).then(result => {
-        if (result.isConfirmed) {
-          this.guardarVentaDespuesDeImpresion(folio);
-        } else {
-          Swal.fire('Atención', 'La venta no ha sido registrada. Puedes reintentar la impresión.', 'info');
-        }
-      });
-    }, 100); */
-
-
   }
 
-  // Limpiar datos de venta para nueva transacción
   limpiarVenta() {
     this.carrito = [];
     this.total = 0;
@@ -1072,27 +1095,17 @@ export class VentasComponent implements OnInit {
     this.yaPreguntoInapam = false;
   }
 
-
   generarFolioLocal(): string {
     const fecha = new Date();
-
-    // Parte 1: Letras FB
     const baseFolio = 'FB';
-
-    // Parte 2: Fecha en formato aaaammdd
     const fechaFormateada = fecha.toISOString().split('T')[0].replace(/-/g, '');
-
-    // Parte 3: Cadena aleatoria de 6 caracteres con letras mayúsculas, minúsculas y números
     const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let cadenaAleatoria = '';
     for (let i = 0; i < 6; i++) {
       const randomIndex = Math.floor(Math.random() * caracteres.length);
       cadenaAleatoria += caracteres[randomIndex];
     }
-
-    // Unir todas las partes
     const folio = `${baseFolio}${fechaFormateada}-${cadenaAleatoria}`;
-
     return folio;
   }
 
@@ -1113,7 +1126,7 @@ export class VentasComponent implements OnInit {
       clienteId: this.cliente,
       productos: productosPayload,
       aplicaInapam: this.aplicaInapam,
-      efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
+      efectivo: this.total - this.pagoTarjeta1 - this.pagoTransferencia1 - this.pagoVale1,
       tarjeta: this.montoTarjeta,
       transferencia: this.montoTransferencia,
       importeVale: this.montoVale,
@@ -1121,20 +1134,35 @@ export class VentasComponent implements OnInit {
     };
 
     this.ventasService.crearVenta(venta).subscribe({
-      next: (response) => {
-        Swal.fire('Venta Registrada', 'Venta finalizada correctamente', 'success');
+      next: () => {
+        // Limpio estado y cierro modal ANTES de mostrar el toast
         this.folioVentaGenerado = null;
         this.limpiarVenta();
         this.mostrarModalPago = false;
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Venta Registrada',
+          text: 'Venta finalizada correctamente',
+          timer: 1300,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          didClose: () => {
+            // cuando desaparece el Swal, regreso el foco al lector
+            this.focusBarcode(50);
+          }
+        });
       },
       error: (error) => {
         const mensaje = error?.error?.mensaje || 'Error al finalizar la venta';
         Swal.fire('Error', mensaje, 'error');
-
         const esErrorDeVale = mensaje.includes('**');
         if (!esErrorDeVale) {
           this.mostrarModalPago = false;
           this.limpiarVenta();
+          // En error también conviene devolver el foco
+          setTimeout(() => this.focusBarcode(50), 0);
         }
       }
     });
@@ -1159,81 +1187,29 @@ export class VentasComponent implements OnInit {
           this.productoConsultado = {
             nombre: "Producto no encontrado",
             precioNormal: null,
-
-            promo1: null,
-            precioLunes: null,
-            lunesMasInapam: null,
-
-            promo2: null,
-            precioMartes: null,
-            martesMasInapam: null,
-
-            promo3: null,
-            precioMiercoles: null,
-            miercolesMasInapam: null,
-
-            promo4: null,
-            precioJueves: null,
-            juevesMasInapam: null,
-
-            promo5: null,
-            precioViernes: null,
-            viernesMasInapam: null,
-
-            promo6: null,
-            precioSabado: null,
-            sabadoMasInapam: null,
-
-            promo0: null,
-            precioDomingo: null,
-            domingoMasInapam: null,
-
-            promo: null,
-            precioConDescuento: null,
-            precioInapam: null,
-            precioDescuentoMasInapam: null,
-
+            promo1: null, precioLunes: null, lunesMasInapam: null,
+            promo2: null, precioMartes: null, martesMasInapam: null,
+            promo3: null, precioMiercoles: null, miercolesMasInapam: null,
+            promo4: null, precioJueves: null, juevesMasInapam: null,
+            promo5: null, precioViernes: null, viernesMasInapam: null,
+            promo6: null, precioSabado: null, sabadoMasInapam: null,
+            promo0: null, precioDomingo: null, domingoMasInapam: null,
+            promo: null, precioConDescuento: null, precioInapam: null, precioDescuentoMasInapam: null,
             promoCliente: null
           };
         } else {
           this.productoConsultado = {
             nombre: data.nombre,
             precioNormal: data.precioNormal,
-            promo1: data.promo1,
-            precioLunes: data.precioLunes,
-            lunesMasInapam: data.lunesMasInapam,
-
-            promo2: data.promo2,
-            precioMartes: data.precioMartes,
-            martesMasInapam: data.martesMasInapam,
-
-            promo3: data.promo3,
-            precioMiercoles: data.precioMiercoles,
-            miercolesMasInapam: data.miercolesMasInapam,
-
-            promo4: data.promo4,
-            precioJueves: data.precioJueves,
-            juevesMasInapam: data.juevesMasInapam,
-
-            promo5: data.promo5,
-            precioViernes: data.precioViernes,
-            viernesMasInapam: data.viernesMasInapam,
-
-            promo6: data.promo6,
-            precioSabado: data.precioSabado,
-            sabadoMasInapam: data.sabadoMasInapam,
-
-            promo0: data.promo0,
-            precioDomingo: data.precioDomingo,
-            domingoMasInapam: data.domingoMasInapam,
-
-            promo: data.promo,
-            precioConDescuento: data.precioConDescuento,
-            precioInapam: data.precioInapam,
-            precioDescuentoMasInapam: data.precioDescuentoMasInapam,
-
+            promo1: data.promo1, precioLunes: data.precioLunes, lunesMasInapam: data.lunesMasInapam,
+            promo2: data.promo2, precioMartes: data.precioMartes, martesMasInapam: data.martesMasInapam,
+            promo3: data.promo3, precioMiercoles: data.precioMiercoles, miercolesMasInapam: data.miercolesMasInapam,
+            promo4: data.promo4, precioJueves: data.precioJueves, juevesMasInapam: data.juevesMasInapam,
+            promo5: data.promo5, precioViernes: data.precioViernes, viernesMasInapam: data.viernesMasInapam,
+            promo6: data.promo6, precioSabado: data.precioSabado, sabadoMasInapam: data.sabadoMasInapam,
+            promo0: data.promo0, precioDomingo: data.precioDomingo, domingoMasInapam: data.domingoMasInapam,
+            promo: data.promo, precioConDescuento: data.precioConDescuento, precioInapam: data.precioInapam, precioDescuentoMasInapam: data.precioDescuentoMasInapam,
             promoCliente: data.promoCliente
-
           };
         }
       },
@@ -1247,19 +1223,16 @@ export class VentasComponent implements OnInit {
         };
       }
     });
-
   }
 
   existenciaProducto(idFarmacia: string, idProducto: string, cantRequerida: number): Promise<void> {
-    // obtiene la existencia de un producto en esa farmacia
     return new Promise((resolve, reject) => {
       this.productoService.existenciaPorFarmaciaYProducto(idFarmacia, idProducto).subscribe({
         next: (data) => {
           this.precioEnFarmacia = data.precioVenta;
-
           if (data.existencia >= cantRequerida) {
             this.hayProducto = true;
-            resolve(); // Resolvemos la promesa cuando se determina que hay producto suficiente
+            resolve();
           } else {
             Swal.fire({
               icon: 'error',
@@ -1270,16 +1243,15 @@ export class VentasComponent implements OnInit {
               allowEscapeKey: false,
             });
             this.hayProducto = false;
-            resolve(); // Resolvemos la promesa para que no quede en espera
+            resolve();
           }
         },
         error: (error) => {
           console.error('Error al obtener la existencia del producto:', error);
           this.hayProducto = false;
-          reject(error); // Rechazamos la promesa en caso de error
+          reject(error);
         }
       });
     });
   }
-
 }

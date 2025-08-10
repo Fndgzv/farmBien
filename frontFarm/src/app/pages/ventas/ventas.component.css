@@ -28,9 +28,65 @@
   /* esto mueve el botón hasta el extremo derecho */
 }
 
+/* Contenedor en una fila, con poco espacio entre elementos */
 .productos-container {
   display: flex;
   align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* Asegura que todos los hijos se centren verticalmente */
+.productos-container > * {
+  align-self: center;
+}
+
+/* Quitar margen extra del h2 para que quede pegado al input */
+.productos-container .subtitulo {
+  margin: 0 6px 0 0;
+}
+
+/* Input de código de barras: altura cómoda y ancho razonable */
+.input-text.input-cb {
+  height: 40px;
+  padding: 8px 10px;
+  width: 180px;
+  margin-right: 5rem;
+}
+
+/* ► Anchos para los filtros */
+.wide-field {
+  width: 400px;
+}
+
+.wider-field {
+  width: 340px;
+}
+
+.mr-field {
+  margin-right: 5rem;
+}
+/* Hacer los mat-form-field más “bajitos” para que empaten con 40px del input normal */
+/* Si usas encapsulación por defecto, añade :host ::ng-deep delante de los selectores */
+:host ::ng-deep .compact-field .mat-mdc-form-field-infix {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  min-height: 40px;
+  /* fuerza altura del campo */
+}
+
+:host ::ng-deep .compact-field .mdc-text-field--outlined {
+  height: 40px;
+  /* altura del contenedor */
+}
+
+:host ::ng-deep .compact-field .mat-mdc-input-element {
+  line-height: 26px;
+  /* centra el texto verticalmente */
+}
+
+:host ::ng-deep .compact-field { 
+  transform: translateY(10px);  /* alinea los inputs de los filtros */
 }
 
 /* 📌 Contenedor del Total */
@@ -82,6 +138,7 @@
 /* Modal consultar precio */
 .modal-overlay {
   position: fixed;
+  /* inset: 0; */
   top: 0;
   left: 0;
   width: 100%;
@@ -198,7 +255,7 @@
   margin-right: 8px !important;
 }
 
-.btn{
-    width: 1.7rem;
-    margin-right: 15px;
+.btn {
+  width: 1.7rem;
+  margin-right: 15px;
 }
