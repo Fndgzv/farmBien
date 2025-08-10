@@ -102,6 +102,12 @@ export class VentasComponent implements OnInit, AfterViewInit {
   codigoConsulta: string = '';
   productoConsultado: any = null;
 
+  // Campos para los filtros del modal de consulta
+  busquedaConsultaCodigo: string = '';
+  busquedaConsultaNombre: string = '';
+  productosConsultaFiltradosPorCodigo: any[] = [];
+  productosConsultaFiltradosPorNombre: any[] = [];
+
   aplicaInapam: boolean = false;
   yaPreguntoInapam: boolean = false;
 
@@ -359,7 +365,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   limpiarBarras() {
     this.codigoConsulta = '';
+    this.busquedaConsultaCodigo = '';
+    this.busquedaConsultaNombre = '';
     this.productoConsultado = null;
+    this.productosConsultaFiltradosPorCodigo = [];
+    this.productosConsultaFiltradosPorNombre = [];
   }
 
   limpiarProducto() {
@@ -422,6 +432,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
     this.focusBarcode(100);
   }
+
 
   displayNombre = (id?: string): string => {
     const p = this.productos.find(x => x._id === id);
@@ -492,7 +503,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
           icon: 'warning',
           title: 'Producto no encontrado',
           text: 'Verifica el código de barras',
-          timer: 1300,              
+          timer: 1300,
           showConfirmButton: false,
           timerProgressBar: true,
           allowOutsideClick: false,
@@ -1169,9 +1180,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   abrirModalConsultaPrecio() {
+
     this.mostrarModalConsultaPrecio = true;
     this.codigoConsulta = '';
     this.productoConsultado = null;
+    this.limpiarProducto();
   }
 
   cerrarModalConsultaPrecio() {
@@ -1223,6 +1236,48 @@ export class VentasComponent implements OnInit, AfterViewInit {
         };
       }
     });
+  }
+
+  // Llamar cuando se teclea en "Buscar Cód. barras"
+  filtrarConsultaPorCodigo() {
+    const t = (this.busquedaConsultaCodigo || '').trim();
+    if (!t) {
+      this.productosConsultaFiltradosPorCodigo = [];
+      return;
+    }
+    this.productosConsultaFiltradosPorCodigo = this.productos.filter(p =>
+      (p.codigoBarras || '').includes(t)
+    );
+  }
+
+  // Llamar cuando se teclea en "Buscar producto por nombre"
+  filtrarConsultaPorNombre() {
+    const t = (this.busquedaConsultaNombre || '').trim().toLowerCase();
+    if (!t) {
+      this.productosConsultaFiltradosPorNombre = [];
+      return;
+    }
+    this.productosConsultaFiltradosPorNombre = this.productos.filter(p =>
+      (p.nombre || '').toLowerCase().includes(t)
+    );
+  }
+
+  // Al seleccionar en el autocomplete por CÓDIGO
+  onSelectConsultaCodigo(event: any) {
+    const codigo = event.option.value as string;        // viene de [value]="p.codigoBarras"
+    this.codigoConsulta = codigo;                       // lo usamos para consultar
+    // opcional: dejar bonito el input con "código — nombre"
+    this.busquedaConsultaCodigo = event.option.viewValue;
+    this.consultarPrecio();
+  }
+
+  // Al seleccionar en el autocomplete por NOMBRE
+  onSelectConsultaNombre(event: any) {
+    const codigo = event.option.value as string;        // también pusimos el código como [value]
+    this.codigoConsulta = codigo;
+    // dejar en el input el nombre (viewValue es el texto de la opción)
+    this.busquedaConsultaNombre = event.option.viewValue;
+    this.consultarPrecio();
   }
 
   existenciaProducto(idFarmacia: string, idProducto: string, cantRequerida: number): Promise<void> {

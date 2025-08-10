@@ -33,18 +33,11 @@
   <div class="productos-container">
     <h2 class="subtitulo">Producto:</h2>
 
-    <input #codigoBarrasRef
-      type="text"
-      id="codigoBarras"
-      [(ngModel)]="codigoBarras"
-      (keyup.enter)="agregarProductoPorCodigo()"
-      placeholder="Escanear Cód. barras"
-      class="input-text input-cb"
-      [attr.tabindex]="mostrarModalPago ? -1 : 0"
-      [disabled]="mostrarModalPago"
-    />
+    <input #codigoBarrasRef type="text" id="codigoBarras" [(ngModel)]="codigoBarras"
+      (keyup.enter)="agregarProductoPorCodigo()" placeholder="Escanear Cód. barras" class="input-text input-cb"
+      [attr.tabindex]="mostrarModalPago ? -1 : 0" [disabled]="mostrarModalPago" />
 
-    <!-- Filtro por CÓDIGO -->
+    <!-- Filtro por CÓDIGO venta -->
     <mat-form-field appearance="outline" class="compact-field wide-field mr-field">
       <input matInput [(ngModel)]="busquedaPorCodigo" [matAutocomplete]="autoCodigo" placeholder="Buscar Cód. barras"
         (input)="filtrarPorCodigo()">
@@ -56,7 +49,7 @@
       </mat-autocomplete>
     </mat-form-field>
 
-    <!-- Filtro por NOMBRE -->
+    <!-- Filtro por NOMBRE venta -->
     <mat-form-field appearance="outline" class="compact-field wider-field">
       <input matInput [(ngModel)]="busquedaProducto" [matAutocomplete]="autoNombre" placeholder="Buscar producto"
         (input)="filtrarProductos()">
@@ -75,7 +68,7 @@
 
 
   <div *ngIf="mostrarModalConsultaPrecio" class="modal-overlay">
-    <div class="modal-content">
+    <div class="modal-content" style="width: 600px;" >
       <h2>Consultar Precio</h2>
       <div class="input-container position-relative">
         <input type="text" [(ngModel)]="codigoConsulta" (keyup.enter)="consultarPrecio()" placeholder="Código de barras"
@@ -85,8 +78,32 @@
           <fa-icon [icon]="faTimes"></fa-icon>
         </button>
       </div>
+
+      <!-- 🔎 Filtro por CÓDIGO -->
+      <mat-form-field appearance="outline" class="w-100 mb-1 compact-field">
+        <input matInput [(ngModel)]="busquedaConsultaCodigo" [matAutocomplete]="autoConsCodigo"
+          placeholder="Buscar Cód. barras" (input)="filtrarConsultaPorCodigo()" />
+        <mat-autocomplete #autoConsCodigo="matAutocomplete" (optionSelected)="onSelectConsultaCodigo($event)">
+          <mat-option *ngFor="let p of productosConsultaFiltradosPorCodigo" [value]="p.codigoBarras">
+            {{ p.codigoBarras }} — {{ p.nombre }}
+          </mat-option>
+        </mat-autocomplete>
+      </mat-form-field>
+
+      <!-- 🔎 Filtro por NOMBRE -->
+      <mat-form-field appearance="outline" class="w-100 mb-1 compact-field">
+        <input matInput [(ngModel)]="busquedaConsultaNombre" [matAutocomplete]="autoConsNombre"
+          placeholder="Buscar producto por nombre" (input)="filtrarConsultaPorNombre()" />
+        <mat-autocomplete #autoConsNombre="matAutocomplete" (optionSelected)="onSelectConsultaNombre($event)">
+          <mat-option *ngFor="let p of productosConsultaFiltradosPorNombre" [value]="p.codigoBarras">
+            {{ p.nombre }}
+          </mat-option>
+        </mat-autocomplete>
+      </mat-form-field>
+
+
       <div *ngIf="productoConsultado">
-        <p><strong>Nombre:</strong>{{ productoConsultado.nombre }}</p>
+        <p><strong>Nombre: </strong>{{ productoConsultado.nombre }}</p>
         <p><strong>Precio Normal:</strong> {{ productoConsultado.precioNormal | currency }}</p>
         <p *ngIf="productoConsultado.promo1"><strong>{{ productoConsultado.promo1 }}</strong>{{
           productoConsultado.precioLunes }}</p>
@@ -116,12 +133,12 @@
           productoConsultado.precioDomingo }}</p>
         <p *ngIf="productoConsultado.domingoMasInapam">{{ productoConsultado.domingoMasInapam }}</p>
 
-        <p *ngIf="productoConsultado.promo"><strong>Promo:</strong>{{ productoConsultado.promo }}</p>
-        <p *ngIf="productoConsultado.precioConDescuento"><strong>Precio c/promo:</strong>{{
+        <p *ngIf="productoConsultado.promo"><strong>Promo: </strong>{{ productoConsultado.promo }}</p>
+        <p *ngIf="productoConsultado.precioConDescuento"><strong>Precio c/promo: </strong>{{
           productoConsultado.precioConDescuento }}</p>
-        <p *ngIf="productoConsultado.precioDescuentoMasInapam"><strong>Precio promo + inapam:</strong>{{
+        <p *ngIf="productoConsultado.precioDescuentoMasInapam"><strong>Precio promo + inapam: </strong>{{
           productoConsultado.precioDescuentoMasInapam }}</p>
-        <p *ngIf="productoConsultado.precioInapam"><strong>Precio Inapam:</strong>{{ productoConsultado.precioInapam }}
+        <p *ngIf="productoConsultado.precioInapam"><strong>Precio Inapam: </strong>{{ productoConsultado.precioInapam }}
         </p>
         <p *ngIf="productoConsultado.promoCliente">{{ productoConsultado.promoCliente }}</p>
 
@@ -221,19 +238,9 @@
         <div class="form-group row mb-2">
           <label for="efectivoRecibido" class="col-sm-4 col-form-label text-left">Efectivo:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input
-              #efectivoRecibidoRef
-              id="efectivoRecibido"
-              name="efectivoRecibido"
-              type="number"
-              class="form-control text-end"
-              [(ngModel)]="efectivoRecibido"
-              (ngModelChange)="calculaCambio()"
-              [min]="0" step="0.1"
-              [disabled]="ocultarEfectivo"
-              autocomplete="off" inputmode="decimal"
-              [attr.autofocus]="true"
-            />
+            <input #efectivoRecibidoRef id="efectivoRecibido" name="efectivoRecibido" type="number"
+              class="form-control text-end" [(ngModel)]="efectivoRecibido" (ngModelChange)="calculaCambio()" [min]="0"
+              step="0.1" [disabled]="ocultarEfectivo" autocomplete="off" inputmode="decimal" [attr.autofocus]="true" />
           </div>
         </div>
 
@@ -241,17 +248,10 @@
         <div class="form-group row mb-2">
           <label for="montoTarjeta" class="col-sm-4 col-form-label text-left">Tarjeta:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input
-              id="montoTarjeta"
-              name="montoTarjeta"
-              type="number"
-              class="form-control text-end"
-              [(ngModel)]="montoTarjeta"
-              (ngModelChange)="pagoTarjeta()"
-              [min]="0" [max]="total - pagoTransferencia1 - pagoVale1"
-              step="0.1" [disabled]="ocultaTarjeta"
-              autocomplete="off" inputmode="decimal"
-            />
+            <input id="montoTarjeta" name="montoTarjeta" type="number" class="form-control text-end"
+              [(ngModel)]="montoTarjeta" (ngModelChange)="pagoTarjeta()" [min]="0"
+              [max]="total - pagoTransferencia1 - pagoVale1" step="0.1" [disabled]="ocultaTarjeta" autocomplete="off"
+              inputmode="decimal" />
           </div>
         </div>
 
@@ -259,52 +259,45 @@
         <div class="form-group row mb-2">
           <label for="montoTransferencia" class="col-sm-4 col-form-label">Transferencia:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input
-              id="montoTransferencia"
-              name="montoTransferencia"
-              type="number"
-              class="form-control text-end"
-              [(ngModel)]="montoTransferencia"
-              (ngModelChange)="pagoTransferencia()"
-              [min]="0" [max]="total - pagoTarjeta1 - pagoVale1"
-              step="0.1" [disabled]="ocultaTransferencia"
-              autocomplete="off" inputmode="decimal"
-            />
+            <input id="montoTransferencia" name="montoTransferencia" type="number" class="form-control text-end"
+              [(ngModel)]="montoTransferencia" (ngModelChange)="pagoTransferencia()" [min]="0"
+              [max]="total - pagoTarjeta1 - pagoVale1" step="0.1" [disabled]="ocultaTransferencia" autocomplete="off"
+              inputmode="decimal" />
           </div>
         </div>
 
-          <!-- Monedero -->
-          <div class="monedero-container" *ngIf="montoMonederoCliente > 0">
-            <!-- 1) Mostrar cuánto tiene acumulado -->
-            <div class="form-group row mb-2">
-              <label class="col-12 text-center" style="color: rgb(3, 7, 83); font-weight: bold; font-size: large;">
-                Tiene en monedero: {{ montoMonederoCliente | currency }}
-              </label>
-            </div>
+        <!-- Monedero -->
+        <div class="monedero-container" *ngIf="montoMonederoCliente > 0">
+          <!-- 1) Mostrar cuánto tiene acumulado -->
+          <div class="form-group row mb-2">
+            <label class="col-12 text-center" style="color: rgb(3, 7, 83); font-weight: bold; font-size: large;">
+              Tiene en monedero: {{ montoMonederoCliente | currency }}
+            </label>
+          </div>
 
-            <!-- 2) Mostrar checkbox "Desea usar su monedero" -->
-            <div class="form-group row mb-2">
-              <div class="col-sm-8">
-                <label for="usarMonedero" class="col-form-label">Usar monedero:</label>
-              </div>
-              <div class="col-sm-4 d-flex align-items-center">
-                <input id="usarMonedero" type="checkbox" class="form-check-input" name="usarMonedero"
-                  [(ngModel)]="usarMonedero" (ngModelChange)="onToggleMonedero()" />
-                <label for="usarMonedero" class="ms-2">Sí</label>
-              </div>
+          <!-- 2) Mostrar checkbox "Desea usar su monedero" -->
+          <div class="form-group row mb-2">
+            <div class="col-sm-8">
+              <label for="usarMonedero" class="col-form-label">Usar monedero:</label>
             </div>
-
-            <!-- 3–4) Cuando el checkbox está marcado, mostramos el monto asignado de manera automática -->
-            <div class="form-group row mb-2" *ngIf="usarMonedero">
-              <label class="col-sm-8 col-form-label text-left">Monto monedero usado:</label>
-              <div class="col-sm-4 d-flex justify-content-end">
-                <!-- Simplemente mostramos el valor calculado; el usuario ya no lo edita manualmente -->
-                <span class="form-control-plaintext text-end">
-                  {{ montoVale | currency }}
-                </span>
-              </div>
+            <div class="col-sm-4 d-flex align-items-center">
+              <input id="usarMonedero" type="checkbox" class="form-check-input" name="usarMonedero"
+                [(ngModel)]="usarMonedero" (ngModelChange)="onToggleMonedero()" />
+              <label for="usarMonedero" class="ms-2">Sí</label>
             </div>
           </div>
+
+          <!-- 3–4) Cuando el checkbox está marcado, mostramos el monto asignado de manera automática -->
+          <div class="form-group row mb-2" *ngIf="usarMonedero">
+            <label class="col-sm-8 col-form-label text-left">Monto monedero usado:</label>
+            <div class="col-sm-4 d-flex justify-content-end">
+              <!-- Simplemente mostramos el valor calculado; el usuario ya no lo edita manualmente -->
+              <span class="form-control-plaintext text-end">
+                {{ montoVale | currency }}
+              </span>
+            </div>
+          </div>
+        </div>
 
         <!-- Cambio y mensajes -->
         <p class="mt-3 cambio">Cambio: <strong>{{ cambio | currency }}</strong></p>
@@ -319,9 +312,7 @@
 
       <div class="btns-container">
         <button type="button" class="btn-rojo-tache" (click)="cancelarPago()">Cancelar</button>
-        <button
-          type="submit"
-          class="btn-gris"
+        <button type="submit" class="btn-gris"
           [disabled]="pagoEfectivo + pagoTarjeta1 + pagoTransferencia1 + pagoVale1 < total">
           Imprimir
         </button>

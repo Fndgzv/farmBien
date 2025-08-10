@@ -138,7 +138,6 @@
 /* Modal consultar precio */
 .modal-overlay {
   position: fixed;
-  /* inset: 0; */
   top: 0;
   left: 0;
   width: 100%;
@@ -200,7 +199,6 @@
 
 .input-field {
   flex-grow: 1;
-  width: 80%;
   padding: 10px;
   margin: 10px 0;
   border: 1px solid #ccc;
