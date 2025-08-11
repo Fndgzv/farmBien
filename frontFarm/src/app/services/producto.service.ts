@@ -32,9 +32,10 @@ export class ProductoService {
     return this.http.get<any>(`${this.apiUrl}/inventario/${idFarmacia}/${idProducto}`);
   }
 
-  actualizarProductos(productos: Producto[]): Observable<any> {
-    return this.http.put(`${this.apiUrl}/actualizar-masivo`, { productos });
-  }
+  actualizarProductos(payload: { productos: Producto[] }) {
+  return this.http.put(`${this.apiUrl}/actualizar-masivo`, payload);
+}
+
 
   actualizarProductoIndividual(producto: Producto): Observable<any> {
     return this.http.put(`${this.apiUrl}/actualizar-producto/${producto._id}`, producto);

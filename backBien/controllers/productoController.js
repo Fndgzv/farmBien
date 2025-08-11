@@ -433,59 +433,89 @@ exports.obtenerExistenciaEnFarmacia = async (req, res) => {
 };
 
 exports.actualizarProductos = async (req, res) => {
-    /* Actualización másiva de productos */
+  /* Actualización masiva de productos + sincronización de precioVenta en InventarioFarmacia */
+
+  const session = await mongoose.startSession();
   try {
-    const productos = req.body.productos;
-
-    for (const prod of productos) {
-
-      // Validaciones:
-      const validacion = validarProducto(prod);
-      if (!validacion.valido) {
-        return res.status(400).json({ mensaje: validacion.mensaje });
-      }
-
-      const productoActual = await Producto.findById(prod._id);
-      if (!productoActual) continue;
-
-      // Actualizaciones
-      productoActual.nombre = prod.nombre;
-      productoActual.unidad = prod.unidad;
-      productoActual.precio = prod.precio;
-      productoActual.costo = prod.costo;
-      productoActual.iva = prod.iva;
-      productoActual.stockMinimo = prod.stockMinimo;
-      productoActual.stockMaximo = prod.stockMaximo;
-      productoActual.ubicacion = prod.ubicacion;
-      productoActual.categoria = prod.categoria;
-      productoActual.generico = prod.generico;
-      productoActual.descuentoINAPAM = prod.descuentoINAPAM;
-
-      productoActual.promoLunes = prod.promoLunes;
-      productoActual.promoMartes = prod.promoMartes;
-      productoActual.promoMiercoles = prod.promoMiercoles;
-      productoActual.promoJueves = prod.promoJueves;
-      productoActual.promoViernes = prod.promoViernes;
-      productoActual.promoSabado = prod.promoSabado;
-      productoActual.promoDomingo = prod.promoDomingo;
-      productoActual.promoDeTemporada = prod.promoDeTemporada;
-      productoActual.promoCantidadRequerida = prod.promoCantidadRequerida;
-      productoActual.inicioPromoCantidad = prod.inicioPromoCantidad;
-      productoActual.finPromoCantidad = prod.finPromoCantidad;
-
-      // Reemplazo completo de lotes
-      productoActual.lotes = prod.lotes;
-
-      await productoActual.save();
+    const productos = req.body.productos || [];
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({ mensaje: 'No hay productos para actualizar.' });
     }
 
-    res.json({ mensaje: 'Productos actualizados correctamente' });
+    const opsInventario = []; // acumulamos operaciones bulkWrite para InventarioFarmacia
 
+    await session.withTransaction(async () => {
+      for (const prod of productos) {
+        // Validaciones básicas
+        const validacion = validarProducto(prod);
+        if (!validacion.valido) {
+          // si alguna validación falla, abortamos toda la transacción
+          throw new Error(validacion.mensaje || 'Producto inválido');
+        }
+
+        const productoActual = await Producto.findById(prod._id).session(session);
+        if (!productoActual) continue;
+
+        // Actualizaciones en Producto
+        productoActual.nombre = prod.nombre;
+        productoActual.unidad = prod.unidad;
+        if (typeof prod.precio === 'number') productoActual.precio = prod.precio;
+        if (typeof prod.costo === 'number') productoActual.costo = prod.costo;
+        if (typeof prod.iva !== 'undefined') productoActual.iva = prod.iva;
+        if (typeof prod.stockMinimo === 'number') productoActual.stockMinimo = prod.stockMinimo;
+        if (typeof prod.stockMaximo === 'number') productoActual.stockMaximo = prod.stockMaximo;
+        if (typeof prod.ubicacion !== 'undefined') productoActual.ubicacion = prod.ubicacion;
+        if (typeof prod.categoria !== 'undefined') productoActual.categoria = prod.categoria;
+        if (typeof prod.generico !== 'undefined') productoActual.generico = prod.generico;
+        if (typeof prod.descuentoINAPAM !== 'undefined') productoActual.descuentoINAPAM = prod.descuentoINAPAM;
+
+        // Promos por día y temporada
+        productoActual.promoLunes = prod.promoLunes;
+        productoActual.promoMartes = prod.promoMartes;
+        productoActual.promoMiercoles = prod.promoMiercoles;
+        productoActual.promoJueves = prod.promoJueves;
+        productoActual.promoViernes = prod.promoViernes;
+        productoActual.promoSabado = prod.promoSabado;
+        productoActual.promoDomingo = prod.promoDomingo;
+
+        productoActual.promoDeTemporada = prod.promoDeTemporada;
+
+        // Promo por cantidad
+        productoActual.promoCantidadRequerida = prod.promoCantidadRequerida;
+        productoActual.inicioPromoCantidad = prod.inicioPromoCantidad;
+        productoActual.finPromoCantidad = prod.finPromoCantidad;
+
+        // Lotes (reemplazo completo)
+        productoActual.lotes = Array.isArray(prod.lotes) ? prod.lotes : [];
+
+        await productoActual.save({ session });
+
+        // Si vino precio en el payload, sincronizamos InventarioFarmacia.precioVenta
+        if (typeof prod.precio === 'number') {
+          opsInventario.push({
+            updateMany: {
+              filter: { producto: productoActual._id },
+              update: { $set: { precioVenta: prod.precio } }
+            }
+          });
+        }
+      }
+
+      // Ejecutamos el bulkWrite si hay algo que actualizar en inventarios
+      if (opsInventario.length > 0) {
+        await InventarioFarmacia.bulkWrite(opsInventario, { session });
+      }
+    });
+
+    res.json({ mensaje: 'Productos actualizados correctamente' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ mensaje: 'Error actualizando productos' });
+    res.status(500).json({ mensaje: 'Error actualizando productos', detalle: error.message });
+  } finally {
+    session.endSession();
   }
 };
+
 
 // Validar que no existan lotes duplicados
 const validarLotesDuplicados = (lotes) => {
@@ -544,7 +574,7 @@ const validarProducto = (prod) => {
 
 
 exports.actualizarProducto = async (req, res) => {
-    /* Actualiza un producto */
+    
   try {
     const prod = req.body;
     const productoId = req.params.id;
@@ -585,6 +615,70 @@ exports.actualizarProducto = async (req, res) => {
     productoActual.lotes = prod.lotes;
 
     await productoActual.save();
+
+    res.json({ mensaje: "Producto actualizado correctamente", producto: productoActual });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: "Error al actualizar el producto", error });
+  }
+};
+
+exports.actualizarProducto = async (req, res) => {
+/* Actualiza un producto en Almacen y de ser el caso 
+actualiza el precio en todas las farmacias*/
+  try {
+    const prod = req.body;
+    const productoId = req.params.id;
+
+    const validacion = validarProducto(prod);
+    if (!validacion.valido) {
+      return res.status(400).json({ mensaje: validacion.mensaje });
+    }
+
+    const productoActual = await Producto.findById(productoId);
+    if (!productoActual) {
+      return res.status(404).json({ mensaje: "Producto no encontrado" });
+    }
+
+    // Guardamos el precio anterior para comparar
+    const precioAnterior = productoActual.precio;
+
+    // Actualización de campos
+    productoActual.nombre = prod.nombre;
+    if (typeof prod.precio === 'number') productoActual.precio = prod.precio;
+    if (typeof prod.costo === 'number') productoActual.costo = prod.costo;
+    if (typeof prod.iva !== 'undefined') productoActual.iva = prod.iva;
+    if (typeof prod.stockMinimo === 'number') productoActual.stockMinimo = prod.stockMinimo;
+    if (typeof prod.stockMaximo === 'number') productoActual.stockMaximo = prod.stockMaximo;
+    if (typeof prod.descuentoINAPAM !== 'undefined') productoActual.descuentoINAPAM = prod.descuentoINAPAM;
+
+    // Promos por día
+    productoActual.promoLunes = prod.promosPorDia?.promoLunes;
+    productoActual.promoMartes = prod.promosPorDia?.promoMartes;
+    productoActual.promoMiercoles = prod.promosPorDia?.promoMiercoles;
+    productoActual.promoJueves = prod.promosPorDia?.promoJueves;
+    productoActual.promoViernes = prod.promosPorDia?.promoViernes;
+    productoActual.promoSabado = prod.promosPorDia?.promoSabado;
+    productoActual.promoDomingo = prod.promosPorDia?.promoDomingo;
+
+    // Promos cantidad y temporada
+    productoActual.promoCantidadRequerida = prod.promoCantidadRequerida;
+    productoActual.inicioPromoCantidad = prod.inicioPromoCantidad;
+    productoActual.finPromoCantidad = prod.finPromoCantidad;
+    productoActual.promoDeTemporada = prod.promoDeTemporada;
+
+    // Lotes
+    productoActual.lotes = Array.isArray(prod.lotes) ? prod.lotes : [];
+
+    await productoActual.save();
+
+    // 🔹 Solo sincroniza InventarioFarmacia si el precio cambió y es numérico
+    if (typeof prod.precio === 'number' && !isNaN(prod.precio) && prod.precio !== precioAnterior) {
+      await InventarioFarmacia.updateMany(
+        { producto: productoId, precioVenta: { $ne: prod.precio } }, // evita escrituras innecesarias
+        { $set: { precioVenta: prod.precio } }
+      );
+    }
 
     res.json({ mensaje: "Producto actualizado correctamente", producto: productoActual });
   } catch (error) {

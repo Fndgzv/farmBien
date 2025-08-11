@@ -47,7 +47,7 @@ function construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, gene
     return filtros;
 }
 
-// Obtener inventario con filtros
+// Obtener inventario con filtros en farmacia
 exports.obtenerInventarioFarmacia = async (req, res) => {
     const { farmacia, nombre, codigoBarras, categoria, inapam, generico } = req.query;
 
@@ -72,7 +72,7 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
 };
 
 
-// Actualización masiva (existencia, stockMax y stockMin)
+// Actualización masiva en farmacia (existencia, stockMax y stockMin)
 exports.actualizarInventarioMasivo = async (req, res) => {
     const farmacia = req.params.farmaciaId;
     const cambios = req.body; // Array con { id, existencia, stockMax, stockMin }
@@ -115,7 +115,7 @@ exports.actualizarInventarioMasivo = async (req, res) => {
 
 
 
-// Actualización individual de un producto
+// Actualización individual de un producto en farmacia
 exports.actualizarInventarioIndividual = async (req, res) => {
     const { id } = req.params;
     const { existencia, stockMax, stockMin, precioVenta } = req.body;

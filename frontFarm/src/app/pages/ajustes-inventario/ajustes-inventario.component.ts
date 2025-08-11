@@ -201,7 +201,7 @@ export class AjustesInventarioComponent implements OnInit {
 
     this.grabarCambios();
 
-    Swal.fire({ icon: 'success', title: 'Cambios aplicados', text: 'Base de datos actualizada correctamente.' });
+    // Swal.fire({ icon: 'success', title: 'Cambios aplicados', text: 'Base de datos actualizada correctamente.' });
   }
 
   get promosPorDiaForm(): FormGroup {
@@ -312,35 +312,77 @@ export class AjustesInventarioComponent implements OnInit {
     });
   }
 
-
   grabarCambios() {
+  try {
     const productosModificados = this.productos.filter(p => p.seleccionado);
-    if (productosModificados.length === 0) {
-      Swal.fire({ icon: 'warning', title: 'Sin selección', text: 'No hay productos seleccionados para actualizar.' });
+
+    if (!productosModificados || productosModificados.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin selección',
+        text: 'No hay productos seleccionados para actualizar.'
+      });
       return;
     }
+
     Swal.fire({
       title: '¿Deseas guardar los cambios?',
-      text: `Se actualizarán ${productosModificados.length} productos.`,
-      icon: 'question', showCancelButton: true,
-      confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar'
+      html: `Se actualizarán <b>${productosModificados.length}</b> productos.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, guardar',
+      cancelButtonText: 'Cancelar',
+       heightAuto: false
     }).then(result => {
-      if (result.isConfirmed) {
-        this.productoService.actualizarProductos(productosModificados).subscribe({
-          next: () => {
-            Swal.fire({ icon: 'success', title: 'Actualización exitosa', text: 'Los productos fueron actualizados correctamente.' });
-            this.cargarProductos(false);
-            this.productos.forEach(p => p.seleccionado = false);
-            this.formularioMasivo.reset();
-          },
-          error: err => {
-            console.error('Error al actualizar productos:', err);
-            Swal.fire({ icon: 'error', title: 'Error', text: err?.error?.mensaje || 'Ocurrió un error inesperado.' });
-          }
-        });
-      }
+      if (!result.isConfirmed) return;
+
+      // ← opcional: forzar a que el popup quede arriba si tienes overlays personalizados
+      Swal.fire({
+        title: 'Guardando...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        heightAuto: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      // ⚠️ IMPORTANTE: el backend espera { productos: [...] }
+      this.productoService.actualizarProductos({ productos: productosModificados }).subscribe({
+        next: () => {
+          Swal.close(); // cierra el loading
+          Swal.fire({
+            icon: 'success',
+            title: 'Actualización exitosa',
+            text: 'Los productos fueron actualizados correctamente.'
+          });
+
+          // refrescamos sin limpiar filtros
+          this.cargarProductos(false);
+          // limpiamos selección y el form de masivos
+          this.productos.forEach(p => p.seleccionado = false);
+          this.formularioMasivo.reset();
+          // re-aplicar filtros por si el usuario tenía alguno
+          this.aplicarFiltros();
+        },
+        error: (err) => {
+          console.error('[grabarCambios] error HTTP:', err);
+          Swal.close();
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err?.error?.mensaje || 'Ocurrió un error inesperado al actualizar los productos.'
+          });
+        }
+      });
+    });
+  } catch (e) {
+    console.error('[grabarCambios] excepción:', e);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Hubo un problema al preparar la actualización.'
     });
   }
+}
 
   ordenar(columna: keyof Producto) {
     if (this.columnaOrden === columna) {
