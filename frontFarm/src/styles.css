@@ -365,8 +365,8 @@ button {
 
 @media print {
   @page {
-    margin: 0;
-    size: 276pt auto;
+    /* margin-left: 3pt; */
+    size: 290pt auto;
   }
 
   html,
@@ -389,13 +389,13 @@ button {
   }
 
   .ticket-impresion {
-    width: 259pt !important;
-    /* 276pt - (2 * 8.5pt) */
-    margin-left: 8.5pt !important;
-    margin-right: 8.5pt !important;
+    width: 290pt !important;
+    /* margin-left: 1pt !important; */
+    /* margin-right: 5pt !important; */
+    margin: 0vmin !important;
     padding: 0 !important;
-    box-sizing: border-box !important;
-    font-size: 12px !important;
+    /* box-sizing: border-box !important; */
+    /* font-size: 12px !important; */
     line-height: 1.4 !important;
     position: absolute !important;
     left: 0 !important;
@@ -411,7 +411,7 @@ button {
 
 .productos th,
 .productos td {
-  font-size: 14px;
+  /* font-size: 14px; */
   padding: 2px;
   word-wrap: break-word;
 }
@@ -421,8 +421,9 @@ button {
   text-align: right;
 }
 
-.productos-header-lineBottom {
+.lineBottom {
   border-bottom: 1px solid black;
 }
+
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }

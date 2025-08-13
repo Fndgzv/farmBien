@@ -192,11 +192,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (this.carrito.length > 0) {
       this.pausarVenta();
     }
-    if (this.ventasPausadas.length > 0) {
-      this.ventaService.setVentasPausadas(this.ventasPausadas);
-    } else {
-      this.ventaService.limpiarVentasPausadas();
-    }
   }
 
   // Permite disparar "Imprimir" con Enter cuando el modal está abierto y el total está cubierto
@@ -256,6 +251,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
             this.ventaForm.controls['cliente'].setValue(cliente._id);
             this.cliente = cliente._id;
             this.montoMonederoCliente = cliente.totalMonedero;
+            this.focusBarcode();
           } else {
             this.mostrarModalCrearCliente();
           }
@@ -266,7 +262,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
         }
       });
     }
-    this.focusBarcode();
   }
 
   mostrarModalCrearCliente() {
@@ -284,6 +279,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.abrirFormularioNuevoCliente();
       } else {
         this.limpiarCliente();
+        this.focusBarcode();
       }
     });
   }
@@ -310,6 +306,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.registrarNuevoCliente(result.value);
       } else if (result.dismiss === Swal.DismissReason.cancel) {
         this.limpiarCliente();
+        this.focusBarcode();
       }
     });
   }
@@ -446,8 +443,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   pausarVenta() {
     this.ventasPausadas.push({
+      // opcional pero recomendado: un id para la pausada
+      _uid: 'p' + Date.now() + Math.random().toString(36).slice(2, 8),
       cliente: this.ventaForm.value.cliente,
       productos: [...this.carrito],
+      clienteId: this.cliente || null,
       telefonoCliente: this.telefonoCliente || null,
       nombreCliente: this.nombreCliente || null,
       montoMonederoCliente: this.montoMonederoCliente || null,
@@ -455,8 +455,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
       totalArticulos: this.totalArticulos,
       totalDescuento: this.totalDescuento,
       totalAlmonedero: this.totalAlmonedero,
+      aplicaInapam: this.aplicaInapam,
       captionButtomReanudar: this.captionButtomReanudar
     });
+    this.ventaService.setVentasPausadas(this.ventasPausadas);
+
     this.carrito = [];
     this.total = 0;
     this.totalArticulos = 0;
@@ -465,6 +468,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.telefonoCliente = '';
     this.nombreCliente = '';
     this.montoMonederoCliente = 0;
+    this.aplicaInapam = false;
+    this.cliente = '';
     this.captionButtomReanudar = '';
     this.focusBarcode();
   }
@@ -477,12 +482,15 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.telefonoCliente = venta.telefonoCliente;
     this.nombreCliente = venta.nombreCliente;
     this.montoMonederoCliente = venta.montoMonederoCliente;
+    this.cliente = venta.clienteId;
     this.total = venta.total;
     this.totalArticulos = venta.totalArticulos;
     this.totalDescuento = venta.totalDescuento;
     this.totalAlmonedero = venta.totalAlmonedero;
+    this.aplicaInapam = venta.aplicaInapam;
     this.captionButtomReanudar = venta.captionButtomReanudar;
     this.ventasPausadas.splice(index, 1);
+    this.ventaService.setVentasPausadas(this.ventasPausadas);
     this.focusBarcode(0);
   }
 
@@ -613,14 +621,14 @@ export class VentasComponent implements OnInit, AfterViewInit {
         confirmButtonText: 'Sí cumple',
         cancelButtonText: 'No cumple',
         focusCancel: true,
-        didOpen: (popup) => {
-          popup.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              Swal.getCancelButton()?.click(); // 👈 fuerza “No cumple”
-            }
-          });
-        }
+        /*         didOpen: (popup) => {
+                  popup.addEventListener('keydown', (e: KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      //Swal.getCancelButton()?.click(); // 👈 fuerza “No cumple”
+                    }
+                  });
+                } */
       });
       this.aplicaInapam = result.isConfirmed;
     }
@@ -894,14 +902,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   calculaCambio() {
 
-    console.log('Estoy calculando cambio, total a pagar:', this.total);
-    console.log('efectivo recibido:', this.efectivoRecibido);
-    console.log('pago en efectivo:', this.pagoEfectivo);
-    console.log('pago en tarjeta:', this.pagoTarjeta1);
-    console.log('monto en tarjeta:', this.montoTarjeta);
-    console.log('pago en transferencia:', this.pagoTransferencia1);
-    console.log('monto en transferencia:', this.montoTransferencia);
-
     if (this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1 >= this.total) {
       this.efectivoRecibido = 0;
       this.cambio = 0;
@@ -1128,6 +1128,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       totalRen: p.precioFinal * p.cantidad,
       precioOriginal: p.precioOriginal,
       iva: p.iva,
+      /* monederoCliente: p.alMonedero * p.cantidad, */
       tipoDescuento: p.tipoDescuento,
       descuento: (p.descuentoUnitario ?? 0) * p.cantidad
     }));
@@ -1140,16 +1141,18 @@ export class VentasComponent implements OnInit, AfterViewInit {
       efectivo: this.total - this.pagoTarjeta1 - this.pagoTransferencia1 - this.pagoVale1,
       tarjeta: this.montoTarjeta,
       transferencia: this.montoTransferencia,
-      importeVale: this.montoVale,
-      farmacia: this.farmaciaId
+      importeVale: this.pagoVale1,
+      farmacia: this.farmaciaId,
+      totaMonederoCliente: this.totalAlmonedero
     };
 
     this.ventasService.crearVenta(venta).subscribe({
       next: () => {
-        // Limpio estado y cierro modal ANTES de mostrar el toast
         this.folioVentaGenerado = null;
         this.limpiarVenta();
         this.mostrarModalPago = false;
+
+        this.ventaService.setVentasPausadas(this.ventasPausadas);
 
         Swal.fire({
           icon: 'success',
@@ -1160,7 +1163,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
           allowOutsideClick: false,
           allowEscapeKey: false,
           didClose: () => {
-            // cuando desaparece el Swal, regreso el foco al lector
             this.focusBarcode(50);
           }
         });
@@ -1172,7 +1174,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
         if (!esErrorDeVale) {
           this.mostrarModalPago = false;
           this.limpiarVenta();
-          // En error también conviene devolver el foco
           setTimeout(() => this.focusBarcode(50), 0);
         }
       }
@@ -1189,6 +1190,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   cerrarModalConsultaPrecio() {
     this.mostrarModalConsultaPrecio = false;
+    this.focusBarcode(50);
   }
 
   consultarPrecio() {

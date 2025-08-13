@@ -119,7 +119,7 @@ export class AjustesInventarioComponent implements OnInit {
     if (campo === 'descuentoINAPAM') this.filtros[campo] = null;
     if (campo === 'generico') this.filtros[campo] = null;
     if (campo === 'nombre' || campo === 'categoria' || campo === 'codigoBarras') this.filtros[campo] = '';
-    
+
     this.aplicarFiltros();
   }
 
@@ -301,9 +301,17 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   guardarProductoEditado(productoActualizado: Producto) {
-      this.productoService.actualizarProductoIndividual(productoActualizado).subscribe({
+    this.productoService.actualizarProductoIndividual(productoActualizado).subscribe({
       next: () => {
-        Swal.fire('Éxito', 'Producto actualizado correctamente', 'success');
+        Swal.fire({
+          icon: 'success',
+          title: 'Éxito',
+          text: 'Producto actualizado correctamente',
+          timer: 1600,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        });
         this.cargarProductos(false); // recarga sin borrar filtros
       },
       error: () => {
@@ -313,76 +321,80 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   grabarCambios() {
-  try {
-    const productosModificados = this.productos.filter(p => p.seleccionado);
+    try {
+      const productosModificados = this.productos.filter(p => p.seleccionado);
 
-    if (!productosModificados || productosModificados.length === 0) {
+      if (!productosModificados || productosModificados.length === 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Sin selección',
+          text: 'No hay productos seleccionados para actualizar.'
+        });
+        return;
+      }
+
       Swal.fire({
-        icon: 'warning',
-        title: 'Sin selección',
-        text: 'No hay productos seleccionados para actualizar.'
+        title: '¿Deseas guardar los cambios?',
+        html: `Se actualizarán <b>${productosModificados.length}</b> productos.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar',
+        heightAuto: false
+      }).then(result => {
+        if (!result.isConfirmed) return;
+
+        // ← opcional: forzar a que el popup quede arriba si tienes overlays personalizados
+        Swal.fire({
+          title: 'Guardando...',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          heightAuto: false,
+          didOpen: () => Swal.showLoading()
+        });
+
+        // ⚠️ IMPORTANTE: el backend espera { productos: [...] }
+        this.productoService.actualizarProductos({ productos: productosModificados }).subscribe({
+          next: () => {
+            Swal.close(); // cierra el loading
+            Swal.fire({
+              icon: 'success',
+              title: 'Actualización exitosa',
+              text: 'Los productos fueron actualizados correctamente.',
+              timer: 1600,
+              timerProgressBar: true,
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+            });
+
+            // refrescamos sin limpiar filtros
+            this.cargarProductos(false);
+            // limpiamos selección y el form de masivos
+            this.productos.forEach(p => p.seleccionado = false);
+            this.formularioMasivo.reset();
+            // re-aplicar filtros por si el usuario tenía alguno
+            this.aplicarFiltros();
+          },
+          error: (err) => {
+            console.error('[grabarCambios] error HTTP:', err);
+            Swal.close();
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: err?.error?.mensaje || 'Ocurrió un error inesperado al actualizar los productos.'
+            });
+          }
+        });
       });
-      return;
+    } catch (e) {
+      console.error('[grabarCambios] excepción:', e);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Hubo un problema al preparar la actualización.'
+      });
     }
-
-    Swal.fire({
-      title: '¿Deseas guardar los cambios?',
-      html: `Se actualizarán <b>${productosModificados.length}</b> productos.`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, guardar',
-      cancelButtonText: 'Cancelar',
-       heightAuto: false
-    }).then(result => {
-      if (!result.isConfirmed) return;
-
-      // ← opcional: forzar a que el popup quede arriba si tienes overlays personalizados
-      Swal.fire({
-        title: 'Guardando...',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        heightAuto: false,
-        didOpen: () => Swal.showLoading()
-      });
-
-      // ⚠️ IMPORTANTE: el backend espera { productos: [...] }
-      this.productoService.actualizarProductos({ productos: productosModificados }).subscribe({
-        next: () => {
-          Swal.close(); // cierra el loading
-          Swal.fire({
-            icon: 'success',
-            title: 'Actualización exitosa',
-            text: 'Los productos fueron actualizados correctamente.'
-          });
-
-          // refrescamos sin limpiar filtros
-          this.cargarProductos(false);
-          // limpiamos selección y el form de masivos
-          this.productos.forEach(p => p.seleccionado = false);
-          this.formularioMasivo.reset();
-          // re-aplicar filtros por si el usuario tenía alguno
-          this.aplicarFiltros();
-        },
-        error: (err) => {
-          console.error('[grabarCambios] error HTTP:', err);
-          Swal.close();
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: err?.error?.mensaje || 'Ocurrió un error inesperado al actualizar los productos.'
-          });
-        }
-      });
-    });
-  } catch (e) {
-    console.error('[grabarCambios] excepción:', e);
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: 'Hubo un problema al preparar la actualización.'
-    });
   }
-}
 
   ordenar(columna: keyof Producto) {
     if (this.columnaOrden === columna) {
@@ -399,18 +411,6 @@ export class AjustesInventarioComponent implements OnInit {
       return 0;
     });
     this.paginaActual = 1;
-  }
-
-  actualizarProducto(producto: Producto) {
-    this.productoService.actualizarProductoIndividual(producto).subscribe({
-      next: () => {
-        Swal.fire('Éxito', 'Producto actualizado correctamente', 'success');
-        this.cargarProductos(false); // o recarga la lista
-      },
-      error: () => {
-        Swal.fire('Error', 'No se pudo actualizar el producto', 'error');
-      }
-    });
   }
 
 }

@@ -35,6 +35,7 @@ const crearVenta = async (req, res) => {
 
         // comprobar que el importeVale pueda pagarse con el monedero del cliente
         const cliente = clienteId ? await Cliente.findById(clienteId) : null;
+        
         if (cliente && importeVale > cliente.totalMonedero) {
             return res.status(405).json({ mensaje: `** Fondos insuficientes en el monedero, solo cuentas con: ${cliente.totalMonedero} **` });
         }
@@ -56,7 +57,7 @@ const crearVenta = async (req, res) => {
         let i = 0;
 
         const ahora = soloFecha(new Date());  // fecha de hoy
-        const diaSemana = ahora.getDay(); // Número del día de la semana
+        const diaSemana = ahora.getDay(); // Número del día de la semana      
 
         for (const item of productos) {
 
@@ -179,7 +180,7 @@ const crearVenta = async (req, res) => {
                     if (esCliente && aplica2xCiento &&
                         !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
                     ) {
-                        palmonedero = precioBase * 0.02;
+                        palmonedero = precioFinal * 0.02;
                     }
                 }
 
@@ -196,7 +197,7 @@ const crearVenta = async (req, res) => {
                             if (esCliente && productoDB.promoDeTemporada.monedero === true &&
                                 !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
                             ) {
-                                palmonedero = precioBase * 0.02;
+                                palmonedero = precioFinal * 0.02;
                             }
                         }
                     }
@@ -219,12 +220,18 @@ const crearVenta = async (req, res) => {
                 }
             }
 
-            promoAplicada = limpiarPromocion(promoAplicada); // quitar guión inicial si existe.
+            promoAplicada = limpiarPromocion(promoAplicada); // quitar guión inicial si existe.         
 
             if (promoAplicada === '' && esCliente &&
                 !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')) {
                 promoAplicada = 'Cliente';
-                palmonedero = precioBase * 0.02;
+                palmonedero = precioFinal * 0.02;
+            }
+
+            if (promoAplicada === 'INAPAM' && esCliente &&
+                !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')) {
+                promoAplicada = 'INAPAM-Cliente';
+                palmonedero = precioFinal * 0.02;
             }
 
             if (promoAplicada === '') promoAplicada = 'Ninguno';
@@ -254,8 +261,10 @@ const crearVenta = async (req, res) => {
                 cadenaDescuento: cadDesc,
                 lotes: []
             });
-            i++;
+            
+            i++;   
         }  /* fin ciclo de recorrido producto por producto */
+
 
         const sumaPagos = parseFloat(efectivo) + parseFloat(tarjeta) + parseFloat(transferencia) + parseFloat(importeVale);
 

@@ -5,19 +5,17 @@
     [telefono]="venta.farmacia.telefono">
   </app-ticket-header>
 
-  <hr />
-
   <!-- Tabla de productos -->
-  <table class="productos">
+  <table class="productos lineBottom">
     <thead>
       <tr>
         <th colspan="4">PRODUCTO</th>
       </tr>
-      <tr class="productos-header-lineBottom">
-        <th style="width: 25%;">P.UNIT</th>
-        <th style="width: 15%;">CANT</th>
-        <th style="width: 20%;">Promo</th>
-        <th style="width: 40%;">IMPORTE</th>
+      <tr class="lineBottom">
+        <th style="width: 20%;">P.UNIT</th>
+        <th style="width: 10%;">CANT</th>
+        <th style="width: 50%;">Promo</th>
+        <th style="width: 20%;">IMPORTE</th>
       </tr>
     </thead>
     <tbody>
@@ -30,7 +28,7 @@
             </span>
           </td>
         </tr>
-        <tr>
+        <tr class="precioYpromo">
           <td>${{ p.precioOriginal | number:'1.2-2' }}</td>
           <td>{{ p.cantidad }}</td>
           <td>{{ p.descuento > 0 ? p.tipoDescuento : '' }}</td>
@@ -43,7 +41,7 @@
             </ng-template>
           </td>
         </tr>
-        <tr *ngIf="p.descuento > 0">
+        <tr *ngIf="p.descuento > 0" class="precioYpromo">
           <td colspan="2">Desc. {{ p.cadenaDescuento }}</td>
           <td colspan="2" class="text-right">
             <strong>${{ (p.precio * p.cantidad) | number:'1.2-2' }}</strong>
@@ -53,15 +51,13 @@
     </tbody>
   </table>
 
-  <hr />
-
   <!-- Totales -->
   <div class="totales">
-    <div class="text-right">Total: 
+    <div class="text-right">Total:
       <strong>${{ venta.total | number:'1.2-2' }}</strong>
     </div>
     <!-- <div class="text-right" style="font-style: italic;"><strong>Forma de pago:</strong></div> -->
-<!--     <div *ngIf="venta.formaPago.efectivo" class="text-right">Efectivo: 
+    <!--     <div *ngIf="venta.formaPago.efectivo" class="text-right">Efectivo: 
       <strong>${{ venta.formaPago.efectivo | number:'1.2-2' }}</strong>
     </div>
     <div *ngIf="venta.formaPago.tarjeta" class="text-right">Tarjeta: 
@@ -71,39 +67,31 @@
       <strong>${{ venta.formaPago.transferencia | number:'1.2-2'  }}</strong>
     </div> -->
 
-    <div *ngIf="venta.formaPago.vale" class="text-right">Felicidades!!! usted usó su monedero: 
-      <strong>${{ venta.formaPago.vale | number:'1.2-2' }}</strong>
-    </div>
-    
     <div>Cambio: <strong>${{ venta.elcambio | number:'1.2-2' }}</strong></div>
 
     <div>Cantidad de productos: <strong>{{ venta.cantidadProductos }}</strong></div>
-  </div>
 
-  <hr />
-  <!-- Beneficios cliente -->
-  <div class="totales">
-    <div *ngIf="venta.totalDescuento > 0">Usted ahorró: 
+    <div *ngIf="venta.formaPago.vale" class="text-right">Felicidades!!! usted usó su monedero:
+      <strong>${{ venta.formaPago.vale | number:'1.2-2' }}</strong>
+    </div>
+    <div *ngIf="venta.totalDescuento > 0">Usted ahorró:
       <strong>${{ venta.totalDescuento | number:'1.2-2' }}</strong>
     </div>
-    <div *ngIf="venta.totalMonederoCliente > 0">Abonó a su monedero: 
+    <div *ngIf="venta.totalMonederoCliente > 0">Abonó a su monedero:
       <strong>${{ venta.totalMonederoCliente | number:'1.2-2' }}</strong>
     </div>
-    <div *ngIf="venta.AsiQuedaMonedero > 0">Su monedero ahora cuenta con:  
+    <div *ngIf="venta.AsiQuedaMonedero > 0">Su monedero ahora cuenta con:
       <strong>${{ venta.AsiQuedaMonedero | number:'1.2-2' }}</strong>
     </div>
   </div>
 
-    <hr />
 
   <!-- Info general -->
-  <div class="info-general">
-    <div style="font-size: 15px;">Folio: {{ venta.folio }}</div>
+  <div class="info-general lineBottom">
+    <div style="font-size: 18px;">Folio: {{ venta.folio }}</div>
     Fecha: {{ venta.fecha | date:'dd/MM/yyyy HH:mm' }} hrs.<br />
     Atendió: {{ venta.usuario }}<br />
     Cliente: {{ venta.cliente || 'Público general' }}
   </div>
-
-  <hr />
 
   <app-ticket-footer></app-ticket-footer>

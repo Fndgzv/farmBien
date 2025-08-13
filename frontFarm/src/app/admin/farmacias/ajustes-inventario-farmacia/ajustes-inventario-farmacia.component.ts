@@ -283,9 +283,13 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           this.estadoGuardado[id] = 'idle';
         }, 1500);
         Swal.fire({
-          icon: 'info',
+          icon: 'success',
           title: 'Éxito',
-          text: 'El producto fue actualizado correctamente.'
+          text: 'El producto fue actualizado correctamente.',
+          timer: 1600,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false
         });
         this.buscar();
         this.estadoEdicion[i._id] = false;

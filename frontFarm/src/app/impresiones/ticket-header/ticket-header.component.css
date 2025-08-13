@@ -1,7 +1,3 @@
-.ticket-header {
-  margin-bottom: 10px;
-}
-
 .encabezado-flex {
   display: flex;
   align-items: center; /* centra verticalmente */
@@ -15,7 +11,7 @@
 }
 
 .datos-farmacia {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.3;
   margin-top: 4px;
   text-align: center;

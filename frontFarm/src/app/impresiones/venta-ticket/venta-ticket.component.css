@@ -1,6 +1,6 @@
 .info-general,
 .totales {
-  font-size: 14px !important;
+  font-size: 16px !important;
   line-height: 1.5;
 }
 
@@ -8,11 +8,6 @@
   text-align: end;
 }
 
-hr {
-  border: none;
-  border-top: 1px dashed #000;
-  margin: 8px 0;
-}
 
 .producto-nombre {
   font-weight: bold;
@@ -28,4 +23,8 @@ hr {
 
 .text-right {
   text-align: end;
+}
+
+.precioYpromo {
+  font-size: 16px !important;
 }
