@@ -1,9 +1,24 @@
+// corteController.js
+
 const CorteCaja = require('../models/CorteCaja');
 const Venta = require('../models/Venta');
 const Pedido = require('../models/Pedido');
 const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
 const Usuario = require('../models/Usuario');
+const mongoose = require('mongoose');
+
+
+const TZ = 'America/Mexico_City';
+function esHoy(fecha) {
+  if (!fecha) return false;              // null/undefined => no es hoy
+  const hoyMX = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
+  const fechaMX = new Date(new Date(fecha).toLocaleString('en-US', { timeZone: TZ }));
+  return fechaMX.getFullYear() === hoyMX.getFullYear() &&
+    fechaMX.getMonth() === hoyMX.getMonth() &&
+    fechaMX.getDate() === hoyMX.getDate();
+}
+
 
 const crearCorte = async (req, res) => {
   const usuario = req.usuario;
@@ -52,7 +67,6 @@ const crearCorte = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al iniciar corte' });
   }
 };
-
 
 const finalizarCorte = async (req, res) => {
   const corteId = req.params.corteId;
@@ -179,7 +193,6 @@ const finalizarCorte = async (req, res) => {
   }
 };
 
-
 const obtenerCorteActivo = async (req, res) => {
   const { usuarioId, farmaciaId } = req.params;
 
@@ -206,22 +219,34 @@ const obtenerCorteActivo = async (req, res) => {
 };
 
 const autorizarTurnoExtra = async (req, res) => {
-  const { id } = req.params;
-
+  const { corteId, usuarioId } = req.params;
   try {
-    const corte = await CorteCaja.findById(id);
+    if (!mongoose.Types.ObjectId.isValid(corteId)) {
+      return res.status(400).json({ mensaje: 'corteId inválido' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(usuarioId)) {
+      return res.status(400).json({ mensaje: 'usuarioId inválido' });
+    }
 
+    const corte = await CorteCaja.findById(corteId);
     if (!corte) {
       return res.status(404).json({ mensaje: 'Corte de caja no encontrado' });
     }
 
+    if (!corte.fechaFin || !esHoy(corte.fechaFin)) {
+      return res.status(409).json({ mensaje: 'Solo se autoriza el día de cierre' });
+    }
     corte.turnoExtraAutorizado = true;
     await corte.save();
 
-    res.json({ mensaje: 'Turno extra autorizado correctamente', corte });
+    return res.json({ mensaje: 'Turno extra autorizado correctamente', corte });
   } catch (error) {
     console.error('Error al autorizar turno extra:', error);
-    res.status(500).json({ mensaje: 'Error al autorizar turno extra' });
+    // Manejo explícito de CastError por si algo se cuela
+    if (error.name === 'CastError') {
+      return res.status(400).json({ mensaje: 'ID inválido' });
+    }
+    return res.status(500).json({ mensaje: 'Error al autorizar turno extra' });
   }
 };
 
@@ -295,6 +320,35 @@ const obtenerCortesFiltrados = async (req, res) => {
   }
 };
 
+const eliminarCorte = async (req, res) => {
+  const { corteId } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(corteId)) {
+      return res.status(400).json({ mensaje: 'corteId inválido' });
+    }
+
+    const corte = await CorteCaja.findById(corteId);
+    if (!corte) {
+      return res.status(404).json({ mensaje: 'Corte de caja no encontrado' });
+    }
+
+    // (Opcional) Evitar borrar cortes activos (sin fechaFin):
+    // if (!corte.fechaFin) {
+    //   return res.status(409).json({ mensaje: 'No se puede eliminar un corte activo' });
+    // }
+
+    await corte.deleteOne(); // o: await CorteCaja.findByIdAndDelete(corteId);
+
+    return res.json({
+      mensaje: 'Corte de caja eliminado correctamente',
+      corteEliminadoId: corteId
+    });
+  } catch (error) {
+    console.error('Error al eliminar corte:', error);
+    return res.status(500).json({ mensaje: 'Error al eliminar corte' });
+  }
+};
 
 module.exports = {
   crearCorte,
@@ -302,5 +356,7 @@ module.exports = {
   obtenerCorteActivo,
   autorizarTurnoExtra,
   verificarSiPuedeAbrirTurno,
-  obtenerCortesFiltrados
+  obtenerCortesFiltrados,
+  eliminarCorte,
+  autorizarTurnoExtra
 };

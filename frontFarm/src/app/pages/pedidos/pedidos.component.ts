@@ -10,14 +10,12 @@ import { ClienteService } from '../../services/cliente.service';
 import { PedidoTicketComponent } from '../../impresiones/pedido-ticket/pedido-ticket.component';
 
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
-import { faMinus, faPlus, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { faMinus, faPlus, faEyeSlash, faTimes } from '@fortawesome/free-solid-svg-icons';
 
 import Swal from 'sweetalert2';
 import { firstValueFrom } from 'rxjs';
 
 import { trigger, state, style, transition, animate } from '@angular/animations';
-
-
 @Component({
   selector: 'app-pedidos',
   standalone: true,
@@ -75,7 +73,7 @@ export class PedidosComponent implements OnInit {
     private ngZone: NgZone) {
     // Registra íconos
     this.library.addIcons(
-      faPlus, faMinus, faEyeSlash
+      faPlus, faMinus, faEyeSlash, faTimes
     );
   }
 
@@ -190,7 +188,7 @@ export class PedidosComponent implements OnInit {
 
   limpiarFiltro() {
     this.filtroFolio = '';
-    this.buscarSinFolio();
+    //this.buscarSinFolio();
   }
 
   async limpiarFiltroCompleto() {
@@ -209,6 +207,8 @@ export class PedidosComponent implements OnInit {
         html: `Fecha: ${this.formatearFecha(pedido.fechaEntrega)}<br><br>` +
           `Entregado por: ${pedido.usuarioSurtio.nombre}`,
         confirmButtonText: 'Aceptar',
+        timer: 1600,
+        timerProgressBar: true,
         allowOutsideClick: false,
         allowEscapeKey: false,
       });
@@ -221,6 +221,8 @@ export class PedidosComponent implements OnInit {
         html: `Fecha: ${this.formatearFecha(pedido.fechaCancelacion)}<br><br>` +
           `Cancelado por: ${pedido.usuarioCancelo.nombre}`,
         confirmButtonText: 'Aceptar',
+        timer: 1600,
+        timerProgressBar: true,
         allowOutsideClick: false,
         allowEscapeKey: false,
       });
@@ -313,6 +315,8 @@ export class PedidosComponent implements OnInit {
               icon: 'success',
               title: 'Pedido cancelado correctamente',
               confirmButtonText: 'Aceptar',
+              timer: 1600,
+              timerProgressBar: true,
               allowOutsideClick: false,
               allowEscapeKey: false,
             });
@@ -342,6 +346,8 @@ export class PedidosComponent implements OnInit {
         html: `Fecha: ${this.formatearFecha(pedido.fechaEntrega)}<br><br>` +
           `Entregado por: ${pedido.usuarioSurtio.nombre}`,
         confirmButtonText: 'Aceptar',
+        timer: 1600,
+        timerProgressBar: true,
         allowOutsideClick: false,
         allowEscapeKey: false,
       });
@@ -378,10 +384,12 @@ export class PedidosComponent implements OnInit {
           title: 'Éxito',
           html: `<h3>Pedido surtido y registrado correctamente</h3>`,
           confirmButtonText: 'Continuar',
+          timer: 1600,
+          timerProgressBar: true,
           allowOutsideClick: false,
           allowEscapeKey: false,
         });
-        this.limpiarFiltro();
+        this.limpiarFiltroCompleto();
 
       },
       error: (err) => {
@@ -475,7 +483,15 @@ export class PedidosComponent implements OnInit {
       if (result.isConfirmed) {
         this.guardarPedido();
       } else {
-        Swal.fire('Atención', 'El pedido no fue registrado, tendrá que volver a capturarlo.', 'info');
+        Swal.fire({
+          icon: 'info',
+          title: 'Atención',
+          text: 'El pedido no fue registrado, tendrá que volver a capturarlo.',
+          timer: 1600,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        });
       }
     });
   }
@@ -489,6 +505,8 @@ export class PedidosComponent implements OnInit {
           title: 'Éxito',
           html: `<h3><strong>Pedido agregado correctamente</strong></h3>`,
           confirmButtonText: 'Aceptar',
+          timer: 1600,
+          timerProgressBar: true,
           allowOutsideClick: false,
           allowEscapeKey: false,
         });

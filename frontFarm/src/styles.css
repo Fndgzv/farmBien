@@ -124,21 +124,21 @@ button {
 }
 
 /* 📌 Botón Amarillo (Advertencias, Pausar) */
-.btn-amarillo 
+.btn-amarillo,
 .btn-amarillo-chico {
   background: linear-gradient(45deg, #fcd25f, #f6a80c);
   color: black;
 }
 
-.btn-amarillo:hover 
+.btn-amarillo:hover, 
 .btn-amarillo-chico:hover {
   background: linear-gradient(45deg, #f6a80c, #fcd25f);
   box-shadow: 0 4px 8px rgba(255, 204, 0, 0.5);
-  color: whitesmoke;
+  color: blue;
 }
 
 .btn-amarillo:disabled,
-.btn-amarillo[disabled] 
+.btn-amarillo[disabled], 
 .btn-amarillo-chico:disabled,
 .btn-amarillo-chico[disabled] {
   cursor: not-allowed;
@@ -146,7 +146,7 @@ button {
 }
 
 .btn-amarillo:disabled:hover,
-.btn-amarillo[disabled]:hover
+.btn-amarillo[disabled]:hover,
 .btn-amarillo-chico:disabled:hover,
 .btn-amarillo-chico[disabled]:hover {
   background: linear-gradient(45deg, #fcd25f, #f6a80c);

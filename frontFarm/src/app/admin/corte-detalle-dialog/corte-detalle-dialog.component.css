@@ -1,0 +1,56 @@
+.kv-grid {
+  display: grid;
+  grid-template-columns: 130px 1fr 130px 1fr;
+  column-gap: 40px;
+  align-items: baseline;
+  margin-bottom: 1rem;
+}
+.kv-label { font-weight: 500; }
+.kv-value { text-align: right; }
+
+.primer-grid {
+  display: grid;
+  grid-template-columns: 1fr max-content; /* label crece, valor mide su contenido */
+  column-gap: 16px;
+  align-items: baseline;
+}
+.primer-label {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.primer-value {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Contenedor: 1 par por renglón */
+.general-list {
+  display: grid;
+  grid-template-columns: 1fr;  /* una columna: cada fila es un par */
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #0453b3;
+}
+
+/* Cada renglón: [label | value] */
+.general-line {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr); /* ajusta 170px al ancho del label */
+  column-gap: 16px;
+  align-items: baseline;
+}
+
+.general-label {
+  font-weight: 500;
+  white-space: nowrap;       /* no se parte */
+  overflow: hidden;
+  text-overflow: ellipsis;   /* "..." si no cabe */
+}
+
+.general-value {
+  text-align: left;          /* queda cerca del label */
+  /* opcional para números más parejos:
+  font-variant-numeric: tabular-nums;
+  */
+}

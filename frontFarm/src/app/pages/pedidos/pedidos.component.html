@@ -4,11 +4,11 @@
     </div>
     <div class="row align-items-center mb-2">
         <div class="col-md-1 text-end">
-            <label class="lbl-folio-pedido" for="filtroFolio">Folio:</label>
+            <label class="lbl-folio-pedido" style="white-space: nowrap;" for="filtroFolio">Folio:</label>
         </div>
         <div class="col-md-2 position-relative">
             <input type="text" id="filtroFolio" [(ngModel)]="filtroFolio" (ngModelChange)="obtenerPedido($event)"
-                class="form-control pe-5" placeholder="Últimos 6 caracteres" maxlength="6"
+                class="form-control pe-4 flex-grow-1" placeholder="Últimos 6 caracteres" maxlength="6"
                 pattern="[A-Za-z0-9]{6}" />
             <button *ngIf="filtroFolio" (click)="limpiarFiltroCompleto()"
                 class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">

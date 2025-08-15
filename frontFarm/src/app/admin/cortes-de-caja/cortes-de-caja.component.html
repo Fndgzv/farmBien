@@ -62,30 +62,30 @@
                     <th>Transferencia</th>
                     <th>Monedero</th>
                     <th>Abonos Monedero</th>
+                    <th>Fecha Inicio</th>
                     <th>Fecha Fin</th>
-                    <th>Acciones</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
                 <tr *ngFor="let corte of cortes">
-                    <td>{{ corte.usuario?.nombre || 'N/A' }}</td>
+                    <td>{{ ($any(corte.usuario)?.nombre) || 'N/A' }}</td>
                     <td>{{ corte.efectivoInicial | currency }}</td>
                     <td>{{ corte.totalEfectivoEnCaja | currency }}</td>
                     <td>{{ corte.totalTarjeta | currency }}</td>
                     <td>{{ corte.totalTransferencia | currency }}</td>
                     <td>{{ corte.totalVale | currency }}</td>
                     <td>{{ corte.abonosMonederos | currency }}</td>
+                    <td>{{ corte.fechaInicio | date:'dd/MM/yyyy HH:mm' }}</td>
                     <td>{{ corte.fechaFin ? (corte.fechaFin | date:'dd/MM/yyyy HH:mm') : 'abierto' }}</td>
                     <td>
-                        <button class="btn-icon-chico btn-gris-chico" (click)="autorizarTurnoExtra(corte)" [disabled]="corte.turnoExtraAutorizado"
-                            matTooltip="Autorizar turno extra">
-                            <fa-icon [icon]="'user-check'"></fa-icon>
-                        </button>
-                        <button class="btn-icon-chico btn-verde-chico" (click)="mostrarDetalle(corte)" matTooltip="Ver detalle">
+                        <button class="btn-icon-chico btn-verde-chico" (click)="mostrarDetalle(corte)"
+                            matTooltip="Vista del corte">
                             <fa-icon [icon]="'eye'"></fa-icon>
                         </button>
-                        <button class="btn-icon-chico btn-amarillo-chico" (click)="vistaPreviaFinalizar(corte)" matTooltip="Vista previa corte">
-                            <fa-icon [icon]="'file-invoice'"></fa-icon>
+                        <button class="btn-icon-chico btn-rojo-chico"
+                            (click)="eliminarCorte(corte)" [disabled]="cargando" matTooltip="Eliminar corte">
+                            <fa-icon [icon]="'trash'"></fa-icon>
                         </button>
                     </td>
                 </tr>

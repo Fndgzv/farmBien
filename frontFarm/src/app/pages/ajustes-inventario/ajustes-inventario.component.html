@@ -6,11 +6,11 @@
     <!-- Filtros -->
     <div class="row mb-2 filtros-container">
         <div class="col-md-3">
-            <label>Nombre</label>
+            <label class="me-2 mb-0" style="white-space: nowrap;">Nombre</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.nombre" name="nombre" class="form-control pr-4">
+                <input type="text" [(ngModel)]="filtros.nombre" name="nombre" class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.nombre" type="button"
-                    class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('nombre')">
                     <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
@@ -18,11 +18,11 @@
         </div>
 
         <div class="col-md-2">
-            <label>Código de barras</label>
+            <label class="me-2 mb-0" style="white-space: nowrap;">Código de barras</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras" class="form-control pr-4">
+                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras" class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.codigoBarras" type="button"
-                    class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('codigoBarras')">
                     <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
@@ -30,11 +30,11 @@
         </div>
 
         <div class="col-md-2">
-            <label>Categoría</label>
+            <label class="me-2 mb-0" style="white-space: nowrap;">Categoría</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.categoria" name="categoria" class="form-control pr-4">
+                <input type="text" [(ngModel)]="filtros.categoria" name="categoria" class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.categoria" type="button"
-                    class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('categoria')">
                     <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
@@ -42,30 +42,30 @@
         </div>
 
         <div class="col-md-1">
-            <label>INAPAM</label>
+            <label class="me-2 mb-0" style="white-space: nowrap;">INAPAM</label>
             <div class="position-relative">
-                <select [(ngModel)]="filtros.descuentoINAPAM" name="descuentoINAPAM" class="form-control pr-4">
+                <select [(ngModel)]="filtros.descuentoINAPAM" name="descuentoINAPAM" class="form-control pe-4 flex-grow-1">
                     <option [ngValue]="null">--</option>
                     <option [ngValue]="true">Sí</option>
                     <option [ngValue]="false">No</option>
                 </select>
                 <button *ngIf="filtros.descuentoINAPAM !== null" type="button"
-                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                         (click)="limpiarFiltro('descuentoINAPAM')">
                         <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
         </div>
         <div class="col-md-1">
-            <label>Genérico?</label>
+            <label class="me-2 mb-0" style="white-space: nowrap;">Genérico?</label>
             <div class="position-relative">
-                <select [(ngModel)]="filtros.generico" name="generico" class="form-control pr-4">
+                <select [(ngModel)]="filtros.generico" name="generico" class="form-control pe-4 flex-grow-1">
                     <option [ngValue]="null">--</option>
                     <option [ngValue]="true">Sí</option>
                     <option [ngValue]="false">No</option>
                 </select>
                 <button *ngIf="filtros.generico !== null" type="button"
-                        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                         (click)="limpiarFiltro('generico')">
                         <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
@@ -75,8 +75,6 @@
             <button (click)="aplicarFiltros()" class="btn-gris">Buscar</button>
         </div>
     </div>
-
-
 
     <!-- Cambios Masivos -->
     <form [formGroup]="formularioMasivo" class="masivos">
@@ -266,7 +264,7 @@
                 <td>{{ p.costo | currency }}</td>
                 <td>{{ p.precio |currency }}</td>
                 <td>
-                    <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)">
+                    <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)" matTooltip="Editar producto">
                         <fa-icon [icon]="'pen'"></fa-icon>
                     </button>
                 </td>

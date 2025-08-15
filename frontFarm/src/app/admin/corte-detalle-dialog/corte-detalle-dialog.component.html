@@ -1,0 +1,185 @@
+<div style="background-color:azure;">
+    <div class="titulo-container" style="margin-top: 1rem;">
+        <h2 class="titulo">
+            {{ data.modo === 'cerrado' ? 'Corte de caja' : 'Previo de corte de caja' }}
+        </h2>
+    </div>
+
+    <!-- <mat-dialog-content> -->
+    <div style="margin-left: 1rem; margin-right: 1rem;">
+        <!-- Datos generales -->
+        <div class="general-list" style="color: blue;">
+            <div class="general-line">
+                <div class="general-label">Responsable:</div>
+                <div class="general-value">{{ ($any(data.corte?.usuario)?.nombre) || 'N/A' }}</div>
+            </div>
+
+            <div class="general-line">
+                <div class="general-label">Fecha inicio:</div>
+                <div class="general-value">{{ data.corte?.fechaInicio | date:'dd/MM/yyyy HH:mm' }}</div>
+            </div>
+
+            <div class="general-line">
+                <div class="general-label">Fecha fin:</div>
+                <div class="general-value">
+                    {{ data.corte?.fechaFin ? (data.corte?.fechaFin | date:'dd/MM/yyyy HH:mm') : '—' }}
+                </div>
+            </div>
+
+            <div class="general-line">
+                <div class="general-label">Efectivo inicial:</div>
+                <div class="general-value money">{{ data.corte?.efectivoInicial | currency }}</div>
+            </div>
+
+            <div class="general-line">
+                <div class="general-label">Turno extra autorizado:</div>
+                <div class="general-value">{{ data.corte?.turnoExtraAutorizado ? 'Sí' : 'No' }}</div>
+            </div>
+        </div>
+
+        <!-- Totales (fuente depende del modo) -->
+        <ng-container *ngIf="data.modo === 'cerrado'; else previa">
+            <div style="color:rgb(1, 83, 41)">
+                <h6 style="color: blue; font-size:medium; font-style: italic;">Ingresos por ventas</h6>
+                <div class="kv-grid" style="color: rgb(1, 83, 41);">
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.ventasEfectivo | currency }}</div>
+                    <div class="kv-label">Tarjeta:</div>
+                    <div class="kv-value">{{ totales.ventasTarjeta | currency }}</div>
+                    <div class="kv-label">Transferencia:</div>
+                    <div class="kv-value">{{ totales.ventasTransferencia | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.ventasVale | currency }}</div>
+                </div>
+                <h6 style="color: blue; font-size:medium; font-style: italic;">Egresos por devolucion de ventas</h6>
+                <div class="kv-grid" style="color:red; border-bottom: 1px solid #0453b3;">
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.devolucionesEfectivo | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.devolucionesVale | currency }}</div>
+                </div>
+                <h6 style="color: blue; font-size:medium; font-style: italic;">Ingresos por pedidos</h6>
+                <div class="kv-grid" style="color: rgb(1, 83, 41);">
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.pedidosEfectivo | currency }}</div>
+                    <div class="kv-label">Tarjeta:</div>
+                    <div class="kv-value">{{ totales.pedidosTarjeta | currency }}</div>
+                    <div class="kv-label">Transferencia:</div>
+                    <div class="kv-value">{{ totales.pedidosTransferencia | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.pedidosVale | currency }}</div>
+                </div>
+                <h6 style="color: blue; font-size:medium; font-style: italic;">Egresos por cancelación de pedidos</h6>
+                <div class="kv-grid" style="color:red; border-bottom: 1px solid #0453b3;">
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.pedidosCanceladosEfectivo | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.pedidosCanceladosVale | currency }}</div>
+                </div>
+                <h6 style="color: blue; font-size:medium; font-style: italic;">T O T A L E S:</h6>
+                <div class="kv-grid" style="color: rgb(1, 83, 41);">
+
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.totalEfectivoEnCaja | currency }}</div>
+                    <div class="kv-label">Tarjeta:</div>
+                    <div class="kv-value">{{ totales.totalTarjeta | currency }}</div>
+                    <div class="kv-label">Transferencia:</div>
+                    <div class="kv-value">{{ totales.totalTransferencia | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.totalVale | currency }}</div>
+
+                    <div class="kv-label">Recargas:</div>
+                    <div class="kv-value">{{ totales.totalRecargas | currency }}</div>
+                </div>
+                <div class="primer-grid" style="color: rgb(1, 83, 41);">
+                    <div class="primer-label">Abonos a monederos de diversos clientes:</div>
+                    <div class="primer-value" style="color:red">{{ totales.abonosMonederos | currency }}</div>
+                </div>
+
+            </div>
+        </ng-container>
+
+        <ng-template #previa>
+            <div style="color:rgb(1, 83, 41)">
+                <h6 style="color: blue; font-size:medium; font-style: italic;">Ingresos por ventas</h6>
+                <div class="kv-grid" style="color: rgb(1, 83, 41);">
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.ventasEfectivo | currency }}</div>
+                    <div class="kv-label">Tarjeta:</div>
+                    <div class="kv-value">{{ totales.ventasTarjeta | currency }}</div>
+                    <div class="kv-label">Transferencia:</div>
+                    <div class="kv-value">{{ totales.ventasTransferencia | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.ventasVale | currency }}</div>
+                </div>
+                <h6 style="color: blue; font-size:medium; font-style: italic;">Egresos por devolucion de ventas</h6>
+                <div class="kv-grid" style="color:red; border-bottom: 1px solid #0453b3;">
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.devolucionesEfectivo | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.devolucionesVale | currency }}</div>
+                </div>
+                <h6 style="color: blue; font-size:medium; font-style: italic;">Ingresos por pedidos</h6>
+                <div class="kv-grid" style="color: rgb(1, 83, 41);">
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.pedidosEfectivo | currency }}</div>
+                    <div class="kv-label">Tarjeta:</div>
+                    <div class="kv-value">{{ totales.pedidosTarjeta | currency }}</div>
+                    <div class="kv-label">Transferencia:</div>
+                    <div class="kv-value">{{ totales.pedidosTransferencia | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.pedidosVale | currency }}</div>
+                </div>
+                <h6 style="color: blue; font-size:medium; font-style: italic;">Egresos por cancelación de pedidos</h6>
+                <div class="kv-grid" style="color: red; border-bottom: 1px solid #0453b3;">
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.pedidosCanceladosEfectivo | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.pedidosCanceladosVale | currency }}</div>
+                </div>
+                <h6 style="color: blue; font-size:medium; font-style: italic;">T O T A L E S:</h6>
+                <div class="kv-grid" style="color: rgb(1, 83, 41);">
+
+                    <div class="kv-label">Efectivo:</div>
+                    <div class="kv-value">{{ totales.totalEfectivoEnCaja | currency }}</div>
+                    <div class="kv-label">Tarjeta:</div>
+                    <div class="kv-value">{{ totales.totalTarjeta | currency }}</div>
+                    <div class="kv-label">Transferencia:</div>
+                    <div class="kv-value">{{ totales.totalTransferencia | currency }}</div>
+                    <div class="kv-label">Monedero:</div>
+                    <div class="kv-value">{{ totales.totalVale | currency }}</div>
+
+                    <div class="kv-label">Recargas:</div>
+                    <div class="kv-value">{{ totales.totalRecargas | currency }}</div>
+                </div>
+                
+                <div class="primer-grid" style="color: rgb(1, 83, 41);">
+                    <div class="primer-label">Abonos a monederos de diversos clientes:</div>
+                    <div class="primer-value" style="color:red">{{ totales.abonosMonederos | currency }}</div>
+                </div>
+            </div>
+        </ng-template>
+
+
+    </div>
+
+    <mat-dialog-actions align="end">
+        <!-- Botón visible solo en modo CERRADO y si se puede autorizar hoy -->
+        <!-- <button mat-raised-button color="primary" -->
+        <button class="btn-amarillo" style="margin-right: 20px;"
+            *ngIf="data.modo === 'cerrado' && data.puedeAutorizarTurnoExtra" (click)="autorizarTurnoExtra()"
+            [disabled]="cargando">
+            Autorizar turno extra
+        </button>
+
+        <!-- Botón visible solo en modo PREVIO -->
+        <!-- <button mat-raised-button color="accent" -->
+        <button class="btn-verde" style="margin-right: 20px;" *ngIf="data.modo === 'previo'"
+            (click)="finalizarTurnoCaja()" [disabled]="cargando">
+            Finalizar turno de caja
+        </button>
+
+        <!-- <button mat-button (click)="salir()" [disabled]="cargando">Salir</button> -->
+        <button class="btn-gris" (click)="salir()" [disabled]="cargando">Salir</button>
+    </mat-dialog-actions>
+</div>

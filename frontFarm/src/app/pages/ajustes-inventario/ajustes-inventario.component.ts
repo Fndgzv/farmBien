@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Producto } from '../../models/producto.model';
 import { ModalOverlayService } from '../../services/modal-overlay.service';
 import { ProductoService } from '../../services/producto.service';
@@ -14,7 +15,7 @@ import Swal from 'sweetalert2';
 @Component({
   selector: 'app-ajuste-inventario',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FontAwesomeModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FontAwesomeModule, MatTooltipModule],
   templateUrl: './ajustes-inventario.component.html',
   styleUrls: ['./ajustes-inventario.component.css']
 })
