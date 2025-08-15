@@ -64,14 +64,21 @@ export class AuthService {
     this.cargarStorage();
   }
 
-  login(usuario: string, password: string): Observable<any> {
+  login(usuario: string, password: string, firma?: string): Observable<any> {
     const url = `${baseUrl}/auth/login`;
-    return this.http.post(url, { usuario, password }).pipe(
+
+    const body: any = { usuario, password };
+    if (firma) body.firma = firma;
+
+    return this.http.post(url, body).pipe(
+      // 2) Validar respuesta antes de guardar
       tap((res: any) => {
-        this.guardarToken(res.token);
-        localStorage.setItem('usuario', JSON.stringify(res.user));
-        this.usuario = res.user;
-        this.usuarioSubject.next(res.user);
+        if (res?.token && res?.user) {
+          this.guardarToken(res.token);
+          localStorage.setItem('usuario', JSON.stringify(res.user));
+          this.usuario = res.user;
+          this.usuarioSubject.next(res.user);
+        }
       })
     );
   }
@@ -87,25 +94,25 @@ export class AuthService {
 
     const body = {}; // No enviamos datos, solo queremos obtener la respuesta
 
-this.http.get<any>(`${this.apiUrl}/me`, { headers }).subscribe({
-  next: (response) => {
-    if (response.usuario) {
-      localStorage.setItem('user_nombre', response.usuario.nombre);
-      localStorage.setItem('user_rol', response.usuario.rol);
-      localStorage.setItem('user_email', response.usuario.email);
-      localStorage.setItem('user_farmacia', response.usuario.farmacia);
-      localStorage.setItem('user_telefono', response.usuario.telefono);
-      localStorage.setItem('user_domicilio', response.usuario.domicilio);
+    this.http.get<any>(`${this.apiUrl}/me`, { headers }).subscribe({
+      next: (response) => {
+        if (response.usuario) {
+          localStorage.setItem('user_nombre', response.usuario.nombre);
+          localStorage.setItem('user_rol', response.usuario.rol);
+          localStorage.setItem('user_email', response.usuario.email);
+          localStorage.setItem('user_farmacia', response.usuario.farmacia);
+          localStorage.setItem('user_telefono', response.usuario.telefono);
+          localStorage.setItem('user_domicilio', response.usuario.domicilio);
 
-      // 🔹 Emitir los valores actualizados
-      this.userNombreSubject.next(response.usuario.nombre);
-      this.userRolSubject.next(response.usuario.rol);
-    }
-  },
-  error: (error) => {
-    console.error("❌ Error al obtener datos del usuario:", error);
-  }
-});
+          // 🔹 Emitir los valores actualizados
+          this.userNombreSubject.next(response.usuario.nombre);
+          this.userRolSubject.next(response.usuario.rol);
+        }
+      },
+      error: (error) => {
+        console.error("❌ Error al obtener datos del usuario:", error);
+      }
+    });
 
   }
 

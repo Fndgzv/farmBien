@@ -329,7 +329,11 @@ export class AjustesInventarioComponent implements OnInit {
         Swal.fire({
           icon: 'warning',
           title: 'Sin selección',
-          text: 'No hay productos seleccionados para actualizar.'
+          text: 'No hay productos seleccionados para actualizar.',
+          timer: 1600,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
         });
         return;
       }

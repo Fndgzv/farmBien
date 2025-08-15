@@ -1,4 +1,6 @@
 const Usuario = require('../models/Usuario');
+const Farmacia = require('../models/Farmacia');
+const Corte = require('../models/CorteCaja')
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
@@ -9,10 +11,10 @@ exports.iniciarSesion = async (req, res) => {
         return res.status(400).json({ errores: errores.array() });
     }
 
-    const { usuario, password } = req.body;
+    const { usuario, password, firma } = req.body;
 
     try {
-        const usuarioExistente = await Usuario.findOne({ usuario }).populate('farmacia', 'nombre direccion telefono');
+        const usuarioExistente = await Usuario.findOne({ usuario }).populate('farmacia', 'nombre direccion telefono firma');
 
         if (!usuarioExistente) {
             return res.status(400).json({ mensaje: 'Credenciales incorrectas' });
@@ -23,6 +25,56 @@ exports.iniciarSesion = async (req, res) => {
 
         if (!esCorrecto) {
             return res.status(400).json({ mensaje: 'Credenciales incorrectas' });
+        }
+
+        // Si es admin, no requiere firma
+        if (usuarioExistente.rol === 'admin') {
+            const payload = { id: usuarioExistente.id, rol: usuarioExistente.rol };
+            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+            return res.json({
+                token,
+                user: {
+                    id: usuarioExistente._id,
+                    nombre: usuarioExistente.nombre,
+                    rol: usuarioExistente.rol,
+                    telefono: usuarioExistente.telefono,
+                    email: usuarioExistente.email || '',
+                    domicilio: usuarioExistente.domicilio || '',
+                    farmacia: null, // admin elige después
+                }
+            });
+        }
+
+        // Para empleado/medico: ya tienen farmacia asociada
+        const farmaciaAsociada = usuarioExistente.farmacia;
+        if (!farmaciaAsociada) {
+            return res.status(409).json({ mensaje: 'El usuario no tiene una farmacia asociada' });
+        }
+
+        // 1) Verificar si tiene corte activo → si sí, NO pedimos firma
+        const corteActivo = await Corte.findOne({
+            usuario: usuarioExistente._id,
+            farmacia: farmaciaAsociada._id,
+            fechaFin: { $exists: false } // o { $eq: null } según tu esquema
+        });
+
+        if (!corteActivo) {
+            // 2) No hay corte activo → exigir firma
+            if (!firma || firma.trim() === '') {
+                return res.status(401).json({
+                    mensaje: 'Se requiere la firma de la farmacia para iniciar sesión.',
+                    requiereFirma: true
+                });
+            }
+
+            // Validar contra Farmacia.firma
+            if (firma !== farmaciaAsociada.firma) {
+                return res.status(401).json({
+                    mensaje: 'Firma incorrecta. Verifica con la farmacia.',
+                    requiereFirma: true
+                });
+            }
         }
 
         // 🔹 **Crear el payload del token**
@@ -41,7 +93,12 @@ exports.iniciarSesion = async (req, res) => {
                 telefono: usuarioExistente.telefono,
                 email: usuarioExistente.email || '',
                 domicilio: usuarioExistente.domicilio || '',
-                farmacia: usuarioExistente.farmacia || null
+                farmacia: farmaciaAsociada ? {
+                    _id: farmaciaAsociada._id,
+                    nombre: farmaciaAsociada.nombre,
+                    direccion: farmaciaAsociada.direccion,
+                    telefono: farmaciaAsociada.telefono
+                } : null
             }
         });
 

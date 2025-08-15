@@ -22,50 +22,51 @@ function esHoy(fecha) {
 
 const crearCorte = async (req, res) => {
   const usuario = req.usuario;
-  const { efectivoInicial, farmaciaId } = req.body;
+  const { efectivoInicial, saldoInicialRecargas, farmaciaId } = req.body;
 
-  if (!efectivoInicial || !farmaciaId) {
-    return res.status(400).json({ mensaje: 'Faltan datos obligatorios' });
+  const efectivo = Number(efectivoInicial);
+  const saldoRecargas = Number(saldoInicialRecargas);
+  if (!farmaciaId) {
+    return res.status(400).json({ mensaje: 'Falta el ID de la farmacia.' });
+  }
+  if (!Number.isFinite(efectivo) || efectivo <= 0) {
+    return res.status(400).json({ mensaje: 'El efectivo inicial debe ser mayor a 0.' });
+  }
+  if (!Number.isFinite(saldoRecargas) || saldoRecargas < 0) {
+    return res.status(400).json({ mensaje: 'El saldo inicial de recargas debe ser 0 o mayor.' });
   }
 
-  const ahora = new Date();
-
-  // 🔍 Verificar si ya cerró un turno hoy
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  const mañana = new Date(hoy);
-  mañana.setDate(mañana.getDate() + 1);
-
-  try {
-    const corteCerradoHoy = await CorteCaja.findOne({
+    try {
+    // ✅ Evitar cortes duplicados (uno activo por usuario/farmacia)
+    const yaActivo = await CorteCaja.findOne({
       usuario: usuario._id,
       farmacia: farmaciaId,
-      fechaInicio: { $gte: hoy, $lt: mañana },
-      fechaFin: { $ne: null }, // Ya se cerró
-      turnoExtraAutorizado: { $ne: true } // No fue autorizado
+      $or: [{ fechaFin: { $exists: false } }, { fechaFin: null }]
     });
 
-    if (corteCerradoHoy) {
-      return res.status(403).json({
-        mensaje: 'Ya cerraste tu turno de hoy. No puedes abrir otro turno sin autorización.'
+    if (yaActivo) {
+      return res.status(409).json({
+        mensaje: 'Ya tienes un turno de caja activo en esta farmacia.',
+        corte: yaActivo
       });
     }
 
     const corte = new CorteCaja({
-      fechaInicio: ahora,
+      fechaInicio: new Date(),
       usuario: usuario._id,
       farmacia: farmaciaId,
-      efectivoInicial
+      efectivoInicial: efectivo,
+      saldoInicialRecargas: saldoRecargas
     });
 
     await corte.save();
-    res.status(201).json({ mensaje: 'Corte iniciado', corte });
+    res.status(201).json({ mensaje: 'Turno iniciado', corte });
 
   } catch (err) {
-    console.error('Error al iniciar corte:', err);
-    res.status(500).json({ mensaje: 'Error al iniciar corte' });
+    console.error('Error al iniciar turno:', err);
+    res.status(500).json({ mensaje: 'Error al iniciar turno' });
   }
+
 };
 
 const finalizarCorte = async (req, res) => {
@@ -218,7 +219,7 @@ const obtenerCorteActivo = async (req, res) => {
   }
 };
 
-const autorizarTurnoExtra = async (req, res) => {
+/* const autorizarTurnoExtra = async (req, res) => {
   const { corteId, usuarioId } = req.params;
   try {
     if (!mongoose.Types.ObjectId.isValid(corteId)) {
@@ -249,8 +250,9 @@ const autorizarTurnoExtra = async (req, res) => {
     return res.status(500).json({ mensaje: 'Error al autorizar turno extra' });
   }
 };
+ */
 
-const verificarSiPuedeAbrirTurno = async (req, res) => {
+/* const verificarSiPuedeAbrirTurno = async (req, res) => {
   const usuario = req.usuario;
   const { farmaciaId } = req.params;
 
@@ -279,6 +281,7 @@ const verificarSiPuedeAbrirTurno = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al verificar si puede abrir turno' });
   }
 };
+ */
 
 const obtenerCortesFiltrados = async (req, res) => {
   const { fechaInicioDesde, fechaInicioHasta, nombreUsuario } = req.query;
@@ -354,9 +357,6 @@ module.exports = {
   crearCorte,
   finalizarCorte,
   obtenerCorteActivo,
-  autorizarTurnoExtra,
-  verificarSiPuedeAbrirTurno,
   obtenerCortesFiltrados,
   eliminarCorte,
-  autorizarTurnoExtra
 };

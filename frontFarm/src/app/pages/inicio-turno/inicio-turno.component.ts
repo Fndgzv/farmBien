@@ -17,10 +17,11 @@ import { CorteCajaTicketComponent } from "../../impresiones/corte-caja-ticket/co
 })
 export class InicioTurnoComponent implements OnInit {
   efectivoInicial: number = 0;
+  saldoInicialRecargas: number = 0;
   corteActivo: any = null;
   usuarioId: string | null = null;
   usuarioNombre: string | null = null;
-  
+
   farmaciaId: string | null = null;
   farmaciaNombre: string | null = null;
   farmaciaDireccion: string | null = null;
@@ -94,9 +95,29 @@ export class InicioTurnoComponent implements OnInit {
 
   iniciarTurno(): void {
     if (this.efectivoInicial <= 0) {
-      Swal.fire('Error', 'El efectivo inicial debe ser mayor a cero.', 'warning');
-      return;
+      Swal.fire({
+        icon: 'warning',
+        title: 'Error',
+        text: 'El efectivo inicial debe ser mayor a cero.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }); return;
     }
+
+    if (this.saldoInicialRecargas === null || this.saldoInicialRecargas === undefined || this.saldoInicialRecargas < 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Error',
+        text: 'El saldo inicial de recargas debe ser 0 o mayor.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }); return;
+    }
+
     this.procesando = true;
     const token = localStorage.getItem('auth_token');
     const headers = new HttpHeaders({
@@ -106,6 +127,7 @@ export class InicioTurnoComponent implements OnInit {
 
     const payload = {
       efectivoInicial: this.efectivoInicial,
+      saldoInicialRecargas: this.saldoInicialRecargas,
       farmaciaId: this.farmaciaId
     };
 
@@ -117,8 +139,12 @@ export class InicioTurnoComponent implements OnInit {
         Swal.fire({
           icon: 'success',
           title: 'Turno iniciado',
-          text: `Turno iniciado con $${this.efectivoInicial.toFixed(2)} en caja.`,
-          timer: 2000,
+          html: `
+          <div style="text-align:left">
+            <p><strong>Efectivo inicial:</strong> $${this.efectivoInicial.toFixed(2)}</p>
+            <p><strong>Saldo inicial de recargas:</strong> $${this.saldoInicialRecargas.toFixed(2)}</p>
+          </div>`, 
+        timer: 2200,
           showConfirmButton: false,
           allowOutsideClick: false,
           allowEscapeKey: false,
@@ -130,90 +156,87 @@ export class InicioTurnoComponent implements OnInit {
         console.error('Error al iniciar turno:', err);
         Swal.fire('Error', err.error?.mensaje || 'No se pudo iniciar el turno.', 'error');
       }
-    });
+    }).add(() => { this.procesando = false });
   }
 
-finalizarTurno(): void {
-  Swal.fire({
-    title: '¿Finalizar turno de caja?',
-    text: 'Se generará el corte con los balances actuales.',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Sí, finalizar',
-    cancelButtonText: 'Cancelar',
-    allowOutsideClick: false,
-    allowEscapeKey: false,
-  }).then(result => {
-    if (!result.isConfirmed) return;
+  finalizarTurno(): void {
+    Swal.fire({
+      title: '¿Finalizar turno de caja?',
+      text: 'Se generará el corte con los balances actuales.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, finalizar',
+      cancelButtonText: 'Cancelar',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+    }).then(result => {
+      if (!result.isConfirmed) return;
 
-    const token = localStorage.getItem('auth_token');
-    const headers = new HttpHeaders({ 'x-auth-token': token || '' });
+      const token = localStorage.getItem('auth_token');
+      const headers = new HttpHeaders({ 'x-auth-token': token || '' });
 
-    // Obtener datos sin grabar aún
-    this.http.put(`${environment.apiUrl}/cortes/${this.corteActivo._id}/finalizar/false`, {}, { headers }).subscribe({
-      next: (res: any) => {
-        // Preparar datos para el ticket
-        this.datosCorteParaImpresion = {
-          responsable: this.usuarioNombre,
-          fechaInicio: this.corteActivo.fechaInicio,
-          fechaFin: new Date().toISOString(),
-          nomFarm: this.farmaciaNombre,
-          dirFarm: this.farmaciaDireccion,
-          telFarm: this.farmaciaTelefono,
-          ...res.corte
-        };
+      // Obtener datos sin grabar aún
+      this.http.put(`${environment.apiUrl}/cortes/${this.corteActivo._id}/finalizar/false`, {}, { headers }).subscribe({
+        next: (res: any) => {
+          // Preparar datos para el ticket
+          this.datosCorteParaImpresion = {
+            responsable: this.usuarioNombre,
+            fechaInicio: this.corteActivo.fechaInicio,
+            fechaFin: new Date().toISOString(),
+            nomFarm: this.farmaciaNombre,
+            dirFarm: this.farmaciaDireccion,
+            telFarm: this.farmaciaTelefono,
+            ...res.corte
+          };
 
-        this.mostrarTicketCorte = true;
+          this.mostrarTicketCorte = true;
 
-        // Esperar renderizado antes de imprimir
-        setTimeout(() => {
-          requestAnimationFrame(() => {
-            window.print();
+          // Esperar renderizado antes de imprimir
+          setTimeout(() => {
+            requestAnimationFrame(() => {
+              window.print();
 
-            setTimeout(() => {
-              this.mostrarTicketCorte = false;
+              setTimeout(() => {
+                this.mostrarTicketCorte = false;
 
-              // Confirmar impresión con el usuario
-              Swal.fire({
-                title: '¿La impresión fue exitosa?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Sí',
-                cancelButtonText: 'No',
-                allowOutsideClick: false,
-                allowEscapeKey: false
-              }).then(resp => {
-                if (resp.isConfirmed) {
-                  // Ahora sí: grabar en el backend
-                  this.http.put(`${environment.apiUrl}/cortes/${this.corteActivo._id}/finalizar/true`, {}, { headers }).subscribe({
-                    next: () => {
-                      localStorage.removeItem('corte_activo');
-                      this.authService.logout();
-                      this.router.navigate(['/home']);
-                    },
-                    error: err => {
-                      console.error('Error al guardar corte:', err);
-                      Swal.fire('Error', 'No se pudo guardar el corte.', 'error');
-                    }
-                  });
-                } else {
-                  Swal.fire('Aviso', 'La impresión no fue confirmada. El corte sigue activo.', 'info');
-                }
-              });
+                // Confirmar impresión con el usuario
+                Swal.fire({
+                  title: '¿La impresión fue exitosa?',
+                  icon: 'question',
+                  showCancelButton: true,
+                  confirmButtonText: 'Sí',
+                  cancelButtonText: 'No',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false
+                }).then(resp => {
+                  if (resp.isConfirmed) {
+                    // Ahora sí: grabar en el backend
+                    this.http.put(`${environment.apiUrl}/cortes/${this.corteActivo._id}/finalizar/true`, {}, { headers }).subscribe({
+                      next: () => {
+                        localStorage.removeItem('corte_activo');
+                        this.authService.logout();
+                        this.router.navigate(['/home']);
+                      },
+                      error: err => {
+                        console.error('Error al guardar corte:', err);
+                        Swal.fire('Error', 'No se pudo guardar el corte.', 'error');
+                      }
+                    });
+                  } else {
+                    Swal.fire('Aviso', 'La impresión no fue confirmada. El corte sigue activo.', 'info');
+                  }
+                });
 
-            }, 300);
-          });
-        }, 300);
-      },
-      error: (err) => {
-        console.error('Error al cerrar turno:', err);
-        Swal.fire('Error', 'No se pudo generar el corte.', 'error');
-      }
+              }, 300);
+            });
+          }, 300);
+        },
+        error: (err) => {
+          console.error('Error al cerrar turno:', err);
+          Swal.fire('Error', 'No se pudo generar el corte.', 'error');
+        }
+      });
     });
-  });
-}
-
-
-
+  }
 
 }

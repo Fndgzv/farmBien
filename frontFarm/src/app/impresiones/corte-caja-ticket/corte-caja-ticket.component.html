@@ -16,11 +16,17 @@
   <hr>
 
   <div class="corte-caja-datos">
+    <p style="font-style: italic;">Movimientos</p>
     Ventas: <strong>{{ datosCorte.ventasRealizadas }}</strong><br>
     Devoluciones: <strong>{{ datosCorte.devolucionesRealizadas }}</strong><br>
     Pedidos levantados: <strong>{{ datosCorte.pedidosLevantados }}</strong><br>
     Pedidos entregados: <strong>{{ datosCorte.pedidosEntregados }}</strong><br>
-    Pedidos cancelados: <strong>{{ datosCorte.pedidosCancelados }}</strong><br>
+    Pedidos cancelados: <strong>{{ datosCorte.pedidosCancelados }}</strong><br><br>
+    
+    <p style="font-style: italic;">Recargas telefónicas</p>
+    Saldo inicial: <strong>${{ datosCorte.saldoInicialRecargas }} </strong><br>
+    <!-- Total Recargas: <strong>${{ datosCorte.totalRecargas }} </strong><br> -->
+    Saldo final: <strong>${{ datosCorte.saldoInicialRecargas - datosCorte.totalRecargas }} </strong>
   </div>
 
   <hr>

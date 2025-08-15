@@ -5,7 +5,14 @@
     <div class="form-group mb-3">
       <label for="efectivoInicial" class="form-label">Efectivo inicial recibido:</label>
       <input type="number" id="efectivoInicial" class="form-control" placeholder="Ej. 500.00"
-        [(ngModel)]="efectivoInicial" min="0" step="0.01" />
+        [(ngModel)]="efectivoInicial" min="0" step="1" />
+    </div>
+
+    <div class="form-group mb-3">
+      <label for="saldoInicialRecargas" class="form-label">Saldo inicial de recargas:</label>
+      <input type="number" id="saldoInicialRecargas" class="form-control" placeholder="Ej. 0.00"
+        [(ngModel)]="saldoInicialRecargas" min="0" step="1" />
+      <small class="text-muted">Coloca 0.00 si no tienes recargas al inicio.</small>
     </div>
 
     <button class="btn-verde w-100 d-flex align-items-center justify-content-center" (click)="iniciarTurno()"
@@ -25,6 +32,7 @@
     <h2 class="titulo mb-4">Turno activo</h2>
     <p class="subtitulo"><strong>Fecha de inicio:</strong> {{ corteActivo.fechaInicio | date: 'dd/MM/yyyy HH:mm':'America/Mexico_City' }} hrs.</p>
     <p class="subtitulo"><strong>Efectivo inicial:</strong> ${{ corteActivo.efectivoInicial | number:'1.2-2' }}</p>
+    <p class="subtitulo"><strong>Recargas inicial:</strong> ${{ corteActivo.saldoInicialRecargas | number:'1.2-2' }}</p>
 
     <button class="btn-gris" (click)="finalizarTurno()">
       Finalizar turno de caja
@@ -33,7 +41,5 @@
 
 </div>
 
-<app-corte-caja-ticket
-  *ngIf="mostrarTicketCorte"
-  [datosCorte]="datosCorteParaImpresion">
+<app-corte-caja-ticket *ngIf="mostrarTicketCorte" [datosCorte]="datosCorteParaImpresion">
 </app-corte-caja-ticket>

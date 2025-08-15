@@ -49,11 +49,10 @@ export class CorteDetalleDialogComponent {
     this.dialogRef.close(false);
   }
 
-  autorizarTurnoExtra() {
+/*   autorizarTurnoExtra() {
     const corteId = this.data?.corte?._id;
     const headers = this.data?.headers;
 
-    // ID del admin logueado (el que autoriza)
     const adminId = localStorage.getItem('user_id') || this.data?.usuarioId || '';
 
     if (!corteId || !adminId) return;
@@ -66,12 +65,12 @@ export class CorteDetalleDialogComponent {
     ).subscribe({
       next: () => {
         this.cargando = false;
-        this.dialogRef.close(true); // refrescar tabla
+        this.dialogRef.close(true); 
       },
       error: (e) => {
         this.cargando = false;
         console.error('Error autorizando turno extra', e);
-        // mensajes más claros
+        
         if (e.status === 403) Swal.fire('Permisos', 'Tu usuario no es admin o el token expiró.', 'warning');
         else Swal.fire('Error', e.error?.mensaje || 'No se pudo autorizar turno extra.', 'error');
 
@@ -79,6 +78,7 @@ export class CorteDetalleDialogComponent {
     });
   }
 
+ */
 
   finalizarTurnoCaja() {
     if (!this.data?.corte?._id) return;

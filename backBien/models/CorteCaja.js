@@ -10,6 +10,7 @@ const CorteCajaSchema = new mongoose.Schema({
   turnoExtraAutorizado: { type: Boolean, default: false },
 
   efectivoInicial: { type: Number, required: true },
+  saldoInicialRecargas: { type: Number, required: true },
 
   // ventas
   ventasEfectivo: { type: Number, default: 0 },
