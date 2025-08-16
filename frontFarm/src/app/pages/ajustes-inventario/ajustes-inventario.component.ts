@@ -12,6 +12,8 @@ import { faPen, faTimes } from '@fortawesome/free-solid-svg-icons';
 
 import Swal from 'sweetalert2';
 
+type ColumnaOrden = '' | keyof Producto | 'existencia';
+
 @Component({
   selector: 'app-ajuste-inventario',
   standalone: true,
@@ -20,6 +22,7 @@ import Swal from 'sweetalert2';
   styleUrls: ['./ajustes-inventario.component.css']
 })
 export class AjustesInventarioComponent implements OnInit {
+  columnaOrden: ColumnaOrden = '';
   productos: Producto[] = [];
   productosFiltrados: Producto[] = [];
   formularioMasivo!: FormGroup;
@@ -29,16 +32,18 @@ export class AjustesInventarioComponent implements OnInit {
     categoria: string;
     descuentoINAPAM: boolean | null;
     generico: boolean | null;
+    bajoStock: boolean | null;
   } = {
       nombre: '',
       codigoBarras: '',
       categoria: '',
       descuentoINAPAM: null,
-      generico: null
+      generico: null,
+      bajoStock: false
     };
   paginaActual = 1;
   tamanioPagina = 15;
-  columnaOrden: keyof Producto | '' = '';
+  //columnaOrden: keyof Producto | '' = '';
   direccionOrden: 'asc' | 'desc' = 'asc';
   diasSemana: string[] = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
 
@@ -90,7 +95,7 @@ export class AjustesInventarioComponent implements OnInit {
       next: (productos) => {
         this.productos = productos;
         if (borrarFiltros) {
-          this.filtros = { nombre: '', codigoBarras: '', categoria: '', descuentoINAPAM: null, generico: null };
+          this.filtros = { nombre: '', codigoBarras: '', categoria: '', descuentoINAPAM: null, generico: null, bajoStock: null };
         }
         this.aplicarFiltros();
       },
@@ -111,7 +116,11 @@ export class AjustesInventarioComponent implements OnInit {
         ? true
         : p.generico === this.filtros.generico;
 
-      return coincideNombre && coincideCodigo && coincideCategoria && coincideINAPAM && coincideGenerico;
+      const coincideBajoStock = this.filtros.bajoStock
+      ? this.getExistencia(p) < (p.stockMinimo ?? 0)
+      : true;
+
+      return coincideNombre && coincideCodigo && coincideCategoria && coincideINAPAM && coincideGenerico && coincideBajoStock;
     });
     this.paginaActual = 1;
   }
@@ -119,6 +128,7 @@ export class AjustesInventarioComponent implements OnInit {
   limpiarFiltro(campo: keyof typeof this.filtros) {
     if (campo === 'descuentoINAPAM') this.filtros[campo] = null;
     if (campo === 'generico') this.filtros[campo] = null;
+    if (campo === 'bajoStock') {this.filtros.bajoStock = false }
     if (campo === 'nombre' || campo === 'categoria' || campo === 'codigoBarras') this.filtros[campo] = '';
 
     this.aplicarFiltros();
@@ -202,7 +212,6 @@ export class AjustesInventarioComponent implements OnInit {
 
     this.grabarCambios();
 
-    // Swal.fire({ icon: 'success', title: 'Cambios aplicados', text: 'Base de datos actualizada correctamente.' });
   }
 
   get promosPorDiaForm(): FormGroup {
@@ -401,21 +410,41 @@ export class AjustesInventarioComponent implements OnInit {
     }
   }
 
-  ordenar(columna: keyof Producto) {
-    if (this.columnaOrden === columna) {
-      this.direccionOrden = this.direccionOrden === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.columnaOrden = columna;
-      this.direccionOrden = 'asc';
-    }
-    this.productosFiltrados.sort((a, b) => {
-      const valorA = (a[columna] ?? '').toString().toLowerCase();
-      const valorB = (b[columna] ?? '').toString().toLowerCase();
-      if (valorA < valorB) return this.direccionOrden === 'asc' ? -1 : 1;
-      if (valorA > valorB) return this.direccionOrden === 'asc' ? 1 : -1;
-      return 0;
-    });
-    this.paginaActual = 1;
+
+
+ordenar(columna: ColumnaOrden) {
+  if (this.columnaOrden === columna) {
+    this.direccionOrden = this.direccionOrden === 'asc' ? 'desc' : 'asc';
+  } else {
+    this.columnaOrden = columna;
+    this.direccionOrden = 'asc';
   }
+
+  this.productosFiltrados.sort((a, b) => {
+    const valorA = (columna === 'existencia') ? this.getExistencia(a) : (a as any)?.[columna];
+    const valorB = (columna === 'existencia') ? this.getExistencia(b) : (b as any)?.[columna];
+
+    const aNum = typeof valorA === 'number' && !isNaN(valorA);
+    const bNum = typeof valorB === 'number' && !isNaN(valorB);
+
+    let comp: number;
+    if (aNum && bNum) {
+      comp = valorA - valorB;
+    } else {
+      const sA = (valorA ?? '').toString().toLowerCase();
+      const sB = (valorB ?? '').toString().toLowerCase();
+      comp = sA < sB ? -1 : sA > sB ? 1 : 0;
+    }
+    return this.direccionOrden === 'asc' ? comp : -comp;
+  });
+
+  this.paginaActual = 1;
+}
+
+
+getExistencia(p: Producto): number {
+  return Array.isArray(p?.lotes) ? p.lotes.reduce((sum, l) => sum + (Number(l?.cantidad) || 0), 0) : 0;
+}
+
 
 }

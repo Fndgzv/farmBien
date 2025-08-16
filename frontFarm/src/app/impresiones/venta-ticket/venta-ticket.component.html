@@ -14,7 +14,7 @@
       <col class="col-importe" />
     </colgroup>
 
-        <thead>
+    <thead>
       <tr>
         <th colspan="4">PRODUCTO</th>
       </tr>
@@ -26,19 +26,7 @@
       </tr>
     </thead>
 
-<!--     <thead>
-      <tr>
-        <th colspan="4">PRODUCTO</th>
-      </tr>
-      <tr class="lineBottom">
-        <th class="col-unit">P.U.</th>
-        <th class="col-cant">CANT</th>
-        <th class="col-promo">PROMO</th>
-        <th class="col-importe">IMPORTE</th>
-      </tr>
-    </thead> -->
-
-        <tbody>
+    <tbody>
       <ng-container *ngFor="let p of venta.productos" style="font-size: 16px;">
         <tr>
           <td colspan="4">
@@ -66,24 +54,6 @@
         </tr>
       </ng-container>
     </tbody>
-
-<!--     <tbody>
-      <ng-container *ngFor="let p of venta.productos" style="font-size: 16px;">
-      <tr>
-        <td colspan="4"><span class="producto-nombre">{{ p.barrasYNombre || p.producto?.nombre }}</span></td>
-      </tr>
-      <tr>
-        <td class="col-unit">${{ p.precioOriginal | number:'1.2-2' }}</td>
-        <td class="col-cant">{{ p.cantidad }}</td>
-        <td class="col-promo"><span class="promo-value">{{ p.descuento > 0 ? p.tipoDescuento : '' }}</span></td>
-        <td class="col-importe"><strong>${{ (p.precioOriginal * p.cantidad) | number:'1.2-2' }}</strong></td>
-      </tr>
-      <tr class="row-compact">
-        <td *ngIf="p.cadenaDescuento != ''" colspan="2" class="text-left">Desc. {{ p.cadenaDescuento }}</td>
-        <td *ngIf="p.descuento > 0" colspan="2" class="text-right"><strong>${{ p.descuento | number:'1.2-2' }}</strong></td>
-      </tr>
-    </ng-container>
-  </tbody> -->
 
   </table>
 

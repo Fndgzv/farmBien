@@ -77,7 +77,7 @@ export class SurtirFarmaciaComponent implements OnInit {
           Swal.fire({
             icon: 'info',
             title: 'Sin pendientes',
-            html: `No hay productos con existencia ≤ stock mínimo`,
+            html: `No hay productos con existencia < stock mínimo`,
             confirmButtonText: 'Aceptar',
             allowOutsideClick: false,
             allowEscapeKey: false

@@ -20,7 +20,8 @@
         <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Código de barras</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras" class="form-control pe-4 flex-grow-1">
+                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras"
+                    class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.codigoBarras" type="button"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('codigoBarras')">
@@ -32,7 +33,8 @@
         <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Categoría</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.categoria" name="categoria" class="form-control pe-4 flex-grow-1">
+                <input type="text" [(ngModel)]="filtros.categoria" name="categoria"
+                    class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.categoria" type="button"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('categoria')">
@@ -44,15 +46,16 @@
         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">INAPAM</label>
             <div class="position-relative">
-                <select [(ngModel)]="filtros.descuentoINAPAM" name="descuentoINAPAM" class="form-control pe-4 flex-grow-1">
+                <select [(ngModel)]="filtros.descuentoINAPAM" name="descuentoINAPAM"
+                    class="form-control pe-4 flex-grow-1">
                     <option [ngValue]="null">--</option>
                     <option [ngValue]="true">Sí</option>
                     <option [ngValue]="false">No</option>
                 </select>
                 <button *ngIf="filtros.descuentoINAPAM !== null" type="button"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                        (click)="limpiarFiltro('descuentoINAPAM')">
-                        <fa-icon [icon]="faTimes"></fa-icon>
+                    (click)="limpiarFiltro('descuentoINAPAM')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
         </div>
@@ -66,11 +69,32 @@
                 </select>
                 <button *ngIf="filtros.generico !== null" type="button"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                        (click)="limpiarFiltro('generico')">
-                        <fa-icon [icon]="faTimes"></fa-icon>
+                    (click)="limpiarFiltro('generico')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
         </div>
+
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Solo bajo stock</label>
+            <div class="position-relative">
+                <div class="form-check mt-2">
+                    <input type="checkbox" class="form-check-input" id="filtroBajoStock" [(ngModel)]="filtros.bajoStock"
+                        name="bajoStock" (change)="aplicarFiltros()" />
+                    <label class="form-check-label" for="filtroBajoStock">
+                        Existencia &lt; Stock Mín.
+                    </label>
+                </div>
+
+                <!-- Botón limpiar (opcional, útil si quieres apagar de un clic el flag) -->
+                <button *ngIf="filtros.bajoStock" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('bajoStock')" title="Quitar filtro bajo stock">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
         <div class="col-md-1 text-end mt-3">
             <button (click)="aplicarFiltros()" class="btn-gris">Buscar</button>
         </div>
@@ -243,6 +267,15 @@
                 <th>Genérico</th>
                 <th>Stock Mín.</th>
                 <th>Stock Máx.</th>
+                <th (click)="ordenar('existencia')">
+                    Existencia
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'existencia' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'existencia' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'existencia'
+                    }" class="icono-orden"></i>
+                </th>
                 <th>INAPAM</th>
                 <th>Costo</th>
                 <th>Precio</th>
@@ -260,13 +293,18 @@
                 </td>
                 <td>{{ p.stockMinimo }}</td>
                 <td>{{ p.stockMaximo }}</td>
+                <td [class.text-danger]="getExistencia(p) < (p.stockMinimo || 0)">
+                    {{ getExistencia(p) }}
+                </td>
+
                 <td style="text-align: center;">
                     <input type="checkbox" [checked]="p.descuentoINAPAM" disabled>
                 </td>
                 <td>{{ p.costo | currency }}</td>
                 <td>{{ p.precio |currency }}</td>
                 <td>
-                    <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)" matTooltip="Editar producto">
+                    <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)"
+                        matTooltip="Editar producto">
                         <fa-icon [icon]="'pen'"></fa-icon>
                     </button>
                 </td>
