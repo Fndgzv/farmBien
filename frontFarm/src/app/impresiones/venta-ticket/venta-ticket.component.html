@@ -1,4 +1,4 @@
-<div class="ticket-impresion">
+<div class="ticket-impresion" style="font-family: Roboto Condensed, Arial, sans-serif;">
 
   <!-- Encabezado -->
   <app-ticket-header [nombreFarmacia]="venta.farmacia.nombre" [direccion]="venta.farmacia.direccion"
@@ -7,20 +7,39 @@
 
   <!-- Tabla de productos -->
   <table class="productos lineBottom">
-    <thead>
+    <colgroup>
+      <col class="col-unit" />
+      <col class="col-cant" />
+      <col class="col-promo" />
+      <col class="col-importe" />
+    </colgroup>
+
+        <thead>
       <tr>
         <th colspan="4">PRODUCTO</th>
       </tr>
       <tr class="lineBottom">
-        <th style="width: 20%;">P.UNIT</th>
-        <th style="width: 10%;">CANT</th>
-        <th style="width: 50%;">Promo</th>
-        <th style="width: 20%;">IMPORTE</th>
+        <th>P.U.</th>
+        <th>CAN</th>
+        <th class="th-promo">PROMO</th>
+        <th>IMPORTE</th>
       </tr>
     </thead>
-    <tbody>
-      <ng-container *ngFor="let p of venta.productos">
-        <!-- Nombre truncado -->
+
+<!--     <thead>
+      <tr>
+        <th colspan="4">PRODUCTO</th>
+      </tr>
+      <tr class="lineBottom">
+        <th class="col-unit">P.U.</th>
+        <th class="col-cant">CANT</th>
+        <th class="col-promo">PROMO</th>
+        <th class="col-importe">IMPORTE</th>
+      </tr>
+    </thead> -->
+
+        <tbody>
+      <ng-container *ngFor="let p of venta.productos" style="font-size: 16px;">
         <tr>
           <td colspan="4">
             <span class="producto-nombre">
@@ -28,48 +47,54 @@
             </span>
           </td>
         </tr>
-        <tr class="precioYpromo">
+        <tr>
           <td>${{ p.precioOriginal | number:'1.2-2' }}</td>
           <td>{{ p.cantidad }}</td>
-          <td>{{ p.descuento > 0 ? p.tipoDescuento : '' }}</td>
-          <td>
-            <ng-container *ngIf="p.descuento === 0; else sinNegritas">
-              <strong>${{ (p.precioOriginal * p.cantidad) | number:'1.2-2' }}</strong>
-            </ng-container>
-            <ng-template #sinNegritas>
-              ${{ (p.precioOriginal * p.cantidad) | number:'1.2-2' }}
-            </ng-template>
+          <td class="promo-cell">
+            <span class="promo-value">
+              {{ p.descuento > 0 ? p.tipoDescuento : '' }}
+            </span>
           </td>
+          <td class="importe-cell">${{ (p.precioOriginal * p.cantidad) | number:'1.2-2' }}</td>
         </tr>
-        <tr *ngIf="p.descuento > 0" class="precioYpromo">
-          <td colspan="2">Desc. {{ p.cadenaDescuento }}</td>
-          <td colspan="2" class="text-right">
-            <strong>${{ (p.precio * p.cantidad) | number:'1.2-2' }}</strong>
+
+        <tr>
+          <td *ngIf="p.cadenaDescuento != ''" colspan="3">Desc. {{ p.cadenaDescuento }}</td>
+          <td *ngIf="p.descuento > 0" colspan="1" class="text-right">
+            <strong>${{ p.descuento | number:'1.2-2' }}</strong>
           </td>
         </tr>
       </ng-container>
     </tbody>
+
+<!--     <tbody>
+      <ng-container *ngFor="let p of venta.productos" style="font-size: 16px;">
+      <tr>
+        <td colspan="4"><span class="producto-nombre">{{ p.barrasYNombre || p.producto?.nombre }}</span></td>
+      </tr>
+      <tr>
+        <td class="col-unit">${{ p.precioOriginal | number:'1.2-2' }}</td>
+        <td class="col-cant">{{ p.cantidad }}</td>
+        <td class="col-promo"><span class="promo-value">{{ p.descuento > 0 ? p.tipoDescuento : '' }}</span></td>
+        <td class="col-importe"><strong>${{ (p.precioOriginal * p.cantidad) | number:'1.2-2' }}</strong></td>
+      </tr>
+      <tr class="row-compact">
+        <td *ngIf="p.cadenaDescuento != ''" colspan="2" class="text-left">Desc. {{ p.cadenaDescuento }}</td>
+        <td *ngIf="p.descuento > 0" colspan="2" class="text-right"><strong>${{ p.descuento | number:'1.2-2' }}</strong></td>
+      </tr>
+    </ng-container>
+  </tbody> -->
+
   </table>
 
   <!-- Totales -->
-  <div class="totales">
-    <div class="text-right">Total:
-      <strong>${{ venta.total | number:'1.2-2' }}</strong>
-    </div>
-    <!-- <div class="text-right" style="font-style: italic;"><strong>Forma de pago:</strong></div> -->
-    <!--     <div *ngIf="venta.formaPago.efectivo" class="text-right">Efectivo: 
-      <strong>${{ venta.formaPago.efectivo | number:'1.2-2' }}</strong>
-    </div>
-    <div *ngIf="venta.formaPago.tarjeta" class="text-right">Tarjeta: 
-      <strong>${{ venta.formaPago.tarjeta | number:'1.2-2'  }}</strong>
-    </div>
-    <div *ngIf="venta.formaPago.transferencia" class="text-right">Transferencia: 
-      <strong>${{ venta.formaPago.transferencia | number:'1.2-2'  }}</strong>
-    </div> -->
-
-    <div>Cambio: <strong>${{ venta.elcambio | number:'1.2-2' }}</strong></div>
-
+  <div class="totales-line lineBottom">
     <div>Cantidad de productos: <strong>{{ venta.cantidadProductos }}</strong></div>
+    <div>Total: <strong>${{ venta.total | number:'1.2-2' }}</strong></div>
+  </div>
+
+  <div class="totales">
+    <div>Cambio: <strong>${{ venta.elcambio | number:'1.2-2' }}</strong></div>
 
     <div *ngIf="venta.formaPago.vale" class="text-right">Felicidades!!! usted usó su monedero:
       <strong>${{ venta.formaPago.vale | number:'1.2-2' }}</strong>
@@ -94,4 +119,6 @@
     Cliente: {{ venta.cliente || 'Público general' }}
   </div>
 
+
   <app-ticket-footer></app-ticket-footer>
+</div>

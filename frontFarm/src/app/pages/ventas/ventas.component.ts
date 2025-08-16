@@ -557,6 +557,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.productoAplicaMonedero = false;
         this.cadDesc = '';
         this.tipoDescuento = '';
+        this.alMonedero = 0;
       } else this.descuentoYpromo(producto);
 
       precioFinal *= (100 - this.ptjeDescuento) / 100;
@@ -565,10 +566,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.alMonedero = precioFinal * 0.02;
         if (this.tipoDescuento === '') {
           this.tipoDescuento = 'Cliente';
-          this.cadDesc = '2%';
+          this.cadDesc = '2% Moned.';
         } else {
           this.tipoDescuento = `${this.tipoDescuento}-Cliente`;
-          this.cadDesc = `${this.cadDesc} + 2%`;
+          this.cadDesc = `${this.cadDesc} + 2% Moned.`;
         }
       }
 

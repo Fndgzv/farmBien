@@ -346,7 +346,6 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
 };
 
 
-
 exports.verificarExistenciaProducto = async (req, res) => {
     // Verificar existencia de un producto por su id en el almacen
     const { id } = req.params;
@@ -573,55 +572,6 @@ const validarProducto = (prod) => {
 }
 
 
-exports.actualizarProducto = async (req, res) => {
-    
-  try {
-    const prod = req.body;
-    const productoId = req.params.id;
-
-    const validacion = validarProducto(prod);
-    if (!validacion.valido) {
-      return res.status(400).json({ mensaje: validacion.mensaje });
-    }
-
-    const productoActual = await Producto.findById(productoId);
-    if (!productoActual) {
-      return res.status(404).json({ mensaje: "Producto no encontrado" });
-    }
-
-    // Actualización de campos
-    productoActual.nombre = prod.nombre;
-    productoActual.precio = prod.precio;
-    productoActual.costo = prod.costo;
-    productoActual.iva = prod.iva;
-    productoActual.stockMinimo = prod.stockMinimo;
-    productoActual.stockMaximo = prod.stockMaximo;
-    productoActual.descuentoINAPAM = prod.descuentoINAPAM;
-
-    productoActual.promoLunes = prod.promosPorDia?.promoLunes;
-    productoActual.promoMartes = prod.promosPorDia?.promoMartes;
-    productoActual.promoMiercoles = prod.promosPorDia?.promoMiercoles;
-    productoActual.promoJueves = prod.promosPorDia?.promoJueves;
-    productoActual.promoViernes = prod.promosPorDia?.promoViernes;
-    productoActual.promoSabado = prod.promosPorDia?.promoSabado;
-    productoActual.promoDomingo = prod.promosPorDia?.promoDomingo;
-
-    productoActual.promoCantidadRequerida = prod.promoCantidadRequerida;
-    productoActual.inicioPromoCantidad = prod.inicioPromoCantidad;
-    productoActual.finPromoCantidad = prod.finPromoCantidad;
-
-    productoActual.promoDeTemporada = prod.promoDeTemporada;
-
-    productoActual.lotes = prod.lotes;
-
-    await productoActual.save();
-
-    res.json({ mensaje: "Producto actualizado correctamente", producto: productoActual });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ mensaje: "Error al actualizar el producto", error });
-  }
-};
 
 exports.actualizarProducto = async (req, res) => {
 /* Actualiza un producto en Almacen y de ser el caso 
@@ -645,6 +595,8 @@ actualiza el precio en todas las farmacias*/
 
     // Actualización de campos
     productoActual.nombre = prod.nombre;
+    productoActual.codigoBarras = prod.codigoBarras;
+    productoActual.categoria = prod.categoria;
     if (typeof prod.precio === 'number') productoActual.precio = prod.precio;
     if (typeof prod.costo === 'number') productoActual.costo = prod.costo;
     if (typeof prod.iva !== 'undefined') productoActual.iva = prod.iva;

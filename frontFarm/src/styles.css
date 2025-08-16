@@ -118,9 +118,9 @@ button {
   border-radius: 6px;
 }
 
-.btn-icon-chico{
-    width: 1.7rem;
-    margin-right: 5px;
+.btn-icon-chico {
+  width: 1.7rem;
+  margin-right: 5px;
 }
 
 /* 📌 Botón Amarillo (Advertencias, Pausar) */
@@ -130,7 +130,7 @@ button {
   color: black;
 }
 
-.btn-amarillo:hover, 
+.btn-amarillo:hover,
 .btn-amarillo-chico:hover {
   background: linear-gradient(45deg, #f6a80c, #fcd25f);
   box-shadow: 0 4px 8px rgba(255, 204, 0, 0.5);
@@ -138,7 +138,7 @@ button {
 }
 
 .btn-amarillo:disabled,
-.btn-amarillo[disabled], 
+.btn-amarillo[disabled],
 .btn-amarillo-chico:disabled,
 .btn-amarillo-chico[disabled] {
   cursor: not-allowed;
@@ -365,7 +365,6 @@ button {
 
 @media print {
   @page {
-    /* margin-left: 3pt; */
     size: 290pt auto;
   }
 
@@ -389,17 +388,14 @@ button {
   }
 
   .ticket-impresion {
-    width: 290pt !important;
-    /* margin-left: 1pt !important; */
-    /* margin-right: 5pt !important; */
+    width: 270pt !important;
     margin: 0vmin !important;
     padding: 0 !important;
-    /* box-sizing: border-box !important; */
-    /* font-size: 12px !important; */
     line-height: 1.4 !important;
     position: absolute !important;
-    left: 0 !important;
+    left: 5mm !important;
     top: 0 !important;
+    font-family: "Roboto Condensed", Arial, sans-serif !important;
   }
 }
 
@@ -411,7 +407,6 @@ button {
 
 .productos th,
 .productos td {
-  /* font-size: 14px; */
   padding: 2px;
   word-wrap: break-word;
 }
@@ -425,5 +420,13 @@ button {
   border-bottom: 1px solid black;
 }
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  /* font-family: Roboto, "Helvetica Neue", sans-serif; */
+  font-family: "Roboto Condensed", Arial, sans-serif !important;
+}

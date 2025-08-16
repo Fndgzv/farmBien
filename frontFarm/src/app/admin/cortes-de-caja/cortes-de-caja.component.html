@@ -83,8 +83,9 @@
                             matTooltip="Vista del corte">
                             <fa-icon [icon]="'eye'"></fa-icon>
                         </button>
-                        <button class="btn-icon-chico btn-rojo-chico"
-                            (click)="eliminarCorte(corte)" [disabled]="cargando" matTooltip="Eliminar corte">
+                        <button class="btn-icon-chico btn-rojo-chico" (click)="eliminarCorte(corte)"
+                            [disabled]="cargando || !esEliminable(corte)"
+                            [matTooltip]="!esEliminable(corte) ? 'No puedes eliminar un corte activo' : 'Eliminar corte'">
                             <fa-icon [icon]="'trash'"></fa-icon>
                         </button>
                     </td>

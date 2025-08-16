@@ -16,6 +16,7 @@ import { SurtidoFarmaciaService } from '../../services/surtido-farmacia.service'
 interface Pendiente {
   producto: string;
   nombre: string;
+  codigoBarras: string;
   existenciaActual: number;
   stockMin: number;
   stockMax: number;

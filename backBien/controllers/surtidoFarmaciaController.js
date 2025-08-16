@@ -29,6 +29,7 @@ exports.surtirFarmacia = async (req, res) => {
       return {
         producto:           inv.producto._id,
         nombre:             inv.producto.nombre,
+        codigoBarras:       inv.producto.codigoBarras,
         existenciaActual:   inv.existencia,
         stockMin:           inv.stockMin,
         stockMax:           inv.stockMax,

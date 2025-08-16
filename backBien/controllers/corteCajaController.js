@@ -36,7 +36,7 @@ const crearCorte = async (req, res) => {
     return res.status(400).json({ mensaje: 'El saldo inicial de recargas debe ser 0 o mayor.' });
   }
 
-    try {
+  try {
     // ✅ Evitar cortes duplicados (uno activo por usuario/farmacia)
     const yaActivo = await CorteCaja.findOne({
       usuario: usuario._id,
@@ -331,17 +331,20 @@ const eliminarCorte = async (req, res) => {
       return res.status(400).json({ mensaje: 'corteId inválido' });
     }
 
-    const corte = await CorteCaja.findById(corteId);
-    if (!corte) {
-      return res.status(404).json({ mensaje: 'Corte de caja no encontrado' });
+    // 🧰 Borrado atómico: solo elimina si el corte NO está activo (tiene fechaFin)
+    const eliminado = await CorteCaja.findOneAndDelete({
+      _id: corteId,
+      fechaFin: { $ne: null } // si no tiene fechaFin => está activo => NO elimina
+    });
+
+    if (!eliminado) {
+      // Ver si no existe o si está activo
+      const existe = await CorteCaja.exists({ _id: corteId });
+      if (!existe) {
+        return res.status(404).json({ mensaje: 'Corte de caja no encontrado' });
+      }
+      return res.status(409).json({ mensaje: 'No se puede eliminar un corte activo (sin fecha de cierre).' });
     }
-
-    // (Opcional) Evitar borrar cortes activos (sin fechaFin):
-    // if (!corte.fechaFin) {
-    //   return res.status(409).json({ mensaje: 'No se puede eliminar un corte activo' });
-    // }
-
-    await corte.deleteOne(); // o: await CorteCaja.findByIdAndDelete(corteId);
 
     return res.json({
       mensaje: 'Corte de caja eliminado correctamente',
@@ -352,7 +355,6 @@ const eliminarCorte = async (req, res) => {
     return res.status(500).json({ mensaje: 'Error al eliminar corte' });
   }
 };
-
 module.exports = {
   crearCorte,
   finalizarCorte,

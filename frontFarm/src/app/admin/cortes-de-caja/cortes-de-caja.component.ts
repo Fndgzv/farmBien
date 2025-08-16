@@ -212,12 +212,6 @@ export class CortesDeCajaComponent implements OnInit {
   eliminarCorte(corte: any) {
   if (!corte?._id) return;
 
-  // (Opcional) Bloquear cortes activos en el front:
-  // if (!corte.fechaFin) {
-  //   Swal.fire('No permitido', 'No se puede eliminar un corte activo.', 'info');
-  //   return;
-  // }
-
   Swal.fire({
     title: 'Eliminar corte',
     html: `
@@ -264,6 +258,11 @@ export class CortesDeCajaComponent implements OnInit {
       });
   });
 }
+
+esEliminable(corte: any): boolean {
+  return !!corte?.fechaFin; // solo eliminable si tiene fechaFin
+}
+
 
 /** Acepta distintas formas de respuesta y devuelve el shape que espera el diálogo */
 private normalizarPreview(resp: any) {

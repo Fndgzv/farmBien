@@ -24,6 +24,7 @@
     <thead>
       <tr>
         <th>Producto</th>
+        <th>Cód. Barras</th>
         <th>Existencia</th>
         <th>Stock Mínimo</th>
         <th>Stock Máximo</th>
@@ -34,6 +35,7 @@
     <tbody>
       <tr *ngFor="let p of pendientes">
         <td>{{ p.nombre }}</td>
+        <td>{{ p.codigoBarras }}</td>
         <td>{{ p.existenciaActual }}</td>
         <td>{{ p.stockMin }}</td>
         <td>{{ p.stockMax }}</td>

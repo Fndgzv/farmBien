@@ -1,6 +1,5 @@
-.info-general,
 .totales {
-  font-size: 16px !important;
+  font-size: 17px !important;
   line-height: 1.5;
 }
 
@@ -21,10 +20,46 @@
   padding: 0 2px;
 }
 
-.text-right {
-  text-align: end;
+/* Tabla responsiva fija */
+.productos { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.productos th, .productos td { padding: 1px 0; font-size: 17px; }
+
+/* Anchos ajustados para acercar PROMO al IMPORTE */
+.col-unit    { width: 24%; }
+.col-cant    { width: 12%; }
+.col-promo   { width: 36%; }
+.col-importe { width: 28%; }
+
+
+/* Alineaciones finas */
+.productos td:nth-child(1) { text-align: left; }
+.productos td:nth-child(2) { text-align: left; }   /* CAN pegado a la izq como querías */
+.promo-cell                 { text-align: right; padding-right: 0; }
+.importe-cell               { text-align: right; padding-left: 0; }
+
+
+/* Encabezado de PROMO a la derecha también */
+.th-promo { text-align: right; }
+
+/* PROMO: forzar una sola línea y compactar un poco */
+.promo-value{
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  font-size: 16px;
+  letter-spacing: -0.2px;
 }
 
-.precioYpromo {
-  font-size: 16px !important;
+/* Línea de totales (cantidad izq, total der) */
+.totales-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 17px;
+  margin-top: 2px;
 }
+
+/* Asegura la alineación derecha cuando uses esta clase */
+.text-right { text-align: right !important; }
