@@ -180,7 +180,16 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
             p.copiaOriginal.stockMin = stockMinNum;
           }
         }
-        Swal.fire('Actualizado', 'Ajustes aplicados correctamente.', 'success');
+        Swal.fire({
+          icon: 'success',
+          title: 'Actualizado',
+          text: 'Ajustes aplicados correctamente.',
+          timer: 1600,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        });
+
         this.ajusteMasivo.existencia = 0;
         this.ajusteMasivo.stockMax = 0;
         this.ajusteMasivo.stockMin = 0;

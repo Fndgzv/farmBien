@@ -1,0 +1,107 @@
+<div class="card p-3">
+  <div class="titulo-container mb-2">
+    <h2 class="mb-3 titulo">Productos vendidos</h2>
+  </div>
+
+  <!-- Filtros -->
+  <form (ngSubmit)="buscar()" class="row g-2 align-items-end filtros ">
+    <div class="col-md-2">
+      <label class="form-label">Farmacia</label>
+      <select class="form-select" [(ngModel)]="farmaciaId" name="farmaciaId">
+        <option value="">Todas</option>
+        <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label">Fecha inicial</label>
+      <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" />
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label">Fecha final</label>
+      <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
+    </div>
+
+    <div class="col-md-2 d-flex gap-2">
+      <button type="button" class="btn-rojo" (click)="limpiarFiltros()" [disabled]="cargando">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="col-md-2 d-flex gap-2">
+      <button class="btn-gris" type="submit" [disabled]="cargando">
+        {{ cargando ? 'Buscando...' : 'Buscar' }}
+      </button>
+    </div>
+  </form>
+
+  <div class="col-12 mt-2">
+    <button class="btn-verde" type="button" (click)="exportarCSV()" [disabled]="cargando || !rows.length">
+      Exportar CSV
+    </button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-responsive mt-3">
+    <table class="align-middle tabla">
+      <thead>
+        <tr>
+          <th style="white-space:nowrap;">Cód. barras</th>
+          <th>Producto</th>
+          <th>Unidad</th>
+          <th>Categoría</th>
+          <th class="text-end sortable" (click)="setSort('cantidad')">
+            Cantidad
+            <mat-icon class="ms-1" inline>{{ sortIcon('cantidad') }}</mat-icon>
+          </th>
+
+          <th class="text-end sortable" (click)="setSort('importe')">
+            Importe
+            <mat-icon class="ms-1" inline>{{ sortIcon('importe') }}</mat-icon>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of pagedRows">
+          <td>{{ r.codigoBarras || '—' }}</td>
+          <td>{{ r.nombre }}</td>
+          <td>{{ r.unidad || '—' }}</td>
+          <td>{{ r.categoria || '—' }}</td>
+          <td class="text-end">{{ r.cantidadVendida }}</td>
+          <td class="text-end">{{ r.importeVendido | currency }}</td>
+        </tr>
+        <tr *ngIf="rows.length === 0">
+          <td colspan="6" class="text-center text-muted">Sin resultados</td>
+        </tr>
+      </tbody>
+      <tfoot *ngIf="rows.length">
+        <tr class="fw-bold">
+          <td colspan="4" class="text-end">Totales:</td>
+          <td class="text-end">{{ totalCantidad }}</td>
+          <td class="text-end">{{ totalImporte | currency }}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="paginacion" *ngIf="totalItems > 0">
+      <button (click)="goFirst()" [disabled]="page === 1" title="Inicio">
+        <i class="fa fa-angle-double-left"></i>
+      </button>
+      <button (click)="goPrev()" [disabled]="page === 1" title="Anterior">
+        <i class="fa fa-angle-left"></i>
+      </button>
+
+      Página {{ page }} de {{ totalPages }} — {{ totalItems }} registros
+
+      <button (click)="goNext()" [disabled]="page === totalPages" title="Siguiente">
+        <i class="fa fa-angle-right"></i>
+      </button>
+      <button (click)="goLast()" [disabled]="page === totalPages" title="Fin">
+        <i class="fa fa-angle-double-right"></i>
+      </button>
+    </div>
+
+
+  </div>
+</div>

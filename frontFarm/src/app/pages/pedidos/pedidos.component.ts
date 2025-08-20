@@ -534,7 +534,7 @@ export class PedidosComponent implements OnInit {
 
     const fechaStr = `${year}${month}`;
 
-    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let cadenaAleatoria = '';
     for (let i = 0; i < 6; i++) {
       const randomIndex = Math.floor(Math.random() * caracteres.length);

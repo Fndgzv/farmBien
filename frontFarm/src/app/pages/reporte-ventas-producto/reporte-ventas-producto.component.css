@@ -1,0 +1,30 @@
+.wide-field {
+    width: 360px;
+}
+
+:host ::ng-deep .compact-field .mat-mdc-form-field-infix {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    min-height: 40px;
+}
+
+:host ::ng-deep .compact-field .mdc-text-field--outlined {
+    height: 40px;
+}
+
+:host ::ng-deep .compact-field .mat-mdc-input-element {
+    line-height: 26px;
+}
+
+.filtros {
+    border-bottom: 2px solid #0453b3;
+}
+
+.compact-btn {
+    height: 40px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    min-height: 40px;
+    line-height: 26px;
+    margin-top: 2rem;
+}

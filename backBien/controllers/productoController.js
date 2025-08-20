@@ -1,11 +1,13 @@
+// backBien\controllers\productoController.js
 const mongoose = require('mongoose');
-
 const Producto = require('../models/Producto');
 const Farmacia = require("../models/Farmacia");
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const moment = require('moment');
 
@@ -571,7 +573,28 @@ const validarProducto = (prod) => {
   return { valido: true };
 }
 
+exports.searchProductos = async (req, res) => {
+  try {
+    const { q = '', limit = 12 } = req.query;
+    const term = String(q).trim();
+    if (term.length < 2) return res.json([]);
 
+    const isCode = /^\d[\d\s-]{5,}$/.test(term);
+    const or = [];
+
+    if (isCode) or.push({ codigoBarras: term });
+    or.push({ nombre: { $regex: escapeRegex(term), $options: 'i' } });
+
+    const items = await Producto.find({ $or: or })
+      .select('_id codigoBarras nombre')
+      .limit(Number(limit) || 12);
+
+    res.json(items);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, mensaje: 'Error en búsqueda de productos' });
+  }
+};
 
 exports.actualizarProducto = async (req, res) => {
 /* Actualiza un producto en Almacen y de ser el caso 

@@ -1111,7 +1111,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const fecha = new Date();
     const baseFolio = 'FB';
     const fechaFormateada = fecha.toISOString().split('T')[0].replace(/-/g, '');
-    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    /* const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; */
     let cadenaAleatoria = '';
     for (let i = 0; i < 6; i++) {
       const randomIndex = Math.floor(Math.random() * caracteres.length);

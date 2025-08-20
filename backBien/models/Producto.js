@@ -1,3 +1,4 @@
+// backBien\models\Producto.js
 const mongoose = require("mongoose");
 
 const LoteSchema = new mongoose.Schema({

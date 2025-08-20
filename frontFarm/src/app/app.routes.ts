@@ -11,6 +11,8 @@ import { SurtirFarmaciaComponent } from './pages/surtir-farmacia/surtir-farmacia
 import { ComprasComponent } from './pages/compras/compras.component';
 import { AjustesInventarioComponent } from './pages/ajustes-inventario/ajustes-inventario.component';
 import { MainLayoutComponent } from './layouts/main-layout.component';
+import { ReporteVentasPorFarmaciaComponent } from './pages/reporte-ventas-por-farmacia/reporte-ventas-por-farmacia.component';
+import { ReporteVentasProductoComponent } from './pages/reporte-ventas-producto/reporte-ventas-producto.component';
 
 export const routes: Routes = [
   {
@@ -104,6 +106,9 @@ export const routes: Routes = [
         data: { rolesPermitidos: ['admin'] },
         canActivate: [authGuard]
       },
+      { path: 'reporte/ventas-por-farmacia', component: ReporteVentasPorFarmaciaComponent },
+      { path: 'reporte/ventas-producto', component: ReporteVentasProductoComponent },
+
       // ... otras rutas protegidas
     ]
   },

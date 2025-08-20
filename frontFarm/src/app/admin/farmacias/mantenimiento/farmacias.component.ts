@@ -1,5 +1,7 @@
+// frontFarm\src\app\admin\farmacias\mantenimiento\farmacias.component.ts
+
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -8,7 +10,7 @@ import { FarmaciaService, Farmacia } from '../../../services/farmacia.service';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
-import { faPen, faTrash, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faPen, faTrash, faPlus, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 
 declare const bootstrap: any;
 
@@ -26,8 +28,19 @@ export class FarmaciasComponent implements OnInit {
   modoEdicion = false;
   farmaciaEditandoId: string | null = null;
 
+  showFirma = false;
+  showFirmaConfirm = false;
+
+  formCambiarFirma!: FormGroup;
+  guardandoFirma = false;
+
+  showAdminPass = false;
+  showNueva = false;
+  showConfirm = false;
+  farmaciaTarget: any = null;
+
   constructor(private fb: FormBuilder, private farmaciaService: FarmaciaService, private library: FaIconLibrary,) {
-    library.addIcons(faPen, faTrash, faPlus);
+    library.addIcons(faPen, faTrash, faPlus, faEye, faEyeSlash);
     this.formFarmacia = this.fb.group({
       nombre: ['', Validators.required],
       direccion: [''],
@@ -38,7 +51,135 @@ export class FarmaciasComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargarFarmacias();
+    this.formFarmacia = this.fb.group(
+      {
+        nombre: ['', [Validators.required, Validators.minLength(2)]],
+        direccion: [''],
+        telefono: [''],
+
+        // edición
+        firmaActual: [''],      // required solo en edición cuando se cambia firma
+        // creación o edición (si cambia):
+        nuevaFirma: ['']        // required + minLength(6) según modo
+      },
+      { validators: [this.nuevaDistintaDeActualValidator] }
+    );
+
+    this.formCambiarFirma = this.fb.group(
+      {
+        adminPassword: ['', [Validators.required, Validators.minLength(4)]],
+        nuevaFirma: ['', [Validators.required, Validators.minLength(4)]],
+        confirmFirma: ['', [Validators.required]]
+      },
+      { validators: [this.firmasIgualesValidatorCambiar] }
+    );
   }
+
+  nuevaDistintaDeActualValidator = (group: AbstractControl) => {
+    const actual = (group.get('firmaActual')?.value || '').trim();
+    const nueva = (group.get('nuevaFirma')?.value || '').trim();
+    if (!actual || !nueva) return null;        // sin ambos, no validamos igualdad
+    return actual === nueva ? { nuevaIgualAActual: true } : null;
+  };
+
+  private configurarValidadoresFirma() {
+    const firmaActual = this.formFarmacia.get('firmaActual')!;
+    const nuevaFirma = this.formFarmacia.get('nuevaFirma')!;
+
+    if (this.modoEdicion) {
+      // En edición: cambiar firma es opcional. Si capturan nueva, pedimos actual.
+      const nueva = (nuevaFirma.value || '').trim();
+      if (nueva) {
+        firmaActual.setValidators([Validators.required]);  // deben poner la actual
+        nuevaFirma.setValidators([Validators.minLength(6)]);
+      } else {
+        firmaActual.clearValidators();
+        nuevaFirma.clearValidators();
+      }
+    } else {
+      // En crear: nuevaFirma requerida y min 6
+      firmaActual.clearValidators();
+      nuevaFirma.setValidators([Validators.required, Validators.minLength(6)]);
+    }
+
+    firmaActual.updateValueAndValidity({ emitEvent: false });
+    nuevaFirma.updateValueAndValidity({ emitEvent: false });
+  }
+
+  // Llama esto cuando abras el modal y en (input) de nuevaFirma para reevaluar:
+  onNuevaFirmaChange() { this.configurarValidadoresFirma(); }
+
+  // Abrir en modo editar
+  editar(f: Farmacia) {
+    const modalElement = document.getElementById('modalAgregarFarmacia');
+    if (!modalElement) return;
+
+    this.modoEdicion = true;
+    this.farmaciaEditandoId = f._id || null;
+
+    this.formFarmacia.reset({
+      nombre: f.nombre,
+      direccion: f.direccion,
+      telefono: f.telefono,
+      firmaActual: '',
+      nuevaFirma: ''
+    });
+
+    this.configurarValidadoresFirma();
+
+    const modal = new bootstrap.Modal(modalElement, { backdrop: 'static', keyboard: false });
+    modal.show();
+  }
+
+  firmasIgualesValidatorCambiar = (group: AbstractControl): ValidationErrors | null => {
+    const a = (group.get('nuevaFirma')?.value || '').trim();
+    const b = (group.get('confirmFirma')?.value || '').trim();
+    if (!a && !b) return null;
+    return a === b ? null : { firmaNoCoincide: true };
+  };
+
+  abrirCambiarFirma(f: Farmacia) {
+    this.farmaciaTarget = f;
+    this.formCambiarFirma.reset();
+    const el = document.getElementById('modalCambiarFirma');
+    if (el) new bootstrap.Modal(el, { backdrop: 'static', keyboard: false }).show();
+  }
+
+  confirmarCambioFirma() {
+    if (this.formCambiarFirma.invalid || !this.farmaciaTarget?._id) return;
+    this.guardandoFirma = true;
+
+    const { adminPassword, nuevaFirma } = this.formCambiarFirma.value;
+
+    this.farmaciaService.cambiarFirma(this.farmaciaTarget._id!, {
+      adminPassword,
+      nuevaFirma: (nuevaFirma || '').trim()
+    }).subscribe({
+      next: (res: any) => {
+        Swal.fire('Actualizada', 'La firma se cambió correctamente', 'success').then(() => {
+          const el = document.getElementById('modalCambiarFirma');
+          if (el) bootstrap.Modal.getInstance(el)?.hide();
+          this.guardandoFirma = false;
+          // refresca para ver firmaUpdatedAt
+          this.cargarFarmacias();
+        });
+      },
+      error: (err) => {
+        console.error(err);
+        this.guardandoFirma = false;
+        Swal.fire('Error', err.error?.mensaje || 'No se pudo cambiar la firma', 'error');
+      }
+    });
+  }
+
+  // Validador cruzado: si hay firma o confirm, deben coincidir
+  firmasIgualesValidator = (group: AbstractControl): ValidationErrors | null => {
+    const f = (group.get('firma')?.value || '').trim();
+    const c = (group.get('firmaConfirm')?.value || '').trim();
+    if (!f && !c) return null;          // ambos vacíos: válido (en edición)
+    if (f !== c) return { firmaNoCoincide: true };
+    return null;
+  };
 
   cargarFarmacias() {
     this.farmaciaService.obtenerFarmacias().subscribe({
@@ -49,74 +190,129 @@ export class FarmaciasComponent implements OnInit {
 
   abrirModalAgregar() {
     const modalElement = document.getElementById('modalAgregarFarmacia');
-    if (modalElement) {
-      this.formFarmacia.reset();
-      this.modoEdicion = false;
-      this.farmaciaEditandoId = null;
+    if (!modalElement) return;
 
-      const modal = new bootstrap.Modal(modalElement, {
-        backdrop: 'static',
-        keyboard: false
-      });
-      modal.show();
-    } else {
-      console.error('No se encontró el modal modalAgregarFarmacia');
-    }
-  }
+    this.modoEdicion = false;
+    this.farmaciaEditandoId = null;
 
-  editar(f: Farmacia) {
-  const modalElement = document.getElementById('modalAgregarFarmacia');
-  if (modalElement) {
-    this.modoEdicion = true;
-    this.farmaciaEditandoId = f._id || null;
-
-    this.formFarmacia.patchValue({
-      nombre: f.nombre,
-      direccion: f.direccion,
-      telefono: f.telefono,
-      firma: f.firma
+    this.formFarmacia.reset({
+      nombre: '',
+      direccion: '',
+      telefono: '',
+      firma: '',
+      firmaConfirm: ''
     });
 
-    const modal = new bootstrap.Modal(modalElement, {
-      backdrop: 'static',
-      keyboard: false
-    });
+    this.configurarValidadoresFirma();
+
+    const modal = new bootstrap.Modal(modalElement, { backdrop: 'static', keyboard: false });
     modal.show();
   }
-}
 
-guardar() {
-  if (this.formFarmacia.invalid || this.guardando) return;
-  this.guardando = true;
+  guardar() {
+    if (this.guardando) return;
 
-  const datos = this.formFarmacia.value;
+    // Re-sincroniza validadores dinámicos por si el usuario escribió recién
+    this.configurarValidadoresFirma();
 
-  const accionFinal = () => {
-    const modalElement = document.getElementById('modalAgregarFarmacia');
-    if (modalElement) {
-      const modal = bootstrap.Modal.getInstance(modalElement);
-      modal?.hide();
+    if (this.formFarmacia.invalid) {
+      this.formFarmacia.markAllAsTouched();
+      Swal.fire('Datos incompletos', 'Revisa los campos del formulario.', 'warning');
+      return;
     }
-    this.formFarmacia.reset();
-    this.farmaciaEditandoId = null;
-    this.modoEdicion = false;
-    this.guardando = false;
-    this.cargarFarmacias();
-  };
 
-  if (this.modoEdicion && this.farmaciaEditandoId) {
-    this.farmaciaService.actualizarFarmacia(this.farmaciaEditandoId, datos).subscribe({
-      next: () => Swal.fire('Actualizado', 'Farmacia actualizada correctamente', 'success').then(accionFinal),
-      error: () => { Swal.fire('Error', 'No se pudo actualizar', 'error'); this.guardando = false; }
-    });
-  } else {
-    this.farmaciaService.crearFarmacia(datos).subscribe({
-      next: () => Swal.fire('Creado', 'Farmacia creada correctamente', 'success').then(accionFinal),
-      error: () => { Swal.fire('Error', 'No se pudo crear', 'error'); this.guardando = false; }
-    });
+    this.guardando = true;
+
+    const { nombre, direccion, telefono, firmaActual, nuevaFirma } = this.formFarmacia.value;
+
+    // Payload base
+    const datos: any = {
+      nombre: (nombre || '').trim(),
+      direccion: (direccion || '').trim(),
+      telefono: (telefono || '').trim()
+    };
+
+    const terminar = () => {
+      const modalElement = document.getElementById('modalAgregarFarmacia');
+      if (modalElement) bootstrap.Modal.getInstance(modalElement)?.hide();
+      this.formFarmacia.reset();
+      this.farmaciaEditandoId = null;
+      this.modoEdicion = false;
+      this.guardando = false;
+      this.cargarFarmacias();
+    };
+
+    if (this.modoEdicion && this.farmaciaEditandoId) {
+      // EDICIÓN
+      const nueva = (nuevaFirma || '').trim();
+
+      if (nueva) {
+        // Validaciones de la nueva firma en edición
+        if (nueva.length < 6) {
+          this.formFarmacia.get('nuevaFirma')?.markAsTouched();
+          this.guardando = false;
+          Swal.fire('Firma inválida', 'La nueva firma debe tener al menos 6 caracteres.', 'warning');
+          return;
+        }
+        if (this.formFarmacia.errors?.['nuevaIgualAActual']) {
+          this.formFarmacia.get('nuevaFirma')?.markAsTouched();
+          this.formFarmacia.get('firmaActual')?.markAsTouched();
+          this.guardando = false;
+          Swal.fire('Firma inválida', 'La nueva firma no puede ser igual a la actual.', 'warning');
+          return;
+        }
+        // Enviar ambas al backend para verificación y re-hash
+        datos.firmaActual = (firmaActual || '').trim();
+        datos.nuevaFirma = nueva;
+      }
+
+      this.farmaciaService.actualizarFarmacia(this.farmaciaEditandoId, datos).subscribe({
+        next: () =>
+          Swal.fire({
+            icon: 'success',
+            title: 'Actualización',
+            text: `Farmacia actualizada correctamente.`,
+            timer: 1500,
+            showConfirmButton: false
+          }).then(terminar),
+        /* Swal.fire('Actualizado', 'Farmacia actualizada correctamente', 'success').then(terminar), */
+        error: (err) => {
+          console.error(err);
+          this.guardando = false;
+          Swal.fire('Error', err?.error?.mensaje || 'No se pudo actualizar', 'error');
+        }
+      });
+
+    } else {
+      // CREACIÓN
+      const nueva = (nuevaFirma || '').trim();
+      if (!nueva || nueva.length < 6) {
+        this.formFarmacia.get('nuevaFirma')?.markAsTouched();
+        this.guardando = false;
+        Swal.fire('Firma requerida', 'La firma debe tener al menos 6 caracteres.', 'warning');
+        return;
+      }
+
+      datos.firma = nueva; // el backend la hashea en crearFarmacia
+
+      this.farmaciaService.crearFarmacia(datos).subscribe({
+        next: () =>
+                    Swal.fire({
+            icon: 'success',
+            title: 'Creación',
+            text: `Farmacia creada correctamente.`,
+            timer: 1500,
+            showConfirmButton: false
+          }).then(terminar),
+          /* Swal.fire('Creado', 'Farmacia creada correctamente', 'success').then(terminar), */
+        error: (err) => {
+          console.error(err);
+          this.guardando = false;
+          Swal.fire('Error', err?.error?.mensaje || 'No se pudo crear', 'error');
+        }
+      });
+    }
   }
-}
-
 
 
   eliminar(id: string) {

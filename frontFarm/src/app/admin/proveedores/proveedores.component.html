@@ -36,8 +36,14 @@
     <nav *ngIf="totalPaginas > 1" class="d-flex justify-content-center mt-3">
         <ul class="pagination">
             <li class="page-item" [class.disabled]="paginaActual === 1">
-                <button class="page-link" (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1">
-                    Anterior
+                <button class="page-link" (click)="paginaActual = 1" [disabled]="paginaActual === 1" title="Página inicial">
+                     <i class="fa fa-angle-double-left"></i>
+                </button>
+            </li>
+
+            <li class="page-item" [class.disabled]="paginaActual === 1">
+                <button class="page-link" (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1" title="Página anterior">
+                     <i class="fa fa-angle-left"></i>
                 </button>
             </li>
 
@@ -49,8 +55,15 @@
 
             <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
                 <button class="page-link" (click)="paginaActual = paginaActual + 1"
-                    [disabled]="paginaActual === totalPaginas">
-                    Siguiente
+                    [disabled]="paginaActual === totalPaginas" title="Página siguiente">
+                    <i class="fa fa-angle-right"></i>
+                </button>
+            </li>
+
+            <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
+                <button class="page-link" (click)="paginaActual = totalPaginas"
+                    [disabled]="paginaActual === totalPaginas" title="Página final">
+                    <i class="fa fa-angle-double-right"></i>
                 </button>
             </li>
         </ul>

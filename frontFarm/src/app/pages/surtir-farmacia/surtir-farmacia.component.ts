@@ -1,3 +1,4 @@
+// frontFarm\src\app\pages\surtir-farmacia.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
@@ -40,6 +41,29 @@ export class SurtirFarmaciaComponent implements OnInit {
   farmacias: any[] = [];
   pendientes: Pendiente[] = [];
   cargando = false;
+  rows: Pendiente[] = [];
+
+  // Paginación
+  page = 1;
+  pageSize = 15;
+  totalItems = 0;
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.totalItems / this.pageSize));
+  }
+  get pagedRows() {
+    const start = (this.page - 1) * this.pageSize;
+    return this.rows.slice(start, start + this.pageSize);
+  }
+  private resetPagination() {
+    this.totalItems = this.rows.length;
+    this.page = 1;
+  }
+  goFirst() { this.page = 1; }
+  goPrev() { if (this.page > 1) this.page--; }
+  goNext() { if (this.page < this.totalPages) this.page++; }
+  goLast() { this.page = this.totalPages; }
+
+  trackByProd = (_: number, p: Pendiente) => p.producto || p.codigoBarras;
 
   constructor(
     private fb: FormBuilder,
@@ -52,7 +76,6 @@ export class SurtirFarmaciaComponent implements OnInit {
   }
 
   ngOnInit() {
-    // 1) Cargo el select de farmacias
     this.farmaciaService.obtenerFarmacias().subscribe(data => {
       this.farmacias = data;
     });
@@ -71,13 +94,14 @@ export class SurtirFarmaciaComponent implements OnInit {
     this.surtidoService.obtenerPendientes(farmaciaId).subscribe({
       next: ({ pendientes }) => {
         this.pendientes = pendientes;
+        this.rows = this.pendientes;        // ← fuente de la tabla/paginación
+        this.resetPagination(); 
         this.cargando = false;
-
-        if (pendientes.length === 0) {
+        if (this.rows.length === 0) {
           Swal.fire({
             icon: 'info',
             title: 'Sin pendientes',
-            html: `No hay productos con existencia < stock mínimo`,
+            html: `No hay productos con existencia <= stock mínimo`,
             confirmButtonText: 'Aceptar',
             allowOutsideClick: false,
             allowEscapeKey: false

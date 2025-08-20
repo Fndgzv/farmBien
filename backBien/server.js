@@ -6,6 +6,8 @@ const conectarDB = require('./config/db');
 const cors = require('cors');
 const path = require('path');
 
+const reportesRoutes = require('./routes/reportesRoutes');
+
 const app = express();
 
 // ---------- Middlewares base ----------
@@ -39,6 +41,7 @@ app.use('/api/surtirFarmacias', require('./routes/surtidoFarmaciaRoutes'));
 app.use('/api/compras', require('./routes/compraRoutes'));
 app.use('/api/inventario-farmacia', require('./routes/ajusteInventarioRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/reportes', reportesRoutes);
 
 // si tienes un agregador de rutas adicional:
 try {

@@ -1,3 +1,4 @@
+// backBien\models\Venta.js
 const mongoose = require("mongoose");
 
 // Subesquema para los productos de la venta

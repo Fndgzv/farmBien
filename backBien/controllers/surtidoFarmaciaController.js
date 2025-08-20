@@ -17,7 +17,7 @@ exports.surtirFarmacia = async (req, res) => {
       .populate('producto');
 
     // 2) Filtrar aquellos que están por debajo o al tope del stockMin
-    const bajos = inventarios.filter(inv => inv.existencia < inv.stockMin);
+    const bajos = inventarios.filter(inv => inv.existencia <= inv.stockMin);
 
     // 3) Generar lista de pendientes con stockMin/Max
     const pendientes = bajos.map(inv => {

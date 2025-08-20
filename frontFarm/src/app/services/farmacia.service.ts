@@ -7,10 +7,10 @@ import { environment } from '../../environments/environment';
 export interface Farmacia {
   _id?: string;
   nombre: string;
-  direccion: string;
-  telefono: string;
-  contacto?: string;
-  firma: string;
+  direccion?: string;
+  telefono?: string;
+  firmaUpdatedAt?: string | Date;
+  firmaVersion?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -38,6 +38,11 @@ export class FarmaciaService {
 
   getFarmaciaById(id: string) {
   return this.http.get<any>(`${this.apiUrl}/id/${id}`);
+}
+
+// farmacia.service.ts
+cambiarFirma(id: string, payload: { adminPassword: string; nuevaFirma: string }) {
+  return this.http.patch(`${this.apiUrl}/farmacias/${id}/cambiar-firma`, payload);
 }
 
 

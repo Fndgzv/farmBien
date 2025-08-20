@@ -1,3 +1,4 @@
+<!-- frontFarm\src\app\admin\farmacias\mantenimiento\farmacias.component.html -->
 <div class="container mt-4">
     <h2 class="titulo">Mantenimiento de Farmacias</h2>
     <button class="btn-verde mb-3" (click)="abrirModalAgregar()">
@@ -19,13 +20,22 @@
                 <td>{{ f.nombre }}</td>
                 <td>{{ f.direccion }}</td>
                 <td>{{ f.telefono }}</td>
-                <td>{{ f.firma }}</td>
+                <td>
+                    <span class="badge bg-secondary">Secreta</span>
+                    <small class="text-muted d-block" *ngIf="f.firmaUpdatedAt">
+                        {{ f.firmaUpdatedAt | date:'dd-MM-yyyy' }}
+                    </small>
+                </td>
                 <td>
                     <button class="btn-icon-chico btn-gris-chico" (click)="editar(f)" matTooltip="Editar">
                         <fa-icon [icon]="'pen'"></fa-icon>
                     </button>
                     <button class="btn-icon-chico btn-rojo-chico" (click)="eliminar(f._id!)" matTooltip="Eliminar">
                         <fa-icon [icon]="'trash'"></fa-icon>
+                    </button>
+                    <button class="btn-icon-chico btn-verde-chico" (click)="abrirCambiarFirma(f)"
+                        matTooltip="Cambiar firma">
+                        <fa-icon [icon]="'pen'"></fa-icon>
                     </button>
                 </td>
             </tr>
@@ -56,9 +66,45 @@
                             <label>Teléfono:</label>
                             <input type="text" class="form-control" formControlName="telefono">
                         </div>
+
+                        <!-- Firma actual (requerida en edición) -->
+                        <div class="mb-2" *ngIf="modoEdicion">
+                            <label>Firma actual (requerida para cambiarla):</label>
+                            <div class="input-group">
+                                <input [type]="showFirma ? 'text' : 'password'" class="form-control"
+                                    formControlName="firmaActual" autocomplete="current-password" spellcheck="false"
+                                    autocapitalize="off" />
+                                <button type="button" class="btn-gris" (click)="showFirma = !showFirma"
+                                    [attr.aria-pressed]="showFirma" [matTooltip]="showFirma ? 'Ocultar' : 'Mostrar'">
+                                    <fa-icon [icon]="showFirma ? 'eye-slash' : 'eye'"></fa-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Nueva firma -->
                         <div class="mb-2">
-                            <label>Firma:</label>
-                            <input type="text" class="form-control" formControlName="firma">
+                            <label>Nueva firma {{ modoEdicion ? '(mín. 6, distinta a la actual)' : '(obligatoria, mín.
+                                6)' }}</label>
+                            <div class="input-group">
+                                <input [type]="showFirmaConfirm ? 'text' : 'password'" class="form-control"
+                                    formControlName="nuevaFirma" autocomplete="new-password" spellcheck="false"
+                                    autocapitalize="off" />
+                                <button type="button" class="btn-gris" (click)="showFirmaConfirm = !showFirmaConfirm"
+                                    [attr.aria-pressed]="showFirmaConfirm"
+                                    [matTooltip]="showFirmaConfirm ? 'Ocultar' : 'Mostrar'">
+                                    <fa-icon [icon]="showFirmaConfirm ? 'eye-slash' : 'eye'"></fa-icon>
+                                </button>
+                            </div>
+
+                            <!-- Mensajes -->
+                            <div class="text-danger mt-1"
+                                *ngIf="formFarmacia.get('nuevaFirma')?.hasError('minlength') && formFarmacia.get('nuevaFirma')?.touched">
+                                La nueva firma debe tener al menos 6 caracteres.
+                            </div>
+                            <div class="text-danger mt-1"
+                                *ngIf="formFarmacia.errors?.['nuevaIgualAActual'] && (formFarmacia.get('nuevaFirma')?.touched || formFarmacia.get('firmaActual')?.touched)">
+                                La nueva firma no puede ser igual a la actual.
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -71,5 +117,65 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL CAMBIAR FIRMA -->
+    <div class="modal fade" id="modalCambiarFirma" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content p-3" style="background-color:azure;">
+                <div class="modal-header">
+                    <h5 class="modal-title titulo">Cambiar firma de {{ farmaciaTarget?.nombre }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+
+                <div class="modal-body" [formGroup]="formCambiarFirma">
+                    <div class="mb-2">
+                        <label>Tu contraseña (admin):</label>
+                        <div class="input-group">
+                            <input [type]="showAdminPass ? 'text':'password'" class="form-control"
+                                formControlName="adminPassword" autocomplete="current-password">
+                            <button type="button" class="btn-gris" (click)="showAdminPass=!showAdminPass">
+                                <fa-icon [icon]="showAdminPass ? 'eye-slash' : 'eye'"></fa-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Nueva firma:</label>
+                        <div class="input-group">
+                            <input [type]="showNueva ? 'text':'password'" class="form-control"
+                                formControlName="nuevaFirma" autocomplete="new-password">
+                            <button type="button" class="btn-gris" (click)="showNueva=!showNueva">
+                                <fa-icon [icon]="showNueva ? 'eye-slash' : 'eye'"></fa-icon>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Confirmar nueva firma:</label>
+                        <div class="input-group">
+                            <input [type]="showConfirm ? 'text':'password'" class="form-control"
+                                formControlName="confirmFirma" autocomplete="new-password">
+                            <button type="button" class="btn-gris" (click)="showConfirm=!showConfirm">
+                                <fa-icon [icon]="showConfirm ? 'eye-slash' : 'eye'"></fa-icon>
+                            </button>
+                        </div>
+                        <div class="text-danger mt-1"
+                            *ngIf="formCambiarFirma.errors?.['firmaNoCoincide'] && (formCambiarFirma.get('confirmFirma')?.touched || formCambiarFirma.get('nuevaFirma')?.touched)">
+                            Las firmas no coinciden.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer d-flex justify-content-between">
+                    <button class="btn-rojo" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn-gris" [disabled]="formCambiarFirma.invalid || guardandoFirma"
+                        (click)="confirmarCambioFirma()">
+                        {{ guardandoFirma ? 'Guardando...' : 'Actualizar firma' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
 </div>

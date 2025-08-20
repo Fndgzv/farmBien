@@ -1,111 +1,121 @@
+// authController.js
 const Usuario = require('../models/Usuario');
 const Farmacia = require('../models/Farmacia');
-const Corte = require('../models/CorteCaja')
+const Corte = require('../models/CorteCaja');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 
 exports.iniciarSesion = async (req, res) => {
-    const errores = validationResult(req);
-    if (!errores.isEmpty()) {
-        return res.status(400).json({ errores: errores.array() });
+  const errores = validationResult(req);
+  if (!errores.isEmpty()) {
+    return res.status(400).json({ errores: errores.array() });
+  }
+
+  const { usuario, password, firma } = req.body;
+
+  try {
+    // ⬇️ Incluye firmaHash (y firma solo para compatibilidad temporal)
+    const usuarioExistente = await Usuario.findOne({ usuario })
+      .populate('farmacia', 'nombre direccion telefono firmaHash');
+
+    if (!usuarioExistente) {
+      return res.status(400).json({ mensaje: 'Credenciales incorrectas' });
     }
 
-    const { usuario, password, firma } = req.body;
-
-    try {
-        const usuarioExistente = await Usuario.findOne({ usuario }).populate('farmacia', 'nombre direccion telefono firma');
-
-        if (!usuarioExistente) {
-            return res.status(400).json({ mensaje: 'Credenciales incorrectas' });
-        }
-
-        // 🔹 **Verificar contraseña**
-        const esCorrecto = await bcrypt.compare(password, usuarioExistente.password);
-
-        if (!esCorrecto) {
-            return res.status(400).json({ mensaje: 'Credenciales incorrectas' });
-        }
-
-        // Si es admin, no requiere firma
-        if (usuarioExistente.rol === 'admin') {
-            const payload = { id: usuarioExistente.id, rol: usuarioExistente.rol };
-            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-            return res.json({
-                token,
-                user: {
-                    id: usuarioExistente._id,
-                    nombre: usuarioExistente.nombre,
-                    rol: usuarioExistente.rol,
-                    telefono: usuarioExistente.telefono,
-                    email: usuarioExistente.email || '',
-                    domicilio: usuarioExistente.domicilio || '',
-                    farmacia: null, // admin elige después
-                }
-            });
-        }
-
-        // Para empleado/medico: ya tienen farmacia asociada
-        const farmaciaAsociada = usuarioExistente.farmacia;
-        if (!farmaciaAsociada) {
-            return res.status(409).json({ mensaje: 'El usuario no tiene una farmacia asociada' });
-        }
-
-        // 1) Verificar si tiene corte activo → si sí, NO pedimos firma
-        const corteActivo = await Corte.findOne({
-            usuario: usuarioExistente._id,
-            farmacia: farmaciaAsociada._id,
-            fechaFin: { $exists: false } // o { $eq: null } según tu esquema
-        });
-
-        if (!corteActivo) {
-            // 2) No hay corte activo → exigir firma
-            if (!firma || firma.trim() === '') {
-                return res.status(401).json({
-                    mensaje: 'Se requiere la firma de la farmacia para iniciar sesión.',
-                    requiereFirma: true
-                });
-            }
-
-            // Validar contra Farmacia.firma
-            if (firma !== farmaciaAsociada.firma) {
-                return res.status(401).json({
-                    mensaje: 'Firma incorrecta. Verifica con la farmacia.',
-                    requiereFirma: true
-                });
-            }
-        }
-
-        // 🔹 **Crear el payload del token**
-        const payload = { id: usuarioExistente.id, rol: usuarioExistente.rol };
-
-        // 🔹 **Generar el token JWT**
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-        // 🔹 **Devolver el token y los datos del usuario**
-        res.json({
-            token,
-            user: {
-                id: usuarioExistente._id,
-                nombre: usuarioExistente.nombre,
-                rol: usuarioExistente.rol,
-                telefono: usuarioExistente.telefono,
-                email: usuarioExistente.email || '',
-                domicilio: usuarioExistente.domicilio || '',
-                farmacia: farmaciaAsociada ? {
-                    _id: farmaciaAsociada._id,
-                    nombre: farmaciaAsociada.nombre,
-                    direccion: farmaciaAsociada.direccion,
-                    telefono: farmaciaAsociada.telefono
-                } : null
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Error en iniciarSesion:', error);
-        res.status(500).json({ mensaje: 'Error en el servidor' });
+    // 🔐 Verificar contraseña
+    const esCorrecto = await bcrypt.compare(password, usuarioExistente.password);
+    if (!esCorrecto) {
+      return res.status(400).json({ mensaje: 'Credenciales incorrectas' });
     }
+
+    // 🛠 Admin no requiere firma
+    if (usuarioExistente.rol === 'admin') {
+      const payload = { id: usuarioExistente.id, rol: usuarioExistente.rol };
+      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+      return res.json({
+        token,
+        user: {
+          id: usuarioExistente._id,
+          nombre: usuarioExistente.nombre,
+          rol: usuarioExistente.rol,
+          telefono: usuarioExistente.telefono,
+          email: usuarioExistente.email || '',
+          domicilio: usuarioExistente.domicilio || '',
+          farmacia: null, // admin elige después
+        }
+      });
+    }
+
+    // 👨‍⚕️ Empleado/Medico deben tener farmacia asociada
+    const farmaciaAsociada = usuarioExistente.farmacia;
+    if (!farmaciaAsociada) {
+      return res.status(409).json({ mensaje: 'El usuario no tiene una farmacia asociada' });
+    }
+
+    // 1) Si ya hay corte activo, no pedimos firma
+    const corteActivo = await Corte.findOne({
+      usuario: usuarioExistente._id,
+      farmacia: farmaciaAsociada._id,
+      $or: [{ fechaFin: { $exists: false } }, { fechaFin: null }]
+    });
+
+    if (!corteActivo) {
+      // 2) No hay corte activo → exigir firma
+      if (!firma || firma.trim() === '') {
+        return res.status(401).json({
+          mensaje: 'Se requiere la firma de la farmacia para iniciar sesión.',
+          requiereFirma: true
+        });
+      }
+
+      // ✅ Validación segura con hash (y fallback temporal a texto plano si aún no migras esa farmacia)
+      let firmaValida = false;
+
+      if (farmaciaAsociada.firmaHash) {
+        try {
+          firmaValida = await bcrypt.compare(firma, farmaciaAsociada.firmaHash);
+        } catch (_) {
+          firmaValida = false;
+        }
+      }
+
+      if (!firmaValida) {
+        return res.status(401).json({
+          mensaje: 'Firma incorrecta. Verifica con la farmacia.',
+          requiereFirma: true
+        });
+      }
+    }
+
+    // 🎟️ Emitir token
+    const payload = { id: usuarioExistente.id, rol: usuarioExistente.rol };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    // 🚚 Respuesta
+    res.json({
+      token,
+      user: {
+        id: usuarioExistente._id,
+        nombre: usuarioExistente.nombre,
+        rol: usuarioExistente.rol,
+        telefono: usuarioExistente.telefono,
+        email: usuarioExistente.email || '',
+        domicilio: usuarioExistente.domicilio || '',
+        farmacia: farmaciaAsociada ? {
+          _id: farmaciaAsociada._id,
+          nombre: farmaciaAsociada.nombre,
+          direccion: farmaciaAsociada.direccion,
+          telefono: farmaciaAsociada.telefono
+        } : null
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error en iniciarSesion:', error);
+    res.status(500).json({ mensaje: 'Error en el servidor' });
+  }
 };
 
 // obtener datos de usuario autenticado

@@ -22,7 +22,7 @@ export class ProveedoresComponent implements OnInit {
   guardando = false;
 
   paginaActual = 1;
-  proveedoresPorPagina = 10;
+  proveedoresPorPagina = 15;
   ordenAscendente = true;
 
   constructor(

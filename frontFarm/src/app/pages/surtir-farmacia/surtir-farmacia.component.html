@@ -13,9 +13,7 @@
         </option>
       </select>
     </label>
-    <button type="submit"
-            class="btn-gris"
-            [disabled]="form.invalid || cargando || pendientes.length > 0">
+    <button type="submit" class="btn-gris" [disabled]="form.invalid || cargando || pendientes.length > 0">
       {{ cargando ? 'Cargando…' : 'Aceptar' }}
     </button>
   </form>
@@ -33,7 +31,7 @@
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let p of pendientes">
+      <tr *ngFor="let p of pagedRows">
         <td>{{ p.nombre }}</td>
         <td>{{ p.codigoBarras }}</td>
         <td>{{ p.existenciaActual }}</td>
@@ -44,6 +42,25 @@
       </tr>
     </tbody>
   </table>
+
+  <div class="paginacion" *ngIf="totalItems > 0">
+    <button (click)="goFirst()" [disabled]="page === 1" title="Inicio">
+      <i class="fa fa-angle-double-left"></i>
+    </button>
+    <button (click)="goPrev()" [disabled]="page === 1" title="Anterior">
+      <i class="fa fa-angle-left"></i>
+    </button>
+
+    Página {{ page }} de {{ totalPages }} — {{ totalItems }} registros
+
+    <button (click)="goNext()" [disabled]="page === totalPages" title="Siguiente">
+      <i class="fa fa-angle-right"></i>
+    </button>
+    <button (click)="goLast()" [disabled]="page === totalPages" title="Fin">
+      <i class="fa fa-angle-double-right"></i>
+    </button>
+  </div>
+
 
   <div *ngIf="pendientes.length" class="botones-accion">
     <button (click)="onCancelar()" class="btn-rojo">Cancelar</button>

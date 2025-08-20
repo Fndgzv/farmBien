@@ -1,10 +1,11 @@
 // services/producto.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { Producto } from '../models/producto.model';
+import { ProductoLite } from '../models/producto-lite.model';
 
 @Injectable({
   providedIn: 'root'
@@ -45,4 +46,9 @@ export class ProductoService {
   return this.http.get<any>(`${this.apiUrl}/${id}`);
 }
 
+  buscar(q: string, limit = 12): Observable<ProductoLite[]> {
+    const params = new HttpParams().set('q', q).set('limit', limit);
+    return this.http.get<ProductoLite[]>(`${this.apiUrl}/search`, { params });
+  }
+  
 }
