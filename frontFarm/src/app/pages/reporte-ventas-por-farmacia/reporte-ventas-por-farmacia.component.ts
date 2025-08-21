@@ -145,7 +145,6 @@ export class ReporteVentasPorFarmaciaComponent {
     const cols = [
       { key: 'codigoBarras', label: 'Cód. barras' },
       { key: 'nombre', label: 'Producto' },
-      { key: 'unidad', label: 'Unidad' },
       { key: 'categoria', label: 'Categoría' },
       { key: 'cantidadVendida', label: 'Cantidad' },
       { key: 'importeVendido', label: 'Importe' },
