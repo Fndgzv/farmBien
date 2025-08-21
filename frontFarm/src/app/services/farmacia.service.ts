@@ -13,10 +13,16 @@ export interface Farmacia {
   firmaVersion?: number;
 }
 
+export interface FarmaciaUI extends Farmacia {
+  _abiertos: number;
+  _bloquearEliminar: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 
 export class FarmaciaService {
   private apiUrl = `${environment.apiUrl}/farmacias`;
+  private apiUrl2 = `${environment.apiUrl}`;
 
   constructor(private http: HttpClient) { }
 
@@ -40,10 +46,12 @@ export class FarmaciaService {
   return this.http.get<any>(`${this.apiUrl}/id/${id}`);
 }
 
-// farmacia.service.ts
 cambiarFirma(id: string, payload: { adminPassword: string; nuevaFirma: string }) {
-  return this.http.patch(`${this.apiUrl}/farmacias/${id}/cambiar-firma`, payload);
+  return this.http.patch(`${this.apiUrl}/${id}/cambiar-firma`, payload);
 }
 
+abiertosPorFarmacia() {
+  return this.http.get<{ mapa: Record<string, number> }>(`${this.apiUrl2}/cortes/abiertos-por-farmacia`);
+}
 
 }

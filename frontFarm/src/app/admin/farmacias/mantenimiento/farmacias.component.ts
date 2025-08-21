@@ -1,4 +1,6 @@
 // frontFarm\src\app\admin\farmacias\mantenimiento\farmacias.component.ts
+import { of } from 'rxjs';
+import { switchMap, map, catchError, finalize } from 'rxjs/operators';
 
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
@@ -6,11 +8,11 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule, A
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import Swal from 'sweetalert2';
-import { FarmaciaService, Farmacia } from '../../../services/farmacia.service';
+import { FarmaciaService, Farmacia, FarmaciaUI } from '../../../services/farmacia.service';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
-import { faPen, faTrash, faPlus, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { faPen, faTrash, faPlus, faEye, faEyeSlash, faKey } from '@fortawesome/free-solid-svg-icons';
 
 declare const bootstrap: any;
 
@@ -22,8 +24,10 @@ declare const bootstrap: any;
 })
 
 export class FarmaciasComponent implements OnInit {
+  farmacias: FarmaciaUI[] = [];
+  cargando = false;
+
   formFarmacia: FormGroup;
-  farmacias: Farmacia[] = [];
   guardando = false;
   modoEdicion = false;
   farmaciaEditandoId: string | null = null;
@@ -40,7 +44,7 @@ export class FarmaciasComponent implements OnInit {
   farmaciaTarget: any = null;
 
   constructor(private fb: FormBuilder, private farmaciaService: FarmaciaService, private library: FaIconLibrary,) {
-    library.addIcons(faPen, faTrash, faPlus, faEye, faEyeSlash);
+    library.addIcons(faPen, faTrash, faPlus, faEye, faEyeSlash, faKey);
     this.formFarmacia = this.fb.group({
       nombre: ['', Validators.required],
       direccion: [''],
@@ -181,12 +185,38 @@ export class FarmaciasComponent implements OnInit {
     return null;
   };
 
-  cargarFarmacias() {
-    this.farmaciaService.obtenerFarmacias().subscribe({
-      next: (data) => (this.farmacias = data),
-      error: () => Swal.fire('Error', 'No se pudieron cargar las farmacias', 'error')
-    });
-  }
+cargarFarmacias() {
+  this.cargando = true;
+
+  this.farmaciaService.obtenerFarmacias().pipe(
+    switchMap((lista: Farmacia[]) =>
+      this.farmaciaService.abiertosPorFarmacia().pipe(
+        map(({ mapa }: { mapa: Record<string, number> }) =>
+          lista.map(f => {
+            const abiertos = mapa[f._id!] ?? 0;
+            return {
+              ...f,
+              _abiertos: abiertos,
+              _bloquearEliminar: abiertos > 0
+            } as FarmaciaUI;
+          })
+        ),
+        // si falla el endpoint de abiertos, no bloquees el botón
+        catchError(() =>
+          of(
+            lista.map(f => ({ ...f, _abiertos: 0, _bloquearEliminar: false } as FarmaciaUI))
+          )
+        )
+      )
+    ),
+    finalize(() => (this.cargando = false))
+  )
+  .subscribe({
+    next: (arr: FarmaciaUI[]) => (this.farmacias = arr),
+    error: () => Swal.fire('Error', 'No se pudieron cargar las farmacias', 'error')
+  });
+}
+
 
   abrirModalAgregar() {
     const modalElement = document.getElementById('modalAgregarFarmacia');
@@ -297,14 +327,14 @@ export class FarmaciasComponent implements OnInit {
 
       this.farmaciaService.crearFarmacia(datos).subscribe({
         next: () =>
-                    Swal.fire({
+          Swal.fire({
             icon: 'success',
             title: 'Creación',
             text: `Farmacia creada correctamente.`,
             timer: 1500,
             showConfirmButton: false
           }).then(terminar),
-          /* Swal.fire('Creado', 'Farmacia creada correctamente', 'success').then(terminar), */
+        /* Swal.fire('Creado', 'Farmacia creada correctamente', 'success').then(terminar), */
         error: (err) => {
           console.error(err);
           this.guardando = false;

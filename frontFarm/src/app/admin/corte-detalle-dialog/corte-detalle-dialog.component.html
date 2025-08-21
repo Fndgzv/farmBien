@@ -32,8 +32,8 @@
             </div>
 
             <div class="general-line">
-                <div class="general-label">Turno extra autorizado:</div>
-                <div class="general-value">{{ data.corte?.turnoExtraAutorizado ? 'Sí' : 'No' }}</div>
+                <div class="general-label">Recarcas inicial:</div>
+                <div class="general-value">{{ data.corte?.saldoInicialRecargas | currency }}</div>
             </div>
         </div>
 
@@ -137,9 +137,9 @@
                     <div class="kv-label">Monedero:</div>
                     <div class="kv-value">{{ totales.pedidosCanceladosVale | currency }}</div>
                 </div>
+
                 <h6 style="color: blue; font-size:medium; font-style: italic;">T O T A L E S:</h6>
                 <div class="kv-grid" style="color: rgb(1, 83, 41);">
-
                     <div class="kv-label">Efectivo:</div>
                     <div class="kv-value">{{ totales.totalEfectivoEnCaja | currency }}</div>
                     <div class="kv-label">Tarjeta:</div>

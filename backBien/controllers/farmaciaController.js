@@ -1,8 +1,13 @@
 // backBien\controllers\farmaciaController.js
 
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const Farmacia = require('../models/Farmacia');
-const Usuario = require('../models/Usuario'); // para verificar al admin
+const Usuario = require('../models/Usuario');
+const CorteCaja = require('../models/CorteCaja');
+
+/* app.use('/api/farmacias', require('./routes/farmaciaRoutes')); */
+
 
 exports.obtenerFarmacias = async (_req, res) => {
   try {
@@ -129,21 +134,51 @@ exports.obtenerFirma = async (req, res) => {
 
 
 exports.eliminarFarmacia = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const farmacia = await Farmacia.findById(id);
-        if (!farmacia) {
-            return res.status(404).json({ mensaje: "Farmacia no encontrada" });
-        }
-
-        farmacia.activo = false;
-        await farmacia.save();
-
-        res.json({ mensaje: "Farmacia desactivada correctamente" });
-    } catch (error) {
-        res.status(500).json({ mensaje: "Error al desactivar la farmacia", error });
+    // 1) Solo admin
+    if (req.usuario?.rol !== 'admin') {
+      return res.status(403).json({ mensaje: 'Solo un administrador puede desactivar farmacias.' });
     }
+
+    // 2) Validar ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ mensaje: 'ID de farmacia inválido' });
+    }
+
+    // 3) Buscar farmacia
+    const farmacia = await Farmacia.findById(id);
+    if (!farmacia) {
+      return res.status(404).json({ mensaje: 'Farmacia no encontrada' });
+    }
+
+    // Idempotencia
+    if (farmacia.activo === false) {
+      return res.json({ mensaje: 'La farmacia ya estaba desactivada.' });
+    }
+
+    // 4) Bloquear si hay turnos abiertos (cualquier usuario en esa farmacia)
+    const abiertos = await CorteCaja.countDocuments({
+      farmacia: id,
+      $or: [{ fechaFin: { $exists: false } }, { fechaFin: null }]
+    });
+
+    if (abiertos > 0) {
+      return res.status(409).json({
+        mensaje: `No se puede desactivar: existen ${abiertos} turno(s) de caja abiertos en esta farmacia.`
+      });
+    }
+
+    // 5) Desactivar
+    farmacia.activo = false;
+    await farmacia.save();
+
+    return res.json({ mensaje: 'Farmacia desactivada correctamente' });
+  } catch (error) {
+    console.error('Error al desactivar la farmacia:', error);
+    return res.status(500).json({ mensaje: 'Error al desactivar la farmacia' });
+  }
 };
 
 exports.cambiarFirma = async (req, res) => {

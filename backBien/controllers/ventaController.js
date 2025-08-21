@@ -35,7 +35,7 @@ const crearVenta = async (req, res) => {
 
         // comprobar que el importeVale pueda pagarse con el monedero del cliente
         const cliente = clienteId ? await Cliente.findById(clienteId) : null;
-        
+
         if (cliente && importeVale > cliente.totalMonedero) {
             return res.status(405).json({ mensaje: `** Fondos insuficientes en el monedero, solo cuentas con: ${cliente.totalMonedero} **` });
         }
@@ -74,6 +74,10 @@ const crearVenta = async (req, res) => {
             }
 
             const precioBase = inventario.precioVenta;  // Tomo el precio de la farmacia ---
+            const costoUnitario = Number(productoDB.costo ?? 0);
+            if (!Number.isFinite(costoUnitario)) {
+                console.warn(`[VENTA] Producto ${productoDB._id} (${productoDB.nombre}) sin costo válido. Se usará 0.`);
+            }
             let palmonedero = 0;
             let descuentoRenglon = 0;
             let precioFinal = precioBase;
@@ -118,6 +122,7 @@ const crearVenta = async (req, res) => {
                 //determinar los campos de descuento x dia y el porcentaje de descuento
                 let descuentoXDia = 0;
                 let aplica2xCiento = false;
+                let descuento = 0;
                 switch (diaSemana) {
                     case 0:
                         fechaIni = productoDB?.promoDomingo?.inicio ?? null;
@@ -256,13 +261,14 @@ const crearVenta = async (req, res) => {
                 descuento: descuentoTotalRenglon,
                 monederoCliente: palmonedero,
                 precioOriginal: precioBase,
+                costo: costoUnitario,
                 iva: item.iva || 0,
                 tipoDescuento: promoAplicada,
                 cadenaDescuento: cadDesc,
                 lotes: []
             });
-            
-            i++;   
+
+            i++;
         }  /* fin ciclo de recorrido producto por producto */
 
 

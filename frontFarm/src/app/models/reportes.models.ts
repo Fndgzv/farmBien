@@ -12,6 +12,9 @@ export interface VentaProductoResumen {
   categoria?: string;
   cantidadVendida: number;
   importeVendido: number;
+  costoTotal?: number;
+  utilidad?: number;
+  margenPct?: number | null; // (0–100 o null)
 }
 
 export interface ResumenVentasResponse {
@@ -42,13 +45,16 @@ export interface Farmacia {
 
 export interface VentasProductoDetalleItem {
   fecha: string;
-  folio: string;
   farmaciaNombre: string;
   usuarioNombre: string;
   codigoBarras?: string;
   productoNombre: string;
   cantidadVendida: number;
   importeTotal: number;
+  costoTotal?: number;
+  utilidad?: number;
+  margenRenglonPct?: number | null; // (0–100 o null)
+  folio: string;
 }
 
 export interface VentasProductoDetalleResponse {
@@ -57,5 +63,10 @@ export interface VentasProductoDetalleResponse {
   productoId: string;
   rango: { fechaIni: string; fechaFin: string } | any;
   items: VentasProductoDetalleItem[];
-  resumen: { totalCantidad: number; totalImporte: number };
+  resumen: {
+    totalCantidad: number; totalImporte: number
+    totalCosto: number;
+    totalUtilidad: number;
+    margenPct: number | null;
+  };
 }

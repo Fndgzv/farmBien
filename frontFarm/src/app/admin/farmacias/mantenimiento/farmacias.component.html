@@ -30,13 +30,18 @@
                     <button class="btn-icon-chico btn-gris-chico" (click)="editar(f)" matTooltip="Editar">
                         <fa-icon [icon]="'pen'"></fa-icon>
                     </button>
-                    <button class="btn-icon-chico btn-rojo-chico" (click)="eliminar(f._id!)" matTooltip="Eliminar">
+
+                    <button class="btn-icon-chico btn-rojo-chico" (click)="eliminar(f._id!)"
+                        [disabled]="cargando || f._bloquearEliminar"
+                        [matTooltip]="f._bloquearEliminar ? 'No puedes eliminar: hay turnos de caja abiertos' : 'Eliminar'">
                         <fa-icon [icon]="'trash'"></fa-icon>
                     </button>
+
                     <button class="btn-icon-chico btn-verde-chico" (click)="abrirCambiarFirma(f)"
                         matTooltip="Cambiar firma">
-                        <fa-icon [icon]="'pen'"></fa-icon>
+                        <fa-icon [icon]="'key'"></fa-icon>
                     </button>
+
                 </td>
             </tr>
         </tbody>

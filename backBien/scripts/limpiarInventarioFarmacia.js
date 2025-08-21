@@ -5,7 +5,7 @@ const InventarioFarmacia = require('../models/InventarioFarmacia');
 
 async function run() {
   await mongoose.connect(process.env.MONGO_URI);
-  const farmaciaId = '682637c3574950176d1d9c7c';
+  const farmaciaId = '67d73b3a6348d5c1f9b74313';
   const res = await InventarioFarmacia.deleteMany({ farmacia: farmaciaId });
   console.log(`✅ Documentos borrados: ${res.deletedCount}`);
   await mongoose.disconnect();

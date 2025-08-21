@@ -46,6 +46,9 @@ export class ReporteVentasProductoComponent {
   rows: VentasProductoDetalleItem[] = [];
   totalCantidad = 0;
   totalImporte = 0;
+  totalCosto = 0;
+  totalUtilidad = 0;
+  totalMargenPct: number | null = null;
 
   // Paginación
   page = 1;
@@ -186,59 +189,87 @@ export class ReporteVentasProductoComponent {
     }
   }
 
-  // ======================
-  // Acciones
-  // ======================
-  buscar(): void {
-    // si el usuario escribió texto y no seleccionó opción,
-    // úsalo como nombre/código según patrón
-    const val = this.productCtrl.value;
-    if (!this.productoId && typeof val === 'string' && val.trim()) {
-      const q = val.trim();
-      if (/^\d{5,}$/.test(q)) {        // 5+ dígitos = probable código
-        this.codigoBarras = q;
-        this.nombre = '';
-      } else {
-        this.nombre = q;
-        this.codigoBarras = '';
-      }
-    }
-
-    if (!this.productoId && !this.codigoBarras && !this.nombre) {
-      alert('Selecciona un producto o escribe código/nombre');
-      return;
-    }
-
-    this.cargando = true;
-    this.reportes.getVentasProductoDetalle({
-      farmaciaId: this.farmaciaId || undefined,
-      productoId: this.productoId || undefined,
-      codigoBarras: !this.productoId ? (this.codigoBarras || undefined) : undefined,
-      nombre: !this.productoId ? (this.nombre || undefined) : undefined,
-      fechaIni: this.fechaIni,
-      fechaFin: this.fechaFin
-    }).subscribe({
-      next: (resp) => {
-        this.rows = resp.items || [];
-        this.totalCantidad = resp.resumen?.totalCantidad || 0;
-        this.totalImporte = resp.resumen?.totalImporte || 0;
-        this.resetPagination();
-        this.cargando = false;
-      },
-      error: (err) => {
-        console.error('Error reporte ventas producto:', err);
-        this.rows = [];
-        this.totalCantidad = 0;
-        this.totalImporte = 0;
-        this.cargando = false;
-      }
-    });
+buscar(): void {
+  // Si el usuario escribió texto y no seleccionó opción
+  const val = this.productCtrl.value;
+  if (!this.productoId && typeof val === 'string' && val.trim()) {
+    const q = val.trim();
+    if (/^\d{5,}$/.test(q)) { this.codigoBarras = q; this.nombre = ''; }
+    else { this.nombre = q; this.codigoBarras = ''; }
   }
+
+  if (!this.productoId && !this.codigoBarras && !this.nombre) {
+    alert('Selecciona un producto o escribe código/nombre');
+    return;
+  }
+
+  this.cargando = true;
+  this.reportes.getVentasProductoDetalle({
+    farmaciaId: this.farmaciaId || undefined,
+    productoId: this.productoId || undefined,
+    codigoBarras: !this.productoId ? (this.codigoBarras || undefined) : undefined,
+    nombre: !this.productoId ? (this.nombre || undefined) : undefined,
+    fechaIni: this.fechaIni,
+    fechaFin: this.fechaFin
+  }).subscribe({
+    next: (resp: any) => {
+      const toNum = (v: any) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      this.rows = resp?.items || [];
+
+      // Totales calculados desde las filas (coherentes con lo que ves en la tabla)
+      const sums = this.rows.reduce(
+        (acc: any, r: any) => {
+          acc.cant += toNum(r.cantidadVendida);
+          acc.imp  += toNum(r.importeTotal);
+          acc.cost += toNum(r.costoTotal);
+          acc.util += toNum(r.utilidad);
+          return acc;
+        },
+        { cant: 0, imp: 0, cost: 0, util: 0 }
+      );
+
+      this.totalCantidad  = sums.cant;
+      this.totalImporte   = sums.imp;
+      this.totalCosto     = sums.cost;
+      this.totalUtilidad  = sums.util;
+
+      // % margen total derivado de los totales calculados
+      this.totalMargenPct = this.totalImporte > 0
+        ? (this.totalUtilidad / this.totalImporte) * 100
+        : null;
+
+      // Si quieres preferir lo que mande el backend (si es válido), descomenta:
+      // const apiMargen = resp?.resumen?.margenPct;
+      // if (Number.isFinite(Number(apiMargen))) this.totalMargenPct = Number(apiMargen);
+
+      this.resetPagination();
+      this.cargando = false;
+    },
+    error: (err) => {
+      console.error('Error reporte ventas producto:', err);
+      this.rows = [];
+      this.totalCantidad = 0;
+      this.totalImporte = 0;
+      this.totalCosto = 0;
+      this.totalUtilidad = 0;
+      this.totalMargenPct = null;
+      this.cargando = false;
+    }
+  });
+}
+
 
   limpiar(): void {
     this.rows = [];
     this.totalCantidad = 0;
     this.totalImporte = 0;
+    this.totalCosto = 0;
+    this.totalUtilidad = 0;
+    this.totalMargenPct = null;
     this.totalItems = 0;
     this.page = 1;
 
@@ -248,7 +279,10 @@ export class ReporteVentasProductoComponent {
     this.fechaFin = this.defaultFin();
     this.rows = [];
     this.totalCantidad = 0;
-    this.totalImporte = 0
+    this.totalImporte = 0;
+    this.totalCosto = 0;
+    this.totalUtilidad = 0;
+    this.totalMargenPct = null;
   }
 
   exportarCSV(): void {
@@ -261,6 +295,9 @@ export class ReporteVentasProductoComponent {
       { key: 'productoNombre', label: 'Producto' },
       { key: 'cantidadVendida', label: 'Cantidad' },
       { key: 'importeTotal', label: 'Importe', map: (r: any) => Number(r.importeTotal ?? 0).toFixed(2) },
+      { key: 'costoTotal', label: 'Costo', map: (r: any) => Number(r.costoTotal ?? 0).toFixed(2) },
+      { key: 'utilidad', label: 'Utilidad', map: (r: any) => Number(r.utilidad ?? 0).toFixed(2) },
+      { key: 'margenRenglonPct', label: 'Margen % (ren)', map: (r: any) => r.margenRenglonPct == null ? '' : Number(r.margenRenglonPct).toFixed(2) },
       { key: 'folio', label: 'Folio venta' },
     ];
     const csv = toCSV(this.rows, cols, { separator: ',', bom: true });

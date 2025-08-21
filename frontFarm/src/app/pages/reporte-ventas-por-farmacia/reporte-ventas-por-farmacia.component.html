@@ -60,6 +60,22 @@
             Importe
             <mat-icon class="ms-1" inline>{{ sortIcon('importe') }}</mat-icon>
           </th>
+
+          <th class="text-end sortable" (click)="setSort('costo')">
+            Costo total
+            <mat-icon class="ms-1" inline>{{ sortIcon('costo') }}</mat-icon>
+          </th>
+
+          <th class="text-end sortable" (click)="setSort('utilidad')">
+            Utilidad
+            <mat-icon class="ms-1" inline>{{ sortIcon('utilidad') }}</mat-icon>
+          </th>
+
+          <th class="text-end sortable" (click)="setSort('margen')">
+            % Gan.
+            <mat-icon class="ms-1" inline>{{ sortIcon('margen') }}</mat-icon>
+          </th>
+
         </tr>
       </thead>
       <tbody>
@@ -70,16 +86,30 @@
           <td>{{ r.categoria || '—' }}</td>
           <td class="text-end">{{ r.cantidadVendida }}</td>
           <td class="text-end">{{ r.importeVendido | currency }}</td>
+          <td class="text-end">{{ r.costoTotal | currency }}</td>
+          <td class="text-end" [ngClass]="{ 'text-danger': (r.utilidad || 0) < 0 }">
+            {{ r.utilidad | currency }}
+          </td>
+          <td class="text-end">
+            {{ r.margenPct == null ? '—' : (r.margenPct | number:'1.0-2') + '%' }}
+          </td>
         </tr>
+
         <tr *ngIf="rows.length === 0">
           <td colspan="6" class="text-center text-muted">Sin resultados</td>
         </tr>
       </tbody>
+
       <tfoot *ngIf="rows.length">
         <tr class="fw-bold">
           <td colspan="4" class="text-end">Totales:</td>
           <td class="text-end">{{ totalCantidad }}</td>
           <td class="text-end">{{ totalImporte | currency }}</td>
+          <td class="text-end">{{ totalCosto | currency }}</td>
+          <td class="text-end">{{ totalUtilidad | currency }}</td>
+          <td class="text-end">
+            {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
+          </td>
         </tr>
       </tfoot>
     </table>

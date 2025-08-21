@@ -26,6 +26,14 @@ function pipelineVentasPorFarmacia({ farmaciaId, fechaIni, fechaFin }) {
         _id: '$productos.producto',
         cantidadVendida: { $sum: '$productos.cantidad' },
         importeVendido: { $sum: '$productos.totalRen' },
+        costoTotal: {
+          $sum: {
+            $multiply: [
+              { $ifNull: ['$productos.costo', 0] },
+              '$productos.cantidad'
+            ]
+          }
+        }
       }
     },
     {
@@ -38,6 +46,18 @@ function pipelineVentasPorFarmacia({ farmaciaId, fechaIni, fechaFin }) {
     },
     { $unwind: '$prod' },
     {
+      $addFields: {
+        utilidad: { $subtract: ['$importeVendido', '$costoTotal'] },
+        margenPct: {
+          $cond: [
+            { $gt: ['$importeVendido', 0] },
+            { $multiply: [{ $divide: [{ $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido'] }, 100] },
+            null
+          ]
+        }
+      }
+    },
+    {
       $project: {
         _id: 0,
         productoId: '$_id',
@@ -46,10 +66,13 @@ function pipelineVentasPorFarmacia({ farmaciaId, fechaIni, fechaFin }) {
         unidad: '$prod.unidad',
         categoria: '$prod.categoria',
         cantidadVendida: 1,
-        importeVendido: 1
+        importeVendido: 1,
+        costoTotal: 1,
+        utilidad: 1,
+        margenPct: 1
       }
     },
-    { $sort: { importeVendido: -1 } }
+    { $sort: { utilidad: -1 } }  // o { importeVendido: -1 }
   ];
 }
 
@@ -75,6 +98,55 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
           { $lookup: { from: 'usuarios', localField: 'usuario', foreignField: '_id', as: 'us' } },
           { $unwind: '$us' },
           {
+            $addFields: {
+              costoUnitario: { $ifNull: ['$productos.costo', 0] },
+              costoTotal: {
+                $multiply: [
+                  { $ifNull: ['$productos.costo', 0] },
+                  '$productos.cantidad'
+                ]
+              },
+              utilidadRenglon: {
+                $subtract: [
+                  '$productos.totalRen',
+                  {
+                    $multiply: [
+                      { $ifNull: ['$productos.costo', 0] },
+                      '$productos.cantidad'
+                    ]
+                  }
+                ]
+              },
+              margenRenglonPct: {
+                $cond: [
+                  { $gt: ['$productos.totalRen', 0] },
+                  {
+                    $multiply: [
+                      { $divide: ['$$REMOVE', '$$REMOVE'] }, // placeholder para explicar?  (No, no.)
+                    ]
+                  },
+                  null
+                ]
+              }
+            }
+          },
+          {
+            $addFields: {
+              margenRenglonPct: {
+                $cond: [
+                  { $gt: ['$productos.totalRen', 0] },
+                  {
+                    $multiply: [
+                      { $divide: ['$utilidadRenglon', '$productos.totalRen'] },
+                      100
+                    ]
+                  },
+                  null
+                ]
+              }
+            }
+          },
+          {
             $project: {
               _id: 0,
               fecha: 1,
@@ -84,7 +156,11 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
               codigoBarras: '$prod.codigoBarras',
               productoNombre: '$prod.nombre',
               cantidadVendida: '$productos.cantidad',
-              importeTotal: '$productos.totalRen'
+              importeTotal: '$productos.totalRen',
+              costoUnitario: 1,
+              costoTotal: 1,
+              utilidad: '$utilidadRenglon',
+              margenRenglonPct: 1
             }
           },
           { $sort: { fecha: 1, folio: 1 } }
@@ -94,10 +170,30 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
             $group: {
               _id: null,
               totalCantidad: { $sum: '$productos.cantidad' },
-              totalImporte: { $sum: '$productos.totalRen' }
+              totalImporte: { $sum: '$productos.totalRen' },
+              totalCosto: {
+                $sum: {
+                  $multiply: [
+                    { $ifNull: ['$productos.costo', 0] },
+                    '$productos.cantidad'
+                  ]
+                }
+              }
             }
           },
-          { $project: { _id: 0, totalCantidad: 1, totalImporte: 1 } }
+          {
+            $addFields: {
+              totalUtilidad: { $subtract: ['$totalImporte', '$totalCosto'] },
+              margenPct: {
+                $cond: [
+                  { $gt: ['$totalImporte', 0] },
+                  { $round: [{ $multiply: [{ $divide: ['$totalUtilidad', '$totalImporte'] }, 100] }, 2] },
+                  null
+                ]
+              }
+            }
+          },
+          { $project: { _id: 0, totalCantidad: 1, totalImporte: 1, totalCosto: 1, totalUtilidad: 1, margenPct: 1 } }
         ]
       }
     }

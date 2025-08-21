@@ -81,9 +81,13 @@
           <th>Producto</th>
           <th class="text-end">Cantidad</th>
           <th class="text-end">Importe</th>
+          <th class="text-end">Costo</th>
+          <th class="text-end">Utilidad</th>
+          <th class="text-end">% Gan.</th>
           <th>Folio venta</th>
         </tr>
       </thead>
+
       <tbody>
         <tr *ngFor="let r of pagedRows">
           <td>{{ r.fecha | date:'dd-MM-yyyy' }}</td>
@@ -93,21 +97,38 @@
           <td>{{ r.productoNombre }}</td>
           <td class="text-end">{{ r.cantidadVendida }}</td>
           <td class="text-end">{{ r.importeTotal | currency }}</td>
+          <td class="text-end">{{ r.costoTotal | currency }}</td>
+          <td class="text-end" [ngClass]="{ 'text-danger': (r.utilidad || 0) < 0 }">
+            {{ r.utilidad | currency }}
+          </td>
+          <td class="text-end" [ngClass]="{ 'text-danger': (r.utilidad || 0) < 0 }">
+            {{ r.margenRenglonPct  == null ? '—' : (r.margenRenglonPct  | number:'1.0-2') + '%' }}
+          </td>
           <td>{{ r.folio }}</td>
         </tr>
+
         <tr *ngIf="rows.length === 0">
-          <td colspan="8" class="text-center text-muted">Sin resultados</td>
+          <td colspan="11" class="text-center text-muted">Sin resultados</td>
         </tr>
       </tbody>
+
       <tfoot *ngIf="rows.length">
         <tr class="fw-bold">
           <td colspan="5" class="text-end">Totales:</td>
           <td class="text-end">{{ totalCantidad }}</td>
           <td class="text-end">{{ totalImporte | currency }}</td>
+          <td class="text-end">{{ totalCosto | currency }}</td>
+          <td class="text-end" [ngClass]="{ 'text-danger': totalUtilidad < 0 }">
+            {{ totalUtilidad | currency }}
+          </td>
+          <td class="text-end">
+            {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
+          </td>
           <td></td>
         </tr>
       </tfoot>
     </table>
+
 
     <div class="paginacion" *ngIf="totalItems > 0">
       <button (click)="goFirst()" [disabled]="page === 1" title="Inicio">

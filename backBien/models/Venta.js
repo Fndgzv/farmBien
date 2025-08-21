@@ -9,6 +9,7 @@ const DetalleVentaSchema = new mongoose.Schema({
   precio: { type: Number, required: true },
   totalRen: { type: Number, required: true },
   precioOriginal: { type: Number, required: true },
+  costo: { type: Number, required: true },
   iva: { type: Number, required: true },
   descuento: { type: Number, default: 0 },
   cadenaDescuento: { type: String, default: '' },
