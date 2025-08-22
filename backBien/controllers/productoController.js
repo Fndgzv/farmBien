@@ -1,8 +1,9 @@
-// backBien\controllers\productoController.js
+// controllers/productoController.js
 const mongoose = require('mongoose');
 const Producto = require('../models/Producto');
-const Farmacia = require("../models/Farmacia");
+const Farmacia = require('../models/Farmacia');
 const InventarioFarmacia = require('../models/InventarioFarmacia');
+
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -34,28 +35,69 @@ exports.obtenerProductos = async (req, res) => {
     }
 };
 
-// Crear un nuevo producto
+// Crear un nuevo producto + poblar inventario en todas las farmacias
 exports.crearProducto = async (req, res) => {
-    try {
-        const {
-            nombre, codigoBarras, unidad, precio, costo, iva,
-            stockMinimo, stockMaximo, ubicacion, categoria,
-            lotes
-        } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
+  try {
+    const {
+      nombre, codigoBarras, unidad, precio, costo, iva,
+      stockMinimo, stockMaximo, ubicacion, categoria, generico, descuentoINAPAM
+    } = req.body;
 
-        const nuevoProducto = new Producto({
-            nombre, codigoBarras, unidad, precio, costo, iva,
-            stockMinimo, stockMaximo, ubicacion, categoria,
-            proveedor, lotes
-        });
+    // 1) Crear producto
+    const nuevoProducto = await Producto.create([{
+      nombre,
+      codigoBarras,
+      unidad,
+      precio,
+      costo,
+      iva,
+      stockMinimo,
+      stockMaximo,
+      ubicacion,
+      categoria,
+      generico,
+      descuentoINAPAM
+    }], { session });
 
-        await nuevoProducto.save();
-        res.status(201).json({ mensaje: "Producto creado exitosamente", producto: nuevoProducto });
-    } catch (error) {
-        console.error("❌ Error al crear producto:", error);
-        res.status(500).json({ mensaje: "Error al crear producto", error });
+    const productoCreado = nuevoProducto[0];
+
+    // 2) Obtener TODAS las farmacias (solo _id)
+    const farmacias = await Farmacia.find({}, '_id', { session });
+
+    // 3) Preparar documentos de inventario
+    const half = (n) => Math.max(0, Math.ceil(Number(n || 0) / 2));
+
+    const docsInventario = farmacias.map(f => ({
+      farmacia: f._id,
+      producto: productoCreado._id,
+      existencia: 0,
+      stockMax: half(stockMaximo),
+      stockMin: half(stockMinimo),
+      precioVenta: precio
+    }));
+
+    // 4) Insertar en inventariofarmacias
+    if (docsInventario.length > 0) {
+      await InventarioFarmacia.insertMany(docsInventario, { session });
     }
+
+    // 5) Commit
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(201).json({
+      mensaje: 'Producto creado exitosamente y poblado en inventario de farmacias',
+      producto: productoCreado
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('❌ Error al crear producto e inventarios:', error);
+    res.status(500).json({ mensaje: 'Error al crear producto', error });
+  }
 };
 
 

@@ -46,6 +46,8 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   faTimes = faTimes;
 
   estadoGuardado: { [key: string]: 'idle' | 'guardando' | 'exito' } = {};
+  cargando = false;
+  aplicandoCambiosMasivos = false;
 
   constructor(
     private fb: FormBuilder,
@@ -86,13 +88,21 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   buscar() {
     const filtros = this.formFiltros.value;
     if (!filtros.farmacia) {
-      alert('Debe seleccionar una farmacia');
+      Swal.fire({
+        icon: 'info',
+        title: 'Aviso',
+        text: 'Debes de seleccionar una farmacia.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
       return;
     }
-
+    this.cargando = true;
     this.inventarioService.buscarInventarioFarmacia(filtros).subscribe({
       next: (resp) => {
-        this.estadoEdicion = {}; 
+        this.estadoEdicion = {};
         this.inventario = resp.map((item: any) => {
           return {
             _id: item._id,
@@ -112,10 +122,12 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           }
         });
         this.paginaActual = 1;
+        this.cargando = false;
       },
       error: (err) => {
         console.error('Error al buscar inventario', err);
         this.inventario = [];
+        this.cargando = false;
       }
     });
 
@@ -131,6 +143,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   guardarAjusteMasivo() {
     const farmacia = this.formFiltros.get('farmacia')?.value;
     if (!farmacia) return;
+    this.aplicandoCambiosMasivos = true;
 
     const existenciaNum = Number(this.ajusteMasivo.existencia);
     const stockMaxNum = Number(this.ajusteMasivo.stockMax);
@@ -152,7 +165,16 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     );
 
     if (productosAjustar.length === 0) {
-      Swal.fire('Sin cambios', 'No hay productos seleccionados o no hay cambios para aplicar.', 'info');
+      Swal.fire({
+        icon: 'info',
+        title: 'Aviso',
+        text: 'No hay productos seleccionados o no hay cambios para aplicar.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+      this.aplicandoCambiosMasivos = false;
       return;
     }
 
@@ -161,13 +183,14 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       if (ajustarExistencia) cambio.existencia = existenciaNum;
       if (ajustarStockMax) cambio.stockMax = stockMaxNum;
       if (ajustarStockMin) cambio.stockMin = stockMinNum;
+      this.aplicandoCambiosMasivos = false;
       return cambio;
     });
 
     this.inventarioService.actualizarMasivo(farmacia, cambios).subscribe({
       next: () => {
         for (const p of productosAjustar) {
-          if (ajustarExistencia && existenciaNum > 0 ) {
+          if (ajustarExistencia && existenciaNum > 0) {
             p.existencia = existenciaNum;
             p.copiaOriginal.existencia = existenciaNum;
           }
@@ -189,7 +212,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           allowOutsideClick: false,
           allowEscapeKey: false
         });
-
+        this.aplicandoCambiosMasivos = false;
         this.ajusteMasivo.existencia = 0;
         this.ajusteMasivo.stockMax = 0;
         this.ajusteMasivo.stockMin = 0;
@@ -200,8 +223,6 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       }
     });
   }
-
-
 
   guardarFila(i: any) {
     const id = i._id;
@@ -395,22 +416,22 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     return !camposValidos;
   }
 
-habilitarEdicion(id: string): void {
-  this.estadoEdicion[id] = true;
-}
+  habilitarEdicion(id: string): void {
+    this.estadoEdicion[id] = true;
+  }
 
-cancelarEdicion(item: any) {
-  item.existencia = item.copiaOriginal.existencia;
-  item.stockMax = item.copiaOriginal.stockMax;
-  item.stockMin = item.copiaOriginal.stockMin;
-  item.precioVenta = item.copiaOriginal.precioVenta;
-  this.estadoEdicion[item._id] = false;
-  this.estadoGuardado[item._id] = 'idle';
-}
+  cancelarEdicion(item: any) {
+    item.existencia = item.copiaOriginal.existencia;
+    item.stockMax = item.copiaOriginal.stockMax;
+    item.stockMin = item.copiaOriginal.stockMin;
+    item.precioVenta = item.copiaOriginal.precioVenta;
+    this.estadoEdicion[item._id] = false;
+    this.estadoGuardado[item._id] = 'idle';
+  }
 
-limpiarFiltro(campo: string) {
-  this.formFiltros.get(campo)?.setValue('');
-  this.buscar();
-}
+  limpiarFiltro(campo: string) {
+    this.formFiltros.get(campo)?.setValue('');
+    this.buscar();
+  }
 
 }

@@ -1,6 +1,6 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild, HostListener, ElementRef, Renderer2 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, Validators, FormBuilder, FormGroup } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Producto } from '../../models/producto.model';
 import { ModalOverlayService } from '../../services/modal-overlay.service';
@@ -8,12 +8,11 @@ import { ProductoService } from '../../services/producto.service';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
-import { faPen, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 
 import Swal from 'sweetalert2';
 
 type ColumnaOrden = '' | keyof Producto | 'existencia';
-
 @Component({
   selector: 'app-ajuste-inventario',
   standalone: true,
@@ -22,10 +21,17 @@ type ColumnaOrden = '' | keyof Producto | 'existencia';
   styleUrls: ['./ajustes-inventario.component.css']
 })
 export class AjustesInventarioComponent implements OnInit {
+  @ViewChild('backdrop') backdrop!: ElementRef<HTMLDivElement>;
+  @ViewChild('firstInput') firstInput!: ElementRef<HTMLInputElement>;
+
   columnaOrden: ColumnaOrden = '';
   productos: Producto[] = [];
   productosFiltrados: Producto[] = [];
   formularioMasivo!: FormGroup;
+
+  filtrando = false;
+  iniciando = false;
+
   filtros: {
     nombre: string;
     codigoBarras: string;
@@ -48,24 +54,48 @@ export class AjustesInventarioComponent implements OnInit {
   diasSemana: string[] = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
 
   faTimes = faTimes;
+  faPlus = faPlus;
+
+  mostrarNuevoProducto = false;
+  guardandoNuevo = false;
+  nuevoProductoForm!: FormGroup;
+
 
   constructor(
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
     private modalService: ModalOverlayService,
     private productoService: ProductoService,
-    private library: FaIconLibrary
-  ) { library.addIcons(faPen, faTimes); }
+    private library: FaIconLibrary,
+    private renderer: Renderer2
+  ) { library.addIcons(faPen, faTimes, faPlus); }
 
   ngOnInit(): void {
+    this.iniciando = true;
     this.inicializarFormulario();
-
     this.cargarProductos(true);
+    this.iniciando = false;
     this.formularioMasivo.valueChanges.subscribe(() => {
       this.cdr.detectChanges();
     });
     this.formularioMasivo.get('promosPorDia')?.valueChanges.subscribe(() => {
       this.cdr.detectChanges();
+    });
+
+    // 👇 inicializa form del modal
+    this.nuevoProductoForm = this.fb.group({
+      nombre: ['', [Validators.required, Validators.minLength(3)]],
+      codigoBarras: ['', Validators.required],
+      unidad: ['', Validators.required],
+      precio: [null, [Validators.required, Validators.min(0)]],
+      costo: [null, [Validators.required, Validators.min(0)]],
+      iva: [false],
+      stockMinimo: [50, [Validators.required, Validators.min(0)]],
+      stockMaximo: [100, [Validators.required, Validators.min(0)]],
+      ubicacion: [''],
+      categoria: ['', Validators.required],
+      generico: [false],
+      descuentoINAPAM: [false]
     });
 
   }
@@ -104,31 +134,40 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   aplicarFiltros() {
-    this.productosFiltrados = this.productos.filter(p => {
-      const coincideNombre = this.filtros.nombre ? p.nombre.toLowerCase().includes(this.filtros.nombre.toLowerCase()) : true;
-      const coincideCodigo = this.filtros.codigoBarras ? p.codigoBarras?.toLowerCase().includes(this.filtros.codigoBarras.toLowerCase()) : true;
-      const coincideCategoria = this.filtros.categoria ? p.categoria?.toLowerCase().includes(this.filtros.categoria.toLowerCase()) : true;
-      const coincideINAPAM = this.filtros.descuentoINAPAM === null
-        ? true
-        : p.descuentoINAPAM === this.filtros.descuentoINAPAM;
+    if (this.filtrando || this.iniciando) return;
+    this.filtrando = true;
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      const f = this.filtros;
+      const toLc = (s?: string) => (s ?? '').toLowerCase();
+      this.productosFiltrados = this.productos.filter(p => {
+        const coincideNombre = this.filtros.nombre ? p.nombre.toLowerCase().includes(this.filtros.nombre.toLowerCase()) : true;
+        const coincideCodigo = this.filtros.codigoBarras ? p.codigoBarras?.toLowerCase().includes(this.filtros.codigoBarras.toLowerCase()) : true;
+        const coincideCategoria = this.filtros.categoria ? p.categoria?.toLowerCase().includes(this.filtros.categoria.toLowerCase()) : true;
+        const coincideINAPAM = this.filtros.descuentoINAPAM === null
+          ? true
+          : p.descuentoINAPAM === this.filtros.descuentoINAPAM;
 
-      const coincideGenerico = this.filtros.generico === null
-        ? true
-        : p.generico === this.filtros.generico;
+        const coincideGenerico = this.filtros.generico === null
+          ? true
+          : p.generico === this.filtros.generico;
 
-      const coincideBajoStock = this.filtros.bajoStock
-      ? this.getExistencia(p) < (p.stockMinimo ?? 0)
-      : true;
+        const coincideBajoStock = this.filtros.bajoStock
+          ? this.getExistencia(p) < (p.stockMinimo ?? 0)
+          : true;
 
-      return coincideNombre && coincideCodigo && coincideCategoria && coincideINAPAM && coincideGenerico && coincideBajoStock;
-    });
-    this.paginaActual = 1;
+        this.filtrando = false;
+        return coincideNombre && coincideCodigo && coincideCategoria && coincideINAPAM && coincideGenerico && coincideBajoStock;
+      });
+      this.paginaActual = 1;
+      this.filtrando = false;
+    }, 0);
   }
 
   limpiarFiltro(campo: keyof typeof this.filtros) {
     if (campo === 'descuentoINAPAM') this.filtros[campo] = null;
     if (campo === 'generico') this.filtros[campo] = null;
-    if (campo === 'bajoStock') {this.filtros.bajoStock = false }
+    if (campo === 'bajoStock') { this.filtros.bajoStock = false }
     if (campo === 'nombre' || campo === 'categoria' || campo === 'codigoBarras') this.filtros[campo] = '';
 
     this.aplicarFiltros();
@@ -154,7 +193,15 @@ export class AjustesInventarioComponent implements OnInit {
     const productosSeleccionados = this.productosFiltrados.filter(p => p.seleccionado);
 
     if (productosSeleccionados.length === 0) {
-      Swal.fire({ icon: 'warning', title: 'Sin selección', text: 'Debes seleccionar al menos un producto para aplicar los cambios.' });
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin selección',
+        text: 'Debes seleccionar al menos un producto para aplicar los cambios..',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
       return;
     }
 
@@ -380,7 +427,6 @@ export class AjustesInventarioComponent implements OnInit {
               allowOutsideClick: false,
               allowEscapeKey: false,
             });
-
             // refrescamos sin limpiar filtros
             this.cargarProductos(false);
             // limpiamos selección y el form de masivos
@@ -411,40 +457,127 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
 
+  ordenar(columna: ColumnaOrden) {
+    if (this.columnaOrden === columna) {
+      this.direccionOrden = this.direccionOrden === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.columnaOrden = columna;
+      this.direccionOrden = 'asc';
+    }
 
-ordenar(columna: ColumnaOrden) {
-  if (this.columnaOrden === columna) {
-    this.direccionOrden = this.direccionOrden === 'asc' ? 'desc' : 'asc';
-  } else {
-    this.columnaOrden = columna;
-    this.direccionOrden = 'asc';
+    this.productosFiltrados.sort((a, b) => {
+      const valorA = (columna === 'existencia') ? this.getExistencia(a) : (a as any)?.[columna];
+      const valorB = (columna === 'existencia') ? this.getExistencia(b) : (b as any)?.[columna];
+
+      const aNum = typeof valorA === 'number' && !isNaN(valorA);
+      const bNum = typeof valorB === 'number' && !isNaN(valorB);
+
+      let comp: number;
+      if (aNum && bNum) {
+        comp = valorA - valorB;
+      } else {
+        const sA = (valorA ?? '').toString().toLowerCase();
+        const sB = (valorB ?? '').toString().toLowerCase();
+        comp = sA < sB ? -1 : sA > sB ? 1 : 0;
+      }
+      return this.direccionOrden === 'asc' ? comp : -comp;
+    });
+
+    this.paginaActual = 1;
   }
 
-  this.productosFiltrados.sort((a, b) => {
-    const valorA = (columna === 'existencia') ? this.getExistencia(a) : (a as any)?.[columna];
-    const valorB = (columna === 'existencia') ? this.getExistencia(b) : (b as any)?.[columna];
 
-    const aNum = typeof valorA === 'number' && !isNaN(valorA);
-    const bNum = typeof valorB === 'number' && !isNaN(valorB);
+  getExistencia(p: Producto): number {
+    return Array.isArray(p?.lotes) ? p.lotes.reduce((sum, l) => sum + (Number(l?.cantidad) || 0), 0) : 0;
+  }
 
-    let comp: number;
-    if (aNum && bNum) {
-      comp = valorA - valorB;
-    } else {
-      const sA = (valorA ?? '').toString().toLowerCase();
-      const sB = (valorB ?? '').toString().toLowerCase();
-      comp = sA < sB ? -1 : sA > sB ? 1 : 0;
+  abrirNuevoProducto() {
+    this.nuevoProductoForm.reset({
+      nombre: '',
+      codigoBarras: '',
+      unidad: 'PZA',
+      precio: null,
+      costo: null,
+      iva: false,
+      stockMinimo: 50,
+      stockMaximo: 100,
+      ubicacion: '',
+      categoria: '',
+      generico: false,
+      descuentoINAPAM: false
+    });
+    this.mostrarNuevoProducto = true;
+    // Bloquear el scroll del body (opcional)
+    this.renderer.addClass(document.body, 'no-scroll');
+
+    // Enfocar overlay y primer input
+    setTimeout(() => {
+      this.backdrop?.nativeElement.focus();
+      this.firstInput?.nativeElement.focus();
+    });
+  }
+
+  cerrarNuevoProducto() {
+    this.mostrarNuevoProducto = false;
+    this.renderer.removeClass(document.body, 'no-scroll');
+  }
+
+  // guardar
+  guardarNuevoProducto() {
+    if (this.nuevoProductoForm.invalid) {
+      this.nuevoProductoForm.markAllAsTouched();
+      return;
     }
-    return this.direccionOrden === 'asc' ? comp : -comp;
-  });
 
-  this.paginaActual = 1;
-}
+    const payload = this.nuevoProductoForm.value;
 
+    // validación simple: stockMax >= stockMin
+    if (payload.stockMaximo < payload.stockMinimo) {
+      Swal.fire('Validación', 'El stock máximo debe ser mayor o igual al mínimo.', 'warning');
+      return;
+    }
 
-getExistencia(p: Producto): number {
-  return Array.isArray(p?.lotes) ? p.lotes.reduce((sum, l) => sum + (Number(l?.cantidad) || 0), 0) : 0;
-}
+    this.guardandoNuevo = true;
+
+    this.productoService.crearProducto(payload).subscribe({
+      next: (resp) => {
+        this.guardandoNuevo = false;
+        this.mostrarNuevoProducto = false;
+        Swal.fire({
+          icon: 'success',
+          title: 'Listo',
+          html: `Producto creado correctamente.<br>
+                  Si deseas agregar promociones<br>
+                  busca el producto en la tabla y editalo`,
+          confirmButtonText: 'Aceptar',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        });
+        // recargar y mantener filtros
+        this.cargarProductos(false);
+      },
+      error: (err) => {
+        this.guardandoNuevo = false;
+        console.error(err);
+        Swal.fire('Error', err?.error?.mensaje || 'No se pudo crear el producto.', 'error');
+      }
+    });
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  trapTab(e: KeyboardEvent) {
+    if (!this.mostrarNuevoProducto || e.key !== 'Tab' || !this.backdrop) return;
+    const nodes: NodeListOf<HTMLElement> =
+      this.backdrop.nativeElement.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+    if (!nodes.length) return;
+    const first = nodes[0], last = nodes[nodes.length - 1];
+    const active = document.activeElement as HTMLElement;
+    if (e.shiftKey && active === first) { last.focus(); e.preventDefault(); }
+    else if (!e.shiftKey && active === last) { first.focus(); e.preventDefault(); }
+  }
+
 
 
 }

@@ -1,7 +1,14 @@
 <div class="panel">
-    <div class="titulo-container">
+    <div class="titulo-container d-flex justify-content-between align-items-center">
         <h1 class="titulo">Ajuste de Inventario en Almacen</h1>
+
+        <button type="button" class="btn-amarillo-chico d-flex align-items-center" (click)="abrirNuevoProducto()"
+            title="Agregar un nuevo producto">
+            <fa-icon [icon]='faPlus'></fa-icon>
+            <span class="ms-1">Nuevo</span>
+        </button>
     </div>
+
 
     <!-- Filtros -->
     <div class="row mb-2 filtros-container">
@@ -96,7 +103,11 @@
         </div>
 
         <div class="col-md-1 text-end mt-3">
-            <button (click)="aplicarFiltros()" class="btn-gris">Buscar</button>
+            <button class="btn-gris" [disabled]="filtrando || iniciando" [attr.aria-busy]="filtrando || iniciando"
+                (click)="aplicarFiltros()">
+                <i class="fa fa-spinner fa-spin me-1" *ngIf="filtrando || iniciando"></i>
+                {{ filtrando ? 'Filtrando…' : (iniciando ? 'Iniciando…' : 'Buscar') }}
+            </button>
         </div>
     </div>
 
@@ -220,7 +231,7 @@
         </div>
 
         <!-- Botones -->
-        <div class="container-masivos">
+        <div class="modal-actions mt-3">
             <button class="btn-rojo-chico" style="margin-left: 4rem;" type="button"
                 (click)="limpiarCamposCambioMasivo()">Cancelar
             </button>
@@ -331,6 +342,85 @@
         <button (click)="paginaActual = totalPaginas" [disabled]="paginaActual === totalPaginas" title="Última página">
             <i class="fa fa-angle-double-right"></i>
         </button>
+    </div>
+
+    <!-- Overlay -->
+    <div class="modal-backdrop" *ngIf="mostrarNuevoProducto" #backdrop tabindex="-1"
+        (keydown.escape)="cerrarNuevoProducto()">
+        <!-- Caja del modal -->
+        <div class="modal-dialog" role="dialog" aria-modal="true" (mousedown)="$event.stopPropagation()"
+            (click)="$event.stopPropagation()">
+            <h3 class="titulo text-center mb-3">Nuevo producto</h3>
+
+            <form [formGroup]="nuevoProductoForm" autocomplete="off">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label>Nombre *</label>
+                        <input type="text" formControlName="nombre" #firstInput class="form-control" />
+                    </div>
+
+                    <div class="col-3">
+                        <label>Código de barras *</label>
+                        <input type="text" formControlName="codigoBarras" class="form-control" />
+                    </div>
+                    <div class="col-3">
+                        <label>Categoría *</label>
+                        <input type="text" formControlName="categoria" class="form-control" />
+                    </div>
+                    <div class="col-2">
+                        <label>Unidad *</label>
+                        <input type="text" formControlName="unidad" class="form-control" />
+                    </div>
+                    <div class="col-2">
+                        <label>Precio *</label>
+                        <input type="number" formControlName="precio" class="form-control" />
+                    </div>
+                    <div class="col-2">
+                        <label>Costo *</label>
+                        <input type="number" formControlName="costo" class="form-control" />
+                    </div>
+
+                    <div class="col-2">
+                        <label>Stock Mín *</label>
+                        <input type="number" formControlName="stockMinimo" class="form-control" />
+                    </div>
+
+                    <div class="col-2">
+                        <label>Stock Máx *</label>
+                        <input type="number" formControlName="stockMaximo" class="form-control" />
+                    </div>
+
+                    <div class="col-2 form-check-vertical">
+                        <label for="chkIva" class="form-label">IVA</label>
+                        <input type="checkbox" class="form-check-input" formControlName="iva" id="chkIva" />
+                    </div>
+
+                    <div class="col-2 form-check-vertical">
+                        <label for="chkGen" class="form-label">Genérico</label>
+                        <input type="checkbox" class="form-check-input" formControlName="generico" id="chkGen" />
+                    </div>
+
+                    <div class="col-2 form-check-vertical">
+                        <label for="chkINA" class="form-label">INAPAM</label>
+                        <input type="checkbox" class="form-check-input" formControlName="descuentoINAPAM" id="chkINA" />
+                    </div>
+
+                    <div class="col-2">
+                        <label>Ubicación</label>
+                        <input type="text" formControlName="ubicacion" class="form-control" />
+                    </div>
+
+                </div>
+            </form>
+
+            <div class="modal-actions mt-3">
+                <button type="button" class="btn-rojo-chico w-100" (click)="cerrarNuevoProducto()">Cancelar</button>
+                <button type="button" class="btn-verde-chico w-100"
+                    [disabled]="nuevoProductoForm.invalid || guardandoNuevo" (click)="guardarNuevoProducto()">
+                    {{ guardandoNuevo ? 'Guardando…' : 'Guardar' }}
+                </button>
+            </div>
+        </div>
     </div>
 
 </div>

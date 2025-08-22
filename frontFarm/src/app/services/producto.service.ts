@@ -15,6 +15,11 @@ export class ProductoService {
 
   constructor(private http: HttpClient) { }
 
+  // services/producto.service.ts
+  crearProducto(payload: any) {
+    return this.http.post<any>(`${environment.apiUrl}/productos`, payload);
+  }
+
 
   obtenerProductos(): Observable<Producto[]> {
     return this.http.get<Producto[]>(`${this.apiUrl}`);
@@ -34,8 +39,8 @@ export class ProductoService {
   }
 
   actualizarProductos(payload: { productos: Producto[] }) {
-  return this.http.put(`${this.apiUrl}/actualizar-masivo`, payload);
-}
+    return this.http.put(`${this.apiUrl}/actualizar-masivo`, payload);
+  }
 
 
   actualizarProductoIndividual(producto: Producto): Observable<any> {
@@ -43,12 +48,12 @@ export class ProductoService {
   }
 
   obtenerProductoPorId(id: string) {
-  return this.http.get<any>(`${this.apiUrl}/${id}`);
-}
+    return this.http.get<any>(`${this.apiUrl}/${id}`);
+  }
 
   buscar(q: string, limit = 12): Observable<ProductoLite[]> {
     const params = new HttpParams().set('q', q).set('limit', limit);
     return this.http.get<ProductoLite[]>(`${this.apiUrl}/search`, { params });
   }
-  
+
 }

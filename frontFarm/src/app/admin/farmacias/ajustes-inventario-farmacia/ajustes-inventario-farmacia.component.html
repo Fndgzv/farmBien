@@ -83,7 +83,8 @@
             </div>
 
             <div class="col-md-1 text-end mt-3">
-                <button type="submit" class="btn-gris">Buscar</button>
+                <button type="submit" class="btn-gris" [disabled]="cargando">
+                    {{ cargando ? 'Cargando…' : 'Buscar' }}</button>
             </div>
         </div>
 
@@ -111,9 +112,9 @@
                         <input [(ngModel)]="ajusteMasivo.stockMin" class="form-control form-control-sm" type="number">
                     </th>
                     <th>
-                        <button class="btn-gris-chico" (click)="guardarAjusteMasivo()"
-                            [disabled]="deshabilitarBotonAplicar">
-                            Aplicar a todos
+                        <button class="btn-verde-chico" (click)="guardarAjusteMasivo()"
+                            [disabled]="deshabilitarBotonAplicar || aplicandoCambiosMasivos">
+                            {{ aplicandoCambiosMasivos ? 'Guardando…' : 'Aplicar a todos' }}
                         </button>
                     </th>
                     <th></th>

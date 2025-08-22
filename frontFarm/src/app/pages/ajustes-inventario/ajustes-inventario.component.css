@@ -74,3 +74,76 @@
 .btn-grabar {
   text-align: center;
 } 
+
+/* Clases de modal de alta de producto nuevo */
+/* Evita que el body se desplace cuando el modal está abierto */
+.no-scroll { overflow: hidden; }
+
+.modal-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+}
+
+
+/* Caja blanca del modal */
+.modal-dialog{
+  background: azure;
+  color: #222;
+  width: min(900px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 12px 48px rgba(0,0,0,.5);
+  pointer-events: auto; /* recibe clics */
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-actions button {
+  flex: 1;              /* que ocupen el mismo espacio */
+  max-width: 150px;     /* opcional: ancho máximo uniforme */
+}
+
+/* opcional: quitar scroll del body cuando está abierto */
+body.modal-open {
+  overflow: hidden !important;
+}
+
+  /* Opcional: estilitos a inputs si usas tema oscuro global */
+.modal-dialog .form-control { background: #fff; color: #222; }
+
+/* Columna tipo checkbox con etiqueta arriba */
+.form-check-vertical{
+  display: flex;
+  flex-direction: column;      /* label arriba, checkbox abajo */
+  align-items: center;
+}
+
+/* Consistencia visual con el resto de labels/inputs del modal */
+.modal-dialog .form-label{
+  margin-bottom: 0;
+  margin-top: .5rem;
+  font-weight: 600;
+}
+.form-check-input{
+  transform: scale(1.05);      /* opcional: un pelín más grande */
+}
