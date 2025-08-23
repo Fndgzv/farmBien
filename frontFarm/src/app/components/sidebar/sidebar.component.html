@@ -99,7 +99,7 @@
 
       <li *ngIf="userRol === 'admin'" class="has-submenu">
         <span (click)="toggleSubMenu('ventas')">
-          Ventas <fa-icon [icon]="'cash-register'" class="menu-icon"></fa-icon>
+          Ventas - Pedidos <fa-icon [icon]="'cash-register'" class="menu-icon"></fa-icon>
           {{ expandedSubMenu === 'ventas' ? '▲' : '▶' }}
         </span>
         <ul *ngIf="expandedSubMenu === 'ventas'" class="submenu">
@@ -108,6 +108,9 @@
           </li>
           <li [routerLink]="'/reporte/ventas-por-farmacia'" routerLinkActive="active" class="submenu-item">
             <span>Productos vendidos <fa-icon [icon]="icons.reporteVentas" class="menu-icon"></fa-icon></span>
+          </li>
+          <li [routerLink]="'/reporte/pedidos'" routerLinkActive="active" class="submenu-item">
+            <span>Pedidos<fa-icon [icon]="'shopping-cart'" class="menu-icon"></fa-icon></span>
           </li>
         </ul>
       </li>

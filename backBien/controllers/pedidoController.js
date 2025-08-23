@@ -247,6 +247,8 @@ const obtenerPedidos = async (req, res) => {
     try {
         const { farmacia, fechaInicio, fechaFin, folio, estado, descripcion } = req.query;
 
+        const descripcionMinima = req.query.descripcionMinima === 'true';
+
         const filtro1 = {};
         if (estado) filtro1.estado = estado;
 
@@ -269,12 +271,9 @@ const obtenerPedidos = async (req, res) => {
 
         }
 
-        if (descripcion && descripcion.length < 5) {
+        if (descripcion && descripcion.length < 5 && descripcionMinima) {
             return res.status(407).json({ mensaje: 'La descripción al menos debe tener 5 caracteres' });
         }
-
-        // si no hay folio enviar todos los pedidos tomando en cuenta fechas
-        // 👇 Lógica de fecha robusta
 
         const filtro = {};
         if (estado) filtro.estado = estado;
@@ -327,11 +326,38 @@ const obtenerPedidos = async (req, res) => {
     }
 };
 
+const actualizarCostoPedido = async (req, res) => {
+    try {
+        const pedidoId = req.params.id;
+        const { costo } = req.body;
+
+        if (!pedidoId || typeof costo !== 'number') {
+            return res.status(400).json({ mensaje: 'Datos inválidos.' });
+        }
+
+        const pedidoActualizado = await Pedido.findByIdAndUpdate(
+            pedidoId,
+            { costo },
+            { new: true }
+        );
+
+        if (!pedidoActualizado) {
+            return res.status(404).json({ mensaje: 'Pedido no encontrado.' });
+        }
+
+        res.status(200).json({ mensaje: 'Costo actualizado correctamente.', pedido: pedidoActualizado });
+    } catch (error) {
+        console.error('Error al actualizar costo del pedido:', error);
+        res.status(500).json({ mensaje: 'Error al actualizar costo.' });
+    }
+};
+
 
 
 module.exports = {
     crearPedido,
     surtirPedido,
     cancelarPedido,
-    obtenerPedidos
+    obtenerPedidos,
+    actualizarCostoPedido
 };

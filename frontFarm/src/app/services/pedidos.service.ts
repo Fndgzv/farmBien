@@ -10,6 +10,8 @@ export interface Pedido {
   folio: string;
   estado: string;
   fechaPedido: string;
+  descripcion: string;
+  costo: number
   // …otros campos que devuelve el backend…
 }
 
@@ -28,17 +30,18 @@ export class PedidosService {
     fechaFin?: string,
     folio?: string,
     estado?: string,
-    descripcion?: string
+    descripcion?: string,
+    descripcionMinima?: boolean
   ) {
-    let params = new HttpParams()
-      .set('farmacia', farmaciaId);
+    let params = new HttpParams().set('farmacia', farmaciaId);
 
     if (fechaIni) {
-      const fechaInicioDate = new Date(fechaIni); // convierte el string a Date
+      const fechaInicioDate = new Date(fechaIni);
       params = params.set('fechaInicio', fechaInicioDate.toISOString().slice(0, 10));
     }
+
     if (fechaFin) {
-      const fechaFinDate = new Date(fechaFin); // convierte el string a Date
+      const fechaFinDate = new Date(fechaFin);
       params = params.set('fechaFin', fechaFinDate.toISOString().slice(0, 10));
     }
 
@@ -54,9 +57,11 @@ export class PedidosService {
       params = params.set('descripcion', descripcion);
     }
 
-    return this.http.get<{ pedidos: Pedido[] }>(
-      `${this.apiUrl}`, { params }
-    );
+    if (descripcionMinima !== undefined) {
+      params = params.set('descripcionMinima', descripcionMinima.toString());
+    }
+
+    return this.http.get<{ pedidos: Pedido[] }>(`${this.apiUrl}`, { params });
   }
 
 
@@ -86,6 +91,14 @@ export class PedidosService {
 
     return this.http.put(`${this.apiUrl}cancelar`, data, { headers });
   }
+
+actualizarCostoPedido(pedidoId: string, nuevoCosto: number) {
+  return this.http.patch<{ pedido: Pedido }>(
+    `${this.apiUrl}actualizar-costo/${pedidoId}`,
+    { costo: nuevoCosto }
+  );
+}
+
 
 
 }

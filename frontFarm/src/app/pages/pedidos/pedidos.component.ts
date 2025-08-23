@@ -65,6 +65,8 @@ export class PedidosComponent implements OnInit {
   paraGuardar: any = null;
   folioGenerado: string | null = null;
 
+  faTimes = faTimes;
+
   constructor(private library: FaIconLibrary,
     private pedidosService: PedidosService,
     private authService: AuthService,
@@ -125,7 +127,18 @@ export class PedidosComponent implements OnInit {
   }
 
   obtenerPedido(folio: string) {
-    if (!this.farmaciaId) return;
+    if (!this.farmaciaId) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Aviso',
+        text: 'Debes de seleccionar una farmacia.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+      return;
+    }
     this.filtroFolio = folio.trim();
     // Solo disparamos la búsqueda cuando haya exactamente 6 caracteres alfanuméricos
     if (/^[A-Za-z0-9]{6}$/.test(this.filtroFolio)) {
@@ -148,8 +161,18 @@ export class PedidosComponent implements OnInit {
   }
 
   async buscarSinFolio() {
-    if (!this.farmaciaId) return;
-
+    if (!this.farmaciaId) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Aviso',
+        text: 'Debes de seleccionar una farmacia.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+      return;
+    }
     const fecha = this.filtroFechaPedido;
     const descripcion = this.filtroDescripcion?.trim();
 
@@ -159,18 +182,33 @@ export class PedidosComponent implements OnInit {
     }
 
     if (descripcion.length < 5) {
-      await Swal.fire('Descripción muy corta', 'Ingresa al menos 5 caracteres.', 'info');
-      return;
+      await Swal.fire({
+        icon: 'info',
+        title: 'Descripción muy corta',
+        text: 'Ingresa al menos 5 caracteres.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }); return;
     }
 
     this.pedidosService
-      .obtenerPedidos(this.farmaciaId, fecha, undefined, undefined, 'inicial', descripcion)
+      .obtenerPedidos(this.farmaciaId, fecha, undefined, undefined, 'inicial', descripcion, true)
       .subscribe({
         next: resp => {
           this.filtroFechaPedido = '';
           this.filtroDescripcion = '';
           if (!resp.pedidos || resp.pedidos.length === 0) {
-            Swal.fire('No encontrado', `El día ${fecha} no existe un pedido de ${descripcion}`, 'info');
+            Swal.fire({
+              icon: 'info',
+              title: 'No encontrado',
+              text: `El día ${fecha} no existe un pedido pendiente de entrega de ${descripcion}`,
+              timer: 1600,
+              timerProgressBar: true,
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+            });
             this.pedidos = [];
           } else {
             this.pedidos = resp.pedidos;

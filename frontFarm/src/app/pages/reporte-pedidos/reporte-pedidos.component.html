@@ -1,1 +1,237 @@
-<p>reporte-pedidos works!</p>
+<div class="pedidos-container">
+    <div class="titulo-container">
+        <h1 class="titulo">Reporte de Pedidos</h1>
+    </div>
+
+    <div class="row g-2 align-items-center" style="margin-bottom: 1rem;">
+        <div class="col-auto">
+            <label for="filtroFarmaciaId" class="form-label mb-0 lbl-pedido">Farmacia:</label>
+        </div>
+        <div class="col-auto">
+            <select id="filtroFarmaciaId" [(ngModel)]="filtroFarmaciaId" class="form-select" style="width: 200px;">
+                <option [ngValue]="null">-- Selecciona --</option>
+                <option *ngFor="let f of farmacias" [ngValue]="f._id">
+                    {{ f.nombre }}
+                </option>
+            </select>
+        </div>
+    </div>
+
+    <div class="row mb-2 filtros-container">
+
+        <div class="col-md-2">
+            <label class="lbl-pedido me-2 mb-0" style="white-space: nowrap;" for="filtroFechaPedido">Fecha
+                Inicial:</label>
+            <div class="position-relative">
+                <input type="date" class="form-control pe-5" [(ngModel)]="filtroFechaPedido" />
+                <button *ngIf="filtroFechaPedido" type="button" (click)="limpiarFechaPedido()"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <label class="lbl-pedido me-2 mb-0" style="white-space: nowrap;" for="filtroFechaFin">Fecha Final:</label>
+            <div class="position-relative">
+                <input type="date" class="form-control pe-5" [(ngModel)]="filtroFechaFin" />
+                <button *ngIf="filtroFechaFin" type="button" (click)="limpiarFechaFin()"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="lbl-pedido me-2 mb-0" style="white-space: nowrap;"
+                for="filtroDescripcion">Descripción:</label>
+            <div class="position-relative">
+                <input type="text" class="form-control pe-5" [(ngModel)]="filtroDescripcion"
+                    placeholder="Descripción..." />
+                <button *ngIf="filtroDescripcion" type="button" (click)="limpiarDescripcion()"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <label for="filtroEstado" class="lbl-pedido">Estado:</label>
+            <select id="filtroEstado" [(ngModel)]="filtroEstado" class="form-select" style="width: 150px;">
+                <option [ngValue]="null">-- Todos --</option>
+                <option *ngFor="let estado of estadosPedido" [ngValue]="estado">
+                    {{ estado }}
+                </option>
+            </select>
+        </div>
+        <div *ngIf="mostrarBotonBuscar" class="col-md-1" style="margin-top: 1rem;">
+            <button class="btn-gris" (click)="buscarSinFolio()">Buscar</button>
+        </div>
+
+    </div>
+
+    <div *ngIf="pedidos.length > 0" class="d-flex justify-content-between align-items-center w-100 mb-2">
+        <h2 class="subtitulo mb-0">Pedidos</h2>
+        <button class="btn-amarillo-chico btn-icon-chico" (click)="limpiarFiltroCompleto()"
+            matTooltip="Cierra la tabla">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+
+    <table *ngIf="pedidos.length > 0" class="tabla">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Folio</th>
+                <th>F. pedido</th>
+                <th>Cliente</th>
+                <th>Descripción</th>
+                <th>Estado</th>
+                <th>Costo</th>
+                <th>Precio</th>
+                <th>A cuenta</th>
+                <th>Resta</th>
+                <th>Tot. Ingreso</th>
+                <th>Utilidad</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <ng-container *ngFor="let pedido of pedidos">
+                <tr>
+                    <td>
+                        <button class="btn-verde btn-icono" matTooltip="Detalle"
+                            (click)="pedidoDetalleAbiertoId === pedido._id ? cerrarDetallePedido(pedido) : abrirDetallePedido(pedido)"
+                            title="Detalles">
+                            <fa-icon [icon]="pedidoDetalleAbiertoId === pedido._id ? 'minus' : 'plus'"
+                                [ngClass]="pedidoDetalleAbiertoId === pedido._id ? 'icono-rotado' : 'icono-normal'">
+                            </fa-icon>
+                        </button>
+                    </td>
+                    <td>{{ pedido.folio }}</td>
+                    <td>{{ pedido.fechaPedido | date: 'dd/MM/yyyy':'America/Mexico_City' }}</td>
+                    <td>{{ pedido.cliente?.nombre || 'sin cliente' }}</td>
+                    <td>{{ pedido.descripcion }}</td>
+                    <td>{{ pedido.estado }}</td>
+                    <td>
+                        <ng-container *ngIf="modoEdicionId  === pedido._id; else mostrarCosto">
+                            <input type="number" [(ngModel)]="costoEditado" class="form-control form-control-sm"
+                                style="width: 80px;">
+                        </ng-container>
+                        <ng-template #mostrarCosto>
+                            {{ pedido.costo | currency }}
+                        </ng-template>
+                    </td>
+                    <td>{{ pedido.total | currency }}</td>
+                    <td>{{ pedido.aCuenta | currency }}</td>
+                    <td>{{ pedido.resta | currency }}</td>
+                    <td>{{ pedido.total - pedido.resta | currency }}</td>
+                    <td>{{ pedido.total - pedido.resta - pedido.costo | currency }}</td>
+
+                    <td class="d-flex gap-1 align-items-center">
+                        <div class="d-flex justify-content-center">
+                            <!-- Botón Editar -->
+                            <button class="btn-icon-chico btn-gris-chico" (click)="habilitarEdicion(pedido)"
+                                [disabled]="modoEdicionId === pedido._id"
+                                matTooltip="Editar costo">
+                                <fa-icon [icon]="faEdit"></fa-icon>
+                            </button>
+
+                            <!-- Botón Guardar -->
+                            <button class="btn-icon-chico btn-verde-chico" (click)="guardarFila(pedido)"
+                                [disabled]="modoEdicionId !== pedido._id" matTooltip="Guardar costo">
+                                <fa-icon [icon]="faSave"></fa-icon>
+                            </button>
+
+                            <!-- Botón Cancelar -->
+                            <button class="btn-icon-chico btn-rojo-chico" (click)="cancelarEdicion()"
+                                [disabled]="modoEdicionId !== pedido._id" matTooltip="Cancelar">
+                                <fa-icon [icon]="faTimes"></fa-icon>
+                            </button>
+                        </div>
+                    </td>
+
+                </tr>
+
+                <!-- Detalle del pedido -->
+                <tr *ngIf="pedidoDetalleAbiertoId === pedido._id">
+                    <td colspan="100">
+                        <div class="detalle-tabla-wrapper">
+                            <table class="detalle-tabla">
+                                <thead>
+                                    <tr>
+                                        <th colspan="2">Estado: {{ pedido.estado }}</th>
+                                        <th colspan="2">Precio: ${{ pedido.total }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="2" class="sub-title-tabla">Anticipo: ${{ pedido.aCuenta }}</td>
+                                        <td colspan="2" class="sub-title-tabla">Resta: ${{ pedido.resta }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Efectivo:</td>
+                                        <td>{{ pedido.pagoACuenta.efectivo | currency }}</td>
+                                        <td>Efectivo:</td>
+                                        <td>{{ pedido.pagoResta.efectivo | currency }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Tarjeta:</td>
+                                        <td>{{ pedido.pagoACuenta.tarjeta | currency }}</td>
+                                        <td>Tarjeta:</td>
+                                        <td>{{ pedido.pagoResta.tarjeta | currency }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Transferencia:</td>
+                                        <td>{{ pedido.pagoACuenta.transferencia | currency }}</td>
+                                        <td>Transferencia:</td>
+                                        <td>{{ pedido.pagoResta.transferencia | currency }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Monedero:</td>
+                                        <td>{{ pedido.pagoACuenta.vale | currency }}</td>
+                                        <td>Monedero</td>
+                                        <td>{{ pedido.pagoResta.vale | currency }}</td>
+                                    </tr>
+                                    <tr *ngIf="esAdmin">
+                                        <td colspan="1">Levantó:</td>
+                                        <td colspan="2">{{ pedido.usuarioPidio.nombre }}</td>
+                                        <td colspan="1">{{ pedido.fechaPedido | date: 'dd/MM/yyyy':'America/Mexico_City'
+                                            }} </td>
+                                    </tr>
+                                    <tr *ngIf="pedido.estado === 'entregado' && esAdmin">
+                                        <td colspan="1">Surtió:</td>
+                                        <td colspan="2">{{ pedido.usuarioSurtio.nombre }}</td>
+                                        <td colspan="1">{{ pedido.fechaEntrega | date:
+                                            'dd/MM/yyyy':'America/Mexico_City' }} </td>
+                                    </tr>
+                                    <tr *ngIf="pedido.estado === 'cancelado' && esAdmin">
+                                        <td colspan="1">Canceló:</td>
+                                        <td colspan="2">{{ pedido.usuarioCancelo.nombre }}</td>
+                                        <td colspan="1">{{ pedido.fechaCancelacion | date:
+                                            'dd/MM/yyyy':'America/Mexico_City' }} </td>
+                                    </tr>
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+
+            </ng-container>
+        </tbody>
+
+        <tfoot>
+            <tr>
+                <td colspan="10" class="text-end fw-bold">Totales:</td>
+                <td class="fw-bold">{{ totalIngreso | currency }}</td>
+                <td class="fw-bold">{{ utilidadTotal | currency }}</td>
+                <td class="fw-bold">{{ porcentajeUtilidad | number:'1.1-1' }}%</td>
+            </tr>
+        </tfoot>
+
+
+    </table>
+
+    <p *ngIf="filtroFolio.length === 6 && pedidos.length === 0" class="no-found-error">
+        El folio del pedido no existe ó ya no está pendiente de entrega.
+    </p>
+</div>

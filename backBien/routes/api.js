@@ -19,6 +19,7 @@ router.post("/pedidos", authMiddleware, pedidoController.crearPedido);
 router.put("/pedidos/surtir", authMiddleware, pedidoController.surtirPedido);
 router.put("/pedidos/cancelar", authMiddleware, pedidoController.cancelarPedido);
 router.get("/pedidos", authMiddleware, pedidoController.obtenerPedidos);
+router.patch('/pedidos/actualizar-costo/:id', authMiddleware, pedidoController.actualizarCostoPedido);
 
 router.get("/clientes/id/:clienteId", clienteController.obtenerClientePorId);
 router.get("/clientes", authMiddleware, clienteController.obtenerClientes);

@@ -1,0 +1,76 @@
+.pedidos-container {
+    padding: 10px;
+}
+
+.pedidos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.filtros-container {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    border-bottom: 2px solid #0453b3;
+    padding-bottom: 1rem;
+}
+
+.input-con-icono {
+    position: relative;
+    display: inline-block;
+}
+
+.input-con-icono input {
+    padding-right: 24px;
+    /* espacio para el ícono */
+}
+
+.icono-limpiar {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+    cursor: pointer;
+}
+
+.mensaje-error-fecha {
+    color: #d9534f;
+    font-size: 0.7rem;
+    margin-top: 4px;
+    font-weight: bold;
+}
+
+.icono-rotado {
+    transform: rotate(180deg);
+    transition: transform 0.3s ease;
+}
+
+.icono-normal {
+    transform: rotate(0deg);
+    transition: transform 0.3s ease;
+}
+
+button:disabled {
+    opacity: 0.7 !important;
+    /* Más opaco */
+    cursor: not-allowed !important;
+    /* Mano tachada */
+    background-color: #ccc !important;
+    /* Fondo gris */
+    color: #666 !important;
+    /* Color texto gris */
+}
+
+.lbl-pedido {
+    font-size: large;
+    /*  margin-right: 10px; */
+}
+
+tfoot td {
+  background-color: #f9f9f9;
+  border-top: 2px solid #ccc;
+  font-weight: bold;
+}

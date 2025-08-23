@@ -8,6 +8,7 @@ const PedidoSchema = new mongoose.Schema({
   usuarioSurtio: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario" },
   usuarioCancelo: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario" },
   descripcion: { type: String, required: true },
+  costo: { type: Number, default: 0 },
   total: { type: Number, required: true },
   aCuenta: { type: Number, required: true },
   resta: { type: Number },
@@ -27,7 +28,7 @@ const PedidoSchema = new mongoose.Schema({
   fechaEntrega: { type: Date },
   fechaCancelacion: { type: Date },
   estado: { type: String, default: 'inicial', required: true, enum: ["inicial", "entregado", "cancelado" ]}
-}, { timestamps: true });
+}, { timestamps: true })
 
 PedidoSchema.pre('save', function (next) {
   this.resta = this.total - 
