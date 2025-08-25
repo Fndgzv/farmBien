@@ -11,6 +11,8 @@ import { PedidoTicketComponent } from '../../impresiones/pedido-ticket/pedido-ti
 
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faMinus, faPlus, faEyeSlash, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { MatTooltipModule } from '@angular/material/tooltip';
+
 
 import Swal from 'sweetalert2';
 import { firstValueFrom } from 'rxjs';
@@ -21,7 +23,7 @@ import { trigger, state, style, transition, animate } from '@angular/animations'
   standalone: true,
   templateUrl: './pedidos.component.html',
   styleUrls: ['./pedidos.component.css'],
-  imports: [FontAwesomeModule, FormsModule, CommonModule, PedidoTicketComponent],
+  imports: [FontAwesomeModule, FormsModule, CommonModule, PedidoTicketComponent, MatTooltipModule],
   animations: [
     trigger('expandCollapse', [
       state('true', style({ height: '*', opacity: 1, padding: '*', overflow: 'hidden' })),
@@ -173,9 +175,11 @@ export class PedidosComponent implements OnInit {
       });
       return;
     }
+    this.filtroFolio = '';
+
     const fecha = this.filtroFechaPedido;
     const descripcion = this.filtroDescripcion?.trim();
-
+    
     if (!fecha || !descripcion) {
       await Swal.fire('Campos incompletos', 'Debes proporcionar fecha y descripción para buscar sin folio.', 'warning');
       return;

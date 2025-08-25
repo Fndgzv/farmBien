@@ -30,3 +30,8 @@ select[disabled] {
   margin-right: 10px;
 }
 
+.filter-container {
+  border-bottom: 2px solid #0453b3;
+  padding-bottom: 1rem;
+}
+

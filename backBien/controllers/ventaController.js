@@ -123,12 +123,14 @@ const crearVenta = async (req, res) => {
                 let descuentoXDia = 0;
                 let aplica2xCiento = false;
                 let descuento = 0;
+
                 switch (diaSemana) {
-                    case 0:
+                    case 0:        
                         fechaIni = productoDB?.promoDomingo?.inicio ?? null;
                         fechaFin = productoDB?.promoDomingo?.fin ?? null;
                         descuentoXDia = productoDB?.promoDomingo?.porcentaje ?? null;
                         aplica2xCiento = productoDB?.promoDomingo?.monedero ?? null;
+
                         break;
                     case 1:
                         fechaIni = productoDB?.promoLunes?.inicio ?? null;
@@ -267,7 +269,6 @@ const crearVenta = async (req, res) => {
                 cadenaDescuento: cadDesc,
                 lotes: []
             });
-
             i++;
         }  /* fin ciclo de recorrido producto por producto */
 

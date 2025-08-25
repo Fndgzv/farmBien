@@ -4,7 +4,7 @@
         <h1 class="titulo">Ajustes de Inventario en {{ nombreFarmaciaSeleccionada }}</h1>
     </div>
 
-    <form [formGroup]="formFiltros" (ngSubmit)="buscar()">
+    <form [formGroup]="formFiltros" (ngSubmit)="buscar()" class="filter-container">
         <div class="row">
 
             <div class="col-md-2">
@@ -89,8 +89,6 @@
         </div>
 
     </form>
-
-    <hr>
 
     <div *ngIf="inventario.length > 0" class="mt-3">
         <table class="tabla">

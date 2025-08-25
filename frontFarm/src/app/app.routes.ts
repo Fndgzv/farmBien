@@ -14,6 +14,7 @@ import { MainLayoutComponent } from './layouts/main-layout.component';
 import { ReporteVentasPorFarmaciaComponent } from './pages/reporte-ventas-por-farmacia/reporte-ventas-por-farmacia.component';
 import { ReporteVentasProductoComponent } from './pages/reporte-ventas-producto/reporte-ventas-producto.component';
 import { ReportePedidosComponent } from './pages/reporte-pedidos/reporte-pedidos.component';
+import { ReporteVentasComponent } from './pages/reporte-ventas/reporte-ventas.component';
 
 export const routes: Routes = [
   {
@@ -109,6 +110,7 @@ export const routes: Routes = [
       },
       { path: 'reporte/ventas-por-farmacia', component: ReporteVentasPorFarmaciaComponent },
       { path: 'reporte/ventas-producto', component: ReporteVentasProductoComponent },
+      { path: 'reporte/ventas', component: ReporteVentasComponent },
       { path: 'reporte/pedidos', component: ReportePedidosComponent },
 
       // ... otras rutas protegidas

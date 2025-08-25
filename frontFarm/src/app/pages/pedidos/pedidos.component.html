@@ -2,7 +2,7 @@
     <div class="titulo-container">
         <h1 class="titulo">Pedidos</h1>
     </div>
-    <div class="row align-items-center mb-2">
+    <div class="row align-items-center  filter-container">
  
         <div class="col-md-1 text-end">
             <label class="lbl-folio-pedido me-2 mb-0" style="white-space: nowrap;" for="filtroFolio">Folio:</label>
@@ -39,11 +39,12 @@
                 (click)="buscarSinFolio()">Buscar</button>
         </div>
         <div class="col-2 text-end">
-            <button class="btn-verde" (click)="agregarPedido()" title="Agregar pedido">
+            <button class="btn-verde" (click)="agregarPedido()" matTooltip="Levantar un pedido">
                 Agregar Pedido <fa-icon [icon]="'plus'"></fa-icon>
             </button>
         </div>
     </div>
+
     <h2 *ngIf="pedidos.length > 0" class="subtitulo">Pedidos pendientes de entrega</h2>
     <table *ngIf="pedidos.length > 0" class="tabla">
         <thead>
@@ -65,7 +66,7 @@
                     <td>
                         <button class="btn-verde btn-icono" title="Detalle"
                             (click)="pedidoDetalleAbiertoId === pedido._id ? cerrarDetallePedido(pedido) : abrirDetallePedido(pedido)"
-                            title="Detalles">
+                            matTooltip="Mostrar detalle del pedido">
                             <fa-icon [icon]="pedidoDetalleAbiertoId === pedido._id ? 'minus' : 'plus'"
                                 [ngClass]="pedidoDetalleAbiertoId === pedido._id ? 'icono-rotado' : 'icono-normal'">
                             </fa-icon>
@@ -80,17 +81,17 @@
                     <td>{{ pedido.resta | currency }}</td>
 
                     <td class="d-flex gap-1 align-items-center">
-                        <button class="btn-verde btn-icono" (click)="surtirPedido(pedido)" title="Surtir pedido">
+                        <button class="btn-verde btn-icono" (click)="surtirPedido(pedido)" matTooltip="Surtir pedido">
                             <fa-icon [icon]="'shopping-cart'"></fa-icon>
                         </button>
 
                         <button class="btn-rojo-tache btn-icono" (click)="CancelarPedido(pedido)"
-                            title="Cancelar pedido">
+                            matTooltip="Cancelar pedido">
                             <i class="fas fa-times"></i>
                         </button>
 
                         <button class="btn-gris btn-icono" (click)="limpiarFiltroCompleto()"
-                            title="Cierra la tabla">
+                            matTooltip="Cierra la tabla">
                             <fa-icon [icon]="'eye-slash'"></fa-icon>
                         </button>
                     </td>
@@ -158,13 +159,13 @@
                                     <tr *ngIf="pedido.estado === 'inicial'">
                                         <td colspan="2">
                                             <button class="btn-verde btn-icono" (click)="surtirPedido(pedido)"
-                                                title="Surtir pedido">
+                                                matTooltip="Surtir pedido">
                                                 <fa-icon [icon]="'shopping-cart'"></fa-icon>
                                             </button>
                                         </td>
                                         <td colspan="2">
                                             <button class="btn-rojo-tache btn-icono" (click)="CancelarPedido(pedido)"
-                                                title="Cancelar pedido">
+                                                matTooltip="Cancelar pedido">
                                                 <i class="fas fa-times"></i>
                                             </button>
                                         </td>

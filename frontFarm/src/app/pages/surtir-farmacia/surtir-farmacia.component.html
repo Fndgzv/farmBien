@@ -3,7 +3,7 @@
   <div class="titulo-container">
     <p class="titulo">Surtir Farmacias</p>
   </div>
-  <form [formGroup]="form" (ngSubmit)="onAceptar()">
+  <form [formGroup]="form" (ngSubmit)="onAceptar()" style="border-bottom:2px solid #0453b3; padding-bottom: 1rem;">
     <label>
       <span class="subtitulo">Farmacia:</span>
       <select formControlName="farmaciaId">

@@ -7,11 +7,13 @@ import { ProveedorService } from '../../services/proveedor.service';
 import { ProductoService } from '../../services/producto.service';
 import { CompraService } from '../../services/compra.service';
 import Swal from 'sweetalert2';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatIconModule } from "@angular/material/icon";
 
 @Component({
   selector: 'app-compras',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatTooltipModule, MatIconModule],
   templateUrl: './compras.component.html',
   styleUrls: ['./compras.component.css']
 })

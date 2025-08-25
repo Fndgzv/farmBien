@@ -22,7 +22,8 @@
                 <input type="text" formControlName="codigoBarras" (keydown.enter)="onBuscarProducto()"
                     placeholder="Escanea aquí" />
             </label>
-            <button *ngIf="nombreProducto.length > 0" (click)="limpiarProducto()" class="btn-rojo-tache">
+            <button *ngIf="nombreProducto.length > 0" (click)="limpiarProducto()" class="btn-rojo"
+                matTooltip="Borrar código de barras">
                 <i class="fas fa-times"></i>
             </button>
             <span *ngIf="nombreProducto.length > 0" class="producto-nombre">{{ nombreProducto }}</span>
@@ -68,7 +69,8 @@
             <ng-container *ngFor="let it of carrito; let i = index">
                 <tr>
                     <td>
-                        <button (click)="onEliminarItem(i)" class="btn-icono btn-rojo-tache">
+                        <button (click)="onEliminarItem(i)" class="btn-icono btn-rojo-tache"
+                            matTooltip="Quitar este producto de la compra">
                             <i class="fas fa-times"></i>
                         </button>
                     </td>
@@ -81,11 +83,11 @@
                     <td>{{ it.stockMinimo }}</td>
                     <td>{{ it.stockMaximo }}</td>
                     <td>{{ (it.costoUnitario * it.cantidad) | currency }}</td>
-                    <td>
-                        <button class="btn-verde-chico" (click)="toggleEditPromo(i)">
-                            {{ editingPromoIndex === i ? 'Cerrar' : 'Editar' }}
-                        </button>
-                    </td>
+                    <button [class]="editingPromoIndex===i?'btn-icono btn-rojo' : 'btn-icono btn-verde'" style="margin-top: 8px;" (click)="toggleEditPromo(i)"
+                        [matTooltip]="editingPromoIndex===i?'Cerrar la edición':'Editar promos y cantidades'">
+                        <mat-icon>{{ editingPromoIndex === i ? 'close' : 'edit' }}</mat-icon>
+                    </button>
+
                 </tr>
 
                 <!-- EDICIÓN -->
@@ -263,9 +265,9 @@
 
                         <!-- BOTONES -->
                         <div class="guardar-cancelar">
-                            <button class="btn-rojo-chico" style="margin-left: 2rem;"
+                            <button class="btn-rojo-chico" style="margin-left: 2rem;" matTooltip="Cancelar edición del producto"
                                 (click)="cancelPromos()">Cancelar</button>
-                            <button class="btn-verde-chico" style="margin-right: 2rem;"
+                            <button class="btn-verde-chico" style="margin-right: 2rem;" matTooltip="Guardar cambios"
                                 (click)="savePromos(i)">Guardar</button>
                         </div>
 
@@ -285,8 +287,12 @@
 
     <!-- BOTONES DE ACCIÓN -->
     <div class="acciones">
-        <button class="btn-rojo" (click)="carrito = []; total = 0" [disabled]="!carrito.length">Cancelar</button>
-        <button class="btn-gris" (click)="onRegistrarCompra()" [disabled]="!carrito.length">Registrar Compra</button>
+        <button class="btn-rojo" (click)="carrito = []; total = 0" 
+            [disabled]="!carrito.length" matTooltip="Cancelar toda la compra">Cancelar
+        </button>
+        <button class="btn-gris" (click)="onRegistrarCompra()" matTooltip="Registrar la compra completa"
+            [disabled]="!carrito.length || headerForm.invalid">Registrar Compra
+        </button>
     </div>
 
 </div>
