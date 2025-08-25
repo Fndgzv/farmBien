@@ -74,39 +74,56 @@ export class ReporteVentasPorFarmaciaComponent {
     });
   }
 
-  buscar(): void {
-    this.cargando = true;
-    this.reportes
-      .getVentasPorFarmacia({
-        farmaciaId: this.farmaciaId || undefined,
-        fechaIni: this.fechaIni,
-        fechaFin: this.fechaFin,
-      })
-      .subscribe({
-        next: (resp: ResumenVentasResponse) => {
-          this.rows = resp?.data || [];
-          this.totalImporte = this.rows.reduce((a, r) => a + (r.importeVendido || 0), 0);
-          this.totalCantidad = this.rows.reduce((a, r) => a + (r.cantidadVendida || 0), 0);
-          this.totalCosto = this.rows.reduce((a, r) => a + (r.costoTotal || 0), 0);    // ⬅️
-          this.totalUtilidad = this.rows.reduce((a, r) => a + (r.utilidad || 0), 0);      // ⬅️
-          this.totalMargenPct = this.totalImporte > 0
-            ? (this.totalUtilidad / this.totalImporte) * 100
-            : null;
-          this.resetPagination();
-          this.cargando = false;
-        },
-        error: (err) => {
-          console.error('Error reporte ventas:', err);
-          this.rows = [];
-          this.totalImporte = 0;
-          this.totalCantidad = 0;
-          this.totalCosto = 0;
-          this.totalUtilidad = 0;
-          this.totalMargenPct = null;
-          this.cargando = false;
-        },
-      });
-  }
+buscar(): void {
+  const toDateOnly = (v: any) => {
+    if (!v) return undefined;
+    const d = new Date(v);
+    return d.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  };
+
+  this.cargando = true;
+
+  this.reportes.getVentasPorFarmacia({
+    farmaciaId: this.farmaciaId || undefined,
+    // ⬇⬇ Fechas como día, sin horas
+    fechaIni: toDateOnly(this.fechaIni),
+    fechaFin: toDateOnly(this.fechaFin),
+  })
+  .subscribe({
+    next: (resp: ResumenVentasResponse) => {
+      const rows = resp?.data || [];
+      const toNum = (v: any) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+        // si tu backend manda strings, esto lo normaliza
+      };
+
+      this.rows = rows;
+
+      this.totalImporte  = rows.reduce((a, r: any) => a + toNum(r.importeVendido), 0);
+      this.totalCantidad = rows.reduce((a, r: any) => a + toNum(r.cantidadVendida), 0);
+      this.totalCosto    = rows.reduce((a, r: any) => a + toNum(r.costoTotal), 0);
+      this.totalUtilidad = rows.reduce((a, r: any) => a + toNum(r.utilidad), 0);
+
+      this.totalMargenPct = this.totalImporte > 0
+        ? (this.totalUtilidad / this.totalImporte) * 100
+        : null;
+
+      this.resetPagination();
+      this.cargando = false;
+    },
+    error: (err) => {
+      console.error('Error reporte ventas:', err);
+      this.rows = [];
+      this.totalImporte = 0;
+      this.totalCantidad = 0;
+      this.totalCosto = 0;
+      this.totalUtilidad = 0;
+      this.totalMargenPct = null;
+      this.cargando = false;
+    },
+  });
+}
 
   limpiarFiltros(): void {
     this.farmaciaId = '';

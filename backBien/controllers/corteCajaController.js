@@ -5,20 +5,12 @@ const Venta = require('../models/Venta');
 const Pedido = require('../models/Pedido');
 const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
+
+const { DateTime } = require('luxon');
 const Usuario = require('../models/Usuario');
 const mongoose = require('mongoose');
 
-
-const TZ = 'America/Mexico_City';
-function esHoy(fecha) {
-  if (!fecha) return false;              // null/undefined => no es hoy
-  const hoyMX = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
-  const fechaMX = new Date(new Date(fecha).toLocaleString('en-US', { timeZone: TZ }));
-  return fechaMX.getFullYear() === hoyMX.getFullYear() &&
-    fechaMX.getMonth() === hoyMX.getMonth() &&
-    fechaMX.getDate() === hoyMX.getDate();
-}
-
+const ZONE = process.env.APP_TZ || 'America/Mexico_City';
 
 const crearCorte = async (req, res) => {
   const usuario = req.usuario;
@@ -219,95 +211,41 @@ const obtenerCorteActivo = async (req, res) => {
   }
 };
 
-/* const autorizarTurnoExtra = async (req, res) => {
-  const { corteId, usuarioId } = req.params;
-  try {
-    if (!mongoose.Types.ObjectId.isValid(corteId)) {
-      return res.status(400).json({ mensaje: 'corteId inválido' });
-    }
-    if (!mongoose.Types.ObjectId.isValid(usuarioId)) {
-      return res.status(400).json({ mensaje: 'usuarioId inválido' });
-    }
-
-    const corte = await CorteCaja.findById(corteId);
-    if (!corte) {
-      return res.status(404).json({ mensaje: 'Corte de caja no encontrado' });
-    }
-
-    if (!corte.fechaFin || !esHoy(corte.fechaFin)) {
-      return res.status(409).json({ mensaje: 'Solo se autoriza el día de cierre' });
-    }
-    corte.turnoExtraAutorizado = true;
-    await corte.save();
-
-    return res.json({ mensaje: 'Turno extra autorizado correctamente', corte });
-  } catch (error) {
-    console.error('Error al autorizar turno extra:', error);
-    // Manejo explícito de CastError por si algo se cuela
-    if (error.name === 'CastError') {
-      return res.status(400).json({ mensaje: 'ID inválido' });
-    }
-    return res.status(500).json({ mensaje: 'Error al autorizar turno extra' });
-  }
-};
- */
-
-/* const verificarSiPuedeAbrirTurno = async (req, res) => {
-  const usuario = req.usuario;
-  const { farmaciaId } = req.params;
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const mañana = new Date(hoy);
-  mañana.setDate(mañana.getDate() + 1);
-
-  try {
-    const corteCerradoHoy = await CorteCaja.findOne({
-      usuario: usuario._id,
-      farmacia: farmaciaId,
-      fechaInicio: { $gte: hoy, $lt: mañana },
-      fechaFin: { $ne: null }, // ya se cerró
-      turnoExtraAutorizado: { $ne: true }
-    });
-
-    if (corteCerradoHoy) {
-      return res.status(200).json({ puedeAbrirTurno: false });
-    } else {
-      return res.status(200).json({ puedeAbrirTurno: true });
-    }
-
-  } catch (err) {
-    console.error('Error al verificar turno:', err);
-    res.status(500).json({ mensaje: 'Error al verificar si puede abrir turno' });
-  }
-};
- */
-
 const obtenerCortesFiltrados = async (req, res) => {
-  const { fechaInicioDesde, fechaInicioHasta, nombreUsuario } = req.query;
-  const filtro = {};
-
-  // 🔹 Rango de fechas
-  if (fechaInicioDesde) {
-    const desde = new Date(fechaInicioDesde);
-    const hasta = fechaInicioHasta
-      ? new Date(fechaInicioHasta)
-      : new Date(fechaInicioDesde); // usar la misma si no se manda fechaHasta
-
-    desde.setHours(0, 0, 0, 0);
-    hasta.setHours(23, 59, 59, 999);
-
-    filtro.fechaInicio = { $gte: desde, $lte: hasta };
-  }
-
   try {
+    const { fechaInicioDesde, fechaInicioHasta, nombreUsuario } = req.query;
+    const filtro = {};
+
+    // 🕒 Rango de fechas por día local -> UTC [start, nextStart)
+    if (fechaInicioDesde || fechaInicioHasta) {
+      const dStr = (fechaInicioDesde || fechaInicioHasta).slice(0, 10); // 'YYYY-MM-DD'
+      const hStr = (fechaInicioHasta || fechaInicioDesde).slice(0, 10);
+
+      let startLocal = DateTime.fromISO(dStr, { zone: ZONE }).startOf('day');
+      let endLocalExclusive = DateTime.fromISO(hStr, { zone: ZONE }).plus({ days: 1 }).startOf('day');
+
+      // si vienen invertidas, corrige
+      if (endLocalExclusive < startLocal) {
+        const tmp = startLocal;
+        startLocal = endLocalExclusive.minus({ days: 1 });
+        endLocalExclusive = tmp.plus({ days: 1 });
+      }
+
+      filtro.fechaInicio = {
+        $gte: startLocal.toUTC().toJSDate(),
+        $lt: endLocalExclusive.toUTC().toJSDate(), // half-open
+      };
+    }
+
     // 🔹 Filtro por nombre de usuario
     if (nombreUsuario) {
       const usuarios = await Usuario.find({
         nombre: { $regex: new RegExp(nombreUsuario, 'i') },
       }).select('_id');
-
       const ids = usuarios.map(u => u._id);
+      if (ids.length === 0) {
+        return res.json({ cortes: [] }); // corta rápido
+      }
       filtro.usuario = { $in: ids };
     }
 

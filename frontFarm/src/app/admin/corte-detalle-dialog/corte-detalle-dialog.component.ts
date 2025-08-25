@@ -1,3 +1,4 @@
+import { Router } from '@angular/router';
 import { Component, Inject } from '@angular/core';
 import { DatePipe, CurrencyPipe, CommonModule } from '@angular/common';
 import {
@@ -21,7 +22,7 @@ type ModoDialog = 'cerrado' | 'previo';
     CurrencyPipe,
     CommonModule,
     MatDialogActions
-]
+  ]
   ,
   templateUrl: './corte-detalle-dialog.component.html',
   styleUrl: './corte-detalle-dialog.component.css'
@@ -42,48 +43,18 @@ export class CorteDetalleDialogComponent {
       usuarioId: string;
     },
     private http: HttpClient,
-    private dialogRef: MatDialogRef<CorteDetalleDialogComponent>
+    private dialogRef: MatDialogRef<CorteDetalleDialogComponent>,
+    private router: Router
   ) { }
 
   salir() {
     this.dialogRef.close(false);
   }
 
-/*   autorizarTurnoExtra() {
-    const corteId = this.data?.corte?._id;
-    const headers = this.data?.headers;
-
-    const adminId = localStorage.getItem('user_id') || this.data?.usuarioId || '';
-
-    if (!corteId || !adminId) return;
-
-    this.cargando = true;
-    this.http.put(
-      `${environment.apiUrl}/cortes/${corteId}/autorizar-turno-extra/${adminId}`,
-      {},
-      { headers }
-    ).subscribe({
-      next: () => {
-        this.cargando = false;
-        this.dialogRef.close(true); 
-      },
-      error: (e) => {
-        this.cargando = false;
-        console.error('Error autorizando turno extra', e);
-        
-        if (e.status === 403) Swal.fire('Permisos', 'Tu usuario no es admin o el token expiró.', 'warning');
-        else Swal.fire('Error', e.error?.mensaje || 'No se pudo autorizar turno extra.', 'error');
-
-      }
-    });
-  }
-
- */
-
   finalizarTurnoCaja() {
     if (!this.data?.corte?._id) return;
     this.cargando = true;
-    // mismo endpoint que el preview pero con grabar=true
+
     this.http.put(
       `${environment.apiUrl}/cortes/${this.data.corte._id}/finalizar/true`,
       {},
@@ -91,49 +62,95 @@ export class CorteDetalleDialogComponent {
     ).subscribe({
       next: () => {
         this.cargando = false;
+
+        const cerreMiTurno = this.esMiTurnoActual();
+
         this.dialogRef.close(true); // refrescar tabla
+
+        if (cerreMiTurno) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Turno finalizado',
+            text: 'Se cerró tu turno. Cerrando sesión…',
+            timer: 1600,
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          }).then(() => this.logoutPorCierre());
+        }
       },
       error: (e) => {
         this.cargando = false;
         console.error('Error finalizando turno', e);
+        Swal.fire('Error', e?.error?.mensaje || 'No se pudo finalizar el turno', 'error');
       }
     });
   }
 
+  private esMiTurnoActual(): boolean {
+    // el corte puede traer usuario como ObjectId o como objeto poblado { _id: ... }
+    const usuarioCorte =
+      this.data?.corte?.usuario?._id ??
+      this.data?.corte?.usuario ??
+      this.data?.corte?.idUsuario; // por si usas otro nombre
 
+    const usuarioActual =
+      this.data?.usuarioId ||
+      (JSON.parse(localStorage.getItem('usuario') || '{}').id ?? '');
 
-private num(v: any): number { return v == null ? 0 : Number(v); }
-get totales() {
-  const src = this.data?.modo === 'cerrado'
-    ? (this.data?.corte ?? {})
-    : (this.data?.cortePreview ?? {});
+    return !!usuarioCorte && !!usuarioActual &&
+           String(usuarioCorte) === String(usuarioActual);
+  }
 
-  return {
-    ventasEfectivo:       this.num(src.ventasEfectivo),
-    ventasTarjeta:        this.num(src.ventasTarjeta),
-    ventasTransferencia:  this.num(src.ventasTransferencia),
-    ventasVale:           this.num(src.ventasVale),
+  private logoutPorCierre() {
+    // Si tienes un AuthService con logout, úsalo:
+    // this.authService.logout();
 
-    devolucionesEfectivo: this.num(src.devolucionesEfectivo),
-    devolucionesVale:     this.num(src.devolucionesVale),
+    // Fallback directo: limpiar storage y navegar
+    try {
+      localStorage.removeItem('corte_activo');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('usuario');
+    } catch { /* ignore */ }
 
-    pedidosEfectivo:      this.num(src.pedidosEfectivo),
-    pedidosTarjeta:       this.num(src.pedidosTarjeta),
-    pedidosTransferencia: this.num(src.pedidosTransferencia),
-    pedidosVale:          this.num(src.pedidosVale),
+    // Redirige a home o login (según tu app)
+    this.router.navigate(['/home']);
+    // Si quieres forzar recarga total:
+    location.reload();
+  }
 
-    pedidosCanceladosEfectivo:  this.num(src.pedidosCanceladosEfectivo),
-    pedidosCanceladosVale:      this.num(src.pedidosCanceladosVale),
+  private num(v: any): number { return v == null ? 0 : Number(v); }
+  get totales() {
+    const src = this.data?.modo === 'cerrado'
+      ? (this.data?.corte ?? {})
+      : (this.data?.cortePreview ?? {});
 
-    totalEfectivoEnCaja:  this.num(src.totalEfectivoEnCaja),
-    totalTarjeta:         this.num(src.totalTarjeta),
-    totalTransferencia:   this.num(src.totalTransferencia),
-    totalVale:            this.num(src.totalVale),
+    return {
+      ventasEfectivo: this.num(src.ventasEfectivo),
+      ventasTarjeta: this.num(src.ventasTarjeta),
+      ventasTransferencia: this.num(src.ventasTransferencia),
+      ventasVale: this.num(src.ventasVale),
 
-    totalRecargas:        this.num(src.totalRecargas),
-    abonosMonederos:      this.num(src.abonosMonederos),
-  };
-}
+      devolucionesEfectivo: this.num(src.devolucionesEfectivo),
+      devolucionesVale: this.num(src.devolucionesVale),
+
+      pedidosEfectivo: this.num(src.pedidosEfectivo),
+      pedidosTarjeta: this.num(src.pedidosTarjeta),
+      pedidosTransferencia: this.num(src.pedidosTransferencia),
+      pedidosVale: this.num(src.pedidosVale),
+
+      pedidosCanceladosEfectivo: this.num(src.pedidosCanceladosEfectivo),
+      pedidosCanceladosVale: this.num(src.pedidosCanceladosVale),
+
+      totalEfectivoEnCaja: this.num(src.totalEfectivoEnCaja),
+      totalTarjeta: this.num(src.totalTarjeta),
+      totalTransferencia: this.num(src.totalTransferencia),
+      totalVale: this.num(src.totalVale),
+
+      totalRecargas: this.num(src.totalRecargas),
+      abonosMonederos: this.num(src.abonosMonederos),
+    };
+  }
 
 
 }

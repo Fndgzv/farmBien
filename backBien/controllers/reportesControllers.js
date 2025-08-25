@@ -1,79 +1,73 @@
 // backBien/controllers/reportesControllers.js
+const { DateTime } = require('luxon');
+const { Types } = require('mongoose');
+
 const Venta = require('../models/Venta');
 const Producto = require('../models/Producto');
-const { Types } = require('mongoose');
-const { pipelineVentasProductoDetalle, pipelineVentasPorFarmacia } = require('../pipelines/reportesPipelines');
 
-function parseDateOrDefault(value, def) {
-  const d = value ? new Date(value) : def;
-  return new Date(d);
+const {
+  pipelineVentasProductoDetalle,
+  pipelineVentasPorFarmacia
+} = require('../pipelines/reportesPipelines');
+
+const ZONE = process.env.APP_TZ || 'America/Mexico_City';
+
+// Rango por defecto: últimos 15 días en zona local → UTC [gte, lt)
+function defaultRangeLast15DaysUtc() {
+  const endExLocal = DateTime.now().setZone(ZONE).plus({ days: 1 }).startOf('day'); // mañana 00:00 local
+  const startLocal = endExLocal.minus({ days: 15 }).startOf('day');                  // hace 15 días
+  return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
 }
 
-function defaultRangeToday() {
-  const now = new Date();
-  const ini = new Date(now); ini.setHours(0, 0, 0, 0);
-  const fin = new Date(now); fin.setHours(23, 59, 59, 999);
-  return { ini, fin };
-}
+// Convierte 'YYYY-MM-DD' a UTC [gte, lt). Si falta una fecha, usa la otra.
+// Si faltan ambas, usa defaultRangeLast15DaysUtc.
+function dayRangeUtc(fechaIni, fechaFin) {
+  if (!fechaIni && !fechaFin) return defaultRangeLast15DaysUtc();
 
-// Detecta "YYYY-MM-DD"
-const isYMD = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const iniStr = (fechaIni || fechaFin).slice(0, 10);
+  const finStr = (fechaFin || fechaIni).slice(0, 10);
 
-// Crea Date en zona local a inicio/fin de día cuando viene "YYYY-MM-DD"
-function parseDateAtBoundary(value, boundary /* 'start' | 'end' */) {
-  if (!value) return null;
+  let startLocal = DateTime.fromISO(iniStr, { zone: ZONE }).startOf('day');
+  let endExLocal = DateTime.fromISO(finStr, { zone: ZONE }).plus({ days: 1 }).startOf('day');
 
-  if (isYMD(value)) {
-    const [y, m, d] = value.split('-').map(Number);
-    return boundary === 'start'
-      ? new Date(y, m - 1, d, 0, 0, 0, 0)          // inicio de día local
-      : new Date(y, m - 1, d, 23, 59, 59, 999);   // fin de día local
+  // corrige rango invertido
+  if (endExLocal < startLocal) {
+    const tmp = startLocal;
+    startLocal = endExLocal.minus({ days: 1 });
+    endExLocal = tmp.plus({ days: 1 });
   }
 
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return null;
-
-  // Si viene con hora, lo encajonamos igual a inicio/fin
-  const d = new Date(dt);
-  if (boundary === 'start') d.setHours(0, 0, 0, 0);
-  else d.setHours(23, 59, 59, 999);
-  return d;
+  return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
 }
 
-function defaultRangeLast15Days() {
-  const now = new Date();
-  const fin = new Date(now); fin.setHours(23, 59, 59, 999);
-  const ini = new Date(now); ini.setDate(ini.getDate() - 15); ini.setHours(0, 0, 0, 0);
-  return { ini, fin };
-}
-
+/** ──────────────────────────────────────────────────────────────────────
+ *  Ventas de un producto (detalle por tickets/renglones)
+ *  GET /api/reportes/ventas-producto-detalle
+ *  Query: farmaciaId?, productoId? | (codigoBarras|nombre), fechaIni?, fechaFin?
+ *  fechaIni/fechaFin como 'YYYY-MM-DD'
+ */
 exports.ventasProductoDetalle = async (req, res) => {
   try {
     let { farmaciaId, productoId, codigoBarras, nombre, fechaIni, fechaFin } = req.query;
 
-    // Rango por defecto: últimos 15 días
-    const now = new Date();
-    //const finDef = new Date(now.setHours(23, 59, 59, 999));
-    const iniCalc = new Date(); iniCalc.setDate(iniCalc.getDate() - 15);
-    //const iniDef = new Date(iniCalc.setHours(0, 0, 0, 0));
+    const { gte, lt } = dayRangeUtc(fechaIni, fechaFin);
 
-    const { ini: iniDef, fin: finDef } = defaultRangeLast15Days();
-    const ini = parseDateAtBoundary(fechaIni, 'start') || iniDef;
-    const fin = parseDateAtBoundary(fechaFin, 'end')   || finDef;
-
-    // Resolver productoId si no viene
+    // Resolver producto si no viene productId
     if (!productoId) {
       let prod = null;
       if (codigoBarras) {
         prod = await Producto.findOne({ codigoBarras: String(codigoBarras).trim() }, { _id: 1 });
       } else if (nombre) {
-        prod = await Producto.findOne({ nombre: new RegExp(`^${String(nombre).trim()}$`, 'i') }, { _id: 1 });
+        prod = await Producto.findOne(
+          { nombre: new RegExp(`^${String(nombre).trim()}$`, 'i') },
+          { _id: 1 }
+        );
       }
       if (!prod) return res.status(404).json({ ok: false, mensaje: 'Producto no encontrado' });
       productoId = String(prod._id);
     }
 
-    // Validaciones básicas
+    // Validaciones
     if (!Types.ObjectId.isValid(productoId)) {
       return res.status(400).json({ ok: false, mensaje: 'productoId inválido' });
     }
@@ -82,7 +76,12 @@ exports.ventasProductoDetalle = async (req, res) => {
     }
 
     const facet = await Venta.aggregate(
-      pipelineVentasProductoDetalle({ productoId, farmaciaId: farmaciaId || null, fechaIni: ini, fechaFin: fin })
+      pipelineVentasProductoDetalle({
+        productoId,
+        farmaciaId: farmaciaId || null,
+        fechaIni: gte,    // UTC
+        fechaFin: lt      // UTC (EXCLUSIVO)
+      })
     );
 
     const items = facet?.[0]?.items || [];
@@ -93,52 +92,47 @@ exports.ventasProductoDetalle = async (req, res) => {
       totalUtilidad: 0,
       margenPct: null
     };
-    
-    res.json({
+
+    return res.json({
       ok: true,
       reporte: 'Ventas del producto por farmacia',
       productoId,
-      rango: { fechaIni: ini, fechaFin: fin },
+      rango: { fechaIni: gte, fechaFin: lt },
       items,
       resumen
     });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, mensaje: 'Error al generar reporte de ventas por producto' });
+    return res.status(500).json({ ok: false, mensaje: 'Error al generar reporte de ventas por producto' });
   }
 };
 
+/** ──────────────────────────────────────────────────────────────────────
+ *  Resumen de productos vendidos por farmacia (agregado)
+ *  GET /api/reportes/resumen-productos
+ *  Query: farmaciaId?, fechaIni?, fechaFin?
+ *  fechaIni/fechaFin como 'YYYY-MM-DD'
+ */
 exports.resumenProductosVendidos = async (req, res) => {
   try {
     const { farmaciaId, fechaIni, fechaFin } = req.query;
 
-    // Defaults: últimos 15 días
-    const ahora = new Date();
-    //const finDef = new Date(ahora.setHours(23, 59, 59, 999));
-    const iniDefCalc = new Date();
-    iniDefCalc.setDate(iniDefCalc.getDate() - 15);
-    //const iniDef = new Date(iniDefCalc.setHours(0, 0, 0, 0));
+    const { gte, lt } = dayRangeUtc(fechaIni, fechaFin);
 
-    const { ini: iniDef, fin: finDef } = defaultRangeToday();
-    const ini = parseDateAtBoundary(fechaIni, 'start') || iniDef;
-    const fin = parseDateAtBoundary(fechaFin, 'end')   || finDef;
-
-    // Validación básica de ObjectId (si viene)
-    const farmaciaOk = farmaciaId ? Types.ObjectId.isValid(farmaciaId) : true;
-    if (!farmaciaOk) {
+    if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
       return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
     }
 
     const pipeline = pipelineVentasPorFarmacia({
       farmaciaId: farmaciaId || null,
-      fechaIni: ini,
-      fechaFin: fin
+      fechaIni: gte,   // UTC
+      fechaFin: lt     // UTC (EXCLUSIVO)
     });
 
     const data = await Venta.aggregate(pipeline);
-    res.json({ ok: true, rango: { fechaIni: ini, fechaFin: fin }, data });
+    return res.json({ ok: true, rango: { fechaIni: gte, fechaFin: lt }, data });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, mensaje: 'Error al obtener resumen de ventas' });
+    return res.status(500).json({ ok: false, mensaje: 'Error al obtener resumen de ventas' });
   }
 };

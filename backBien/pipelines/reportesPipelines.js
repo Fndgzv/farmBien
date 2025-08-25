@@ -1,20 +1,21 @@
 // backBien/pipelines/reportesPipelines.js
 const { Types } = require('mongoose');
 
-// Helpers seguros
-const toObjectIdOrNull = (hex) => (!hex ? null : (Types.ObjectId.isValid(hex) ? new Types.ObjectId(hex) : null));
+// Helpers
+const toObjectIdOrNull = (hex) =>
+  (!hex ? null : (Types.ObjectId.isValid(hex) ? new Types.ObjectId(hex) : null));
+
 const toObjectIdOrThrow = (hex, field = 'id') => {
   if (!Types.ObjectId.isValid(hex)) throw new Error(`${field} inválido`);
   return new Types.ObjectId(hex);
 };
 
-
 /**
- * Ventas por farmacia y rango de fechas.
+ * Resumen por producto (todas las ventas en el rango)
  * Base: colección "ventas"
  */
 function pipelineVentasPorFarmacia({ farmaciaId, fechaIni, fechaFin }) {
-  const match = { fecha: { $gte: fechaIni, $lte: fechaFin } };
+  const match = { fecha: { $gte: fechaIni, $lt: fechaFin } }; // ⬅️ half-open
   const farmId = toObjectIdOrNull(farmaciaId);
   if (farmId) match.farmacia = farmId;
 
@@ -51,7 +52,12 @@ function pipelineVentasPorFarmacia({ farmaciaId, fechaIni, fechaFin }) {
         margenPct: {
           $cond: [
             { $gt: ['$importeVendido', 0] },
-            { $multiply: [{ $divide: [{ $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido'] }, 100] },
+            {
+              $multiply: [
+                { $divide: [{ $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido'] },
+                100
+              ]
+            },
             null
           ]
         }
@@ -72,14 +78,17 @@ function pipelineVentasPorFarmacia({ farmaciaId, fechaIni, fechaFin }) {
         margenPct: 1
       }
     },
-    { $sort: { utilidad: -1 } }  // o { importeVendido: -1 }
+    { $sort: { utilidad: -1 } }
   ];
 }
 
+/**
+ * Detalle de ventas de un producto en el rango (por tickets/renglones)
+ */
 function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fechaFin }) {
   const prodId = toObjectIdOrThrow(productoId, 'productoId');
 
-  const match = { fecha: { $gte: fechaIni, $lte: fechaFin } };
+  const match = { fecha: { $gte: fechaIni, $lt: fechaFin } }; // ⬅️ half-open
   const farmId = toObjectIdOrNull(farmaciaId);
   if (farmId) match.farmacia = farmId;
 
@@ -97,6 +106,7 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
           { $unwind: '$farm' },
           { $lookup: { from: 'usuarios', localField: 'usuario', foreignField: '_id', as: 'us' } },
           { $unwind: '$us' },
+
           {
             $addFields: {
               costoUnitario: { $ifNull: ['$productos.costo', 0] },
@@ -115,17 +125,6 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
                       '$productos.cantidad'
                     ]
                   }
-                ]
-              },
-              margenRenglonPct: {
-                $cond: [
-                  { $gt: ['$productos.totalRen', 0] },
-                  {
-                    $multiply: [
-                      { $divide: ['$$REMOVE', '$$REMOVE'] }, // placeholder para explicar?  (No, no.)
-                    ]
-                  },
-                  null
                 ]
               }
             }
@@ -187,7 +186,17 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
               margenPct: {
                 $cond: [
                   { $gt: ['$totalImporte', 0] },
-                  { $round: [{ $multiply: [{ $divide: ['$totalUtilidad', '$totalImporte'] }, 100] }, 2] },
+                  {
+                    $round: [
+                      {
+                        $multiply: [
+                          { $divide: ['$totalUtilidad', '$totalImporte'] },
+                          100
+                        ]
+                      },
+                      2
+                    ]
+                  },
                   null
                 ]
               }
@@ -199,7 +208,6 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
     }
   ];
 }
-
 
 module.exports = {
   pipelineVentasPorFarmacia,

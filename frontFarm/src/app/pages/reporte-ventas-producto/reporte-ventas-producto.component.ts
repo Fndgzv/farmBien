@@ -212,14 +212,21 @@ export class ReporteVentasProductoComponent {
       return;
     }
 
+    const toDateOnly = (v: any) => {
+      if (!v) return undefined;
+      const d = new Date(v);
+      return d.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    };
+
+
     this.cargando = true;
     this.reportes.getVentasProductoDetalle({
       farmaciaId: this.farmaciaId || undefined,
       productoId: this.productoId || undefined,
       codigoBarras: !this.productoId ? (this.codigoBarras || undefined) : undefined,
       nombre: !this.productoId ? (this.nombre || undefined) : undefined,
-      fechaIni: this.fechaIni,
-      fechaFin: this.fechaFin
+      fechaIni: toDateOnly(this.fechaIni),
+      fechaFin: toDateOnly(this.fechaFin)
     }).subscribe({
       next: (resp: any) => {
         const toNum = (v: any) => {
@@ -250,10 +257,6 @@ export class ReporteVentasProductoComponent {
         this.totalMargenPct = this.totalImporte > 0
           ? (this.totalUtilidad / this.totalImporte) * 100
           : null;
-
-        // Si quieres preferir lo que mande el backend (si es válido), descomenta:
-        // const apiMargen = resp?.resumen?.margenPct;
-        // if (Number.isFinite(Number(apiMargen))) this.totalMargenPct = Number(apiMargen);
 
         this.resetPagination();
         this.cargando = false;

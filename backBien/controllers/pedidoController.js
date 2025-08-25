@@ -1,7 +1,29 @@
+const { DateTime } = require('luxon');
 const Cliente = require("../models/Cliente");
 const Pedido = require("../models/Pedido");
 const Cancelacion = require("../models/Cancelacion");
 const generarFolioUnico = require('../utils/generarFolioUnico');
+
+const ZONE = process.env.APP_TZ || 'America/Mexico_City';
+
+// Convierte 'YYYY-MM-DD' (local MX) a rango UTC half-open [gte, lt)
+function dayRangeUtc(fechaInicio, fechaFin) {
+    if (!fechaInicio && !fechaFin) return null;
+
+    const iniStr = (fechaInicio || fechaFin).slice(0, 10);
+    const finStr = (fechaFin || fechaInicio).slice(0, 10);
+
+    let startLocal = DateTime.fromISO(iniStr, { zone: ZONE }).startOf('day');
+    let endExLocal = DateTime.fromISO(finStr, { zone: ZONE }).plus({ days: 1 }).startOf('day');
+
+    if (endExLocal < startLocal) {
+        const tmp = startLocal;
+        startLocal = endExLocal.minus({ days: 1 });
+        endExLocal = tmp.plus({ days: 1 });
+    }
+
+    return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
+}
 
 const crearPedido = async (req, res) => {
 
@@ -244,86 +266,67 @@ const cancelarPedido = async (req, res) => {
 }
 
 const obtenerPedidos = async (req, res) => {
-    try {
-        const { farmacia, fechaInicio, fechaFin, folio, estado, descripcion } = req.query;
+  try {
+    const {
+      farmacia: farmaciaId,
+      fechaInicio,
+      fechaFin,
+      folio,
+      estado,
+      descripcion,
+      descripcionMinima
+    } = req.query;
 
-        const descripcionMinima = req.query.descripcionMinima === 'true';
+    // 1) Búsqueda por folio exacto (6 chars al final), ignora fechas
+    if (folio && /^[A-Za-z0-9]{6}$/.test(folio)) {
+      const regex = new RegExp(`${folio}$`);
+      const filtroFolio = {
+        ...(farmaciaId ? { farmacia: farmaciaId } : {}),
+        ...(estado ? { estado } : {}),
+        folio: { $regex: regex }
+      };
 
-        const filtro1 = {};
-        if (estado) filtro1.estado = estado;
+      const pedido = await Pedido.findOne(filtroFolio)
+        .populate('cliente', 'nombre totalMonedero telefono')
+        .populate('usuarioPidio', 'nombre')
+        .populate('usuarioSurtio', 'nombre')
+        .populate('usuarioCancelo', 'nombre');
 
-        if (farmacia) filtro1.farmacia = farmacia;
-
-        if (folio && /^[A-Za-z0-9]{6}$/.test(folio)) {
-            // Si se proporciona el folio adecuadamente, buscar el primero, ignorando fechas
-            const regex = new RegExp(`${folio}$`);
-            filtro1.folio = { $regex: regex }
-        }
-
-        if (filtro1.folio) {
-            const pedido = await Pedido.findOne(filtro1)
-                .populate('cliente', 'nombre totalMonedero telefono')
-                .populate('usuarioPidio', 'nombre')
-                .populate('usuarioSurtio', 'nombre')
-                .populate('usuarioCancelo', 'nombre')
-
-            return res.json({ pedidos: pedido ? [pedido] : [] });
-
-        }
-
-        if (descripcion && descripcion.length < 5 && descripcionMinima) {
-            return res.status(407).json({ mensaje: 'La descripción al menos debe tener 5 caracteres' });
-        }
-
-        const filtro = {};
-        if (estado) filtro.estado = estado;
-
-        if (farmacia) filtro.farmacia = farmacia;
-
-        const hoy = new Date();
-        const haceMucho = new Date('1970-01-01');
-        let fechaInicioFinal = null;
-        let fechaFinFinal = null;
-
-        if (fechaInicio || fechaFin) {
-            fechaInicioFinal = fechaInicio ? new Date(fechaInicio) : haceMucho;
-            fechaFinFinal = fechaFin ? new Date(fechaFin) : hoy;
-
-            if (fechaInicioFinal > fechaFinFinal) {
-                const temp = fechaInicioFinal;
-                fechaInicioFinal = fechaFinFinal;
-                fechaFinFinal = temp;
-            }
-
-            if (fechaInicioFinal > hoy) fechaInicioFinal = hoy;
-            if (fechaFinFinal > hoy) fechaFinFinal = hoy;
-
-            filtro.fechaPedido = {
-                $gte: fechaInicioFinal,
-                $lte: fechaFinFinal
-            };
-        }
-
-        if (descripcion) {
-            filtro.descripcion = { $regex: new RegExp(descripcion, 'i') };
-        } else {
-
-        }
-
-        const pedidos = await Pedido.find(filtro)
-            .populate('cliente', 'nombre')
-            .populate('usuarioPidio', 'nombre')
-            .populate('usuarioSurtio', 'nombre')
-            .populate('usuarioCancelo', 'nombre')
-            .sort({ createdAt: -1 });
-
-        res.status(200).json({ pedidos });
-
-
-    } catch (error) {
-        console.error('Error al obtener pedidos', error);
-        res.status(500).json({ mensaje: 'Error al consultar pedidos' });
+      return res.json({ pedidos: pedido ? [pedido] : [] });
     }
+
+    // 2) Validación de descripción mínima si así lo exiges
+    if (descripcion && descripcionMinima === 'true' && String(descripcion).length < 5) {
+      return res.status(407).json({ mensaje: 'La descripción al menos debe tener 5 caracteres' });
+    }
+
+    // 3) Filtro general
+    const filtro = {};
+    if (estado) filtro.estado = estado;
+    if (farmaciaId) filtro.farmacia = farmaciaId;
+
+    // Rango de fechas robusto sobre fechaPedido
+    const r = dayRangeUtc(fechaInicio, fechaFin);
+    if (r) {
+      filtro.fechaPedido = { $gte: r.gte, $lt: r.lt };
+    }
+
+    if (descripcion) {
+      filtro.descripcion = { $regex: new RegExp(String(descripcion), 'i') };
+    }
+
+    const pedidos = await Pedido.find(filtro)
+      .populate('cliente', 'nombre')
+      .populate('usuarioPidio', 'nombre')
+      .populate('usuarioSurtio', 'nombre')
+      .populate('usuarioCancelo', 'nombre')
+      .sort({ fechaPedido: -1, createdAt: -1 });
+
+    return res.status(200).json({ pedidos });
+  } catch (error) {
+    console.error('Error al obtener pedidos', error);
+    return res.status(500).json({ mensaje: 'Error al consultar pedidos' });
+  }
 };
 
 const actualizarCostoPedido = async (req, res) => {

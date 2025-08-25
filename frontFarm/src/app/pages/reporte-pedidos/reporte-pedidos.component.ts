@@ -134,15 +134,23 @@ export class ReportePedidosComponent {
       });
       return;
     }
+
+    const toDateOnly = (v: any) => {
+      if (!v) return undefined;
+      const d = new Date(v);
+      return d.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    };
+
     const farmaciaId = this.filtroFarmaciaId;
-    const fecha = this.filtroFechaPedido;
-    const fechaFin = this.filtroFechaFin;
-    const descripcion = this.filtroDescripcion?.trim();
-    const estado = this.filtroEstado;
+    const fechaInicio = toDateOnly(this.filtroFechaPedido);
+    const fechaFin = toDateOnly(this.filtroFechaFin);
+    const descripcion = (this.filtroDescripcion || '').trim() || undefined;
+    const estado = this.filtroEstado || undefined;
+
     this.pedidosService
-      .obtenerPedidos(farmaciaId, fecha, fechaFin, undefined, estado, descripcion, false)
+      .obtenerPedidos(farmaciaId, fechaInicio, fechaFin, undefined, estado, descripcion, false)
       .subscribe({
-        next: resp => {
+        next: (resp: any) => {
           if (!resp.pedidos || resp.pedidos.length === 0) {
             Swal.fire({
               icon: 'info',
@@ -154,12 +162,19 @@ export class ReportePedidosComponent {
               allowEscapeKey: false,
             });
             this.pedidos = [];
-          } else {
-            this.pedidos = resp.pedidos;
-            this.totalIngreso = this.pedidos.reduce((acc, p) => acc + (p.total - p.resta), 0);
-            this.utilidadTotal = this.pedidos.reduce((acc, p) => acc + (p.total - p.resta - p.costo), 0);
-            this.porcentajeUtilidad = this.totalIngreso > 0 ? (this.utilidadTotal / this.totalIngreso) * 100 : 0;
+            this.totalIngreso = this.utilidadTotal = this.porcentajeUtilidad = 0;
+            return;
           }
+
+          const toNum = (v: any) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+          };
+
+          this.pedidos = resp.pedidos;
+          this.totalIngreso = this.pedidos.reduce((acc, p) => acc + (toNum(p.total) - toNum(p.resta)), 0);
+          this.utilidadTotal = this.pedidos.reduce((acc, p) => acc + (toNum(p.total) - toNum(p.resta) - toNum(p.costo)), 0);
+          this.porcentajeUtilidad = this.totalIngreso > 0 ? (this.utilidadTotal / this.totalIngreso) * 100 : 0;
         },
         error: err => {
           console.error('Error al buscar sin folio:', err);
@@ -176,6 +191,7 @@ export class ReportePedidosComponent {
         }
       });
   }
+
 
   async limpiarDescripcion() {
     this.filtroDescripcion = '';
