@@ -1,1 +1,201 @@
-<p>reporte-ventas En CONSTRUCCIÓN!!!!</p>
+<div class="container-ventas">
+    <h2 class="titulo">Reporte de Ventas</h2>
+
+    <div class="card p-3 mb-3">
+        <form [formGroup]="filtroForm" class="row g-2 align-items-end">
+            <!-- Farmacia select -->
+            <div class="col-md-3">
+                <label class="form-label">Farmacia</label>
+                <select class="form-select" formControlName="farmaciaId" (change)="buscar(true)"
+                    [disabled]="!farmaciasCargadas || cargando">
+                    <option *ngFor="let f of farmacias" [ngValue]="f._id">{{ f.nombre }}</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Cliente</label>
+                <select class="form-select" formControlName="clienteId" (change)="buscar(true)"
+                    [disabled]="cargando || !clientesCargados">
+                    <option *ngFor="let c of clientes" [ngValue]="c._id">{{ c.nombre }}</option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Usuario</label>
+                <select class="form-select" formControlName="usuarioId" (change)="buscar(true)"
+                    [disabled]="cargando || !usuariosCargados">
+                    <option *ngFor="let u of usuarios" [ngValue]="u._id">{{ u.nombre }}</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Límite</label>
+                <input type="number" class="form-control" formControlName="limit" min="1" max="200">
+            </div>
+
+            <div class="col-12">
+                <hr>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Fecha inicial</label>
+                <input type="date" class="form-control" formControlName="fechaInicial">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Fecha final</label>
+                <input type="date" class="form-control" formControlName="fechaFinal">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Total desde</label>
+                <input type="number" class="form-control" formControlName="totalDesde" min="0" step="0.01">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Total hasta</label>
+                <input type="number" class="form-control" formControlName="totalHasta" min="0" step="0.01">
+            </div>
+
+            <div class="col-12 d-flex gap-2 mt-2">
+                <button type="button" class="btn-verde" (click)="buscar(true)" [disabled]="cargando">
+                    {{ cargando ? 'Buscando...' : 'Buscar' }}
+                </button>
+                <button type="button" class="btn-gris" (click)="limpiar()" [disabled]="cargando">Limpiar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <strong>Registros:</strong> {{ totalRegistros }}
+                &nbsp; | &nbsp; <strong>Página:</strong> {{ page }} / {{ totalPaginas || 1 }}
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn-gris-chico" (click)="primera()" [disabled]="cargando || page === 1">&laquo;</button>
+                <button class="btn-gris-chico" (click)="anterior()"
+                    [disabled]="cargando || page === 1">&lsaquo;</button>
+                <button class="btn-gris-chico" (click)="siguiente()"
+                    [disabled]="cargando || page === totalPaginas || totalPaginas === 0">&rsaquo;</button>
+                <button class="btn-gris-chico" (click)="ultima()"
+                    [disabled]="cargando || page === totalPaginas || totalPaginas === 0">&raquo;</button>
+            </div>
+        </div>
+
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">Detalle</th>
+                    <th>Farmacia</th>
+                    <th>Usuario</th>
+                    <th>Fecha</th>
+                    <th>Folio</th>
+                    <th>Cliente</th>
+                    <th class="text-end">Cant. produc.</th>
+                    <th class="text-end">Descuento</th>
+                    <th class="text-end">Costo</th>
+                    <th class="text-end">Utilidad</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <ng-container *ngFor="let v of rows">
+                    <!-- fila principal -->
+                    <tr>
+                        <td class="text-center">
+                            <button class="btn-icon-chico btn-gris-chico" (click)="toggleDetalle(v)"
+                                [disabled]="cargando">
+                                <fa-icon [icon]="isExpanded(v) ? 'chevron-up' : 'chevron-down'"></fa-icon>
+                            </button>
+                        </td>
+                        <td>{{ v.farmacia?.nombre || '—' }}</td>
+                        <td>{{ v.usuario?.nombre || '—' }}</td>
+                        <td>{{ v.fecha | date:'dd/MM/yyyy HH:mm':'America/Mexico_City' }}</td>
+                        <td>{{ v.folio }}</td>
+                        <td>{{ v.cliente?.nombre || '—' }}</td>
+                        <td>{{ v.cantidadProductos | number }}</td>
+                        <td>{{ v.totalDescuento | number:'1.2-2' }}</td>
+                        <td class="text-end">${{ v._costo | number:'1.2-2' }}</td>
+                        <td class="text-end">${{ v._utilidad | number:'1.2-2' }}</td>
+                        <td class="text-end">${{ v.total | number:'1.2-2' }}</td>
+                    </tr>
+
+                    <!-- fila detalle expandible -->
+                    <tr *ngIf="isExpanded(v)">
+                        <td colspan="9" style="background:#fafafa;">
+                            <!-- Subtabla de renglones -->
+                            <div class="table-responsive">
+                                <table class="detalle-tabla">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th class="text-end">Cantidad</th>
+                                            <th class="text-end">Precio</th>
+                                            <th class="text-end">Total reng.</th>
+                                            <th class="text-end">Costo unit.</th>
+                                            <th class="text-end">Costo total</th>
+                                            <th>Descuento</th>
+                                            <th>Tipo desc.</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr *ngFor="let p of v.productos">
+                                            <td>
+                                                <!-- si viene poblado -->
+                                                <div>{{ p?.producto?.nombre || '—' }}</div>
+                                                <small class="text-muted" *ngIf="p?.producto?.codigoBarras">CB: {{
+                                                    p.producto.codigoBarras }}</small>
+                                            </td>
+                                            <td class="text-end">{{ p?.cantidad | number:'1.2-2' }}</td>
+                                            <td class="text-end">${{ p?.precio | number:'1.2-2' }}</td>
+                                            <td class="text-end">${{ p?.totalRen | number:'1.2-2' }}</td>
+                                            <td class="text-end">${{ p?.costo | number:'1.2-2' }}</td>
+                                            <td class="text-end">${{ (p?.costo || 0) * (p?.cantidad || 0) |
+                                                number:'1.2-2' }}</td>
+                                            <td>{{ p?.descuento ?? 0 }}</td>
+                                            <td>{{ p?.tipoDescuento || 'Ninguno' }}</td>
+                                        </tr>
+                                        <tr *ngIf="!v.productos || v.productos.length === 0">
+                                            <td colspan="10" class="text-center text-muted py-2">Sin renglones</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Forma de pago -->
+                            <div class="mt-2">
+                                <strong>Forma de pago:</strong>
+                                <div class="row">
+                                    <div class="col-auto"><small>Efectivo: ${{ v?.formaPago?.efectivo || 0 |
+                                            number:'1.2-2' }}</small></div>
+                                    <div class="col-auto"><small>Tarjeta: ${{ v?.formaPago?.tarjeta || 0 |
+                                            number:'1.2-2' }}</small></div>
+                                    <div class="col-auto"><small>Transferencia: ${{ v?.formaPago?.transferencia || 0 |
+                                            number:'1.2-2' }}</small></div>
+                                    <div class="col-auto"><small>Vale: ${{ v?.formaPago?.vale || 0 | number:'1.2-2'
+                                            }}</small></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </ng-container>
+
+                <tr *ngIf="rows.length === 0">
+                    <td colspan="11" class="text-center text-muted py-3">Sin resultados</td>
+                </tr>
+            </tbody>
+
+            <tfoot *ngIf="rows.length > 0">
+                <tr>
+                    <td colspan="8" class="text-end"><strong>Total (página):</strong></td>
+                    <td class="text-end"><strong>${{ totalPagina | number:'1.2-2' }}</strong></td>
+                </tr>
+                <tr>
+                    <td colspan="8" class="text-end"><strong>Total (filtro completo):</strong></td>
+                    <td class="text-end"><strong>${{ sumaTotalFiltro | number:'1.2-2' }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

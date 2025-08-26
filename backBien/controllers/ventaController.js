@@ -1,8 +1,27 @@
+// backBien/controllers/ventaController.js
+const { DateTime } = require('luxon');
+const { Types } = require('mongoose');
 const Venta = require("../models/Venta");
 const Producto = require("../models/Producto");
 const Cliente = require("../models/Cliente");
 const InventarioFarmacia = require("../models/InventarioFarmacia");
-const generarFolioUnico = require('../utils/generarFolioUnico');
+const generarFolioUnico = require('../utils/generarFolioUnico').default;
+
+const ZONE = process.env.APP_TZ || 'America/Mexico_City';
+
+// Dinero seguro en centavos
+const toNumber = (v) => Number.isFinite(+v) ? +v : 0;
+const toCents  = (n) => Math.round(toNumber(n) * 100);
+const fromCents = (c) => c / 100;
+
+// ¿El descuento efectivo es < 25%? (sin flotantes)
+const descuentoMenorQue25 = (precioBase, precioFinal) => {
+  const baseC  = toCents(precioBase);
+  const finalC = toCents(precioFinal);
+  const descC  = baseC - finalC;              // descuento en centavos
+  const umbral = Math.round(baseC * 25 / 100); // 25% del precio base (en centavos)
+  return descC < umbral; // estrictamente menor que 25%
+};
 
 const crearVenta = async (req, res) => {
     try {
@@ -125,7 +144,7 @@ const crearVenta = async (req, res) => {
                 let descuento = 0;
 
                 switch (diaSemana) {
-                    case 0:        
+                    case 0:
                         fechaIni = productoDB?.promoDomingo?.inicio ?? null;
                         fechaFin = productoDB?.promoDomingo?.fin ?? null;
                         descuentoXDia = productoDB?.promoDomingo?.porcentaje ?? null;
@@ -212,14 +231,30 @@ const crearVenta = async (req, res) => {
 
                 descuento = (precioBase - precioFinal) / precioBase * 100;    // calcular el % de descuento aplicado
 
+                /*                 if (descuentoRenglon >= 0) {
+                                    if (clienteInapam && productoDB.descuentoINAPAM && descuento < 25) {
+                                        precioFinal = precioFinal * 0.95;
+                                        descuentoRenglon = precioBase - precioFinal;
+                                        promoAplicada += `-INAPAM`;
+                                        cadDesc += ` + 5%`;
+                                    }
+                                } else if (clienteInapam && productoDB.descuentoINAPAM && descuento < 25) {
+                                    precioFinal = precioBase * 0.95;
+                                    descuentoRenglon = precioBase - precioFinal;
+                                    promoAplicada = `INAPAM`;
+                                    cadDesc = `5%`;
+                                } */
+
+                const puedeSumarInapam = clienteInapam && productoDB.descuentoINAPAM && descuentoMenorQue25(precioBase, precioFinal);
+
                 if (descuentoRenglon >= 0) {
-                    if (clienteInapam && productoDB.descuentoINAPAM && descuento < 25) {
+                    if (puedeSumarInapam) {
                         precioFinal = precioFinal * 0.95;
                         descuentoRenglon = precioBase - precioFinal;
-                        promoAplicada += `-INAPAM`;
-                        cadDesc += ` + 5%`;
+                        promoAplicada = `${promoAplicada ? promoAplicada + '-' : ''}INAPAM`;
+                        cadDesc = cadDesc ? (cadDesc + ' + 5%') : '5%';
                     }
-                } else if (clienteInapam && productoDB.descuentoINAPAM && descuento < 25) {
+                } else if (puedeSumarInapam) {
                     precioFinal = precioBase * 0.95;
                     descuentoRenglon = precioBase - precioFinal;
                     promoAplicada = `INAPAM`;
@@ -275,9 +310,30 @@ const crearVenta = async (req, res) => {
 
         const sumaPagos = parseFloat(efectivo) + parseFloat(tarjeta) + parseFloat(transferencia) + parseFloat(importeVale);
 
-        if (Math.abs(sumaPagos - totalVenta) > 0.019) {
-            return res.status(400).json({ mensaje: 'La suma de efectivo y otras formas de pago no coincide con el total de la venta.' });
+
+        // Fuerza números (si te llegó null desde el front, no heredas null)
+        const efectivoN = toNumber(efectivo);
+        const tarjetaN = toNumber(tarjeta);
+        const transferenciaN = toNumber(transferencia);
+        const valeN = toNumber(importeVale);
+
+        // Compara en centavos (exactitud de 1 centavo)
+        const sumaPagosCents = toCents(efectivoN) + toCents(tarjetaN) + toCents(transferenciaN) + toCents(valeN);
+        const totalVentaCents = toCents(totalVenta);
+
+        // Permite diferencia de ±1 centavo por seguridad (si quieres exacto, usa ===)
+        const iguales = Math.abs(sumaPagosCents - totalVentaCents) <= 1;
+
+        if (!iguales) {
+            return res.status(400).json({
+                mensaje: `La suma de pagos (${fromCents(sumaPagosCents).toFixed(2)}) no coincide con el total (${fromCents(totalVentaCents).toFixed(2)}).`
+            });
         }
+
+
+        /* if (Math.abs(sumaPagos - totalVenta) > 0.019) {
+            return res.status(400).json({ mensaje: 'La suma de efectivo y otras formas de pago no coincide con el total de la venta.' });
+        } */
 
         const venta = new Venta({
             farmacia: farmaciaId,
@@ -289,14 +345,15 @@ const crearVenta = async (req, res) => {
             totalDescuento,
             totalMonederoCliente: totalPalmonedero,
             formaPago: {
-                efectivo,
-                tarjeta,
-                transferencia,
-                vale: importeVale
+                efectivoN,
+                tarjetaN,
+                transferenciaN,
+                vale: valeN
             },
             fecha: new Date(),
             folio: folioFinal
         });
+
         await venta.save();
 
         if (cliente) {
@@ -346,6 +403,160 @@ function limpiarPromocion(promo) {
     return str.startsWith('-') ? str.slice(1) : str;
 }
 
+// Convierte 'YYYY-MM-DD' a UTC [gte, lt). Si faltan ambas fechas => hoy local.
+function dayRangeUtcFromQuery(fechaInicial, fechaFinal) {
+    if (!fechaInicial && !fechaFinal) {
+        const startLocal = DateTime.now().setZone(ZONE).startOf('day');
+        const endExLocal = startLocal.plus({ days: 1 });
+        return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
+    }
+
+    const iniStr = (fechaInicial || fechaFinal).slice(0, 10);
+    const finStr = (fechaFinal || fechaInicial).slice(0, 10);
+
+    let startLocal = DateTime.fromISO(iniStr, { zone: ZONE }).startOf('day');
+    let endExLocal = DateTime.fromISO(finStr, { zone: ZONE }).plus({ days: 1 }).startOf('day');
+
+    // corrige si el usuario invierte el rango
+    if (endExLocal < startLocal) {
+        const tmp = startLocal;
+        startLocal = endExLocal.minus({ days: 1 });
+        endExLocal = tmp.plus({ days: 1 });
+    }
+    return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
+}
+
+const consultarVentas = async (req, res) => {
+    try {
+        const {
+            farmaciaId,
+            fechaInicial,
+            fechaFinal,
+            clienteId,
+            usuarioId,
+            totalDesde,
+            totalHasta,
+            page = 1,
+            limit = 50,
+        } = req.query;
+
+        // 1) Rango de fechas robusto (local MX → UTC half-open)
+        const { gte, lt } = dayRangeUtcFromQuery(fechaInicial, fechaFinal);
+
+        // 2) Filtro base (find: Mongoose sí castea)
+        const filtro = { fecha: { $gte: gte, $lt: lt } };
+        if (farmaciaId) filtro.farmacia = farmaciaId;
+        if (clienteId) filtro.cliente = clienteId;
+        if (usuarioId) filtro.usuario = usuarioId;
+
+        // 3) Filtro por total
+        const tDesde = totalDesde !== undefined && totalDesde !== '' ? Number(totalDesde) : null;
+        const tHasta = totalHasta !== undefined && totalHasta !== '' ? Number(totalHasta) : null;
+        if (!Number.isNaN(tDesde) || !Number.isNaN(tHasta)) {
+            filtro.total = {};
+            if (tDesde !== null && !Number.isNaN(tDesde)) filtro.total.$gte = tDesde;
+            if (tHasta !== null && !Number.isNaN(tHasta)) filtro.total.$lte = tHasta;
+            if (Object.keys(filtro.total).length === 0) delete filtro.total;
+        }
+
+        // 4) Validación de ObjectId
+        const invalidId =
+            (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) ||
+            (clienteId && !Types.ObjectId.isValid(clienteId)) ||
+            (usuarioId && !Types.ObjectId.isValid(usuarioId));
+        if (invalidId) {
+            return res.status(400).json({ ok: false, mensaje: 'Algún ID es inválido' });
+        }
+
+        // 5) Paginación
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+        const skip = (pageNum - 1) * limitNum;
+
+        // 6) $match para aggregate (aquí sí casteamos ids manualmente)
+        const matchAgg = { fecha: { $gte: gte, $lt: lt } };
+        if (farmaciaId) matchAgg.farmacia = new Types.ObjectId(farmaciaId);
+        if (clienteId) matchAgg.cliente = new Types.ObjectId(clienteId);
+        if (usuarioId) matchAgg.usuario = new Types.ObjectId(usuarioId);
+        if (filtro.total) matchAgg.total = filtro.total;
+
+        // 7) Consultas en paralelo
+        const [ventasDocs, totalRegistros, sumaTotales] = await Promise.all([
+            Venta.find(filtro)
+                .sort({ fecha: -1 })
+                .skip(skip)
+                .limit(limitNum)
+                .populate('farmacia', 'nombre')
+                .populate('cliente', 'nombre telefono')
+                .populate('usuario', 'nombre')
+                // para mostrar el detalle expandible con nombre/cb:
+                .populate('productos.producto', 'nombre codigoBarras'),
+
+            Venta.countDocuments(filtro),
+
+            Venta.aggregate([
+                { $match: matchAgg },
+                { $group: { _id: null, suma: { $sum: '$total' } } },
+            ]),
+        ]);
+
+        // 8) Calcula costo/utilidad por venta
+        const ventas = ventasDocs.map(doc => {
+            const o = doc.toObject ? doc.toObject() : doc;
+            const prods = Array.isArray(o.productos) ? o.productos : [];
+            const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
+            const costo = prods.reduce(
+                (acc, p) => acc + toNum(p?.costo) * toNum(p?.cantidad),
+                0
+            );
+            const utilidad = toNum(o.total) - costo;
+
+            // agrega ambos nombres de campo para no tocar el front
+            return {
+                ...o,
+                _costo: Number(costo.toFixed(2)),
+                _utilidad: Number(utilidad.toFixed(2)),
+                costoCalculado: Number(costo.toFixed(2)),
+                utilidadCalculada: Number(utilidad.toFixed(2)),
+            };
+        });
+
+        const sumaTotal = sumaTotales?.[0]?.suma || 0;
+
+        res.json({
+            ok: true,
+            filtrosAplicados: {
+                farmaciaId: farmaciaId || null,
+                clienteId: clienteId || null,
+                usuarioId: usuarioId || null,
+                fechaInicial: gte, // UTC
+                fechaFinal: lt,  // UTC (límite exclusivo)
+                totalDesde: tDesde,
+                totalHasta: tHasta,
+            },
+            paginacion: {
+                page: pageNum,
+                limit: limitNum,
+                totalRegistros,
+                totalPaginas: Math.ceil(totalRegistros / limitNum),
+            },
+            resumen: {
+                sumaTotalFiltro: sumaTotal,
+            },
+            ventas,
+        });
+    } catch (error) {
+        console.error('Error en consultarVentas:', error);
+        res.status(500).json({ ok: false, mensaje: 'Error al consultar ventas.' });
+    }
+};
+
+module.exports = { consultarVentas };
+
+
+
 module.exports = {
-    crearVenta
+    crearVenta,
+    consultarVentas
 };

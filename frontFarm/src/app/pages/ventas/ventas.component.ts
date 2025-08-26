@@ -1147,7 +1147,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       farmacia: this.farmaciaId,
       totaMonederoCliente: this.totalAlmonedero
     };
-
+    
     this.ventasService.crearVenta(venta).subscribe({
       next: () => {
         this.folioVentaGenerado = null;

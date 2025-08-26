@@ -113,11 +113,7 @@ export class ReportePedidosComponent {
 
 
   get mostrarBotonBuscar(): boolean {
-    if (this.filtroFechaFin && !this.filtroFechaPedido) return false;
-    if (this.filtroFechaPedido && !this.filtroFechaFin) return false;
-    if (this.filtroDescripcion && !this.filtroFarmaciaId) return false;
-    if (this.filtroEstado && !this.filtroFarmaciaId) return false;
-    if (this.filtroFarmaciaId) return true; else return false;
+    if (this.filtroFarmaciaId) return true; else return false; 
   }
 
 

@@ -81,3 +81,19 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
+
+
+// ---------- Sincronizar índices (tras conectar a Mongo) ----------
+const Venta = require('./models/Venta'); // importa el modelo DESPUÉS de conectarDB si tu modelo no necesita la conexión aún
+
+mongoose.connection.once('open', async () => {
+  try {
+    // Si quieres, sincroniza más colecciones aquí (agrega otros modelos al Promise.all)
+    await Promise.all([
+      Venta.syncIndexes(),
+    ]);
+    console.log('✅ Índices sincronizados: Venta');
+  } catch (e) {
+    console.error('❌ Error al sincronizar índices:', e?.message || e);
+  }
+});

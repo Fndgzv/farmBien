@@ -33,6 +33,7 @@ export class PedidosService {
     descripcion?: string,
     descripcionMinima?: boolean
   ) {
+
     let params = new HttpParams().set('farmacia', farmaciaId);
 
     if (fechaIni) {
@@ -92,12 +93,12 @@ export class PedidosService {
     return this.http.put(`${this.apiUrl}cancelar`, data, { headers });
   }
 
-actualizarCostoPedido(pedidoId: string, nuevoCosto: number) {
-  return this.http.patch<{ pedido: Pedido }>(
-    `${this.apiUrl}actualizar-costo/${pedidoId}`,
-    { costo: nuevoCosto }
-  );
-}
+  actualizarCostoPedido(pedidoId: string, nuevoCosto: number) {
+    return this.http.patch<{ pedido: Pedido }>(
+      `${this.apiUrl}actualizar-costo/${pedidoId}`,
+      { costo: nuevoCosto }
+    );
+  }
 
 
 
