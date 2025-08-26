@@ -23,6 +23,39 @@ const descuentoMenorQue25 = (precioBase, precioFinal) => {
     return descC < umbral; // estrictamente menor que 25%
 };
 
+// --- helpers de fecha (déjalos arriba del archivo) ---
+function soloFecha(d) {
+  if (!d) return new Date(NaN);
+  const dt = d instanceof Date ? d : new Date(d);
+  if (isNaN(dt.getTime())) return new Date(NaN);
+  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+}
+
+function parseFecha(val) {
+  if (!val) return null;
+  if (val instanceof Date) return soloFecha(val);
+
+  if (typeof val === 'string') {
+    // dd/mm/aaaa
+    let m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return soloFecha(new Date(+m[3], +m[2] - 1, +m[1]));
+    // aaaa-mm-dd o ISO
+    m = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return soloFecha(new Date(+m[1], +m[2] - 1, +m[3]));
+  }
+
+  const dt = new Date(val);
+  return isNaN(dt.getTime()) ? null : soloFecha(dt);
+}
+
+function enRangoHoy(ini, fin, hoy) {
+  if (ini && fin) return ini <= hoy && hoy <= fin;
+  if (ini && !fin) return ini <= hoy;
+  if (!ini && fin) return hoy <= fin;
+  return true; // sin fechas => válido
+}
+
+
 const crearVenta = async (req, res) => {
     try {
         const {
@@ -228,21 +261,7 @@ const crearVenta = async (req, res) => {
                     }
                 }
 
-                descuento = (precioBase - precioFinal) / precioBase * 100;    // calcular el % de descuento aplicado
-
-                /*                 if (descuentoRenglon >= 0) {
-                                    if (clienteInapam && productoDB.descuentoINAPAM && descuento < 25) {
-                                        precioFinal = precioFinal * 0.95;
-                                        descuentoRenglon = precioBase - precioFinal;
-                                        promoAplicada += `-INAPAM`;
-                                        cadDesc += ` + 5%`;
-                                    }
-                                } else if (clienteInapam && productoDB.descuentoINAPAM && descuento < 25) {
-                                    precioFinal = precioBase * 0.95;
-                                    descuentoRenglon = precioBase - precioFinal;
-                                    promoAplicada = `INAPAM`;
-                                    cadDesc = `5%`;
-                                } */
+                let descuento = (precioBase - precioFinal) / precioBase * 100;    // calcular el % de descuento aplicado
 
                 const puedeSumarInapam = clienteInapam && productoDB.descuentoINAPAM && descuentoMenorQue25(precioBase, precioFinal);
 
@@ -382,9 +401,9 @@ const crearVenta = async (req, res) => {
     }
 };
 
-function soloFecha(date) {
+/* function soloFecha(date) {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
+} */
 
 function getEtiquetaPromo(valor) {
     if (valor === 2) return '2x1';
@@ -550,42 +569,6 @@ const consultarVentas = async (req, res) => {
         res.status(500).json({ ok: false, mensaje: 'Error al consultar ventas.' });
     }
 };
-
-
-// ===== Helpers de fecha robustos (JS puro) =====
-function soloFecha(d) {
-    if (!d) return new Date(NaN);
-    const dt = d instanceof Date ? d : new Date(d);
-    if (isNaN(dt.getTime())) return new Date(NaN);
-    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-}
-
-function parseFecha(val) {
-    if (!val) return null;
-    if (val instanceof Date) return soloFecha(val);
-
-    if (typeof val === 'string') {
-        // dd/mm/aaaa
-        let m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (m) {
-            const dd = +m[1], mm = +m[2], yyyy = +m[3];
-            return soloFecha(new Date(yyyy, mm - 1, dd));
-        }
-        // aaaa-mm-dd (o ISO)
-        m = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (m) {
-            const yyyy = +m[1], mm = +m[2], dd = +m[3];
-            return soloFecha(new Date(yyyy, mm - 1, dd));
-        }
-    }
-
-    const dt = new Date(val);
-    return isNaN(dt.getTime()) ? null : soloFecha(dt);
-}
-
-
-module.exports = { consultarVentas };
-
 
 
 module.exports = {
