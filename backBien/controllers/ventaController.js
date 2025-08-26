@@ -138,8 +138,8 @@ const crearVenta = async (req, res) => {
                     cadDesc = '5%'
                 }
             } else {
-                //determinar los campos de descuento x dia y el porcentaje de descuento
-                // -- obtener datos del día actual --
+                // === Descuento por DÍA ===
+                const hoy = soloFecha(new Date());
                 let porcentajeDia = 0;
                 let monederoDia = false;
                 let iniDia = null;
@@ -147,42 +147,50 @@ const crearVenta = async (req, res) => {
 
                 switch (diaSemana) {
                     case 1: // Lunes
-                        console.log('EStoy en promo del lunes');
-                        
-                        porcentajeDia = Number(productoDB?.promoLunes?.porcentaje ?? 0);
-                        monederoDia = Boolean(productoDB?.promoLunes?.monedero);
+                        porcentajeDia = Number(productoDB?.promoLunes?.porcentaje || 0);
+                        monederoDia = !!(productoDB?.promoLunes?.monedero);
                         iniDia = parseFecha(productoDB?.promoLunes?.inicio);
                         finDia = parseFecha(productoDB?.promoLunes?.fin);
                         break;
                     case 2: // Martes
-                        porcentajeDia = Number(productoDB?.promoMartes?.porcentaje ?? 0);
-                        monederoDia = Boolean(productoDB?.promoMartes?.monedero);
+                        porcentajeDia = Number(productoDB?.promoMartes?.porcentaje || 0);
+                        monederoDia = !!(productoDB?.promoMartes?.monedero);
                         iniDia = parseFecha(productoDB?.promoMartes?.inicio);
                         finDia = parseFecha(productoDB?.promoMartes?.fin);
                         break;
                     case 3: // Miércoles
-                        porcentajeDia = Number(productoDB?.promoMiercoles?.porcentaje ?? 0);
-                        monederoDia = Boolean(productoDB?.promoMiercoles?.monedero);
+                        porcentajeDia = Number(productoDB?.promoMiercoles?.porcentaje || 0);
+                        monederoDia = !!(productoDB?.promoMiercoles?.monedero);
                         iniDia = parseFecha(productoDB?.promoMiercoles?.inicio);
                         finDia = parseFecha(productoDB?.promoMiercoles?.fin);
                         break;
-                   
+                    case 4: // Jueves
+                        porcentajeDia = Number(productoDB?.promoJueves?.porcentaje || 0);
+                        monederoDia = !!(productoDB?.promoJueves?.monedero);
+                        iniDia = parseFecha(productoDB?.promoJueves?.inicio);
+                        finDia = parseFecha(productoDB?.promoJueves?.fin);
+                        break;
+                    case 5: // Viernes
+                        porcentajeDia = Number(productoDB?.promoViernes?.porcentaje || 0);
+                        monederoDia = !!(productoDB?.promoViernes?.monedero);
+                        iniDia = parseFecha(productoDB?.promoViernes?.inicio);
+                        finDia = parseFecha(productoDB?.promoViernes?.fin);
+                        break;
+                    case 6: // Sábado
+                        porcentajeDia = Number(productoDB?.promoSabado?.porcentaje || 0);
+                        monederoDia = !!(productoDB?.promoSabado?.monedero);
+                        iniDia = parseFecha(productoDB?.promoSabado?.inicio);
+                        finDia = parseFecha(productoDB?.promoSabado?.fin);
+                        break;
                     case 0: // Domingo
-                        porcentajeDia = Number(productoDB?.promoDomingo?.porcentaje ?? 0);
-                        monederoDia = Boolean(productoDB?.promoDomingo?.monedero);
+                        porcentajeDia = Number(productoDB?.promoDomingo?.porcentaje || 0);
+                        monederoDia = !!(productoDB?.promoDomingo?.monedero);
                         iniDia = parseFecha(productoDB?.promoDomingo?.inicio);
                         finDia = parseFecha(productoDB?.promoDomingo?.fin);
                         break;
                 }
 
-                // Activo si: hay porcentaje y (hay rango y hoy está dentro) o (no hay rango)
-                const hoy = soloFecha(new Date());
-                const tienePorcentaje = porcentajeDia > 0;
-                const rangoValido = (iniDia && finDia) ? (iniDia <= hoy && finDia >= hoy) : false;
-                const activoHoy = tienePorcentaje && (rangoValido || (!iniDia && !finDia));
-
-                console.log('Descuento activo hoy', activoHoy);
-                
+                const activoHoy = porcentajeDia > 0 && enRangoHoy(iniDia, finDia, hoy);
 
                 if (activoHoy) {
                     const precioFinalDia = precioBase * (1 - porcentajeDia / 100);
@@ -194,20 +202,13 @@ const crearVenta = async (req, res) => {
                     promoAplicada = getNombreDia(diaSemana);
                     palmonedero = 0;
 
-                    if (esCliente && monederoDia &&
-                        !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')) {
+                    if (
+                        esCliente && monederoDia &&
+                        !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
+                    ) {
                         palmonedero = precioFinal * 0.02;
                     }
-
-                    console.log('precio final', precioFinal);
-                    console.log('decuento renglon', descRenglonDia);
-                    console.log('cadena descuento', cadDesc);
-                    console.log('promo Aplicada', promoAplicada);
-                    console.log('al monedero', palmonedero);
-                    
                 }
-
-
                 if (productoDB.promoDeTemporada && productoDB.promoDeTemporada.inicio && productoDB.promoDeTemporada.fin) {
                     if (soloFecha(productoDB.promoDeTemporada.inicio) <= soloFecha(ahora) &&
                         soloFecha(productoDB.promoDeTemporada.fin) >= soloFecha(ahora)) {
@@ -343,9 +344,9 @@ const crearVenta = async (req, res) => {
             totalDescuento,
             totalMonederoCliente: totalPalmonedero,
             formaPago: {
-                efectivoN,
-                tarjetaN,
-                transferenciaN,
+                efectivo: efectivoN,
+                tarjeta: tarjetaN,
+                transferencia: transferenciaN,
                 vale: valeN
             },
             fecha: new Date(),
