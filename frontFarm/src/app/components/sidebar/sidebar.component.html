@@ -106,11 +106,11 @@
           <li [routerLink]="'reporte/ventas'" routerLinkActive="active" class="submenu-item">
             <span>Ventas<fa-icon [icon]="'cash-register'" class="menu-icon"></fa-icon></span>
           </li>
-          <li [routerLink]="'reporte/ventas-producto'" routerLinkActive="active" class="submenu-item">
-            <span>Un producto<fa-icon [icon]="icons.faReceipt" class="menu-icon"></fa-icon></span>
-          </li>
           <li [routerLink]="'/reporte/ventas-por-farmacia'" routerLinkActive="active" class="submenu-item">
             <span>Productos vendidos <fa-icon [icon]="icons.reporteVentas" class="menu-icon"></fa-icon></span>
+          </li>
+          <li [routerLink]="'reporte/ventas-producto'" routerLinkActive="active" class="submenu-item">
+            <span>Un sólo producto<fa-icon [icon]="icons.faReceipt" class="menu-icon"></fa-icon></span>
           </li>
           <li [routerLink]="'/reporte/pedidos'" routerLinkActive="active" class="submenu-item">
             <span>Pedidos<fa-icon [icon]="'shopping-cart'" class="menu-icon"></fa-icon></span>
@@ -119,7 +119,19 @@
       </li>
 
       <li>Compras</li>
-      <li>Balance</li>
+
+      <li *ngIf="userRol === 'admin'" class="has-submenu">
+        <span (click)="toggleSubMenu('balance')">
+          Balance <fa-icon [icon]="'scale-balanced'" class="menu-icon"></fa-icon>
+          {{ expandedSubMenu === 'balance' ? '▲' : '▶' }}
+        </span>
+        <ul *ngIf="expandedSubMenu === 'balance'" class="submenu">
+          <li [routerLink]="'reporte/resumen-utilidades'" routerLinkActive="active" class="submenu-item">
+            <span>Resumen utilidades<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
+          </li>
+        </ul>
+
+      </li>
     </ul>
 
   </ul>

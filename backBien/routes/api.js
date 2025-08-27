@@ -1,9 +1,7 @@
 // rutas/api.js
 const express = require("express");
 const router = express.Router();
-
 const authMiddleware = require("../middlewares/authMiddleware");
-
 const ventaController = require("../controllers/ventaController");
 const devolucionController = require("../controllers/devolucionController")
 const pedidoController = require("../controllers/pedidoController")
@@ -11,7 +9,7 @@ const clienteController = require("../controllers/clienteController");
 
 router.get('/ventasRecientes/:farmaciaId', devolucionController.obtenerVentasRecientes);
 router.post("/ventas", authMiddleware, ventaController.crearVenta);
-router.get("/reportes/ventas/consultar", authMiddleware, ventaController.consultarVentas);
+router.get("/reportes/ventas/consulta", authMiddleware, ventaController.consultarVentas);
 
 router.post("/devoluciones/registrar", authMiddleware, devolucionController.registrarDevolucion);
 router.get('/devoluciones/buscarVenta/:codigo', devolucionController.buscarVentaPorCodigo);

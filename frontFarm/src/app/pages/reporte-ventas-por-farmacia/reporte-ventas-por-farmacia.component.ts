@@ -15,6 +15,7 @@ import { downloadCSV, toCSV } from '../../utils/csv';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatTooltip } from '@angular/material/tooltip';
 
 type SortKey = 'cantidadVendida' | 'importeVendido' | 'costoTotal' | 'utilidad' | 'margenPct';
 type SortCol  = 'cantidad'       | 'importe'        | 'costo'      | 'utilidad' | 'margen';
@@ -22,7 +23,7 @@ type SortCol  = 'cantidad'       | 'importe'        | 'costo'      | 'utilidad' 
 @Component({
   selector: 'app-reporte-ventas-por-farmacia',
   imports: [CommonModule, FormsModule, ReactiveFormsModule, NgFor, NgIf,
-    MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule],
+    MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule, MatTooltip],
   templateUrl: './reporte-ventas-por-farmacia.component.html',
   styleUrl: './reporte-ventas-por-farmacia.component.css'
 })

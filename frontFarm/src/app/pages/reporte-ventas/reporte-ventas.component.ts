@@ -14,11 +14,12 @@ import { UsuarioService, Usuario } from '../../services/usuario.service';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-reporte-ventas',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FontAwesomeModule],
+  imports: [CommonModule, ReactiveFormsModule, FontAwesomeModule, MatTooltipModule],
   templateUrl: './reporte-ventas.component.html',
   styleUrl: './reporte-ventas.component.css'
 })
@@ -46,9 +47,14 @@ export class ReporteVentasComponent implements OnInit {
   // totales
   totalPagina = 0;
   sumaTotalFiltro = 0;
+  sumaCantidadProductos = 0;
+  sumaTotalDescuento = 0;
+  sumaTotalMonederoCliente = 0;
+  sumaCosto = 0;
+  sumaUtilidad = 0;
 
-  // filas expandidas (por _id de la venta)
-  expanded = new Set<string>();
+  // detalle expandido (sólo uno a la vez)
+  expandedId: string | null = null;
 
   private readonly collator = new Intl.Collator('es', {
     sensitivity: 'base',
@@ -73,11 +79,10 @@ export class ReporteVentasComponent implements OnInit {
 
   ngOnInit(): void {
     const hoy = this.todayYMD();
-
     this.filtroForm = this.fb.group({
       farmaciaId: [''],        // '' = TODAS
-      fechaInicial: [hoy],
-      fechaFinal: [hoy],
+      fechaInicial: [hoy],     // Date
+      fechaFinal: [hoy],     // Date
       clienteId: [''],         // '' = TODOS
       usuarioId: [''],         // '' = TODOS
       totalDesde: [''],
@@ -144,20 +149,10 @@ export class ReporteVentasComponent implements OnInit {
     }
   }
 
-  /** 'YYYY-MM-DD' en horario LOCAL */
-  private todayYMD(): string {
-    const d = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  resetPaginacion() {
+    this.expandedId = null;
+    this.page = 1;
   }
-
-  private toDateOnly(v: any): string | undefined {
-    if (!v) return undefined;
-    const d = new Date(v);
-    return isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 10);
-  }
-
-  resetPaginacion() { this.page = 1; }
 
   limpiar() {
     const hoy = this.todayYMD();
@@ -171,7 +166,6 @@ export class ReporteVentasComponent implements OnInit {
       totalHasta: '',
       limit: this.limit
     });
-    this.expanded.clear();
     this.resetPaginacion();
     this.buscar(true);
   }
@@ -181,18 +175,19 @@ export class ReporteVentasComponent implements OnInit {
     if (reset) this.resetPaginacion();
 
     const val = this.filtroForm.value;
-    this.limit = Number(val.limit) || 50;
+    this.limit = Number(val.limit) || 20;
 
+    // ❗️No formateamos aquí. Enviamos “tal cual” y el service convierte a YYYY-MM-DD 1 sola vez.
     const params: ConsultarVentasParams = {
-      farmaciaId: val.farmaciaId || undefined, // '' => undefined
+      farmaciaId: val.farmaciaId || undefined,
       clienteId: val.clienteId || undefined,
       usuarioId: val.usuarioId || undefined,
-      totalDesde: val.totalDesde !== '' ? val.totalDesde : undefined,
-      totalHasta: val.totalHasta !== '' ? val.totalHasta : undefined,
-      fechaInicial: this.toDateOnly(val.fechaInicial),
-      fechaFinal: this.toDateOnly(val.fechaFinal),
+      totalDesde: (val.totalDesde !== '' && val.totalDesde != null) ? Number(val.totalDesde) : undefined,
+      totalHasta: (val.totalHasta !== '' && val.totalHasta != null) ? Number(val.totalHasta) : undefined,
+      fechaInicial: val.fechaInicial as any,  // Date o string; el service lo normaliza
+      fechaFinal: val.fechaFinal as any,  // Date o string; el service lo normaliza
       page: this.page,
-      limit: this.limit
+      limit: this.limit,
     };
 
     this.cargando = true;
@@ -200,20 +195,32 @@ export class ReporteVentasComponent implements OnInit {
       next: (resp: ConsultarVentasResponse) => {
         const toNum = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
-        // Agrega campos derivados _costo y _utilidad por venta
-        const enhancer = (v: any) => {
+        // (opcional) recalcular costo/utilidad por si el back no lo manda
+        this.rows = (resp?.ventas || []).map((v: any) => {
           const prods = Array.isArray(v?.productos) ? v.productos : [];
           const costo = prods.reduce((acc: number, p: any) =>
             acc + toNum(p?.costo) * toNum(p?.cantidad), 0);
           const utilidad = toNum(v?.total) - costo;
-          return { ...v, _costo: costo, _utilidad: utilidad };
-        };
+          return {
+            ...v,
+            _costo: v._costo ?? Number(costo.toFixed(2)),
+            _utilidad: v._utilidad ?? Number(utilidad.toFixed(2)),
+          };
+        });
 
-        this.rows = resp?.ventas || [];
+        // paginación
         this.totalRegistros = resp?.paginacion?.totalRegistros || 0;
         this.totalPaginas = resp?.paginacion?.totalPaginas || 0;
-        this.sumaTotalFiltro = resp?.resumen?.sumaTotalFiltro ?? 0;
 
+        // totales (filtro completo)
+        this.sumaTotalFiltro = resp?.resumen?.sumaTotalFiltro ?? 0;
+        this.sumaCantidadProductos = resp?.resumen?.sumaCantidadProductos ?? 0;
+        this.sumaTotalDescuento = resp?.resumen?.sumaTotalDescuento ?? 0;
+        this.sumaTotalMonederoCliente = resp?.resumen?.sumaTotalMonederoCliente ?? 0;
+        this.sumaCosto = resp?.resumen?.sumaCosto ?? 0;
+        this.sumaUtilidad = resp?.resumen?.sumaUtilidad ?? 0;
+
+        // total de la página
         this.totalPagina = this.rows.reduce((acc, r) => acc + toNum(r.total), 0);
 
         this.cargando = false;
@@ -225,24 +232,38 @@ export class ReporteVentasComponent implements OnInit {
         this.totalPaginas = 0;
         this.totalPagina = 0;
         this.sumaTotalFiltro = 0;
+        this.sumaCantidadProductos = 0;
+        this.sumaTotalDescuento = 0;
+        this.sumaTotalMonederoCliente = 0;
+        this.sumaCosto = 0;
+        this.sumaUtilidad = 0;
+
         const msg = err?.error?.mensaje || 'No se pudo consultar el reporte.';
         Swal.fire('Error', msg, 'error');
       }
     });
   }
 
-  // Toggle detalle
+  // Toggle detalle (uno a la vez)
   toggleDetalle(row: any) {
     const id = String(row?._id || '');
     if (!id) return;
-    if (this.expanded.has(id)) this.expanded.delete(id);
-    else this.expanded.add(id);
+    this.expandedId = (this.expandedId === id) ? null : id;
   }
-
   isExpanded(row: any): boolean {
     const id = String(row?._id || '');
-    return !!id && this.expanded.has(id);
+    return !!id && this.expandedId === id;
   }
+
+  /** Devuelve hoy en formato 'YYYY-MM-DD' (horario local, sin UTC) */
+  private todayYMD(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
 
   // navegación
   primera() { if (this.page !== 1) { this.page = 1; this.buscar(); } }

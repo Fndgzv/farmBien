@@ -1,3 +1,8 @@
 .container-ventas {
     width: 100%;
 }
+
+.filtros {
+    border-bottom: 2px solid #0453b3;
+    padding-bottom: 1rem;
+}

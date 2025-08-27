@@ -16,12 +16,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatIconModule } from '@angular/material/icon';
 import Swal from 'sweetalert2';
+import { MatTooltip } from '@angular/material/tooltip';
 
 
 @Component({
   selector: 'app-reporte-ventas-producto',
   imports: [CommonModule, FormsModule, ReactiveFormsModule, NgFor, NgIf,
-    MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule],
+    MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule, MatTooltip],
   templateUrl: './reporte-ventas-producto.component.html',
   styleUrl: './reporte-ventas-producto.component.css'
 })

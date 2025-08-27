@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import {
-  faUser, faHospital, faUserDoctor, faCapsules, faUsers, faReceipt,
+  faScaleBalanced, faSackDollar, faUser, faHospital, faUserDoctor, faCapsules, faUsers, faReceipt,
   faTruck, faShoppingCart, faCashRegister, faUndo, faPrescription, 
   faFileSignature, faStethoscope, faClipboardList, faWarehouse, faChartLine, faDiagramProject
 } from '@fortawesome/free-solid-svg-icons';
@@ -44,7 +44,8 @@ export class SidebarComponent implements OnInit {
 
     // Registra íconos
     this.library.addIcons(
-      faUser, faHospital, faUserDoctor, faCapsules,
+      faScaleBalanced, faSackDollar, faUser, faHospital,
+      faUserDoctor, faCapsules,
       faUsers, faTruck, faShoppingCart, faCashRegister,
       faUndo, faFileSignature, faStethoscope, faPrescription,
       faClipboardList, faWarehouse, faChartLine, faDiagramProject

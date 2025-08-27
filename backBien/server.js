@@ -41,14 +41,9 @@ app.use('/api/surtirFarmacias', require('./routes/surtidoFarmaciaRoutes'));
 app.use('/api/compras', require('./routes/compraRoutes'));
 app.use('/api/inventario-farmacia', require('./routes/ajusteInventarioRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api', require('./routes/api')); // Rutas de: ventas, devoluciones, pedidos, clientes
 app.use('/api/reportes', reportesRoutes);
 
-// si tienes un agregador de rutas adicional:
-try {
-  app.use('/api', require('./routes/api'));
-} catch (_) {
-  // opcional si no existe el archivo
-}
 
 // ---------- Archivos estáticos (uploads) ----------
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

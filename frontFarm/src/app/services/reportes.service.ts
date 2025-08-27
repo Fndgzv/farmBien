@@ -22,11 +22,19 @@ export interface ConsultarVentasParams {
   limit?: number;
 }
 
+
 export interface ConsultarVentasResponse {
   ok: boolean;
   filtrosAplicados: any;
   paginacion: { page: number; limit: number; totalRegistros: number; totalPaginas: number; };
-  resumen: { sumaTotalFiltro: number; };
+  resumen: {
+    sumaTotalFiltro: number;
+    sumaCantidadProductos?: number;
+    sumaTotalDescuento?: number;
+    sumaTotalMonederoCliente?: number;
+    sumaCosto?: number;
+    sumaUtilidad?: number;
+  };
   ventas: any[];
 }
 @Injectable({ providedIn: 'root' })
@@ -35,6 +43,16 @@ export class ReportesService {
   private readonly url = `${environment.apiUrl}/reportes`;
 
   constructor(private http: HttpClient) { }
+
+  private formatYmd(d?: any): string | undefined {
+    if (!d) return undefined;
+    const date = (d instanceof Date) ? d : new Date(d);
+    if (isNaN(date.getTime())) return undefined;
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${mm}-${dd}`;
+    //  ^^^ el backend convierte este día local MX a UTC rango [gte, lt)
+  }
 
   getVentasPorFarmacia(params: {
     farmaciaId?: string;
@@ -76,24 +94,58 @@ export class ReportesService {
       { params: httpParams }
     );
   }
-// src/app/services/reportes.service.ts
 
-getVentas(params: ConsultarVentasParams) {
-  // ⚠️ Asegúrate que environment.apiUrl incluya el prefijo correcto.
-  // Si en server haces app.use('/api', router), entonces apiUrl debe ser 'http://localhost:5000/api'
-  const url = `${this.url}/ventas/consultar`;
 
-  // Token para rutas con authMiddleware
+private toYmdLocal(v: any): string | undefined {
+  if (!v) return undefined;
+
+  if (typeof v === 'string') {
+    // dd/MM/yyyy -> YYYY-MM-DD
+    const m1 = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m1) return `${m1[3]}-${m1[2]}-${m1[1]}`;
+    // YYYY-MM-DD (o ISO al inicio) -> conserva los primeros 10
+    const m2 = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+    return undefined;
+  }
+
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return undefined;
+
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+getVentas(p: ConsultarVentasParams) {
+  const url = `${this.url}/ventas/consulta`;
+
   const token = localStorage.getItem('auth_token') || '';
   const headers = new HttpHeaders({ 'x-auth-token': token });
 
-  let hp = new HttpParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== '') hp = hp.set(k, String(v));
+  const obj: any = {
+    farmaciaId: p.farmaciaId,
+    clienteId:  p.clienteId,
+    usuarioId:  p.usuarioId,
+    totalDesde: p.totalDesde != null ? String(p.totalDesde) : undefined,
+    totalHasta: p.totalHasta != null ? String(p.totalHasta) : undefined,
+    // 💡 UNA SOLA normalización aquí:
+    fechaInicial: this.toYmdLocal(p.fechaInicial),
+    fechaFinal:   this.toYmdLocal(p.fechaFinal),
+    page: p.page != null ? String(p.page) : undefined,
+    limit: p.limit != null ? String(p.limit) : undefined,
+  };
+
+  let params = new HttpParams();
+  Object.keys(obj).forEach(k => {
+    const v = obj[k];
+    if (v !== undefined && v !== '') params = params.set(k, v);
   });
 
-  return this.http.get<ConsultarVentasResponse>(url, { params: hp, headers });
+  return this.http.get<ConsultarVentasResponse>(url, { params, headers });
 }
 
 
 }
+  
