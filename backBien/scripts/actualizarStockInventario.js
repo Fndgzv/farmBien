@@ -22,8 +22,6 @@ async function run() {
   ];
 
   for (const { farmaciaId, stockMax, stockMin } of ajustes) {
-    console.log(`\nActualizando inventario para farmacia ${farmaciaId}…`);
-
     // 1) Cargamos todos los inventarios de esa farmacia, con la categoría del producto
     const inventarios = await InventarioFarmacia
       .find({ farmacia: farmaciaId })

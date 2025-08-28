@@ -4,6 +4,9 @@ const { Types } = require('mongoose');
 
 const Venta = require('../models/Venta');
 const Producto = require('../models/Producto');
+const Pedido = require('../models/Pedido');
+const Devolucion = require('../models/Devolucion');
+const Cancelacion = require('../models/Cancelacion');
 
 const {
   pipelineVentasProductoDetalle,
@@ -40,12 +43,21 @@ function dayRangeUtc(fechaIni, fechaFin) {
   return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
 }
 
-/** ──────────────────────────────────────────────────────────────────────
- *  Ventas de un producto (detalle por tickets/renglones)
- *  GET /api/reportes/ventas-producto-detalle
- *  Query: farmaciaId?, productoId? | (codigoBarras|nombre), fechaIni?, fechaFin?
- *  fechaIni/fechaFin como 'YYYY-MM-DD'
- */
+// Rango por defecto para "Resumen utilidades": del 1 del mes (local) a hoy (local) → UTC [gte, lt)
+function defaultRangeMonthToTodayUtc() {
+  const now = DateTime.now().setZone(ZONE);
+  const startLocal = now.startOf('month');                 // 1 del mes actual 00:00 local
+  const endExLocal = now.plus({ days: 1 }).startOf('day'); // mañana 00:00 local (límite exclusivo)
+  return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
+}
+
+// Igual que dayRangeUtc, pero si no vienen fechas usa MTD (Month-To-Date)
+function dayRangeUtcOrMTD(fechaIni, fechaFin) {
+  if (!fechaIni && !fechaFin) return defaultRangeMonthToTodayUtc();
+  return dayRangeUtc(fechaIni, fechaFin);
+}
+
+
 exports.ventasProductoDetalle = async (req, res) => {
   try {
     let { farmaciaId, productoId, codigoBarras, nombre, fechaIni, fechaFin } = req.query;
@@ -107,12 +119,6 @@ exports.ventasProductoDetalle = async (req, res) => {
   }
 };
 
-/** ──────────────────────────────────────────────────────────────────────
- *  Resumen de productos vendidos por farmacia (agregado)
- *  GET /api/reportes/resumen-productos
- *  Query: farmaciaId?, fechaIni?, fechaFin?
- *  fechaIni/fechaFin como 'YYYY-MM-DD'
- */
 exports.resumenProductosVendidos = async (req, res) => {
   try {
     const { farmaciaId, fechaIni, fechaFin } = req.query;
@@ -136,3 +142,140 @@ exports.resumenProductosVendidos = async (req, res) => {
     return res.status(500).json({ ok: false, mensaje: 'Error al obtener resumen de ventas' });
   }
 };
+
+exports.resumenUtilidades = async (req, res) => {
+  try {
+    const { fechaIni, fechaFin, farmaciaId } = req.query;
+    // Validación farmaciaId (si viene)
+    if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
+      return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
+    }
+    const farmaciaMatch = farmaciaId ? { farmacia: new Types.ObjectId(farmaciaId) } : {};
+
+    // Rango: si no mandan fechas -> 1° del mes a hoy (local)
+    const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+
+    // ---- MATCHES por colección (con campo de fecha específico) ----
+    const ventasMatch = { fecha: { $gte: gte, $lt: lt }, ...farmaciaMatch };
+    const pedidosMatch = { fechaPedido: { $gte: gte, $lt: lt }, ...farmaciaMatch };
+    const devolucionesMatch = { fecha: { $gte: gte, $lt: lt }, ...farmaciaMatch };
+    const cancelacionesMatch = { fechaCancelacion: { $gte: gte, $lt: lt }, ...farmaciaMatch };
+
+
+    // Ventas: cantidad, importe=sum(total), costo=sum(productos.costo*cantidad), utilidad=importe-costo
+    const ventasAgg = Venta.aggregate([
+      { $match: ventasMatch },
+      {
+        $addFields: {
+          costoVenta: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ['$productos', []] },
+                as: 'p',
+                in: {
+                  $multiply: [
+                    { $ifNull: ['$$p.costo', 0] },
+                    { $ifNull: ['$$p.cantidad', 0] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          cantidad: { $sum: 1 },
+          importe: { $sum: { $ifNull: ['$total', 0] } },
+          costo: { $sum: { $ifNull: ['$costoVenta', 0] } },
+        }
+      },
+      { $project: { _id: 0, cantidad: 1, importe: 1, costo: 1 } }
+    ]);
+
+    // Pedidos: cantidad, importe=sum(total - resta), costo=sum(costo)
+    const pedidosAgg = Pedido.aggregate([
+      { $match: pedidosMatch },
+      {
+        $group: {
+          _id: null,
+          cantidad: { $sum: 1 },
+          importe: { $sum: { $subtract: [{ $ifNull: ['$total', 0] }, { $ifNull: ['$resta', 0] }] } },
+          costo: { $sum: { $ifNull: ['$costo', 0] } },
+        }
+      },
+      { $project: { _id: 0, cantidad: 1, importe: 1, costo: 1 } }
+    ]);
+
+    // Devoluciones: cantidad, importe=-sum(totalDevuelto), costo=0
+    const devolucionesAgg = Devolucion.aggregate([
+      { $match: devolucionesMatch },
+      {
+        $group: {
+          _id: null,
+          cantidad: { $sum: 1 },
+          totalDev: { $sum: { $ifNull: ['$totalDevuelto', 0] } }
+        }
+      },
+      { $project: { _id: 0, cantidad: 1, importe: { $multiply: [-1, '$totalDev'] }, costo: { $literal: 0 } } }
+    ]);
+
+    // Cancelaciones: cantidad, importe=-sum(totalDevuelto), costo=0
+    const cancelacionesAgg = Cancelacion.aggregate([
+      { $match: cancelacionesMatch },
+      {
+        $group: {
+          _id: null,
+          cantidad: { $sum: 1 },
+          totalDev: { $sum: { $ifNull: ['$totalDevuelto', 0] } }
+        }
+      },
+      { $project: { _id: 0, cantidad: 1, importe: { $multiply: [-1, '$totalDev'] }, costo: { $literal: 0 } } }
+    ]);
+
+    // Ejecutar en paralelo
+    const [vRow, pRow, dRow, cRow] = await Promise.all([
+      ventasAgg, pedidosAgg, devolucionesAgg, cancelacionesAgg
+    ]);
+
+    // Normalizar resultados (si no hay docs, deja 0s)
+    const ventas = vRow?.[0] || { cantidad: 0, importe: 0, costo: 0 };
+    const pedidos = pRow?.[0] || { cantidad: 0, importe: 0, costo: 0 };
+    const devols = dRow?.[0] || { cantidad: 0, importe: 0, costo: 0 };
+    const cancels = cRow?.[0] || { cantidad: 0, importe: 0, costo: 0 };
+
+    // Calcular utilidades
+    const utilVentas = (ventas.importe || 0) - (ventas.costo || 0);
+    const utilPedidos = (pedidos.importe || 0) - (pedidos.costo || 0);
+    const utilDevols = (devols.importe || 0);   // costo=0 → utilidad=importe (negativo)
+    const utilCancels = (cancels.importe || 0); // costo=0 → utilidad=importe (negativo)
+
+    // Construir filas en el orden requerido, siempre presentes
+    const rows = [
+      { concepto: 'Ventas', cantidad: ventas.cantidad, importe: ventas.importe, costo: ventas.costo, utilidad: utilVentas },
+      { concepto: 'Pedidos', cantidad: pedidos.cantidad, importe: pedidos.importe, costo: pedidos.costo, utilidad: utilPedidos },
+      { concepto: 'Devoluciones', cantidad: devols.cantidad, importe: devols.importe, costo: 0, utilidad: utilDevols },
+      { concepto: 'Cancelaciones', cantidad: cancels.cantidad, importe: cancels.importe, costo: 0, utilidad: utilCancels },
+    ].map(r => ({
+      ...r,
+      // Normaliza NaN/undefined a 0
+      cantidad: Number.isFinite(r.cantidad) ? r.cantidad : 0,
+      importe: Number.isFinite(r.importe) ? r.importe : 0,
+      costo: Number.isFinite(r.costo) ? r.costo : 0,
+      utilidad: Number.isFinite(r.utilidad) ? r.utilidad : 0,
+    }));
+
+    return res.json({
+      ok: true,
+      reporte: 'Resumen utilidades',
+      rango: { fechaIni: gte, fechaFin: lt }, // UTC
+      filtros: { farmaciaId: farmaciaId || null },
+      rows
+    });
+  } catch (e) {
+    console.error('[resumenUtilidades][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al generar Resumen utilidades' });
+  }
+};
+

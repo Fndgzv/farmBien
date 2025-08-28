@@ -57,59 +57,6 @@ export class LoginComponent {
     this.cdr.detectChanges(); // 🔹 Forzar la actualización del DOM
   }
 
-
-  // 🔹 Función para iniciar sesión
-  /*   onSubmit(): void {
-  
-      if (!this.loginForm.valid) {
-        this.showErrorAlert('Por favor, completa todos los campos correctamente.');
-        return;
-      }
-  
-      const { usuario, password } = this.loginForm.value;
-  
-      if (this.loginForm.valid) {
-        const { usuario, password } = this.loginForm.value;
-  
-        this.authService.login(usuario, password).subscribe({
-          next: (response: any) => {
-  
-            if (response && response.token && response.user) {
-              this.authService.setUserData(
-                response.token,
-                response.user.nombre,
-                response.user.rol,
-                response.user.email,
-                response.user.farmacia,
-                response.user.telefono,
-                response.user.domicilio
-              );
-  
-              if (response.user.rol === 'admin') {
-                this.showFarmaciaSelector = true;
-              } else {
-  
-                this.farmaciaId = response.user.farmacia._id;
-  
-                this.verificarCorteActivoYRedirigir();
-              }
-  
-            } else {
-              this.showErrorAlert('Respuesta del servidor no válida');
-            }
-          },
-          error: (error: any) => {
-            console.error("❌ Error en login:", error);
-            this.showErrorAlert(error.error?.mensaje || 'Error en autenticación');
-          }
-        });
-  
-      } else {
-        this.showErrorAlert('Por favor, completa todos los campos correctamente.');
-      }
-    } */
-
-  // login.component.ts (solo partes que cambian)
   // 🔹 Función para iniciar sesión
   onSubmit(): void {
     if (!this.loginForm.valid) {

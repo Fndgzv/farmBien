@@ -59,6 +59,7 @@ const VentaSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 VentaSchema.index({ fecha: 1 });
+VentaSchema.index({ fecha: 1, farmacia: 1 });
 VentaSchema.index({ farmacia: 1, fecha: 1 });
 VentaSchema.index({ cliente: 1, fecha: 1 });
 VentaSchema.index({ usuario: 1, fecha: 1 });

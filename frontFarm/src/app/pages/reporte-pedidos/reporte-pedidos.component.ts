@@ -158,7 +158,7 @@ export class ReportePedidosComponent {
               allowEscapeKey: false,
             });
             this.pedidos = [];
-            this.totalIngreso = this.utilidadTotal = this.porcentajeUtilidad = 0;
+            this.totalIngreso = this.utilidadTotal = this.porcentajeUtilidad = 0;            
             return;
           }
 

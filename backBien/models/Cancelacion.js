@@ -10,4 +10,6 @@ const CancelacionSchema = new mongoose.Schema({
   fechaCancelacion: { type: Date },
 }, { collection: 'cancelaciones' });
 
+CancelacionSchema.index({ fechaCancelacion: 1, farmacia: 1 });
+
 module.exports = mongoose.model("Cancelacion", CancelacionSchema);

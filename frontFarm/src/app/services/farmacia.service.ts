@@ -54,4 +54,12 @@ abiertosPorFarmacia() {
   return this.http.get<{ mapa: Record<string, number> }>(`${this.apiUrl2}/cortes/abiertos-por-farmacia`);
 }
 
+verificarFirma(farmaciaId: string, firma: string) {
+  return this.http.post<{ autenticado: boolean }>(
+    `${this.apiUrl}/verificar-firma/${farmaciaId}`,
+    { firma }
+  );
+}
+
+
 }

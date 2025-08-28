@@ -80,14 +80,21 @@ app.listen(PORT, () => {
 
 // ---------- Sincronizar índices (tras conectar a Mongo) ----------
 const Venta = require('./models/Venta'); // importa el modelo DESPUÉS de conectarDB si tu modelo no necesita la conexión aún
+const Producto = require('./models/Producto');
+const Pedido = require('./models/Pedido');
+const Devolucion = require('./models/Devolucion');
+const Cancelacion = require('./models/Cancelacion');
 
 mongoose.connection.once('open', async () => {
   try {
     // Si quieres, sincroniza más colecciones aquí (agrega otros modelos al Promise.all)
     await Promise.all([
       Venta.syncIndexes(),
+      Devolucion.syncIndexes(),
+      Pedido.syncIndexes(),
+      Cancelacion.syncIndexes(),
     ]);
-    console.log('✅ Índices sincronizados: Venta');
+    console.log('✅ Índices sincronizados: Venta, Pedido, Devolución y Cancelación');
   } catch (e) {
     console.error('❌ Error al sincronizar índices:', e?.message || e);
   }

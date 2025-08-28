@@ -30,4 +30,6 @@ const DevolucionSchema = new mongoose.Schema({
 }, { collection: 'devoluciones' }
 );
 
+DevolucionSchema.index({ fecha: 1, farmacia: 1 });
+
 module.exports = mongoose.model("Devolucion", DevolucionSchema);

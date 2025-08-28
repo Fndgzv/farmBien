@@ -133,6 +133,35 @@ exports.obtenerFirma = async (req, res) => {
 };
 
 
+exports.verificarFirma = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { firma } = req.body;
+
+    if (!firma || typeof firma !== 'string') {
+      return res.status(400).json({ mensaje: 'Firma inválida' });
+    }
+
+    const farmacia = await Farmacia.findById(id).select('firmaHash');
+
+    if (!farmacia || !farmacia.firmaHash) {
+      return res.status(404).json({ mensaje: 'Firma no registrada' });
+    }
+
+    const coincide = await bcrypt.compare(firma, farmacia.firmaHash);
+
+    if (!coincide) {
+      return res.status(401).json({ mensaje: 'Firma incorrecta', autenticado: false });
+    }
+
+    return res.status(200).json({ mensaje: 'Firma válida', autenticado: true });
+
+  } catch (error) {
+    console.error('Error verificando firma:', error);
+    return res.status(500).json({ mensaje: 'Error interno al verificar la firma' });
+  }
+};
+
 exports.eliminarFarmacia = async (req, res) => {
   try {
     const { id } = req.params;

@@ -7,6 +7,7 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { PedidosService } from '../../services/pedidos.service';
 import { AuthService } from '../../services/auth.service';
 import { ClienteService } from '../../services/cliente.service';
+import { FarmaciaService } from '../../services/farmacia.service'; 
 import { PedidoTicketComponent } from '../../impresiones/pedido-ticket/pedido-ticket.component';
 
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -73,6 +74,7 @@ export class PedidosComponent implements OnInit {
     private pedidosService: PedidosService,
     private authService: AuthService,
     private clienteService: ClienteService,
+    private FarmaciaService: FarmaciaService,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone) {
     // Registra íconos
@@ -111,6 +113,8 @@ export class PedidosComponent implements OnInit {
     this.authService.obtenerFirma(farmacia._id).subscribe({
       next: (resp) => {
         this.firmaAutorizada = resp.firma;
+        console.log('La firma es: ', this.firmaAutorizada);
+
       },
       error: (err) => {
         console.error('❌ Error al obtener firma de farmacia:', err);
@@ -149,7 +153,6 @@ export class PedidosComponent implements OnInit {
         .subscribe({
           next: resp => {
             this.pedidos = resp.pedidos;
-            console.log('pedido folio:', this.filtroFolio, ": ", this.pedidos);
           },
           error: err => {
             console.error('Error al buscar por folio:', err);
@@ -179,7 +182,7 @@ export class PedidosComponent implements OnInit {
 
     const fecha = this.filtroFechaPedido;
     const descripcion = this.filtroDescripcion?.trim();
-    
+
     if (!fecha || !descripcion) {
       await Swal.fire('Campos incompletos', 'Debes proporcionar fecha y descripción para buscar sin folio.', 'warning');
       return;
@@ -293,7 +296,6 @@ export class PedidosComponent implements OnInit {
     });
 
     if (resp.isConfirmed) {
-
       // Solicitar firma antes de cancelar
       let firmaInput = await Swal.fire({
         title: 'Autorización requerida',
@@ -324,27 +326,34 @@ export class PedidosComponent implements OnInit {
         allowOutsideClick: false,
         allowEscapeKey: false,
         preConfirm: async () => {
-
           const confirmButton = Swal.getConfirmButton();
-          if (confirmButton) confirmButton.disabled = true;
-
           const input = (document.getElementById('firma-autorizada') as HTMLInputElement)?.value?.trim();
-
-          await new Promise(resolve => setTimeout(resolve, 200)); // pequeña pausa visual
 
           if (!input) {
             Swal.showValidationMessage('Debes ingresar la firma para continuar.');
-            if (confirmButton) confirmButton.disabled = false;
             return false;
           }
 
-          if (input !== this.firmaAutorizada) {
-            Swal.showValidationMessage('Firma incorrecta. Verifica con el encargado.');
-            if (confirmButton) confirmButton.disabled = false;
+          try {
+            const res = await firstValueFrom(
+              this.FarmaciaService.verificarFirma(this.farmaciaId!, input)
+            );
+
+            if (!res.autenticado) {
+              Swal.showValidationMessage('Firma incorrecta. Verifica con el encargado.');
+              return false;
+            }
+
+            return true;
+          } catch (err) {
+            Swal.showValidationMessage('Error al verificar la firma.');
+            console.error(err);
             return false;
+          } finally {
+            if (confirmButton) confirmButton.disabled = false;
           }
-          return true;
-        },
+        }
+
       });
 
 

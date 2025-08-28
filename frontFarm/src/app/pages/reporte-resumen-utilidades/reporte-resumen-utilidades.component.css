@@ -1,0 +1,12 @@
+.filtros {
+    border-bottom: 2px solid #0453b3;
+    padding-bottom: 1rem;
+}
+
+.text-positivo {
+    color: rgb(50, 83, 1);
+}
+
+.text-negativo {
+    color: red
+}

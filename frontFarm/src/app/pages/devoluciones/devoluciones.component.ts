@@ -13,6 +13,7 @@ import Swal from 'sweetalert2';
 
 import { AuthService } from '../../services/auth.service';
 import { ClienteService } from '../../services/cliente.service';
+import { FarmaciaService } from '../../services/farmacia.service'; 
 import { DevolucionService } from '../../services/devolucion.service';
 import { DevolucionTicketComponent } from '../../impresiones/devolucion-ticket/devolucion-ticket.component';
 
@@ -68,13 +69,14 @@ export class DevolucionesComponent implements OnInit {
   paraGuardar: any = null;
 
   faTimes = faTimes;
+
   constructor(
     private devolucionService: DevolucionService,
     private clienteService: ClienteService,
+    private FarmaciaService: FarmaciaService,
     private library: FaIconLibrary, private authService: AuthService,) {
     this.library.addIcons(faPlus, faMinus, faTimes); // Registra íconos
-  }
-
+  } 
 
   ngOnInit(): void {
     const stored = localStorage.getItem('user_farmacia');
@@ -165,9 +167,6 @@ export class DevolucionesComponent implements OnInit {
     const productosSeleccionados = venta.productos.filter((p: any) =>
       p.seleccionado && p.cantidadDevuelta > 0
     );
-
-    console.log('productos seleccionados', productosSeleccionados);
-
 
     // 2) Si no hay ninguno, avisamos
     if (productosSeleccionados.length === 0) {
@@ -291,17 +290,28 @@ export class DevolucionesComponent implements OnInit {
           return false;
         }
 
-        if (input !== this.firmaAutorizada) {
-          Swal.showValidationMessage('Firma incorrecta. Verifica con el encargado.');
+        try {
+          const res = await firstValueFrom(
+            this.FarmaciaService.verificarFirma(this.farmaciaId!, input)
+          );
+
+          if (!res.autenticado) {
+            Swal.showValidationMessage('Firma incorrecta. Verifica con el encargado.');
+            if (confirmButton) confirmButton.disabled = false;
+            return false;
+          }
+
+          return true;
+
+        } catch (error) {
+          console.error('❌ Error al verificar firma:', error);
+          Swal.showValidationMessage('Error al verificar la firma. Intenta más tarde.');
           if (confirmButton) confirmButton.disabled = false;
           return false;
         }
-        return true;
+
       },
     });
-
-console.log('productos seleccionados', productosSeleccionados);
-
 
     if (firmaInput.isConfirmed) {
       this.paraGuardar = {

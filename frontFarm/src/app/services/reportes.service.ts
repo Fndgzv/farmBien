@@ -21,8 +21,6 @@ export interface ConsultarVentasParams {
   page?: number;
   limit?: number;
 }
-
-
 export interface ConsultarVentasResponse {
   ok: boolean;
   filtrosAplicados: any;
@@ -36,6 +34,28 @@ export interface ConsultarVentasResponse {
     sumaUtilidad?: number;
   };
   ventas: any[];
+}
+
+export interface ResumenUtilidadesRow {
+  concepto: 'Ventas' | 'Pedidos' | 'Devoluciones' | 'Cancelaciones';
+  cantidad: number;
+  importe: number;
+  costo: number;
+  utilidad: number;
+}
+
+export interface ResumenUtilidadesParams {
+  fechaIni?: string | Date;   // YYYY-MM-DD o Date
+  fechaFin?: string | Date;   // YYYY-MM-DD o Date
+  farmaciaId?: string;
+}
+
+export interface ResumenUtilidadesResponse {
+  ok: boolean;
+  reporte: string;
+  rango: { fechaIni: string; fechaFin: string } | any;
+  filtros: { farmaciaId: string | null };
+  rows: ResumenUtilidadesRow[];
 }
 @Injectable({ providedIn: 'root' })
 
@@ -146,6 +166,26 @@ getVentas(p: ConsultarVentasParams) {
   return this.http.get<ConsultarVentasResponse>(url, { params, headers });
 }
 
+getResumenUtilidades(p: ResumenUtilidadesParams) {
+  const url = `${this.url}/resumen-utilidades`;
+
+  const token = localStorage.getItem('auth_token') || '';
+  const headers = new HttpHeaders({ 'x-auth-token': token });
+
+  const obj: any = {
+    fechaIni: this.toYmdLocal(p.fechaIni),
+    fechaFin: this.toYmdLocal(p.fechaFin),
+    farmaciaId: p.farmaciaId || undefined,
+  };
+
+  let params = new HttpParams();
+  Object.keys(obj).forEach(k => {
+    const v = obj[k];
+    if (v !== undefined && v !== '') params = params.set(k, v);
+  });
+
+  return this.http.get<ResumenUtilidadesResponse>(url, { params, headers });
+}
 
 }
   

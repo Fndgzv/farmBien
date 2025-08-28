@@ -108,7 +108,12 @@
                     </td>
                     <td>{{ pedido.folio }}</td>
                     <td>{{ pedido.fechaPedido | date: 'dd/MM/yyyy':'America/Mexico_City' }}</td>
-                    <td>{{ pedido.cliente?.nombre || 'sin cliente' }}</td>
+                    <td>
+                        <div>{{ pedido.cliente?.nombre || 'sin cliente' }}</div>
+                        <small class="text-muted" *ngIf="pedido.cliente?.telefono">
+                            Tel.: {{ pedido.cliente?.telefono }}
+                        </small>
+                    </td>
                     <td>{{ pedido.descripcion }}</td>
                     <td>{{ pedido.estado }}</td>
                     <td>
@@ -130,8 +135,7 @@
                         <div class="d-flex justify-content-center">
                             <!-- Botón Editar -->
                             <button class="btn-icon-chico btn-gris-chico" (click)="habilitarEdicion(pedido)"
-                                [disabled]="modoEdicionId === pedido._id"
-                                matTooltip="Editar costo">
+                                [disabled]="modoEdicionId === pedido._id" matTooltip="Editar costo">
                                 <fa-icon [icon]="faEdit"></fa-icon>
                             </button>
 

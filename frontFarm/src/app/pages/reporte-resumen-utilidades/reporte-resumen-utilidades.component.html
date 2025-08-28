@@ -1,1 +1,91 @@
-<p>reporte-resumen-utilidades en CONSTRUCCION!!!!</p>
+<div class="container-fluid">
+    <h3 class="titulo text-center">Resumen utilidades</h3>
+
+    <!-- Filtros -->
+    <form [formGroup]="filtroForm" class="row align-items-end mb-2 filtros">
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-3">
+                <label class="form-label">Farmacia</label>
+                <select class="form-select" formControlName="farmaciaId" (change)="buscar()"
+                    [disabled]="!farmaciasCargadas || cargando">
+
+                    <option *ngFor="let f of farmacias" [ngValue]="f._id">{{ f.nombre }}</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Fecha inicial</label>
+                <input type="date" class="form-control" formControlName="fechaIni" (change)="buscar()"
+                    [disabled]="cargando">
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">Fecha final</label>
+                <input type="date" class="form-control" formControlName="fechaFin" (change)="buscar()"
+                    [disabled]="cargando">
+            </div>
+
+            <div class="col-auto ms-auto">
+                <button class="btn btn-amarillo" (click)="limpiar()" [disabled]="cargando">Hoy / Mes
+                    actual</button>
+                <button class="btn btn-gris ms-4" (click)="buscar()" [disabled]="cargando">
+                    {{ cargando ? 'Consultando…' : 'Buscar' }}
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Tabla -->
+    <div class="table-responsive">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Concepto</th>
+                    <th class="text-end">Cant. Movim.</th>
+                    <th class="text-end">Importe</th>
+                    <th class="text-end">Costo</th>
+                    <th class="text-end">Utilidad</th>
+                    <th class="text-end">% Gan.</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let r of rows">
+                    <td [ngClass]="{
+                        'text-positivo': r.concepto == 'Ventas' || r.concepto == 'Pedidos',
+                        'text-negativo': r.concepto == 'Devoluciones' || r.concepto == 'Cancelaciones'}">
+                        {{ r.concepto }}
+                    </td>
+                    <td class="text-end text-positivo">{{ r.cantidad | number }}</td>
+                    <td class="text-end"
+                        [ngClass]="{'text-positivo': r.importe >= 0, 'text-negativo': r.importe < 0}">
+                        ${{ r.importe | number:'1.2-2' }}
+                    </td>
+                    <td class="text-end text-positivo">${{ r.costo | number:'1.2-2' }}</td>
+                    <td class="text-end" [ngClass]="{'text-positivo': r.utilidad >= 0, 'text-negativo': r.utilidad < 0}">
+                        ${{ r.utilidad | number:'1.2-2' }}
+                    </td>
+                    <td class="text-end" [ngClass]="{'text-positivo': r.utilidad >= 0, 'text-negativo': r.utilidad < 0}" >
+                        {{ r.costo == 0? 0 : r.utilidad / r.costo * 100 | number:'1.2-2'}}%
+                    </td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td class="text-end">Totales:</td>
+                    <td class="text-end text-positivo">{{ totalCantidad | number }}</td>
+                    <td class="text-end"
+                        [ngClass]="{'text-positivo': totalImporte >= 0, 'text-negativo': totalImporte < 0}">
+                        ${{ totalImporte | number:'1.2-2' }}</td>
+                    <td class="text-end text-positivo">${{ totalCosto | number:'1.2-2' }}</td>
+                    <td class="text-end"
+                        [ngClass]="{'text-positivo': totalUtilidad >= 0, 'text-negativo': totalUtilidad < 0}">
+                        ${{ totalUtilidad | number:'1.2-2' }}
+                    </td>
+                    <td class="text-end" [ngClass]="{'text-positivo': totalUtilidad >= 0, 'text-negativo': totalUtilidad < 0}" >
+                        {{ totalCosto == 0? 0 : totalUtilidad / totalCosto * 100 | number:'1.2-2'}}%
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>

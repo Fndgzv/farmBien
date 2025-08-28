@@ -316,7 +316,7 @@ const obtenerPedidos = async (req, res) => {
     }
 
     const pedidos = await Pedido.find(filtro)
-      .populate('cliente', 'nombre')
+      .populate('cliente', 'nombre totalMonedero telefono')
       .populate('usuarioPidio', 'nombre')
       .populate('usuarioSurtio', 'nombre')
       .populate('usuarioCancelo', 'nombre')

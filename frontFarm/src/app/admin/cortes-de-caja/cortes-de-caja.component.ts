@@ -198,7 +198,6 @@ export class CortesDeCajaComponent implements OnInit {
       .subscribe({
         next: (preview) => {
           const cortePreview = this.normalizarPreview(preview); // 👈 normaliza aquí
-          console.log('corte de caja previo Normalizado:', cortePreview);
           this.dialog.open(CorteDetalleDialogComponent, {
             width: '720px',
             disableClose: true,

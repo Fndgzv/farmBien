@@ -7,7 +7,8 @@ const {
     actualizarFarmacia,
     eliminarFarmacia,
     obtenerFarmaciaPorId,
-    cambiarFirma
+    cambiarFirma,
+    verificarFirma
 } = require('../controllers/farmaciaController');
 const auth = require('../middlewares/authMiddleware'); // Middleware de autenticación
 const isAdmin = require('../middlewares/isAdmin');
@@ -19,5 +20,6 @@ router.post('/', [ auth ], crearFarmacia);
 router.put('/:id', [ auth ], actualizarFarmacia);
 router.delete('/:id', [auth, isAdmin], eliminarFarmacia);
 router.patch('/farmacias/:id/cambiar-firma', auth, isAdmin, cambiarFirma);
+router.post('/verificar-firma/:id', auth, verificarFirma);
 
 module.exports = router;
