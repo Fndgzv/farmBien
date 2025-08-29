@@ -7,7 +7,7 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { PedidosService } from '../../services/pedidos.service';
 import { AuthService } from '../../services/auth.service';
 import { ClienteService } from '../../services/cliente.service';
-import { FarmaciaService } from '../../services/farmacia.service'; 
+import { FarmaciaService } from '../../services/farmacia.service';
 import { PedidoTicketComponent } from '../../impresiones/pedido-ticket/pedido-ticket.component';
 
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -19,6 +19,19 @@ import Swal from 'sweetalert2';
 import { firstValueFrom } from 'rxjs';
 
 import { trigger, state, style, transition, animate } from '@angular/animations';
+
+type MovimientoPedido = 'agregar' | 'surtir' | 'cancelar';
+
+interface PedidoTicketData {
+  pedido: any;
+  farmaNombre: string;
+  farmaDireccion: string;
+  farmaTelefono: string;
+  userName: string;
+  client: string;
+  movimiento: MovimientoPedido;
+}
+
 @Component({
   selector: 'app-pedidos',
   standalone: true,
@@ -63,12 +76,27 @@ export class PedidosComponent implements OnInit {
   firmaAutorizada: string = '';
 
   yaImprimio = false;
-  mostrarTicket: boolean = false;
-  paraImpresion: any = null;
+  /* mostrarTicket: boolean = false;
+  paraImpresion: any = null; */
   paraGuardar: any = null;
   folioGenerado: string | null = null;
 
   faTimes = faTimes;
+
+  mostrarTicket = false;
+  paraImpresion: PedidoTicketData | null = null;
+
+  /** Helper genérico: muestra ticket, imprime y luego ejecuta la acción */
+  private imprimirY(luego: () => void) {
+    this.mostrarTicket = true;
+    this.cdr.detectChanges();
+
+    setTimeout(() => {
+      window.print();
+      this.mostrarTicket = false;
+      luego();
+    }, 300);
+  }
 
   constructor(private library: FaIconLibrary,
     private pedidosService: PedidosService,
@@ -360,29 +388,50 @@ export class PedidosComponent implements OnInit {
       if (firmaInput.isConfirmed) {
         const body = { folio: pedido.folio };
 
-        this.pedidosService.cancelarPedido(body).subscribe({
-          next: () => {
-            Swal.fire({
-              icon: 'success',
-              title: 'Pedido cancelado correctamente',
-              confirmButtonText: 'Aceptar',
-              timer: 1600,
-              timerProgressBar: true,
-              allowOutsideClick: false,
-              allowEscapeKey: false,
-            });
-            this.limpiarFiltroCompleto();
-          },
-          error: (err) => {
-            console.error('Error al cancelar pedido:', err);
-            Swal.fire({
-              icon: 'error',
-              title: 'Error',
-              text: err.error?.mensaje || 'No se pudo cancelar el pedido'
-            });
-          }
+        // datos para ticket de cancelación
+        const pedidoParaTicket = {
+          ...pedido,
+          // por si quieres mostrar lo que se devuelve:
+          /* devolucionEfectivo: (pedido.aCuenta - (pedido.pagoACuenta?.vale || 0)),
+          devolucionVale: (pedido.pagoACuenta?.vale || 0), */
+        };
+
+        this.paraImpresion = {
+          pedido: pedidoParaTicket,
+          farmaNombre: this.farmaciaNombre,
+          farmaDireccion: this.farmaciaDireccion,
+          farmaTelefono: this.farmaciaTelefono,
+          userName: this.usuarioNombre,
+          client: this.nombreCliente,
+          movimiento: 'cancelar'
+        };
+
+        this.imprimirY(() => {
+          this.pedidosService.cancelarPedido(body).subscribe({
+            next: () => {
+              Swal.fire({
+                icon: 'success',
+                title: 'Pedido cancelado correctamente',
+                confirmButtonText: 'Aceptar',
+                timer: 1600,
+                timerProgressBar: true,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+              });
+              this.limpiarFiltroCompleto();
+            },
+            error: (err) => {
+              console.error('Error al cancelar pedido:', err);
+              Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.error?.mensaje || 'No se pudo cancelar el pedido'
+              });
+            }
+          });
         });
       }
+
     }
 
   }
@@ -428,29 +477,45 @@ export class PedidosComponent implements OnInit {
       }
     }
 
-    this.pedidosService.surtirPedido(body).subscribe({
-      next: async (resp) => {
-        await Swal.fire({
-          icon: 'success',
-          title: 'Éxito',
-          html: `<h3>Pedido surtido y registrado correctamente</h3>`,
-          confirmButtonText: 'Continuar',
-          timer: 1600,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-        });
-        this.limpiarFiltroCompleto();
+    const pedidoParaTicket = {
+      ...pedido,
+      pagoResta: { ...body.pagoResta },
+    };
 
-      },
-      error: (err) => {
-        console.error('Error al surtir pedido:', err);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: err.error?.mensaje || 'No se pudo surtir el pedido'
-        });
-      }
+    this.paraImpresion = {
+      pedido: pedidoParaTicket,
+      farmaNombre: this.farmaciaNombre,
+      farmaDireccion: this.farmaciaDireccion,
+      farmaTelefono: this.farmaciaTelefono,
+      userName: this.usuarioNombre,
+      client: this.nombreCliente,
+      movimiento: 'surtir'
+    };
+
+    this.imprimirY(() => {
+      this.pedidosService.surtirPedido(body).subscribe({
+        next: async (resp) => {
+          await Swal.fire({
+            icon: 'success',
+            title: 'Éxito',
+            html: `<h3>Pedido surtido y registrado correctamente</h3>`,
+            confirmButtonText: 'Continuar',
+            timer: 1600,
+            timerProgressBar: true,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+          });
+          this.limpiarFiltroCompleto();
+        },
+        error: (err) => {
+          console.error('Error al surtir pedido:', err);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error?.mensaje || 'No se pudo surtir el pedido'
+          });
+        }
+      });
     });
 
   }
@@ -502,7 +567,8 @@ export class PedidosComponent implements OnInit {
       farmaDireccion: this.farmaciaDireccion,
       farmaTelefono: this.farmaciaTelefono,
       userName: this.usuarioNombre,
-      client: this.nombreCliente
+      client: this.nombreCliente,
+      movimiento: 'agregar'
     }
 
     this.mostrarTicket = true;
@@ -515,38 +581,13 @@ export class PedidosComponent implements OnInit {
       if (contenido) {
         window.print();
         this.mostrarTicket = false;
-        this.confirmarImpresion();
+        this.guardarPedido();
       } else {
         console.warn('❌ Ticket aún no está renderizado');
       }
     }, 300);
 
   }
-
-  confirmarImpresion() {
-    Swal.fire({
-      icon: 'question',
-      title: '¿Se imprimió correctamente el ticket?',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, guardar pedido',
-      cancelButtonText: 'No, reintentar'
-    }).then(result => {
-      if (result.isConfirmed) {
-        this.guardarPedido();
-      } else {
-        Swal.fire({
-          icon: 'info',
-          title: 'Atención',
-          text: 'El pedido no fue registrado, tendrá que volver a capturarlo.',
-          timer: 1600,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false
-        });
-      }
-    });
-  }
-
 
   guardarPedido() {
     this.pedidosService.agregarPedido(this.paraGuardar).subscribe({

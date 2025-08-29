@@ -322,10 +322,14 @@ export class ReporteVentasProductoComponent {
   // Fechas helper
   // ======================
   private defaultIni(): string {
-    const d = new Date(); d.setDate(d.getDate() - 15);
-    return this.toLocalISO(d);
+/*     const d = new Date();
+    d.setDate(d.getDate() - 15);
+    return this.toLocalISO(d); */
+    return this.toLocalISO(new Date());
   }
+
   private defaultFin(): string { return this.toLocalISO(new Date()); }
+
   private toLocalISO(d: Date): string {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

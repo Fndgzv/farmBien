@@ -32,14 +32,12 @@ const registrarDevolucion = async (req, res) => {
       return res.status(404).json({ mensaje: '** Venta no encontrada con ese folio **' });
     }
 
-
     // obtener nombre de la farmacia donde se esta haciendo la devolución
     const farmaciaDev = await Farmacia.findById(farmaciaQueDevuelve);
     const nombreFarmaciaDev = farmaciaDev ? farmaciaDev.nombre : '—';
 
     const farmaciaOrigen = await Farmacia.findById(venta.farmacia);  // buscamos la farmacia donde compro el cliente
     const nombreFarmacia = farmaciaOrigen ? farmaciaOrigen.nombre : '—';  // obtener nombre de la farmacia donde se hizo la compra
-
 
     // Comprobar que la venta se haya realizado en la farmacia donde se quiere hacer la devolución
     if (venta.farmacia === farmaciaQueDevuelve) {
@@ -48,7 +46,6 @@ const registrarDevolucion = async (req, res) => {
       })
     }
 
-    
     //validar fecha (máx. 7 días)
     const fechaVenta = new Date(venta.fecha);
     const diasPasados = (ahora - fechaVenta) / (1000 * 60 * 60 * 24);
@@ -68,12 +65,10 @@ const registrarDevolucion = async (req, res) => {
       });
     });
 
-
     // Validaciones de cada devolución solicitada
     let totalRefund = 0;  // total a devolver
     let valeDevuelto = 0; // total de devolver en vales
     let seDevuelveEnEfectivo = 0; // total a devolver en efectivo, solo cuando el motivo es responsabilidad de la farmacia
-
 
     for (const dev of productosDevueltos) {
 
@@ -149,6 +144,14 @@ const registrarDevolucion = async (req, res) => {
     });
     await devolucion.save();
 
+    // === NUEVO: grabar referencia de la devolución en el historial del cliente ===
+    if (idCliente) {
+      await Cliente.findByIdAndUpdate(
+        idCliente,
+        { $push: { historialCompras: { devolucion: devolucion._id } } }
+      );
+    }
+
     /* Aqui acumulamos el monedero del cliente */
     if (valeDevuelto > 0) {
       const clienteEncontrado = await Cliente.findById(idCliente);
@@ -173,7 +176,6 @@ const registrarDevolucion = async (req, res) => {
       devolucion,
     });
 
-
   } catch (error) {
     console.error('Error al registrar devolución:', error);
     return res.status(500).json({
@@ -182,7 +184,6 @@ const registrarDevolucion = async (req, res) => {
     });
   }
 };
-
 
 const buscarVentaPorCodigo = async (req, res) => {
   try {

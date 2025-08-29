@@ -87,21 +87,40 @@ export class ReportePedidosComponent {
   }
 
 
-  ngOnInit(): void {
+ngOnInit(): void {
+  // 1) Fechas por defecto = hoy
+  const hoy = new Date();
+  const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()); // 00:00:00
+  const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59); // 23:59:59
 
-    this.farmaciaService.obtenerFarmacias().subscribe(data => {
-      this.farmacias = data;
-    });
+  // si tus inputs son <input type="date"> usa YYYY-MM-DD
+  this.filtroFechaPedido = this.toYmd(inicio);
+  this.filtroFechaFin    = this.toYmd(fin);
 
-    const usuario = this.authService.getUserData();
-    const rol = usuario?.rol;
-    const userName = usuario?.nombre;
+  // 2) Cargar farmacias y seleccionar la primera; 3) Buscar automáticamente
+  this.farmaciaService.obtenerFarmacias().subscribe(data => {
+    this.farmacias = data || [];
+    if (this.farmacias.length) {
+      // value del <select>: usa el id real de tu API (_id o id)
+      this.filtroFarmaciaId = this.farmacias[0]._id ?? this.farmacias[0].id ?? '';
+    }
+    // Lanza la búsqueda una vez que ya tienes fechas y farmacia
+    this.buscarSinFolio();
+  });
 
-    const usuarioId = usuario?.id;
-    this.usuarioId = usuarioId;
-    this.usuarioRol = rol;
-    this.usuarioNombre = userName;
-  }
+  // (lo que ya tenías)
+  const usuario = this.authService.getUserData();
+  this.usuarioId = usuario?.id;
+  this.usuarioRol = usuario?.rol;
+  this.usuarioNombre = usuario?.nombre;
+}
+
+/** YYYY-MM-DD para <input type="date"> */
+private toYmd(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 
   formatearFecha(fechaStr: string): string {
     const fecha = new Date(fechaStr);

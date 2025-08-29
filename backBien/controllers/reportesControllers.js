@@ -59,6 +59,7 @@ function dayRangeUtcOrMTD(fechaIni, fechaFin) {
 
 
 exports.ventasProductoDetalle = async (req, res) => {
+  // conteo de ventas de un solo producto
   try {
     let { farmaciaId, productoId, codigoBarras, nombre, fechaIni, fechaFin } = req.query;
 
@@ -120,6 +121,7 @@ exports.ventasProductoDetalle = async (req, res) => {
 };
 
 exports.resumenProductosVendidos = async (req, res) => {
+  // conteo de ventas de todos los producto
   try {
     const { farmaciaId, fechaIni, fechaFin } = req.query;
 
@@ -276,6 +278,464 @@ exports.resumenUtilidades = async (req, res) => {
   } catch (e) {
     console.error('[resumenUtilidades][ERROR]', e);
     return res.status(500).json({ ok: false, mensaje: 'Error al generar Resumen utilidades' });
+  }
+};
+
+// Reporte: Utilidad por usuario (Usuario, Farmacia, #Ventas, Imp. Ventas, Costo Ventas, #Pedidos, Imp. Pedidos, Costo Pedidos, Ingresos, Egresos, Utilidad, %Gan)
+exports.utilidadXusuario = async (req, res) => {
+  const sortDirRaw = String(req.query.orden || req.query.order || 'desc').toLowerCase();
+  const sortDir = sortDirRaw === 'asc' ? 1 : -1;       // asc|desc (default desc)
+  const sortBy = String(req.query.ordenPor || 'utilidad').toLowerCase(); // 'utilidad' | 'nombres'
+
+  try {
+    const { farmaciaId, usuarioId, fechaIni, fechaFin } = req.query;
+
+    // === NUEVO: dirección de ordenamiento por utilidad ===
+    const sortDirRaw = String(req.query.orden || req.query.order || 'desc').toLowerCase();
+    const sortDir = sortDirRaw === 'asc' ? 1 : -1; // asc|desc (default desc)
+
+    if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
+      return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
+    }
+    if (usuarioId && !Types.ObjectId.isValid(usuarioId)) {
+      return res.status(400).json({ ok: false, mensaje: 'usuarioId inválido' });
+    }
+
+    const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+
+    const ventasMatch = {
+      fecha: { $gte: gte, $lt: lt },
+      ...(farmaciaId ? { farmacia: new Types.ObjectId(farmaciaId) } : {}),
+      ...(usuarioId ? { usuario: new Types.ObjectId(usuarioId) } : {}),
+    };
+
+    const pedidosMatchBase = {
+      fechaPedido: { $gte: gte, $lt: lt },
+      ...(farmaciaId ? { farmacia: new Types.ObjectId(farmaciaId) } : {}),
+      ...(usuarioId ? { usuarioPidio: new Types.ObjectId(usuarioId) } : {}),
+    };
+
+    const pipeline = [
+      // --- Ventas ---
+      { $match: ventasMatch },
+      {
+        $addFields: {
+          costoVenta: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ['$productos', []] },
+                as: 'p',
+                in: {
+                  $multiply: [
+                    { $ifNull: ['$$p.costo', 0] },
+                    { $ifNull: ['$$p.cantidad', 0] }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { usuario: '$usuario', farmacia: '$farmacia' },
+          ventasCount: { $sum: 1 },
+          impVentas: { $sum: { $ifNull: ['$total', 0] } },
+          costoVentas: { $sum: { $ifNull: ['$costoVenta', 0] } },
+          pedidosCount: { $sum: 0 },
+          impPedidos: { $sum: 0 },
+          costoPedidos: { $sum: 0 },
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          usuario: '$_id.usuario',
+          farmacia: '$_id.farmacia',
+          ventasCount: 1,
+          impVentas: 1,
+          costoVentas: 1,
+          pedidosCount: 1,
+          impPedidos: 1,
+          costoPedidos: 1,
+        }
+      },
+
+      // --- Pedidos (estado != 'cancelado') ---
+      {
+        $unionWith: {
+          coll: 'pedidos',
+          pipeline: [
+            { $match: pedidosMatchBase },
+            {
+              $match: {
+                $expr: {
+                  $ne: [
+                    { $toLower: { $ifNull: ['$estado', ''] } },
+                    'cancelado'
+                  ]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: { usuario: '$usuarioPidio', farmacia: '$farmacia' },
+                ventasCount: { $sum: 0 },
+                impVentas: { $sum: 0 },
+                costoVentas: { $sum: 0 },
+                pedidosCount: { $sum: 1 },
+                impPedidos: {
+                  $sum: {
+                    $subtract: [
+                      { $ifNull: ['$total', 0] },
+                      { $ifNull: ['$resta', 0] }
+                    ]
+                  }
+                },
+                costoPedidos: { $sum: { $ifNull: ['$costo', 0] } },
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                usuario: '$_id.usuario',
+                farmacia: '$_id.farmacia',
+                ventasCount: 1,
+                impVentas: 1,
+                costoVentas: 1,
+                pedidosCount: 1,
+                impPedidos: 1,
+                costoPedidos: 1,
+              }
+            }
+          ]
+        }
+      },
+
+      // --- Totales por (usuario, farmacia) ---
+      {
+        $group: {
+          _id: { usuario: '$usuario', farmacia: '$farmacia' },
+          ventasCount: { $sum: '$ventasCount' },
+          impVentas: { $sum: '$impVentas' },
+          costoVentas: { $sum: '$costoVentas' },
+          pedidosCount: { $sum: '$pedidosCount' },
+          impPedidos: { $sum: '$impPedidos' },
+          costoPedidos: { $sum: '$costoPedidos' },
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          usuario: '$_id.usuario',
+          farmacia: '$_id.farmacia',
+          ventasCount: { $ifNull: ['$ventasCount', 0] },
+          impVentas: { $ifNull: ['$impVentas', 0] },
+          costoVentas: { $ifNull: ['$costoVentas', 0] },
+          pedidosCount: { $ifNull: ['$pedidosCount', 0] },
+          impPedidos: { $ifNull: ['$impPedidos', 0] },
+          costoPedidos: { $ifNull: ['$costoPedidos', 0] },
+        }
+      },
+
+      // --- Nombres ---
+      { $lookup: { from: 'usuarios', localField: 'usuario', foreignField: '_id', as: 'u' } },
+      { $lookup: { from: 'farmacias', localField: 'farmacia', foreignField: '_id', as: 'f' } },
+      {
+        $addFields: {
+          usuarioNombre: { $ifNull: [{ $arrayElemAt: ['$u.nombre', 0] }, '(sin nombre)'] },
+          farmaciaNombre: { $ifNull: [{ $arrayElemAt: ['$f.nombre', 0] }, '(sin nombre)'] },
+        }
+      },
+      { $project: { u: 0, f: 0 } },
+
+      // --- Derivados ---
+      {
+        $addFields: {
+          ingresos: { $add: [{ $ifNull: ['$impVentas', 0] }, { $ifNull: ['$impPedidos', 0] }] },
+          egresos: { $add: [{ $ifNull: ['$costoVentas', 0] }, { $ifNull: ['$costoPedidos', 0] }] },
+        }
+      },
+      {
+        $addFields: {
+          utilidad: { $subtract: ['$ingresos', '$egresos'] },
+          gananciaPct: {
+            $cond: [
+              { $gt: ['$egresos', 0] },
+              { $multiply: [{ $divide: ['$utilidad', '$egresos'] }, 100] },
+              null
+            ]
+          }
+        }
+      },
+      ...(sortBy === 'nombres'
+        ? [{ $sort: { farmaciaNombre: 1, usuarioNombre: 1 } }]
+        : [{ $sort: { utilidad: sortDir, farmaciaNombre: 1, usuarioNombre: 1 } }]
+      ),
+    ];
+
+    const rows = await Venta.aggregate(pipeline);
+
+    const safe = (n) => (Number.isFinite(n) ? n : 0);
+    const data = rows.map(r => ({
+      usuarioId: r.usuario,
+      usuario: r.usuarioNombre,
+      farmaciaId: r.farmacia,
+      farmacia: r.farmaciaNombre,
+      numVentas: safe(r.ventasCount),
+      impVentas: safe(r.impVentas),
+      costoVentas: safe(r.costoVentas),
+      numPedidos: safe(r.pedidosCount),
+      impPedidos: safe(r.impPedidos),
+      costoPedidos: safe(r.costoPedidos),
+      ingresos: safe(r.ingresos),
+      egresos: safe(r.egresos),
+      utilidad: safe(r.utilidad),
+      gananciaPct: (r.gananciaPct === null ? null : safe(r.gananciaPct)),
+    }));
+
+    return res.json({
+      ok: true,
+      reporte: 'Utilidad por usuario',
+      rango: { fechaIni: gte, fechaFin: lt },
+      filtros: { farmaciaId: farmaciaId || null, usuarioId: usuarioId || null, orden: sortDirRaw },
+      columns: ['Usuario', 'Farmacia', '#Ventas', 'Imp. Ventas', 'Costo Ventas', '#Pedidos', 'Imp. Pedidos', 'Costo Pedidos', 'Ingresos', 'Egresos', 'Utilidad', '%Gan'],
+      rows: data
+    });
+  } catch (e) {
+    console.error('[utilidadXusuario][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al generar Utilidad por usuario' });
+  }
+};
+
+exports.utilidadXcliente = async (req, res) => {
+  try {
+    const { clienteId, fechaIni, fechaFin } = req.query;
+
+    // Validación de clienteId (si viene)
+    if (clienteId && !Types.ObjectId.isValid(clienteId)) {
+      return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
+    }
+
+    // Si NO viene clienteId, CantClientes es OBLIGATORIO (Top-N)
+    const cantParam = req.query.CantClientes ?? req.query.cantClientes ?? req.query.limit;
+    let topN = null;
+    if (!clienteId) {
+      const n = parseInt(String(cantParam || '').trim(), 10);
+      if (!Number.isFinite(n) || n <= 0) {
+        return res.status(400).json({
+          ok: false,
+          mensaje: 'Cuando no se envía clienteId, el parámetro CantClientes (entero > 0) es obligatorio'
+        });
+      }
+      topN = n;
+    }
+
+    // Rango por defecto: del 1 del mes a hoy (local) → UTC [gte, lt)
+    const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+
+    // MATCH por colección (sin filtro por farmacia)
+    const ventasMatch = {
+      fecha: { $gte: gte, $lt: lt },
+      ...(clienteId ? { cliente: new Types.ObjectId(clienteId) } : {}),
+    };
+    const pedidosMatchBase = {
+      fechaPedido: { $gte: gte, $lt: lt },
+      ...(clienteId ? { cliente: new Types.ObjectId(clienteId) } : {}),
+    };
+
+    const pipeline = [
+      // --- VENTAS por CLIENTE ---
+      { $match: ventasMatch },
+      { $match: { cliente: { $ne: null } } },
+      {
+        $addFields: {
+          costoVenta: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ['$productos', []] },
+                as: 'p',
+                in: { $multiply: [ { $ifNull: ['$$p.costo', 0] }, { $ifNull: ['$$p.cantidad', 0] } ] }
+              }
+            }
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { cliente: '$cliente' },
+          ventasCount: { $sum: 1 },
+          impVentas: { $sum: { $ifNull: ['$total', 0] } },
+          costoVentas: { $sum: { $ifNull: ['$costoVenta', 0] } },
+          pedidosCount: { $sum: 0 },
+          impPedidos: { $sum: 0 },
+          costoPedidos: { $sum: 0 },
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          cliente: '$_id.cliente',
+          ventasCount: 1,
+          impVentas: 1,
+          costoVentas: 1,
+          pedidosCount: 1,
+          impPedidos: 1,
+          costoPedidos: 1,
+        }
+      },
+
+      // --- PEDIDOS por CLIENTE (estado != 'cancelado') ---
+      {
+        $unionWith: {
+          coll: 'pedidos',
+          pipeline: [
+            { $match: pedidosMatchBase },
+            { $match: { cliente: { $ne: null } } },
+            {
+              $match: {
+                $expr: {
+                  $ne: [
+                    { $toLower: { $ifNull: ['$estado', ''] } },
+                    'cancelado'
+                  ]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: { cliente: '$cliente' },
+                ventasCount: { $sum: 0 },
+                impVentas: { $sum: 0 },
+                costoVentas: { $sum: 0 },
+                pedidosCount: { $sum: 1 },
+                impPedidos: {
+                  $sum: {
+                    $subtract: [
+                      { $ifNull: ['$total', 0] },
+                      { $ifNull: ['$resta', 0] }
+                    ]
+                  }
+                },
+                costoPedidos: { $sum: { $ifNull: ['$costo', 0] } },
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                cliente: '$_id.cliente',
+                ventasCount: 1,
+                impVentas: 1,
+                costoVentas: 1,
+                pedidosCount: 1,
+                impPedidos: 1,
+                costoPedidos: 1,
+              }
+            }
+          ]
+        }
+      },
+
+      // --- TOTALES por CLIENTE ---
+      {
+        $group: {
+          _id: { cliente: '$cliente' },
+          ventasCount: { $sum: '$ventasCount' },
+          impVentas: { $sum: '$impVentas' },
+          costoVentas: { $sum: '$costoVentas' },
+          pedidosCount: { $sum: '$pedidosCount' },
+          impPedidos: { $sum: '$impPedidos' },
+          costoPedidos: { $sum: '$costoPedidos' },
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          cliente: '$_id.cliente',
+          ventasCount: { $ifNull: ['$ventasCount', 0] },
+          impVentas: { $ifNull: ['$impVentas', 0] },
+          costoVentas: { $ifNull: ['$costoVentas', 0] },
+          pedidosCount: { $ifNull: ['$pedidosCount', 0] },
+          impPedidos: { $ifNull: ['$impPedidos', 0] },
+          costoPedidos: { $ifNull: ['$costoPedidos', 0] },
+        }
+      },
+
+      // --- LOOKUP de CLIENTE (nombre y teléfono) ---
+      { $lookup: { from: 'clientes', localField: 'cliente', foreignField: '_id', as: 'c' } },
+      {
+        $addFields: {
+          clienteNombre: { $ifNull: [{ $arrayElemAt: ['$c.nombre', 0] }, '(sin nombre)'] },
+          clienteTelefono: { $ifNull: [{ $arrayElemAt: ['$c.telefono', 0] }, '' ] },
+        }
+      },
+      { $project: { c: 0 } },
+
+      // --- Derivados y orden ---
+      {
+        $addFields: {
+          ingresos: { $add: [{ $ifNull: ['$impVentas', 0] }, { $ifNull: ['$impPedidos', 0] }] },
+          egresos: { $add: [{ $ifNull: ['$costoVentas', 0] }, { $ifNull: ['$costoPedidos', 0] }] },
+        }
+      },
+      {
+        $addFields: {
+          utilidad: { $subtract: ['$ingresos', '$egresos'] },
+          gananciaPct: {
+            $cond: [
+              { $gt: ['$egresos', 0] },
+              { $multiply: [{ $divide: ['$utilidad', '$egresos'] }, 100] },
+              null
+            ]
+          }
+        }
+      },
+
+      // Orden SIEMPRE por utilidad DESC
+      { $sort: { utilidad: -1, clienteNombre: 1 } },
+
+      // Top-N si no se pidió cliente específico
+      ...(clienteId ? [] : [{ $limit: topN }]),
+    ];
+
+    const rowsAgg = await Venta.aggregate(pipeline);
+
+    const safe = (n) => (Number.isFinite(n) ? n : 0);
+    const rows = rowsAgg.map(r => ({
+      clienteId: r.cliente,
+      cliente: r.clienteNombre,           // para mostrar Nombre (y abajo el teléfono en el frontend)
+      telefono: r.clienteTelefono || '',  // renderízalo en chico debajo del nombre
+      numVentas: safe(r.ventasCount),
+      impVentas: safe(r.impVentas),
+      costoVentas: safe(r.costoVentas),
+      numPedidos: safe(r.pedidosCount),
+      impPedidos: safe(r.impPedidos),
+      costoPedidos: safe(r.costoPedidos),
+      ingresos: safe(r.ingresos),
+      egresos: safe(r.egresos),
+      utilidad: safe(r.utilidad),
+      gananciaPct: (r.gananciaPct === null ? null : safe(r.gananciaPct)),
+    }));
+
+    return res.json({
+      ok: true,
+      reporte: 'Utilidad por cliente',
+      rango: { fechaIni: gte, fechaFin: lt },  // UTC
+      filtros: {
+        clienteId: clienteId || null,
+        CantClientes: topN
+      },
+      // Sin columna Farmacia
+      columns: [
+        'Cliente', '#Ventas', 'Imp. Ventas', 'Costo Ventas',
+        '#Pedidos', 'Imp. Pedidos', 'Costo Pedidos',
+        'Ingresos', 'Egresos', 'Utilidad', '%Gan'
+      ],
+      rows
+    });
+  } catch (e) {
+    console.error('[utilidadXcliente][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al generar Utilidad por cliente' });
   }
 };
 

@@ -90,11 +90,12 @@ mongoose.connection.once('open', async () => {
     // Si quieres, sincroniza más colecciones aquí (agrega otros modelos al Promise.all)
     await Promise.all([
       Venta.syncIndexes(),
+      Producto.syncIndexes(),
       Devolucion.syncIndexes(),
       Pedido.syncIndexes(),
       Cancelacion.syncIndexes(),
     ]);
-    console.log('✅ Índices sincronizados: Venta, Pedido, Devolución y Cancelación');
+    console.log('✅ Índices sincronizados: Venta, Producto, Pedido, Devolución y Cancelación');
   } catch (e) {
     console.error('❌ Error al sincronizar índices:', e?.message || e);
   }

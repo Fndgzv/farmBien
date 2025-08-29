@@ -193,77 +193,84 @@ const surtirPedido = async (req, res) => {
 };
 
 const cancelarPedido = async (req, res) => {
-    const usuarioAuth = req.usuario;
+  const usuarioAuth = req.usuario;
 
-    if (!['admin', 'empleado'].includes(usuarioAuth.rol)) {
-        return res.status(403).json({ mensaje: 'Solo administradores o empleados pueden cancelar pedidos' });
+  if (!['admin', 'empleado'].includes(usuarioAuth.rol)) {
+    return res.status(403).json({ mensaje: 'Solo administradores o empleados pueden cancelar pedidos' });
+  }
+  try {
+    const { folio } = req.body;
+    const usuario = usuarioAuth.id;
+
+    if (!folio) {
+      return res.status(400).json({ mensaje: 'El folio es obligatorio' });
     }
-    try {
-        const { folio } = req.body;
-        const usuario = usuarioAuth.id;
 
-        if (!folio) {
-            return res.status(400).json({ mensaje: 'El folio es obligatorio' });
-        }
+    const pedido = await Pedido.findOne({ folio });
 
-        const pedido = await Pedido.findOne({ folio });
+    if (!pedido) {
+      return res.status(404).json({ mensaje: 'Pedido no encontrado con ese folio' });
+    }
 
-        if (!pedido) {
-            return res.status(404).json({ mensaje: 'Pedido no encontrado con ese folio' });
-        }
+    if (pedido.estado === 'entregado') {
+      return res.status(400).json({ mensaje: 'Este pedido ya fue surtido previamente, Ya NO se puede cancelar' });
+    }
 
-        if (pedido.estado === 'entregado') {
-            return res.status(400).json({ mensaje: 'Este pedido ya fue surtido previamente, Ya NO se puede cancelar' });
-        }
+    if (pedido.estado === 'cancelado') {
+      return res.status(400).json({ mensaje: 'Este pedido se canceló previamente.' });
+    }
 
-        if (pedido.estado === 'cancelado') {
-            return res.status(400).json({ mensaje: 'Este pedido se canceló previamente.' });
-        }
-
-        if (pedido.pagoACuenta.vale > 0) {
-            // actualizar monedero cliente
-            const datosCliente = await Cliente.findById(pedido.cliente);
-            if (datosCliente) {
-                const ahorita = new Date();
-                datosCliente.monedero.push({
-                    fechaUso: ahorita,
-                    montoIngreso: pedido.pagoACuenta.vale,
-                    montoEgreso: 0,
-                    motivo: "Cancelación pedido",
-                    farmaciaUso: pedido.farmacia
-                });
-                datosCliente.totalMonedero = parseFloat((datosCliente.totalMonedero + pedido.pagoACuenta.vale).toFixed(2));
-                await datosCliente.save();
-            }
-        }
-
-        // Actualizar pedido
-        pedido.estado = 'cancelado';
-        pedido.fechaCancelacion = new Date();
-        pedido.usuarioCancelo = usuario;
-        await pedido.save();
-
-        // Crear cancelación
-        const cancelacion = new Cancelacion({
-            pedido: pedido.id,
-            usuario: pedido.usuarioCancelo,
-            farmacia: pedido.farmacia,
-            dineroDevuelto: pedido.pagoACuenta.efectivo + pedido.pagoACuenta.tarjeta + pedido.pagoACuenta.transferencia,
-            valeDevuelto: pedido.pagoACuenta.vale,
-            totalDevuelto: pedido.aCuenta,
-            fechaCancelacion: new Date()
+    if (pedido.pagoACuenta.vale > 0) {
+      // actualizar monedero cliente
+      const datosCliente = await Cliente.findById(pedido.cliente);
+      if (datosCliente) {
+        const ahorita = new Date();
+        datosCliente.monedero.push({
+          fechaUso: ahorita,
+          montoIngreso: pedido.pagoACuenta.vale,
+          montoEgreso: 0,
+          motivo: "Cancelación pedido",
+          farmaciaUso: pedido.farmacia
         });
-        await cancelacion.save();
-
-
-        res.status(200).json({ mensaje: 'El pedido fue CANCELADO', pedido });
-
-    } catch (error) {
-        console.error('Error al cancelar pedido:', error);
-        res.status(500).json({ mensaje: 'Error interno al cancelar el pedido' });
+        datosCliente.totalMonedero = parseFloat((datosCliente.totalMonedero + pedido.pagoACuenta.vale).toFixed(2));
+        await datosCliente.save();
+      }
     }
 
-}
+    // Actualizar pedido
+    pedido.estado = 'cancelado';
+    pedido.fechaCancelacion = new Date();
+    pedido.usuarioCancelo = usuario;
+    await pedido.save();
+
+    // Crear cancelación
+    const cancelacion = new Cancelacion({
+      pedido: pedido.id,
+      usuario: pedido.usuarioCancelo,
+      farmacia: pedido.farmacia,
+      dineroDevuelto: pedido.pagoACuenta.efectivo + pedido.pagoACuenta.tarjeta + pedido.pagoACuenta.transferencia,
+      valeDevuelto: pedido.pagoACuenta.vale,
+      totalDevuelto: pedido.aCuenta,
+      fechaCancelacion: new Date()
+    });
+    await cancelacion.save();
+
+    // === NUEVO: grabar referencia de la cancelación en el historial del cliente ===
+    if (pedido.cliente) {
+      await Cliente.findByIdAndUpdate(
+        pedido.cliente,
+        { $push: { historialCompras: { cancelacion: cancelacion._id, pedido: pedido._id } } }
+      );
+    }
+
+    res.status(200).json({ mensaje: 'El pedido fue CANCELADO', pedido });
+
+  } catch (error) {
+    console.error('Error al cancelar pedido:', error);
+    res.status(500).json({ mensaje: 'Error interno al cancelar el pedido' });
+  }
+};
+
 
 const obtenerPedidos = async (req, res) => {
   try {

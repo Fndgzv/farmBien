@@ -4,7 +4,8 @@ const mongoose = require("mongoose");
 const HistorialCompraSchema = new mongoose.Schema({
     venta: { type: mongoose.Schema.Types.ObjectId, ref: "Venta" },
     pedido: { type: mongoose.Schema.Types.ObjectId, ref: "Pedido" },
-    devolucion: { type: mongoose.Schema.Types.ObjectId, ref: "Devolucion" }
+    devolucion: { type: mongoose.Schema.Types.ObjectId, ref: "Devolucion" },
+    cancelacion: { type: mongoose.Schema.Types.ObjectId, ref: "Cancelacion" }
 }, { _id: false });
 
 // Subdocumento para cada movimiento del monedero

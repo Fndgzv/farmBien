@@ -105,7 +105,7 @@
                         <td class="text-end">${{ v.totalMonederoCliente | number:'1.2-2' }}</td>
                         <td class="text-end">${{ v.totalDescuento | number:'1.2-2' }}</td>
                         <td class="text-end">${{ v._costo | number:'1.2-2' }}</td>
-                        <td class="text-end">${{ v._utilidad | number:'1.2-2' }}</td>
+                        <td class="text-end">${{ v._utilidad - v?.formaPago?.vale | number:'1.2-2' }}</td>
                         <td class="text-end">{{ v._utilidad / v._costo * 100 | number:'1.2-2' }}%</td>
                         <td class="text-end">${{ v.total | number:'1.2-2' }}</td>
                     </tr>
@@ -149,7 +149,7 @@
                                             <td class="text-end">${{ p?.monederoCliente | number:'1.2-2' }}</td>
                                             <td class="text-end">${{ p?.descuento | number:'1.2-2' }}</td>
                                             <td class="text-end">${{ p?.costo * p?.cantidad | number:'1.2-2' }}</td>
-                                            <td class="text-end">${{ p?.totalRen - p?.costo * p?.cantidad |
+                                            <td class="text-end">${{ (p?.totalRen - p?.costo * p?.cantidad) - v?.formaPago?.vale |
                                                 number:'1.2-2' }}</td>
                                             <td class="text-end">{{ (p?.totalRen - p?.costo * p?.cantidad) / (p?.costo *
                                                 p?.cantidad) * 100 | number:'1.2-2' }}%</td>
@@ -173,7 +173,7 @@
                                             }}</strong></div>
                                     <div class="col-2">Transferencia: <strong> ${{ v?.formaPago?.transferencia || 0 |
                                             number:'1.2-2' }}</strong></div>
-                                    <div class="col-2">Vale: <strong> ${{ v?.formaPago?.vale || 0 | number:'1.2-2'
+                                    <div class="col-2">Monedero: <strong> ${{ v?.formaPago?.vale || 0 | number:'1.2-2'
                                             }}</strong></div>
                                 </div>
                             </div>

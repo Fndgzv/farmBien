@@ -37,5 +37,6 @@ PedidoSchema.pre('save', function (next) {
 });
 
 PedidoSchema.index({ fechaPedido: 1, farmacia: 1 });
+PedidoSchema.index({ fechaPedido: 1, farmacia: 1, usuarioPidio: 1, estado: 1 });
 
 module.exports = mongoose.model("Pedido", PedidoSchema);

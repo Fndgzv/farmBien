@@ -1,6 +1,6 @@
 // backBien/controllers/ventaController.js
 const { DateTime } = require('luxon');
-const { Types } = require('mongoose');
+const mongoose = require('mongoose');
 const Venta = require("../models/Venta");
 const Producto = require("../models/Producto");
 const Cliente = require("../models/Cliente");
@@ -495,6 +495,11 @@ function dayRangeUtcFromQuery(fechaInicial, fechaFinal) {
   return { gte: s, lt: e };
 }
 
+// helper seguro para castear ids
+function castId(id) {
+  return (id && mongoose.isValidObjectId(id)) ? new mongoose.Types.ObjectId(id) : undefined;
+}
+
 const consultarVentas = async (req, res) => {
   try {
     const {
@@ -506,7 +511,7 @@ const consultarVentas = async (req, res) => {
       totalDesde,
       totalHasta,
       page = 1,
-      limit = 50,
+      limit = 20,
     } = req.query;
 
     // 1) Rango de fechas robusto
@@ -515,8 +520,8 @@ const consultarVentas = async (req, res) => {
     // 2) Filtro base (find)
     const filtro = { fecha: { $gte: gte, $lt: lt } };
     if (farmaciaId) filtro.farmacia = farmaciaId;
-    if (clienteId) filtro.cliente = clienteId;
-    if (usuarioId) filtro.usuario = usuarioId;
+    if (clienteId)  filtro.cliente  = clienteId;
+    if (usuarioId)  filtro.usuario  = usuarioId;
 
     // 3) Filtro por total
     const tDesde = totalDesde !== undefined && totalDesde !== '' ? Number(totalDesde) : null;
@@ -530,24 +535,27 @@ const consultarVentas = async (req, res) => {
 
     // 4) Validación de ObjectId (si vienen definidos)
     const invalidId =
-      (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) ||
-      (clienteId && !Types.ObjectId.isValid(clienteId)) ||
-      (usuarioId && !Types.ObjectId.isValid(usuarioId));
+      (farmaciaId && !mongoose.isValidObjectId(farmaciaId)) ||
+      (clienteId  && !mongoose.isValidObjectId(clienteId))  ||
+      (usuarioId  && !mongoose.isValidObjectId(usuarioId));
     if (invalidId) {
       return res.status(400).json({ ok: false, mensaje: 'Algún ID es inválido' });
     }
 
     // 5) Paginación
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    const pageNum  = Math.max(1, parseInt(page, 10)  || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 20));
     const skip = (pageNum - 1) * limitNum;
 
-    // 6) $match para aggregate (ids casteados)
+    // 6) $match para aggregate (ids casteados con helper)
     const matchAgg = { fecha: { $gte: gte, $lt: lt } };
-    if (farmaciaId) matchAgg.farmacia = new Types.ObjectId(farmaciaId);
-    if (clienteId) matchAgg.cliente = new Types.ObjectId(clienteId);
-    if (usuarioId) matchAgg.usuario = new Types.ObjectId(usuarioId);
-    if (filtro.total) matchAgg.total = filtro.total;
+    const farmaciaOid = castId(farmaciaId);
+    const clienteOid  = castId(clienteId);
+    const usuarioOid  = castId(usuarioId);
+    if (farmaciaOid) matchAgg.farmacia = farmaciaOid;
+    if (clienteOid)  matchAgg.cliente  = clienteOid;
+    if (usuarioOid)  matchAgg.usuario  = usuarioOid;
+    if (filtro.total) matchAgg.total   = filtro.total;
 
     // 7) Consultas en paralelo
     const [ventasDocs, totalRegistros, sumasAgg] = await Promise.all([
@@ -562,7 +570,6 @@ const consultarVentas = async (req, res) => {
 
       Venta.countDocuments(filtro),
 
-      // Agregación de sumas globales (filtro completo)
       Venta.aggregate([
         { $match: matchAgg },
         {
@@ -607,7 +614,7 @@ const consultarVentas = async (req, res) => {
       ]),
     ]);
 
-    // 8) Cálculo por venta (para columnas de la tabla)
+    // 8) Cálculos por venta…
     const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
     const ventas = ventasDocs.map(doc => {
       const o = doc.toObject ? doc.toObject() : doc;
@@ -636,10 +643,10 @@ const consultarVentas = async (req, res) => {
       ok: true,
       filtrosAplicados: {
         farmaciaId: farmaciaId || null,
-        clienteId: clienteId || null,
-        usuarioId: usuarioId || null,
+        clienteId:  clienteId  || null,
+        usuarioId:  usuarioId  || null,
         fechaInicial: gte,
-        fechaFinal: lt,
+        fechaFinal:   lt,
         totalDesde: tDesde,
         totalHasta: tHasta,
       },
