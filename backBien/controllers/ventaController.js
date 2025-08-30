@@ -461,38 +461,29 @@ function limpiarPromocion(promo) {
   return str.startsWith('-') ? str.slice(1) : str;
 }
 
-// Convierte 'YYYY-MM-DD' a UTC [gte, lt). Si faltan ambas fechas => hoy local.
+// Convierte 'YYYY-MM-DD' (o ausencia) a rango UTC [gte, lt) según CDMX.
 function dayRangeUtcFromQuery(fechaInicial, fechaFinal) {
-  const toLocalStart = (dStr) => {
-    const d = dStr ? new Date(`${dStr}T00:00:00`) : new Date();
-    if (isNaN(d.getTime())) throw new Error(`Fecha inválida: ${dStr}`);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
-  const toLocalEnd = (dStr) => {
-    const d = dStr ? new Date(`${dStr}T00:00:00`) : new Date();
-    if (isNaN(d.getTime())) throw new Error(`Fecha inválida: ${dStr}`);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 1); // día siguiente (half-open)
-    return d;
-  };
-
-  // Si no mandan nada → hoy
+  // Si no mandan nada → HOY (CDMX)
   if (!fechaInicial && !fechaFinal) {
-    const s = toLocalStart();
-    const e = toLocalEnd();
-    return { gte: s, lt: e };
+    const startLocal = DateTime.now().setZone(ZONE).startOf('day');
+    const endExLocal = startLocal.plus({ days: 1 });
+    return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
   }
 
-  // Solo uno
-  if (fechaInicial && !fechaFinal) return { gte: toLocalStart(fechaInicial), lt: toLocalEnd(fechaInicial) };
-  if (!fechaInicial && fechaFinal) return { gte: toLocalStart(fechaFinal), lt: toLocalEnd(fechaFinal) };
+  // Normaliza entradas a 'YYYY-MM-DD' y crea DateTime en CDMX
+  const norm = (s) => String(s).slice(0, 10);
+  const startLocal = DateTime.fromISO(norm(fechaInicial || fechaFinal), { zone: ZONE }).startOf('day');
+  const endExLocal = DateTime.fromISO(norm(fechaFinal || fechaInicial), { zone: ZONE }).startOf('day').plus({ days: 1 });
 
-  // Ambos
-  const s = toLocalStart(fechaInicial);
-  const e = toLocalEnd(fechaFinal);
-  if (s > e) return { gte: e, lt: s }; // corrige si vienen invertidas
-  return { gte: s, lt: e };
+  if (!startLocal.isValid || !endExLocal.isValid) {
+    throw new Error('Fecha inválida (usa YYYY-MM-DD)');
+  }
+
+  // Corrige si vienen invertidas
+  const s = startLocal <= endExLocal.minus({ days: 1 }) ? startLocal : endExLocal.minus({ days: 1 });
+  const e = startLocal <= endExLocal.minus({ days: 1 }) ? endExLocal : startLocal.plus({ days: 1 });
+
+  return { gte: s.toUTC().toJSDate(), lt: e.toUTC().toJSDate() };
 }
 
 // helper seguro para castear ids
