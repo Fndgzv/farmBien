@@ -1,12 +1,16 @@
 // backBien/controllers/reportesControllers.js
 const { DateTime } = require('luxon');
 const { Types } = require('mongoose');
+const { ObjectId } = require('mongodb');
 
 const Venta = require('../models/Venta');
 const Producto = require('../models/Producto');
 const Pedido = require('../models/Pedido');
 const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
+
+
+const toObjectId = (v) => (v && ObjectId.isValid(v) ? new ObjectId(v) : null);
 
 const {
   pipelineVentasProductoDetalle,
@@ -512,6 +516,13 @@ exports.utilidadXcliente = async (req, res) => {
   try {
     const { clienteId, fechaIni, fechaFin } = req.query;
 
+    // --- NUEVO: parámetro de orden ---
+    const ordenRaw = String(req.query.orden || req.query.sort || '').trim().toLowerCase();
+    const orden = ['ventas','compras','numventas','num_ventas'].includes(ordenRaw) ? 'ventas' : 'utilidad';
+    const sortStage = (orden === 'ventas')
+      ? { $sort: { ventasCount: -1, utilidad: -1, clienteNombre: 1 } }
+      : { $sort: { utilidad: -1, ventasCount: -1, clienteNombre: 1 } };
+
     // Validación de clienteId (si viene)
     if (clienteId && !Types.ObjectId.isValid(clienteId)) {
       return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
@@ -661,21 +672,22 @@ exports.utilidadXcliente = async (req, res) => {
         }
       },
 
-      // --- LOOKUP de CLIENTE (nombre y teléfono) ---
+      // --- LOOKUP de CLIENTE ---
       { $lookup: { from: 'clientes', localField: 'cliente', foreignField: '_id', as: 'c' } },
       {
         $addFields: {
           clienteNombre: { $ifNull: [{ $arrayElemAt: ['$c.nombre', 0] }, '(sin nombre)'] },
           clienteTelefono: { $ifNull: [{ $arrayElemAt: ['$c.telefono', 0] }, '' ] },
+          clienteTotalMonedero: { $ifNull: [{ $arrayElemAt: ['$c.totalMonedero', 0] }, 0] },
         }
       },
       { $project: { c: 0 } },
 
-      // --- Derivados y orden ---
+      // --- Derivados ---
       {
         $addFields: {
           ingresos: { $add: [{ $ifNull: ['$impVentas', 0] }, { $ifNull: ['$impPedidos', 0] }] },
-          egresos: { $add: [{ $ifNull: ['$costoVentas', 0] }, { $ifNull: ['$costoPedidos', 0] }] },
+          egresos:  { $add: [{ $ifNull: ['$costoVentas', 0] }, { $ifNull: ['$costoPedidos', 0] }] },
         }
       },
       {
@@ -691,8 +703,8 @@ exports.utilidadXcliente = async (req, res) => {
         }
       },
 
-      // Orden SIEMPRE por utilidad DESC
-      { $sort: { utilidad: -1, clienteNombre: 1 } },
+      // --- ORDEN DINÁMICO (NUEVO) ---
+      sortStage,
 
       // Top-N si no se pidió cliente específico
       ...(clienteId ? [] : [{ $limit: topN }]),
@@ -703,8 +715,9 @@ exports.utilidadXcliente = async (req, res) => {
     const safe = (n) => (Number.isFinite(n) ? n : 0);
     const rows = rowsAgg.map(r => ({
       clienteId: r.cliente,
-      cliente: r.clienteNombre,           // para mostrar Nombre (y abajo el teléfono en el frontend)
-      telefono: r.clienteTelefono || '',  // renderízalo en chico debajo del nombre
+      cliente: r.clienteNombre,
+      telefono: r.clienteTelefono || '',
+      totalMonedero: safe(r.clienteTotalMonedero),
       numVentas: safe(r.ventasCount),
       impVentas: safe(r.impVentas),
       costoVentas: safe(r.costoVentas),
@@ -723,13 +736,13 @@ exports.utilidadXcliente = async (req, res) => {
       rango: { fechaIni: gte, fechaFin: lt },  // UTC
       filtros: {
         clienteId: clienteId || null,
-        CantClientes: topN
+        CantClientes: topN,
+        orden // ← 'utilidad' | 'ventas'
       },
-      // Sin columna Farmacia
       columns: [
         'Cliente', '#Ventas', 'Imp. Ventas', 'Costo Ventas',
         '#Pedidos', 'Imp. Pedidos', 'Costo Pedidos',
-        'Ingresos', 'Egresos', 'Utilidad', '%Gan'
+        'Ingresos', 'Egresos', 'Utilidad', '%Gan','Monedero'
       ],
       rows
     });
@@ -739,3 +752,140 @@ exports.utilidadXcliente = async (req, res) => {
   }
 };
 
+exports.utilidadXproducto = async (req, res) => {
+  try {
+    const { fechaIni, fechaFin, productoId, farmaciaId } = req.query;
+
+    // ----- Validaciones básicas -----
+    if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
+      return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
+    }
+    if (productoId && !Types.ObjectId.isValid(productoId)) {
+      return res.status(400).json({ ok: false, mensaje: 'productoId inválido' });
+    }
+
+    // Top-N obligatorio si NO hay productoId
+    const cantParam = req.query.cantProductos ?? req.query.CantProductos ?? req.query.limit;
+    let topN = null;
+    if (!productoId) {
+      const n = parseInt(String(cantParam || '').trim(), 10);
+      if (!Number.isFinite(n) || n <= 0) {
+        return res.status(400).json({
+          ok: false,
+          mensaje: 'Cuando no se envía productoId, el parámetro cantProductos (entero > 0) es obligatorio'
+        });
+      }
+      topN = n;
+    }
+
+    // Orden (default utilidad desc; alternativo "ventas")
+    const ordenRaw = String(req.query.orden || req.query.sort || '').trim().toLowerCase();
+    const ordenarPorVentas = ['ventas','numventas','cantidad','compras'].includes(ordenRaw);
+    const sortStage = ordenarPorVentas
+      ? { $sort: { cantidad: -1, utilidad: -1, productoNombre: 1 } }
+      : { $sort: { utilidad: -1, cantidad: -1, productoNombre: 1 } };
+
+    // Rango fechas: 1° del mes → hoy si no mandan fechas
+    const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+
+    // Match base en ventas
+    const matchVenta = {
+      fecha: { $gte: gte, $lt: lt },
+      ...(farmaciaId ? { farmacia: new Types.ObjectId(farmaciaId) } : {})
+    };
+
+    // Pipeline
+    const pipeline = [
+      { $match: matchVenta },
+      { $project: { productos: 1 } },
+      { $unwind: { path: '$productos', preserveNullAndEmptyArrays: false } },
+      // si se envía productoId, filtra el renglón del subdocumento
+      ...(productoId ? [{ $match: { 'productos.producto': new Types.ObjectId(productoId) } }] : []),
+      {
+        $group: {
+          _id: '$productos.producto',
+          // #Ventas = suma de cantidades
+          cantidad: { $sum: { $ifNull: ['$productos.cantidad', 0] } },
+          // Importe = suma totalRen
+          importe:  { $sum: { $ifNull: ['$productos.totalRen', 0] } },
+          // Costo total = suma (costo * cantidad)
+          costo:    { $sum: { $multiply: [
+            { $ifNull: ['$productos.costo', 0] },
+            { $ifNull: ['$productos.cantidad', 0] }
+          ] } },
+        }
+      },
+      { $project: {
+          _id: 1, cantidad: 1, importe: 1, costo: 1,
+          utilidad: { $subtract: [
+            { $ifNull: ['$importe', 0] },
+            { $ifNull: ['$costo', 0] }
+          ] }
+        }
+      },
+      // Lookup de datos del producto (nombre y código de barras)
+      {
+        $lookup: {
+          from: 'productos',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'prod'
+        }
+      },
+      {
+        $addFields: {
+          productoNombre:  { $ifNull: [{ $arrayElemAt: ['$prod.nombre', 0] }, '(sin nombre)'] },
+          codigoBarras:    { $ifNull: [{ $arrayElemAt: ['$prod.codigoBarras', 0] }, '' ] },
+        }
+      },
+      { $project: { prod: 0 } },
+      // %Gan = utilidad / costo * 100 (si costo == 0 -> null)
+      {
+        $addFields: {
+          gananciaPct: {
+            $cond: [
+              { $gt: ['$costo', 0] },
+              { $multiply: [{ $divide: ['$utilidad', '$costo'] }, 100] },
+              null
+            ]
+          }
+        }
+      },
+      // Orden dinámico
+      sortStage,
+      // Top-N si no pidieron producto específico
+      ...(productoId ? [] : [{ $limit: topN }])
+    ];
+
+    const rowsAgg = await Venta.aggregate(pipeline);
+
+    const safe = (n) => (Number.isFinite(+n) ? +n : 0);
+    const rows = rowsAgg.map(r => ({
+      productoId: r._id,
+      producto: r.productoNombre,
+      codigoBarras: r.codigoBarras || '',
+      numVentas: safe(r.cantidad),
+      importe: safe(r.importe),
+      costo: safe(r.costo),
+      utilidad: safe(r.utilidad),
+      gananciaPct: (r.gananciaPct === null ? null : safe(r.gananciaPct)),
+    }));
+
+    return res.json({
+      ok: true,
+      reporte: 'Utilidad por producto',
+      rango: { fechaIni: gte, fechaFin: lt },  // UTC
+      filtros: {
+        productoId: productoId || null,
+        cantProductos: topN,
+        farmaciaId: farmaciaId || null,
+        orden: ordenarPorVentas ? 'ventas' : 'utilidad'
+      },
+      columns: ['Producto', 'Código de Barras', '#Ventas', 'Importe', 'Costo', 'Utilidad', '%Gan'],
+      rows
+    });
+  } catch (e) {
+    console.error('[utilidadXproducto][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al generar Utilidad por producto' });
+  }
+};

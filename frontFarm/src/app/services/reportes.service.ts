@@ -187,5 +187,54 @@ getResumenUtilidades(p: ResumenUtilidadesParams) {
   return this.http.get<ResumenUtilidadesResponse>(url, { params, headers });
 }
 
+getUtilidadPorClientes(p: any) {
+  const url = `${this.url}/reportes/utilidad-cliente`;
+  const headers = new HttpHeaders({ 'x-auth-token': localStorage.getItem('auth_token') || '' });
+
+  const obj: any = {
+    fechaIni: this.toYmdLocal(p.fechaIni),
+    fechaFin: this.toYmdLocal(p.fechaFin),
+    clienteId: p.clienteId || undefined,
+    CantClientes: p.CantClientes || p.cantClientes,
+    orden: p.orden || 'utilidad'
+  };
+  let params = new HttpParams();
+  Object.keys(obj).forEach(k => { const v = obj[k]; if (v !== undefined && v !== '') params = params.set(k, v); });
+  return this.http.get(url, { params, headers });
+}
+
+getUtilidadPorProductos(p: any) {
+  const url = `${this.url}/reportes/utilidad-producto`;
+  const headers = new HttpHeaders({ 'x-auth-token': localStorage.getItem('auth_token') || '' });
+
+  const obj: any = {
+    fechaIni: this.toYmdLocal(p.fechaIni),
+    fechaFin: this.toYmdLocal(p.fechaFin),
+    productoId: p.productoId || undefined,
+    cantProductos: p.cantProductos,
+    orden: p.orden || 'utilidad',
+    farmaciaId: p.farmaciaId || undefined
+  };
+  let params = new HttpParams();
+  Object.keys(obj).forEach(k => { const v = obj[k]; if (v !== undefined && v !== '') params = params.set(k, v); });
+  return this.http.get(url, { params, headers });
+}
+
+getUtilidadPorUsuarios(p: any) {
+  const url = `${this.url}/reportes/utilidad-usuario`; // ajusta si tu endpoint se llama distinto
+  const headers = new HttpHeaders({ 'x-auth-token': localStorage.getItem('auth_token') || '' });
+
+  const obj: any = {
+    fechaIni: this.toYmdLocal(p.fechaIni),
+    fechaFin: this.toYmdLocal(p.fechaFin),
+    usuarioId: p.usuarioId || undefined,
+    orden: p.orden || 'utilidad'
+  };
+  let params = new HttpParams();
+  Object.keys(obj).forEach(k => { const v = obj[k]; if (v !== undefined && v !== '') params = params.set(k, v); });
+  return this.http.get(url, { params, headers });
+}
+
+
 }
   

@@ -1,0 +1,239 @@
+<div class="container-fluid">
+  <h3 class="mb-3">Reportes de utilidad</h3>
+
+  <!-- Filtros -->
+  <form [formGroup]="filtroForm" class="card p-3 mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label">Fecha inicial</label>
+        <input type="date" class="form-control" formControlName="fechaIni" [disabled]="cargando">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Fecha final</label>
+        <input type="date" class="form-control" formControlName="fechaFin" [disabled]="cargando">
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label d-block mb-1">Reporte</label>
+        <div class="d-flex gap-3">
+          <label class="form-check">
+            <input type="radio" class="form-check-input" formControlName="tipo" value="usuarios"> Utilidad por usuarios
+          </label>
+          <label class="form-check">
+            <input type="radio" class="form-check-input" formControlName="tipo" value="clientes"> Utilidad por clientes
+          </label>
+          <label class="form-check">
+            <input type="radio" class="form-check-input" formControlName="tipo" value="productos"> Utilidad por productos
+          </label>
+        </div>
+      </div>
+
+      <!-- Botones -->
+      <div class="col-auto ms-auto">
+        <button type="button" class="btn btn-outline-secondary" (click)="limpiar()" [disabled]="cargando">Limpiar</button>
+        <button type="button" class="btn btn-primary ms-2" (click)="buscar()" [disabled]="cargando">
+          {{ cargando ? 'Consultando…' : 'Buscar' }}
+        </button>
+      </div>
+    </div>
+
+    <hr class="my-3">
+
+    <!-- Parámetros específicos por reporte -->
+
+    <!-- ===== Usuarios ===== -->
+    <div *ngIf="reportType === 'usuarios'" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Usuario</label>
+        <select class="form-select" formControlName="usuarioId" [disabled]="cargando">
+          <option value="">(Todos / Top-N)</option>
+          <option *ngFor="let u of usuarios" [ngValue]="u._id">{{ u.nombre }}</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Orden</label>
+        <select class="form-select" formControlName="ordenUsuarios" [disabled]="cargando">
+          <option value="utilidad">Utilidad (desc)</option>
+          <option value="ventas">#Ventas (desc)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ===== Clientes ===== -->
+    <div *ngIf="reportType === 'clientes'" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Cliente</label>
+        <select class="form-select" formControlName="clienteId" [disabled]="cargando">
+          <option value="">(Todos / Top-N)</option>
+          <option *ngFor="let c of clientes" [ngValue]="c._id">{{ c.nombre }}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">CantClientes</label>
+        <input type="number" min="1" class="form-control" formControlName="cantClientes" [disabled]="cargando || !!filtroForm.value.clienteId">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Orden</label>
+        <select class="form-select" formControlName="ordenClientes" [disabled]="cargando">
+          <option value="utilidad">Utilidad (desc)</option>
+          <option value="ventas">#Ventas (desc)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ===== Productos ===== -->
+    <div *ngIf="reportType === 'productos'" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Farmacia</label>
+        <select class="form-select" formControlName="farmaciaId" [disabled]="cargando">
+          <option value="">TODAS</option>
+          <option *ngFor="let f of farmacias" [ngValue]="f._id">{{ f.nombre }}</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Producto (ID)</label>
+        <input type="text" class="form-control" formControlName="productoId" placeholder="ObjectId del producto" [disabled]="cargando">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">cantProductos</label>
+        <input type="number" min="1" class="form-control" formControlName="cantProductos" [disabled]="cargando || !!filtroForm.value.productoId">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Orden</label>
+        <select class="form-select" formControlName="ordenProductos" [disabled]="cargando">
+          <option value="utilidad">Utilidad (desc)</option>
+          <option value="ventas">#Ventas (desc)</option>
+        </select>
+      </div>
+    </div>
+  </form>
+
+  <!-- Resultados -->
+
+  <!-- ===== Tabla USUARIOS ===== -->
+  <div *ngIf="reportType === 'usuarios'">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th class="text-end">#Ventas</th>
+            <th class="text-end">Imp. Ventas</th>
+            <th class="text-end">Costo Ventas</th>
+            <th class="text-end">#Pedidos</th>
+            <th class="text-end">Imp. Pedidos</th>
+            <th class="text-end">Costo Pedidos</th>
+            <th class="text-end">Ingresos</th>
+            <th class="text-end">Egresos</th>
+            <th class="text-end">Utilidad</th>
+            <th class="text-end">%Gan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of rowsUsuarios">
+            <td>{{ r.usuario || r.usuarioNombre || r.nombre || '(sin nombre)' }}</td>
+            <td class="text-end">{{ r.numVentas || r.ventasCount | number }}</td>
+            <td class="text-end">${{ r.impVentas | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.costoVentas | number:'1.2-2' }}</td>
+            <td class="text-end">{{ r.numPedidos || r.pedidosCount | number }}</td>
+            <td class="text-end">${{ r.impPedidos | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.costoPedidos | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.ingresos | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.egresos | number:'1.2-2' }}</td>
+            <td class="text-end" [ngClass]="{'text-success': (r.utilidad||0) >= 0, 'text-danger': (r.utilidad||0) < 0}">
+              ${{ r.utilidad | number:'1.2-2' }}
+            </td>
+            <td class="text-end">{{ r.gananciaPct == null ? '—' : (r.gananciaPct | number:'1.0-2') + '%' }}</td>
+          </tr>
+          <tr *ngIf="rowsUsuarios.length === 0">
+            <td colspan="11" class="text-center text-muted">Sin resultados</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== Tabla CLIENTES ===== -->
+  <div *ngIf="reportType === 'clientes'">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th class="text-end">Monedero</th>
+            <th class="text-end">#Ventas</th>
+            <th class="text-end">Imp. Ventas</th>
+            <th class="text-end">Costo Ventas</th>
+            <th class="text-end">#Pedidos</th>
+            <th class="text-end">Imp. Pedidos</th>
+            <th class="text-end">Costo Pedidos</th>
+            <th class="text-end">Ingresos</th>
+            <th class="text-end">Egresos</th>
+            <th class="text-end">Utilidad</th>
+            <th class="text-end">%Gan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of rowsClientes">
+            <td>
+              <div>{{ r.cliente }}</div>
+              <small class="text-muted" *ngIf="r.telefono">Tel: {{ r.telefono }}</small>
+            </td>
+            <td class="text-end">${{ r.totalMonedero | number:'1.2-2' }}</td>
+            <td class="text-end">{{ r.numVentas | number }}</td>
+            <td class="text-end">${{ r.impVentas | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.costoVentas | number:'1.2-2' }}</td>
+            <td class="text-end">{{ r.numPedidos | number }}</td>
+            <td class="text-end">${{ r.impPedidos | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.costoPedidos | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.ingresos | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.egresos | number:'1.2-2' }}</td>
+            <td class="text-end" [ngClass]="{'text-success': (r.utilidad||0) >= 0, 'text-danger': (r.utilidad||0) < 0}">
+              ${{ r.utilidad | number:'1.2-2' }}
+            </td>
+            <td class="text-end">{{ r.gananciaPct == null ? '—' : (r.gananciaPct | number:'1.0-2') + '%' }}</td>
+          </tr>
+          <tr *ngIf="rowsClientes.length === 0">
+            <td colspan="12" class="text-center text-muted">Sin resultados</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== Tabla PRODUCTOS ===== -->
+  <div *ngIf="reportType === 'productos'">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Código de Barras</th>
+            <th class="text-end">#Ventas</th>
+            <th class="text-end">Importe</th>
+            <th class="text-end">Costo</th>
+            <th class="text-end">Utilidad</th>
+            <th class="text-end">%Gan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of rowsProductos">
+            <td>{{ r.producto }}</td>
+            <td>{{ r.codigoBarras }}</td>
+            <td class="text-end">{{ r.numVentas | number }}</td>
+            <td class="text-end">${{ r.importe | number:'1.2-2' }}</td>
+            <td class="text-end">${{ r.costo | number:'1.2-2' }}</td>
+            <td class="text-end" [ngClass]="{'text-success': (r.utilidad||0) >= 0, 'text-danger': (r.utilidad||0) < 0}">
+              ${{ r.utilidad | number:'1.2-2' }}
+            </td>
+            <td class="text-end">{{ r.gananciaPct == null ? '—' : (r.gananciaPct | number:'1.0-2') + '%' }}</td>
+          </tr>
+          <tr *ngIf="rowsProductos.length === 0">
+            <td colspan="7" class="text-center text-muted">Sin resultados</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -16,6 +16,7 @@ import { ReporteVentasProductoComponent } from './pages/reporte-ventas-producto/
 import { ReportePedidosComponent } from './pages/reporte-pedidos/reporte-pedidos.component';
 import { ReporteVentasComponent } from './pages/reporte-ventas/reporte-ventas.component';
 import { ReporteResumenUtilidadesComponent } from './pages/reporte-resumen-utilidades/reporte-resumen-utilidades.component';
+import { ReportesUtilidadComponent } from './pages/reportes-utilidad/reportes-utilidad.component';
 
 export const routes: Routes = [
   {
@@ -114,6 +115,7 @@ export const routes: Routes = [
       { path: 'reporte/ventas', component: ReporteVentasComponent },
       { path: 'reporte/pedidos', component: ReportePedidosComponent },
       { path: 'reporte/resumen-utilidades', component: ReporteResumenUtilidadesComponent },
+      { path: 'reporte/utilidades', component: ReportesUtilidadComponent },
 
       // ... otras rutas protegidas
     ]

@@ -8,7 +8,8 @@ const {
   ventasProductoDetalle,
   resumenUtilidades,
   utilidadXusuario,
-  utilidadXcliente
+  utilidadXcliente,
+  utilidadXproducto
 } = require('../controllers/reportesControllers');
 
 // 1) Productos vendidos por farmacia, día de hoy por defecto 
@@ -20,10 +21,14 @@ router.get('/ventas-producto-detalle', ventasProductoDetalle);
 // utilidades ventas, pedidos, devoluciones y cancelaciones por defecto en el mes actual
 router.get('/resumen-utilidades', authMiddleware, resumenUtilidades);
 
-// utilidad por usuario ventas y pedidos, por defecto en el mes actual
+// utilidad top usuario ventas y pedidos, por defecto en el mes actual
 router.get('/utilidad-usuario', authMiddleware, utilidadXusuario);
 
 // top de clientes utilidad por cliente ventas y pedidos, por defecto en el mes actual
 router.get('/utilidad-cliente', authMiddleware, utilidadXcliente);
+
+// top de productos utilidad por defecto en el mes actual
+router.get('/utilidad-producto', authMiddleware, utilidadXproducto);
+
 
 module.exports = router;
