@@ -32,7 +32,25 @@
         <div class="detalles-producto" *ngIf="nombreProducto.length > 0">
             <label style="width: 10%;">Cantidad: <input type="number" formControlName="cantidad" min="1" /></label>
             <label style="width: 10%;">Lote: <input type="text" formControlName="lote" /></label>
-            <label>Caducidad: <input type="date" formControlName="fechaCaducidad" /></label>
+            <div class="field-stack" style="width: 18rem;">
+                <label style="width: 10%;" for="caducidadMMAAAA">Caducidad:</label>
+
+                <input id="caducidadMMAAAA" type="text" inputmode="numeric" maxlength="6"
+                    formControlName="caducidadMMAAAA" placeholder="mmaaaa" autocomplete="off"
+                    (blur)="itemForm.get('caducidadMMAAAA')?.markAsTouched()"/>
+
+                <!-- ayuda -->
+                <small class="field-help text-muted" *ngIf="itemForm.value.fechaCaducidad">
+                    Se enviará: {{ itemForm.value.fechaCaducidad }}
+                </small>
+
+                <!-- error -->
+                <div class="field-error"
+                    *ngIf="itemForm.get('caducidadMMAAAA')?.invalid && itemForm.get('caducidadMMAAAA')?.touched">
+                    Fecha inválida. Escribe mmaaaa.
+                </div>
+            </div>
+
             <label style="width: 10%;">Costo U.: <input type="number" formControlName="costoUnitario"
                     step="0.01" /></label>
             <label style="width: 10%;">Precio U.: <input type="number" formControlName="precioUnitario"
@@ -42,7 +60,7 @@
             <label style="width: 10%;">Stock máximo.: <input type="number" formControlName="stockMaximo"
                     step="1" /></label>
 
-            <button [disabled]="itemForm.invalid" class="btn-verde" type="button" (click)="onAgregarItem()">Agregar al
+            <button [disabled]="itemForm.invalid" class="btn-verde" style="height: fit-content; margin-top: 1rem;" type="button" (click)="onAgregarItem()">Agregar al
                 carrito</button>
         </div>
     </div>
@@ -83,7 +101,8 @@
                     <td>{{ it.stockMinimo }}</td>
                     <td>{{ it.stockMaximo }}</td>
                     <td>{{ (it.costoUnitario * it.cantidad) | currency }}</td>
-                    <button [class]="editingPromoIndex===i?'btn-icono btn-rojo' : 'btn-icono btn-verde'" style="margin-top: 8px;" (click)="toggleEditPromo(i)"
+                    <button [class]="editingPromoIndex===i?'btn-icono btn-rojo' : 'btn-icono btn-verde'"
+                        style="margin-top: 8px;" (click)="toggleEditPromo(i)"
                         [matTooltip]="editingPromoIndex===i?'Cerrar la edición':'Editar promos y cantidades'">
                         <mat-icon>{{ editingPromoIndex === i ? 'close' : 'edit' }}</mat-icon>
                     </button>
@@ -265,8 +284,8 @@
 
                         <!-- BOTONES -->
                         <div class="guardar-cancelar">
-                            <button class="btn-rojo-chico" style="margin-left: 2rem;" matTooltip="Cancelar edición del producto"
-                                (click)="cancelPromos()">Cancelar</button>
+                            <button class="btn-rojo-chico" style="margin-left: 2rem;"
+                                matTooltip="Cancelar edición del producto" (click)="cancelPromos()">Cancelar</button>
                             <button class="btn-verde-chico" style="margin-right: 2rem;" matTooltip="Guardar cambios"
                                 (click)="savePromos(i)">Guardar</button>
                         </div>
@@ -287,8 +306,8 @@
 
     <!-- BOTONES DE ACCIÓN -->
     <div class="acciones">
-        <button class="btn-rojo" (click)="carrito = []; total = 0" 
-            [disabled]="!carrito.length" matTooltip="Cancelar toda la compra">Cancelar
+        <button class="btn-rojo" (click)="carrito = []; total = 0" [disabled]="!carrito.length"
+            matTooltip="Cancelar toda la compra">Cancelar
         </button>
         <button class="btn-gris" (click)="onRegistrarCompra()" matTooltip="Registrar la compra completa"
             [disabled]="!carrito.length || headerForm.invalid">Registrar Compra

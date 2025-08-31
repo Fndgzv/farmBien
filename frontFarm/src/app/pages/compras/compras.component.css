@@ -79,6 +79,12 @@
   font-size: 16px;
 }
 
+.field-stack { display: inline-block; vertical-align: top; }
+.field-stack .form-label { display: block; margin-bottom: 4px; }
+.field-help { display: block; margin-top: 4px; font-size: .85rem; }
+.field-error { display: block; margin-top: 4px; color: #dc3545; font-size: .85rem; }
+
+
 @media (max-width: 600px) {
   .acciones {
     justify-content: center;

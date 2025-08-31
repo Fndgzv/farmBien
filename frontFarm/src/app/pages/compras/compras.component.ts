@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
@@ -50,14 +50,53 @@ export class ComprasComponent implements OnInit {
     private proveedorService: ProveedorService,
     private productoService: ProductoService,
     private compraService: CompraService,
-    /* private cdr: ChangeDetectorRef */
   ) { }
 
   ngOnInit(): void {
     this.initForms();
+
+  this.itemForm.get('caducidadMMAAAA')!.valueChanges.subscribe((raw: string) => {
+    const digits = (raw ?? '').toString().replace(/\D/g, ''); // solo números
+    if (digits !== raw) {
+      // normaliza a solo números sin re-disparar valueChanges
+      this.itemForm.patchValue({ caducidadMMAAAA: digits }, { emitEvent: false });
+    }
+
+    if (digits.length !== 6) {
+      // incompleto o borrado: limpia fechaCaducidad
+      this.itemForm.patchValue({ fechaCaducidad: null }, { emitEvent: false });
+      return;
+    }
+
+    const mm = +digits.slice(0, 2);
+    const yyyy = +digits.slice(2);
+    if (mm < 1 || mm > 12) {
+      this.itemForm.patchValue({ fechaCaducidad: null }, { emitEvent: false });
+      return;
+    }
+
+    // Último día del mes: Date(yyyy, mm, 0)
+    const last = new Date(yyyy, mm, 0);
+    const y = String(last.getFullYear());
+    const m = String(last.getMonth() + 1).padStart(2, '0');
+    const d = String(last.getDate()).padStart(2, '0');
+
+    this.itemForm.patchValue({ fechaCaducidad: `${y}-${m}-${d}` }, { emitEvent: false });
+  });
+
     this.loadProveedores();
     this.loadProductos();
   }
+
+  mmAaaaValidator(control: AbstractControl) {
+  const v = (control.value ?? '').toString().replace(/\D/g, '');
+  if (v === '') return null; // permite vacío si aún no capturan
+  if (!/^\d{6}$/.test(v)) return { mmAaaa: 'Debe ser mmaaaa (6 dígitos)' };
+  const mm = +v.slice(0, 2);
+  const yyyy = +v.slice(2);
+  if (mm < 1 || mm > 12 || yyyy < 1900 || yyyy > 9999) return { mmAaaa: 'Mes/Año inválidos' };
+  return null;
+}
 
   private initForms(): void {
     this.headerForm = this.fb.group({
@@ -69,6 +108,7 @@ export class ComprasComponent implements OnInit {
       codigoBarras: ['', Validators.required],
       cantidad: [1, [Validators.required, Validators.min(1)]],
       lote: ['', Validators.required],
+      caducidadMMAAAA: ['', [this.mmAaaaValidator]],
       fechaCaducidad: [null, Validators.required],
       costoUnitario: [0, [Validators.required, Validators.min(0)]],
       precioUnitario: [0, [Validators.required, Validators.min(0)]],
@@ -147,6 +187,7 @@ export class ComprasComponent implements OnInit {
       codBarras: this.codBarras,
       cantidad: 1,
       lote: '',
+      caducidadMes: '',
       fechaCaducidad: null,
       costoUnitario: prod.costo,
       precioUnitario: prod.precio,
