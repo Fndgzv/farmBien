@@ -7,8 +7,23 @@
     <div class="col-md-1">
       <h2 class="subtitulo">Cliente:</h2>
     </div>
+    <div class="col-md-3">
+      <mat-form-field class="compact-field wide-client" appearance="outline">
+        <mat-label>Buscar cliente por nombre</mat-label>
+        <input type="text" matInput [formControl]="clienteNombreCtrl" [matAutocomplete]="autoClientes"
+          />
 
-    <div class="col-md-2 text-end">
+        <mat-autocomplete #autoClientes="matAutocomplete" [displayWith]="displayCliente"
+          (optionSelected)="onClienteSelected($event.option.value)">
+          <mat-option *ngFor="let c of filteredClientes$ | async" [value]="c">
+            {{ c.nombre }}
+            <small *ngIf="c.telefono"> — {{ c.telefono }}</small>
+          </mat-option>
+        </mat-autocomplete>
+      </mat-form-field>
+    </div>
+
+    <div class="col-md-1 text-end">
       <label class="cliente-tel">Teléfono:</label>
     </div>
 
@@ -21,11 +36,11 @@
       </button>
     </div>
 
-    <div class="col-md-4">
+    <div class="col-md-3">
       <span *ngIf="nombreCliente" class="cliente-nombre">{{ nombreCliente }}</span>
     </div>
 
-    <div class="col-md-3 text-end">
+    <div class="col-md-2 text-end">
       <button (click)="abrirModalConsultaPrecio()" class="btn-gris consultar-precio">Consultar Precio</button>
     </div>
   </div>
@@ -39,7 +54,8 @@
 
     <!-- Filtro por CÓDIGO venta -->
     <mat-form-field appearance="outline" class="compact-field wide-field mr-field">
-      <input matInput [(ngModel)]="busquedaPorCodigo" [matAutocomplete]="autoCodigo" placeholder="Buscar Cód. barras"
+      <mat-label>Buscar Cód. barras</mat-label>
+      <input matInput [(ngModel)]="busquedaPorCodigo" [matAutocomplete]="autoCodigo"
         (input)="filtrarPorCodigo()">
       <mat-autocomplete #autoCodigo="matAutocomplete" [displayWith]="displayCodigo"
         (optionSelected)="seleccionarPorCodigo($event)">
@@ -51,7 +67,8 @@
 
     <!-- Filtro por NOMBRE venta -->
     <mat-form-field appearance="outline" class="compact-field wider-field">
-      <input matInput [(ngModel)]="busquedaProducto" [matAutocomplete]="autoNombre" placeholder="Buscar producto"
+      <mat-label>Buscar producto</mat-label>
+      <input matInput [(ngModel)]="busquedaProducto" [matAutocomplete]="autoNombre"
         (input)="filtrarProductos()">
       <mat-autocomplete #autoNombre="matAutocomplete" [displayWith]="displayNombre"
         (optionSelected)="seleccionarProducto($event)">
@@ -68,7 +85,7 @@
 
 
   <div *ngIf="mostrarModalConsultaPrecio" class="modal-overlay">
-    <div class="modal-content" style="width: 600px;" >
+    <div class="modal-content" style="width: 600px;">
       <h2>Consultar Precio</h2>
       <div class="input-container position-relative">
         <input type="text" [(ngModel)]="codigoConsulta" (keyup.enter)="consultarPrecio()" placeholder="Código de barras"

@@ -91,8 +91,9 @@ export class ReportesUtilidadComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
-    const ini = this.monthStartYMD();
+    /* const ini = this.monthStartYMD(); */
     const fin = this.todayYMD();
+    const ini = this.todayYMD();
 
     this.filtroForm = this.fb.group({
       // base

@@ -64,6 +64,10 @@
   width: 340px;
 }
 
+.wide-client {
+  width: 360px;
+}
+
 .mr-field {
   margin-right: 5rem;
 }

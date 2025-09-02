@@ -5,6 +5,14 @@ import { Observable, throwError } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 
+export interface Cliente {
+  _id?: string;
+  telefono: string;
+  nombre: string;
+  direccion?: string;
+  totalMonedero?: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -45,7 +53,12 @@ export class ClienteService {
   }
 
   getClienteById(id: string) {
-  return this.http.get<any>(`${this.apiUrl}/id/${id}`);
-}
+    return this.http.get<any>(`${this.apiUrl}/id/${id}`);
+  }
+
+  obtenerClientes(): Observable<Cliente[]> {
+    return this.http.get<Cliente[]>(`${this.apiUrl}`);
+  }
+
 
 }

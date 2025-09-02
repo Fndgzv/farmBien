@@ -1,9 +1,8 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
-import { take } from 'rxjs/operators';
-import { FormBuilder, FormGroup } from '@angular/forms';
+import { take, startWith, map } from 'rxjs/operators';
+import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { VentasService } from '../../services/ventas.service';
 import { ProductoService } from '../../services/producto.service';
@@ -15,13 +14,13 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
 
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatAutocompleteModule, MatAutocompleteTrigger } from '@angular/material/autocomplete';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 
 import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
-
+import { Observable, of } from 'rxjs';
 @Component({
   selector: 'app-ventas',
   standalone: true,
@@ -41,6 +40,7 @@ import { VentaService } from '../../services/venta.service';
 export class VentasComponent implements OnInit, AfterViewInit {
   @ViewChild('codigoBarrasRef') codigoBarrasRef!: ElementRef<HTMLInputElement>;
   @ViewChild('efectivoRecibidoRef') efectivoRecibidoRef!: ElementRef<HTMLInputElement>; // <-- para enfocar el primer input del modal
+  @ViewChild(MatAutocompleteTrigger) autoTrigger ?: MatAutocompleteTrigger;
 
   private pendingFocusEfectivo = false;
   barcodeFocusTimer: any = null;
@@ -91,6 +91,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   productosFiltrados: any[] = [];
   productosFiltradosPorCodigo: any[] = [];
   productos: any[] = [];
+  clientes: any[] = [];
 
   farmaciaId: string = '';
   farmaciaNombre: string = '';
@@ -124,6 +125,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   venta: any = null;
   ventaEnProceso: boolean = false;
 
+  clienteNombreCtrl = new FormControl<string | any>({ value: '', disabled: false });
+
   // Helpers numéricos
   private toNum(v: any): number {
     const n = Number(v);
@@ -156,6 +159,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
     });
   }
 
+  //clienteNombreCtrl = new FormControl<string | any>('');
+  filteredClientes$: Observable<any[]> = of([]);
+
   ngAfterViewInit(): void {
     // foco inicial al entrar al componente
     this.focusBarcode();
@@ -172,7 +178,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   ngOnInit() {
     this.obtenerProductos();
-
+    this.obtenerClientes();
     const stored = localStorage.getItem('user_farmacia');
     const farmacia = stored ? JSON.parse(stored) : null;
 
@@ -187,6 +193,46 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.nombreUs = storeUs ? storeUs : '';
 
     this.ventasPausadas = this.ventaService.getVentasPausadas();
+
+    this.filteredClientes$ = this.clienteNombreCtrl.valueChanges.pipe(
+      startWith(this.clienteNombreCtrl.value ?? ''),
+      map(v => this.filterClientes(v))
+    );
+  }
+
+  private syncClienteCtrlDisabled(): void {
+    const debeDeshabilitar = (this.carrito?.length ?? 0) > 0;
+    const ctrl = this.clienteNombreCtrl;
+
+    if (debeDeshabilitar && ctrl.enabled) {
+      ctrl.disable({ emitEvent: false });
+      this.autoTrigger?.closePanel(); // cerrar panel si estaba abierto
+    } else if (!debeDeshabilitar && ctrl.disabled) {
+      ctrl.enable({ emitEvent: false });
+    }
+  }
+
+  private filterClientes(v: any): any[] {
+    const term = (typeof v === 'string' ? v : v?.nombre || '').toLowerCase().trim();
+    if (!term) return this.clientes ?? [];
+    return (this.clientes ?? []).filter(c => (c?.nombre || '').toLowerCase().includes(term));
+  }
+
+  displayCliente = (c: any) => (c?.nombre || '');
+
+  onClienteSelected(c: any) {
+    if (!c) return;
+    // Setea todo tu estado actual
+    this.cliente = c._id;                          // id del cliente
+    this.nombreCliente = c.nombre || '';           // para mostrar
+    this.telefonoCliente = c.telefono || '';       // tu campo existente
+    this.montoMonederoCliente = Number(c.totalMonedero || 0);
+
+    // Si deseas bloquear edición por teléfono al elegir por nombre:
+    // (ya se deshabilita si carrito.length > 0)
+
+    // Opcional: mueve foco al lector
+    this.focusBarcode(60);
   }
 
   ngOnDestroy(): void {
@@ -363,6 +409,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.montoMonederoCliente = 0;
     this.hayCliente = false;
     this.ventaForm.controls['cliente'].setValue('');
+    this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
+    this.focusBarcode(60);
   }
 
   limpiarBarras() {
@@ -435,7 +483,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.focusBarcode(100);
   }
 
-
   displayNombre = (id?: string): string => {
     const p = this.productos.find(x => x._id === id);
     return p ? p.nombre : '';
@@ -476,6 +523,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.aplicaInapam = false;
     this.cliente = '';
     this.captionButtomReanudar = '';
+    this.syncClienteCtrlDisabled();
     this.focusBarcode();
   }
 
@@ -496,6 +544,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.captionButtomReanudar = venta.captionButtomReanudar;
     this.ventasPausadas.splice(index, 1);
     this.ventaService.setVentasPausadas(this.ventasPausadas);
+    this.syncClienteCtrlDisabled();
     this.focusBarcode(0);
   }
 
@@ -503,6 +552,13 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.productoService.obtenerProductos().subscribe({
       next: (data) => this.productos = data,
       error: (error) => console.error('Error al obtener productos', error)
+    });
+  }
+
+  obtenerClientes() {
+    this.clienteService.obtenerClientes().subscribe({
+      next: (data) => this.clientes = data,
+      error: (error) => console.error('Error al obtener clientes', error)
     });
   }
 
@@ -540,9 +596,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async agregarProductoAlCarrito(producto: any) {
-
-    console.log('EStoy agregando al carrito');
-    
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
     if (existente) {
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
@@ -606,6 +659,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (this.aplicaGratis) this.validarProductoGratis(producto._id);
 
     this.calcularTotal();
+    this.syncClienteCtrlDisabled();
   }
 
   limpiarPromocion(promo: string) {
@@ -670,9 +724,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.ptjeDescuento = 0;
 
     console.log('Hay cliente>>>', this.hayCliente);
-    
+
     this.productoAplicaMonedero = this.hayCliente;
-    
+
     this.alMonedero = 0;
     this.fechaIni = this.soloFecha(new Date(fechahoy));
     this.fechaFin = this.soloFecha(new Date(fechahoy));
@@ -1161,7 +1215,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       farmacia: this.farmaciaId,
       totaMonederoCliente: this.totalAlmonedero
     };
-    
+
     this.ventasService.crearVenta(venta).subscribe({
       next: () => {
         this.folioVentaGenerado = null;
