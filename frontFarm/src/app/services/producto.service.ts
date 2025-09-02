@@ -1,6 +1,6 @@
 // services/producto.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../environments/environment';
@@ -20,6 +20,17 @@ export class ProductoService {
     return this.http.post<any>(`${environment.apiUrl}/productos`, payload);
   }
 
+  buscarPorCodigoBarras(codigo: string) {
+    const token = localStorage.getItem('auth_token') || '';
+    const headers = new HttpHeaders({ 'x-auth-token': token });
+
+    // Si usaste la opción con query:
+    const params = new HttpParams().set('codigoBarras', codigo);
+    return this.http.get<{ ok: boolean; producto: any }>(`${this.apiUrl}/buscar-por-cb`, { params, headers });
+
+    // === O si prefieres por parámetro ===
+    // return this.http.get<{ ok: boolean; producto: any }>(`${this.url}/productos/by-cb/${encodeURIComponent(codigo)}`, { headers });
+  }
 
   obtenerProductos(): Observable<Producto[]> {
     return this.http.get<Producto[]>(`${this.apiUrl}`);

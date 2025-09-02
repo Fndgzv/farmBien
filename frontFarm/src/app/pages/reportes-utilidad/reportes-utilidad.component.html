@@ -1,8 +1,8 @@
 <div class="container-fluid">
-  <h3 class="mb-3">Reportes de utilidad</h3>
+  <h3 class="titulo" style="text-align: center;">Reportes Tops de utilidades</h3>
 
   <!-- Filtros -->
-  <form [formGroup]="filtroForm" class="card p-3 mb-3">
+  <form [formGroup]="filtroForm" class="mb-3">
     <div class="row g-2 align-items-end">
       <div class="col-md-2">
         <label class="form-label">Fecha inicial</label>
@@ -14,24 +14,29 @@
       </div>
 
       <div class="col-md-6">
-        <label class="form-label d-block mb-1">Reporte</label>
-        <div class="d-flex gap-3">
-          <label class="form-check">
-            <input type="radio" class="form-check-input" formControlName="tipo" value="usuarios"> Utilidad por usuarios
+        <label class="form-label d-block mb-1">Reporte:</label>
+        <div class="d-flex gap-2 flex-wrap">
+          <label class="report-chip" [class.active]="filtroForm.value.tipo==='clientes'">
+            <input type="radio" formControlName="tipo" value="clientes" /> Utilidad por clientes
           </label>
-          <label class="form-check">
-            <input type="radio" class="form-check-input" formControlName="tipo" value="clientes"> Utilidad por clientes
+
+          <label class="report-chip" [class.active]="filtroForm.value.tipo==='usuarios'">
+            <input type="radio" formControlName="tipo" value="usuarios" /> Utilidad por usuarios
           </label>
-          <label class="form-check">
-            <input type="radio" class="form-check-input" formControlName="tipo" value="productos"> Utilidad por productos
+
+          <label class="report-chip" [class.active]="filtroForm.value.tipo==='productos'">
+            <input type="radio" formControlName="tipo" value="productos" /> Utilidad por productos
           </label>
         </div>
       </div>
 
-      <!-- Botones -->
-      <div class="col-auto ms-auto">
-        <button type="button" class="btn btn-outline-secondary" (click)="limpiar()" [disabled]="cargando">Limpiar</button>
-        <button type="button" class="btn btn-primary ms-2" (click)="buscar()" [disabled]="cargando">
+      <div class="col-1">
+        <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando" matTooltip="Limpiar filtros">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="col-1 text-end">
+        <button type="button" class="btn-gris" (click)="buscar()" [disabled]="cargando">
           {{ cargando ? 'Consultando…' : 'Buscar' }}
         </button>
       </div>
@@ -46,16 +51,16 @@
       <div class="col-md-3">
         <label class="form-label">Usuario</label>
         <select class="form-select" formControlName="usuarioId" [disabled]="cargando">
-          <option value="">(Todos / Top-N)</option>
+          <option value="">(Todos)</option>
           <option *ngFor="let u of usuarios" [ngValue]="u._id">{{ u.nombre }}</option>
         </select>
       </div>
 
       <div class="col-md-3">
-        <label class="form-label">Orden</label>
+        <label class="form-label">Los mejores por:</label>
         <select class="form-select" formControlName="ordenUsuarios" [disabled]="cargando">
-          <option value="utilidad">Utilidad (desc)</option>
-          <option value="ventas">#Ventas (desc)</option>
+          <option value="'Num. de ventas'">Núm. de ventas</option>
+          <option value="utilidad">Utilidad</option>
         </select>
       </div>
     </div>
@@ -65,19 +70,20 @@
       <div class="col-md-4">
         <label class="form-label">Cliente</label>
         <select class="form-select" formControlName="clienteId" [disabled]="cargando">
-          <option value="">(Todos / Top-N)</option>
+          <option value="">(Todos)</option>
           <option *ngFor="let c of clientes" [ngValue]="c._id">{{ c.nombre }}</option>
         </select>
       </div>
       <div class="col-md-2">
-        <label class="form-label">CantClientes</label>
-        <input type="number" min="1" class="form-control" formControlName="cantClientes" [disabled]="cargando || !!filtroForm.value.clienteId">
+        <label class="form-label">¿Cuántos clientes?</label>
+        <input type="number" min="1" class="form-control" formControlName="cantClientes"
+          [disabled]="cargando || !!filtroForm.value.clienteId">
       </div>
       <div class="col-md-3">
-        <label class="form-label">Orden</label>
+        <label class="form-label">Los mejores por:</label>
         <select class="form-select" formControlName="ordenClientes" [disabled]="cargando">
-          <option value="utilidad">Utilidad (desc)</option>
-          <option value="ventas">#Ventas (desc)</option>
+          <option value="ventas">Núm. de ventas</option>
+          <option value="utilidad">Utilidad</option>
         </select>
       </div>
     </div>
@@ -91,30 +97,44 @@
           <option *ngFor="let f of farmacias" [ngValue]="f._id">{{ f.nombre }}</option>
         </select>
       </div>
-      <div class="col-md-3">
-        <label class="form-label">Producto (ID)</label>
-        <input type="text" class="form-control" formControlName="productoId" placeholder="ObjectId del producto" [disabled]="cargando">
+
+      <div class="col-md-4">
+        <label class="form-label">Código de barras</label>
+        <input type="text" class="form-control" formControlName="codigoBarras" placeholder="Escanea o escribe el código"
+          [disabled]="cargando" (keyup.enter)="resolverProductoPorCB()" />
+        <div class="text-danger small" *ngIf="errorProductoCB">
+          {{ errorProductoCB }}
+        </div>
       </div>
-      <div class="col-md-2">
-        <label class="form-label">cantProductos</label>
-        <input type="number" min="1" class="form-control" formControlName="cantProductos" [disabled]="cargando || !!filtroForm.value.productoId">
+
+      <div class="col-md-5">
+        <label class="form-label">Producto</label>
+        <input type="text" class="form-control" [value]="productoResueltoNombre"
+          placeholder="Se llenará al resolver el código" readonly />
       </div>
+
       <div class="col-md-2">
-        <label class="form-label">Orden</label>
+        <label class="form-label">¿Cuántos productos?</label>
+        <input type="number" min="1" class="form-control" formControlName="cantProductos"
+          [disabled]="cargando && !filtroForm.value.productoId" />
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Los mejores por: </label>
         <select class="form-select" formControlName="ordenProductos" [disabled]="cargando">
-          <option value="utilidad">Utilidad (desc)</option>
-          <option value="ventas">#Ventas (desc)</option>
+          <option value="ventas">Núm. de Ventas</option>
+          <option value="utilidad">Utilidad</option>
         </select>
       </div>
     </div>
-  </form>
 
-  <!-- Resultados -->
+
+  </form>
 
   <!-- ===== Tabla USUARIOS ===== -->
   <div *ngIf="reportType === 'usuarios'">
     <div class="table-responsive">
-      <table class="table table-sm table-striped align-middle">
+      <table class="tabla">
         <thead>
           <tr>
             <th>Usuario</th>
@@ -134,13 +154,13 @@
           <tr *ngFor="let r of rowsUsuarios">
             <td>{{ r.usuario || r.usuarioNombre || r.nombre || '(sin nombre)' }}</td>
             <td class="text-end">{{ r.numVentas || r.ventasCount | number }}</td>
-            <td class="text-end">${{ r.impVentas | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.costoVentas | number:'1.2-2' }}</td>
+            <td class="text-end text-success">${{ r.impVentas | number:'1.2-2' }}</td>
+            <td class="text-end text-negativo">${{ r.costoVentas | number:'1.2-2' }}</td>
             <td class="text-end">{{ r.numPedidos || r.pedidosCount | number }}</td>
-            <td class="text-end">${{ r.impPedidos | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.costoPedidos | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.ingresos | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.egresos | number:'1.2-2' }}</td>
+            <td class="text-end text-success">${{ r.impPedidos | number:'1.2-2' }}</td>
+            <td class="text-end text-negativo">${{ r.costoPedidos | number:'1.2-2' }}</td>
+            <td class="text-end text-success">${{ r.ingresos | number:'1.2-2' }}</td>
+            <td class="text-end text-negativo">${{ r.egresos | number:'1.2-2' }}</td>
             <td class="text-end" [ngClass]="{'text-success': (r.utilidad||0) >= 0, 'text-danger': (r.utilidad||0) < 0}">
               ${{ r.utilidad | number:'1.2-2' }}
             </td>
@@ -150,6 +170,31 @@
             <td colspan="11" class="text-center text-muted">Sin resultados</td>
           </tr>
         </tbody>
+        <tfoot *ngIf="footerUsuarios">
+          <tr class="table-light">
+            <td class="text-end"><strong>Totales:</strong></td>
+            <td class="text-end"><strong>{{ footerUsuarios.totalVentas | number }}</strong></td>
+            <td class="text-end text-success"><strong>${{ footerUsuarios.totalImpVentas | number:'1.2-2' }}</strong>
+            </td>
+            <td class="text-end text-negativo"><strong>${{ footerUsuarios.totalCostoVentas | number:'1.2-2' }}</strong>
+            </td>
+            <td class="text-end"><strong>{{ footerUsuarios.totalPedidos | number }}</strong></td>
+            <td class="text-end text-success"><strong>${{ footerUsuarios.totalImpPedidos | number:'1.2-2' }}</strong>
+            </td>
+            <td class="text-end text-negativo"><strong>${{ footerUsuarios.totalCostoPedidos | number:'1.2-2' }}</strong>
+            </td>
+            <td class="text-end text-success"><strong>${{ footerUsuarios.totalIngresos | number:'1.2-2' }}</strong></td>
+            <td class="text-end text-negativo"><strong>${{ footerUsuarios.totalEgresos | number:'1.2-2' }}</strong></td>
+            <td class="text-end"
+              [ngClass]="{'text-success': (footerUsuarios.totalUtilidad||0) >= 0, 'text-danger': (footerUsuarios.totalUtilidad||0) < 0}">
+              <strong>${{ footerUsuarios.totalUtilidad | number:'1.2-2' }}</strong>
+            </td>
+            <td class="text-end">
+              <strong>{{ footerUsuarios.gananciaPct == null ? '—' : (footerUsuarios.gananciaPct | number:'1.0-2') + '%'
+                }}</strong>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>
@@ -157,14 +202,14 @@
   <!-- ===== Tabla CLIENTES ===== -->
   <div *ngIf="reportType === 'clientes'">
     <div class="table-responsive">
-      <table class="table table-sm table-striped align-middle">
+      <table class="tabla">
         <thead>
           <tr>
             <th>Cliente</th>
             <th class="text-end">Monedero</th>
-            <th class="text-end">#Ventas</th>
-            <th class="text-end">Imp. Ventas</th>
-            <th class="text-end">Costo Ventas</th>
+            <th class="text-end">#Compras</th>
+            <th class="text-end">Imp. Compras</th>
+            <th class="text-end">Costo Compras</th>
             <th class="text-end">#Pedidos</th>
             <th class="text-end">Imp. Pedidos</th>
             <th class="text-end">Costo Pedidos</th>
@@ -182,13 +227,13 @@
             </td>
             <td class="text-end">${{ r.totalMonedero | number:'1.2-2' }}</td>
             <td class="text-end">{{ r.numVentas | number }}</td>
-            <td class="text-end">${{ r.impVentas | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.costoVentas | number:'1.2-2' }}</td>
+            <td class="text-end text-success">${{ r.impVentas | number:'1.2-2' }}</td>
+            <td class="text-end text-negativo">${{ r.costoVentas | number:'1.2-2' }}</td>
             <td class="text-end">{{ r.numPedidos | number }}</td>
-            <td class="text-end">${{ r.impPedidos | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.costoPedidos | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.ingresos | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.egresos | number:'1.2-2' }}</td>
+            <td class="text-end text-success">${{ r.impPedidos | number:'1.2-2' }}</td>
+            <td class="text-end text-negativo">${{ r.costoPedidos | number:'1.2-2' }}</td>
+            <td class="text-end text-success">${{ r.ingresos | number:'1.2-2' }}</td>
+            <td class="text-end text-negativo">${{ r.egresos | number:'1.2-2' }}</td>
             <td class="text-end" [ngClass]="{'text-success': (r.utilidad||0) >= 0, 'text-danger': (r.utilidad||0) < 0}">
               ${{ r.utilidad | number:'1.2-2' }}
             </td>
@@ -198,6 +243,28 @@
             <td colspan="12" class="text-center text-muted">Sin resultados</td>
           </tr>
         </tbody>
+        <tfoot *ngIf="footerClientes">
+          <tr class="table-light">
+            <td class="text-end"><strong>Totales:</strong></td>
+            <td class="text-end"><strong>${{ footerClientes.totalMonedero | number:'1.2-2' }}</strong></td>
+            <td class="text-end"><strong>{{ footerClientes.totalVentas | number }}</strong></td>
+            <td class="text-end text-success"><strong>${{ footerClientes.totalImpVentas | number:'1.2-2' }}</strong></td>
+            <td class="text-end text-negativo"><strong>${{ footerClientes.totalCostoVentas | number:'1.2-2' }}</strong></td>
+            <td class="text-end"><strong>{{ footerClientes.totalPedidos | number }}</strong></td>
+            <td class="text-end text-success"><strong>${{ footerClientes.totalImpPedidos | number:'1.2-2' }}</strong></td>
+            <td class="text-end text-negativo"><strong>${{ footerClientes.totalCostoPedidos | number:'1.2-2' }}</strong></td>
+            <td class="text-end text-success"><strong>${{ footerClientes.totalIngresos | number:'1.2-2' }}</strong></td>
+            <td class="text-end text-negativo"><strong>${{ footerClientes.totalEgresos | number:'1.2-2' }}</strong></td>
+            <td class="text-end"
+              [ngClass]="{'text-success': (footerClientes.totalUtilidad||0) >= 0, 'text-danger': (footerClientes.totalUtilidad||0) < 0}">
+              <strong>${{ footerClientes.totalUtilidad | number:'1.2-2' }}</strong>
+            </td>
+            <td class="text-end">
+              <strong>{{ footerClientes.gananciaPct == null ? '—' : (footerClientes.gananciaPct | number:'1.0-2') + '%'
+                }}</strong>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>
@@ -205,7 +272,7 @@
   <!-- ===== Tabla PRODUCTOS ===== -->
   <div *ngIf="reportType === 'productos'">
     <div class="table-responsive">
-      <table class="table table-sm table-striped align-middle">
+      <table class="tabla">
         <thead>
           <tr>
             <th>Producto</th>
@@ -222,8 +289,8 @@
             <td>{{ r.producto }}</td>
             <td>{{ r.codigoBarras }}</td>
             <td class="text-end">{{ r.numVentas | number }}</td>
-            <td class="text-end">${{ r.importe | number:'1.2-2' }}</td>
-            <td class="text-end">${{ r.costo | number:'1.2-2' }}</td>
+            <td class="text-end text-success">${{ r.importe | number:'1.2-2' }}</td>
+            <td class="text-end text-negativo">${{ r.costo | number:'1.2-2' }}</td>
             <td class="text-end" [ngClass]="{'text-success': (r.utilidad||0) >= 0, 'text-danger': (r.utilidad||0) < 0}">
               ${{ r.utilidad | number:'1.2-2' }}
             </td>
@@ -233,7 +300,25 @@
             <td colspan="7" class="text-center text-muted">Sin resultados</td>
           </tr>
         </tbody>
+        <tfoot *ngIf="rowsProductos.length > 0 && footerProductos">
+          <tr>
+            <th class="text-end" colspan="2">Totales:</th>
+            <th class="text-end">{{ footerProductos.numVentas | number }}</th>
+            <th class="text-end text-success">${{ footerProductos.importe | number:'1.2-2' }}</th>
+            <th class="text-end text-negativo">${{ footerProductos.costo | number:'1.2-2' }}</th>
+            <th class="text-end" [ngClass]="{'text-success': (footerProductos.utilidad||0) >= 0,
+                          'text-danger': (footerProductos.utilidad||0) < 0}">
+              ${{ footerProductos.utilidad | number:'1.2-2' }}
+            </th>
+            <th class="text-end">
+              {{ footerProductos.gananciaPct == null
+              ? '—'
+              : (footerProductos.gananciaPct | number:'1.0-2') + '%' }}
+            </th>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>
+
 </div>

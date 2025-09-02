@@ -100,6 +100,25 @@ exports.crearProducto = async (req, res) => {
   }
 };
 
+exports.buscarPorCodigoBarras = async (req, res) => {
+  try {
+    // admite /by-cb/:codigo  y  /buscar-por-cb?codigoBarras=...
+    const codigo = (req.params.codigo ?? req.query.codigoBarras ?? '').toString().trim();
+    if (!codigo) {
+      return res.status(400).json({ ok: false, mensaje: 'Falta código de barras' });
+    }
+
+    const prod = await Producto.findOne({ codigoBarras: codigo }, { nombre: 1, codigoBarras: 1, _id: 1 });
+    if (!prod) {
+      return res.status(404).json({ ok: false, mensaje: 'Producto no encontrado' });
+    }
+
+    return res.json({ ok: true, producto: prod });
+  } catch (e) {
+    console.error('[buscarPorCodigoBarras][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al buscar producto por código de barras' });
+  }
+};
 
 exports.obtenerProductoPorId = async (req, res) => {
     try {

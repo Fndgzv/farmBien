@@ -188,7 +188,7 @@ getResumenUtilidades(p: ResumenUtilidadesParams) {
 }
 
 getUtilidadPorClientes(p: any) {
-  const url = `${this.url}/reportes/utilidad-cliente`;
+  const url = `${this.url}/utilidad-cliente`;
   const headers = new HttpHeaders({ 'x-auth-token': localStorage.getItem('auth_token') || '' });
 
   const obj: any = {
@@ -204,7 +204,7 @@ getUtilidadPorClientes(p: any) {
 }
 
 getUtilidadPorProductos(p: any) {
-  const url = `${this.url}/reportes/utilidad-producto`;
+  const url = `${this.url}/utilidad-producto`;
   const headers = new HttpHeaders({ 'x-auth-token': localStorage.getItem('auth_token') || '' });
 
   const obj: any = {
@@ -221,7 +221,7 @@ getUtilidadPorProductos(p: any) {
 }
 
 getUtilidadPorUsuarios(p: any) {
-  const url = `${this.url}/reportes/utilidad-usuario`; // ajusta si tu endpoint se llama distinto
+  const url = `${this.url}/utilidad-usuario`; // ajusta si tu endpoint se llama distinto
   const headers = new HttpHeaders({ 'x-auth-token': localStorage.getItem('auth_token') || '' });
 
   const obj: any = {

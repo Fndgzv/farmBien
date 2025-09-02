@@ -76,6 +76,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   ptjeDescuento: number = 0;
   alMonedero = 0;
   productoAplicaMonedero = false;
+  hayCliente = false;
   aplicaGratis = false;
 
   ocultarEfectivo: boolean = false;
@@ -251,6 +252,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
             this.ventaForm.controls['cliente'].setValue(cliente._id);
             this.cliente = cliente._id;
             this.montoMonederoCliente = cliente.totalMonedero;
+            this.hayCliente = true;
             this.focusBarcode();
           } else {
             this.mostrarModalCrearCliente();
@@ -324,9 +326,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
             timer: 1500,
             showConfirmButton: false
           });
+          this.hayCliente = true;
           this.cliente = response._id;
           this.montoMonederoCliente = 0;
         } else {
+          this.hayCliente = false;
           console.error("⚠️ Respuesta inesperada del backend:", response);
           Swal.fire({
             icon: 'error',
@@ -357,6 +361,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.telefonoCliente = '';
     this.nombreCliente = '';
     this.montoMonederoCliente = 0;
+    this.hayCliente = false;
     this.ventaForm.controls['cliente'].setValue('');
   }
 
@@ -535,6 +540,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async agregarProductoAlCarrito(producto: any) {
+
+    console.log('EStoy agregando al carrito');
+    
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
     if (existente) {
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
@@ -660,7 +668,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.tipoDescuento = "";
     this.cadDesc = '';
     this.ptjeDescuento = 0;
-    this.productoAplicaMonedero = this.cliente.length > 0;
+
+    console.log('Hay cliente>>>', this.hayCliente);
+    
+    this.productoAplicaMonedero = this.hayCliente;
+    
     this.alMonedero = 0;
     this.fechaIni = this.soloFecha(new Date(fechahoy));
     this.fechaFin = this.soloFecha(new Date(fechahoy));
@@ -704,7 +716,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.tipoDescuento = this.nombreDiaSemana(hoy);
         this.ptjeDescuento = descuentoXDia;
         this.cadDesc = `${descuentoXDia}%`;
-        this.productoAplicaMonedero = this.productoAplicaMonedero && this.cliente.length > 0;
+        this.productoAplicaMonedero = this.productoAplicaMonedero && this.hayCliente;
       }
 
       if (producto.promoDeTemporada &&
@@ -715,7 +727,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
           this.ptjeDescuento = ptjeTem;
           this.tipoDescuento = 'Temporada';
           this.cadDesc = `${ptjeTem}%`;
-          this.productoAplicaMonedero = producto.promoDeTemporada.monedero && this.cliente.length > 0;
+          this.productoAplicaMonedero = producto.promoDeTemporada.monedero && this.hayCliente;
         }
       }
 
@@ -725,16 +737,16 @@ export class VentasComponent implements OnInit, AfterViewInit {
           this.ptjeDescuento = (1 - (pf / this.precioEnFarmacia)) * 100;
           this.tipoDescuento += `-INAPAM`;
           this.cadDesc += `+ 5%`;
-          this.productoAplicaMonedero = this.cliente.length > 0;
+          this.productoAplicaMonedero = this.hayCliente;
         }
       } else if (this.aplicaInapam && producto.descuentoINAPAM) {
         this.ptjeDescuento = 5;
         this.tipoDescuento = 'INAPAM';
         this.cadDesc = '5%';
-        this.productoAplicaMonedero = this.cliente.length > 0;
+        this.productoAplicaMonedero = this.hayCliente;
       }
 
-      if (this.ptjeDescuento <= 0) this.productoAplicaMonedero = this.cliente.length > 0;
+      if (this.ptjeDescuento <= 0) this.productoAplicaMonedero = this.hayCliente;
     }
   }
 
@@ -865,6 +877,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.montoVale = 0;
     this.efectivoRecibido = 0;
     this.cambio = 0;
+    this.hayCliente = false;
   }
 
   abrirModalPago() {
@@ -1087,6 +1100,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     setTimeout(() => {
       window.print();
       this.mostrarTicket = false;
+      this.hayCliente = false;
       this.guardarVentaDespuesDeImpresion(folio);
     }, 100);
   }

@@ -51,20 +51,20 @@
             <tbody>
                 <tr *ngFor="let r of rows">
                     <td [ngClass]="{
-                        'text-positivo': r.concepto == 'Ventas' || r.concepto == 'Pedidos',
+                        'text-success': r.concepto == 'Ventas' || r.concepto == 'Pedidos',
                         'text-negativo': r.concepto == 'Devoluciones' || r.concepto == 'Cancelaciones'}">
                         {{ r.concepto }}
                     </td>
-                    <td class="text-end text-positivo">{{ r.cantidad | number }}</td>
+                    <td class="text-end text-success">{{ r.cantidad | number }}</td>
                     <td class="text-end"
-                        [ngClass]="{'text-positivo': r.importe >= 0, 'text-negativo': r.importe < 0}">
+                        [ngClass]="{'text-success': r.importe >= 0, 'text-negativo': r.importe < 0}">
                         ${{ r.importe | number:'1.2-2' }}
                     </td>
-                    <td class="text-end text-positivo">${{ r.costo | number:'1.2-2' }}</td>
-                    <td class="text-end" [ngClass]="{'text-positivo': r.utilidad >= 0, 'text-negativo': r.utilidad < 0}">
+                    <td class="text-end text-success">${{ r.costo | number:'1.2-2' }}</td>
+                    <td class="text-end" [ngClass]="{'text-success': r.utilidad >= 0, 'text-negativo': r.utilidad < 0}">
                         ${{ r.utilidad | number:'1.2-2' }}
                     </td>
-                    <td class="text-end" [ngClass]="{'text-positivo': r.utilidad >= 0, 'text-negativo': r.utilidad < 0}" >
+                    <td class="text-end" [ngClass]="{'text-success': r.utilidad >= 0, 'text-negativo': r.utilidad < 0}" >
                         {{ r.costo == 0? 0 : r.utilidad / r.costo * 100 | number:'1.2-2'}}%
                     </td>
                 </tr>
@@ -72,16 +72,16 @@
             <tfoot>
                 <tr class="fw-bold">
                     <td class="text-end">Totales:</td>
-                    <td class="text-end text-positivo">{{ totalCantidad | number }}</td>
+                    <td class="text-end text-success">{{ totalCantidad | number }}</td>
                     <td class="text-end"
-                        [ngClass]="{'text-positivo': totalImporte >= 0, 'text-negativo': totalImporte < 0}">
+                        [ngClass]="{'text-success': totalImporte >= 0, 'text-negativo': totalImporte < 0}">
                         ${{ totalImporte | number:'1.2-2' }}</td>
-                    <td class="text-end text-positivo">${{ totalCosto | number:'1.2-2' }}</td>
+                    <td class="text-end text-success">${{ totalCosto | number:'1.2-2' }}</td>
                     <td class="text-end"
-                        [ngClass]="{'text-positivo': totalUtilidad >= 0, 'text-negativo': totalUtilidad < 0}">
+                        [ngClass]="{'text-success': totalUtilidad >= 0, 'text-negativo': totalUtilidad < 0}">
                         ${{ totalUtilidad | number:'1.2-2' }}
                     </td>
-                    <td class="text-end" [ngClass]="{'text-positivo': totalUtilidad >= 0, 'text-negativo': totalUtilidad < 0}" >
+                    <td class="text-end" [ngClass]="{'text-success': totalUtilidad >= 0, 'text-negativo': totalUtilidad < 0}" >
                         {{ totalCosto == 0? 0 : totalUtilidad / totalCosto * 100 | number:'1.2-2'}}%
                     </td>
                 </tr>

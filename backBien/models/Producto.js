@@ -80,4 +80,6 @@ const ProductoSchema = new mongoose.Schema({
     imagen: { type: String }
 }, { timestamps: true });
 
+ProductoSchema.index({ codigoBarras: 1 }, { sparse: true });
+
 module.exports = mongoose.model("Producto", ProductoSchema);

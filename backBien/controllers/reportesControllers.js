@@ -2,6 +2,7 @@
 const { DateTime } = require('luxon');
 const { Types } = require('mongoose');
 const { ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
 
 const Venta = require('../models/Venta');
 const Producto = require('../models/Producto');
@@ -61,6 +62,14 @@ function dayRangeUtcOrMTD(fechaIni, fechaFin) {
   return dayRangeUtc(fechaIni, fechaFin);
 }
 
+function castIdSafe(id) {
+  return (id && mongoose.isValidObjectId(id)) ? new Types.ObjectId(id) : null;
+}
+
+function cmpNum(a, b, dir) {
+  // dir: 1 = asc, -1 = desc
+  return (a - b) * dir;
+}
 
 exports.ventasProductoDetalle = async (req, res) => {
   // conteo de ventas de un solo producto
@@ -285,42 +294,38 @@ exports.resumenUtilidades = async (req, res) => {
   }
 };
 
-// Reporte: Utilidad por usuario (Usuario, Farmacia, #Ventas, Imp. Ventas, Costo Ventas, #Pedidos, Imp. Pedidos, Costo Pedidos, Ingresos, Egresos, Utilidad, %Gan)
 exports.utilidadXusuario = async (req, res) => {
-  const sortDirRaw = String(req.query.orden || req.query.order || 'desc').toLowerCase();
-  const sortDir = sortDirRaw === 'asc' ? 1 : -1;       // asc|desc (default desc)
-  const sortBy = String(req.query.ordenPor || 'utilidad').toLowerCase(); // 'utilidad' | 'nombres'
-
   try {
     const { farmaciaId, usuarioId, fechaIni, fechaFin } = req.query;
 
-    // === NUEVO: dirección de ordenamiento por utilidad ===
-    const sortDirRaw = String(req.query.orden || req.query.order || 'desc').toLowerCase();
-    const sortDir = sortDirRaw === 'asc' ? 1 : -1; // asc|desc (default desc)
+    // Ordenamiento: utilidad (default) o ventas
+    const ordenRaw = String(req.query.orden || req.query.sort || '').trim().toLowerCase();
+    const sortByVentas = ['ventas', 'numventas', 'num_ventas', '#ventas'].includes(ordenRaw);
+    const dirRaw = String(req.query.dir || req.query.order || 'desc').toLowerCase();
+    const dir = (dirRaw === 'asc') ? 1 : -1;
 
-    if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
-      return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
-    }
-    if (usuarioId && !Types.ObjectId.isValid(usuarioId)) {
-      return res.status(400).json({ ok: false, mensaje: 'usuarioId inválido' });
-    }
-
+    // Fechas (1º del mes → hoy si no mandan)
     const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+
+    // Filtros de match con casteo seguro
+    const farmaciaOid = castIdSafe(farmaciaId);
+    const usuarioOid = castIdSafe(usuarioId);
 
     const ventasMatch = {
       fecha: { $gte: gte, $lt: lt },
-      ...(farmaciaId ? { farmacia: new Types.ObjectId(farmaciaId) } : {}),
-      ...(usuarioId ? { usuario: new Types.ObjectId(usuarioId) } : {}),
+      ...(farmaciaOid ? { farmacia: farmaciaOid } : {}),
+      ...(usuarioOid ? { usuario: usuarioOid } : {}),
     };
 
     const pedidosMatchBase = {
       fechaPedido: { $gte: gte, $lt: lt },
-      ...(farmaciaId ? { farmacia: new Types.ObjectId(farmaciaId) } : {}),
-      ...(usuarioId ? { usuarioPidio: new Types.ObjectId(usuarioId) } : {}),
+      ...(farmaciaOid ? { farmacia: farmaciaOid } : {}),
+      ...(usuarioOid ? { usuarioPidio: usuarioOid } : {}),
     };
 
+    // ---- Pipeline
     const pipeline = [
-      // --- Ventas ---
+      // VENTAS
       { $match: ventasMatch },
       {
         $addFields: {
@@ -356,16 +361,12 @@ exports.utilidadXusuario = async (req, res) => {
           _id: 0,
           usuario: '$_id.usuario',
           farmacia: '$_id.farmacia',
-          ventasCount: 1,
-          impVentas: 1,
-          costoVentas: 1,
-          pedidosCount: 1,
-          impPedidos: 1,
-          costoPedidos: 1,
+          ventasCount: 1, impVentas: 1, costoVentas: 1,
+          pedidosCount: 1, impPedidos: 1, costoPedidos: 1,
         }
       },
 
-      // --- Pedidos (estado != 'cancelado') ---
+      // PEDIDOS (no cancelados)
       {
         $unionWith: {
           coll: 'pedidos',
@@ -404,19 +405,15 @@ exports.utilidadXusuario = async (req, res) => {
                 _id: 0,
                 usuario: '$_id.usuario',
                 farmacia: '$_id.farmacia',
-                ventasCount: 1,
-                impVentas: 1,
-                costoVentas: 1,
-                pedidosCount: 1,
-                impPedidos: 1,
-                costoPedidos: 1,
+                ventasCount: 1, impVentas: 1, costoVentas: 1,
+                pedidosCount: 1, impPedidos: 1, costoPedidos: 1,
               }
             }
           ]
         }
       },
 
-      // --- Totales por (usuario, farmacia) ---
+      // TOTALES por (usuario, farmacia)
       {
         $group: {
           _id: { usuario: '$usuario', farmacia: '$farmacia' },
@@ -442,7 +439,7 @@ exports.utilidadXusuario = async (req, res) => {
         }
       },
 
-      // --- Nombres ---
+      // LOOKUP nombres
       { $lookup: { from: 'usuarios', localField: 'usuario', foreignField: '_id', as: 'u' } },
       { $lookup: { from: 'farmacias', localField: 'farmacia', foreignField: '_id', as: 'f' } },
       {
@@ -452,59 +449,85 @@ exports.utilidadXusuario = async (req, res) => {
         }
       },
       { $project: { u: 0, f: 0 } },
-
-      // --- Derivados ---
-      {
-        $addFields: {
-          ingresos: { $add: [{ $ifNull: ['$impVentas', 0] }, { $ifNull: ['$impPedidos', 0] }] },
-          egresos: { $add: [{ $ifNull: ['$costoVentas', 0] }, { $ifNull: ['$costoPedidos', 0] }] },
-        }
-      },
-      {
-        $addFields: {
-          utilidad: { $subtract: ['$ingresos', '$egresos'] },
-          gananciaPct: {
-            $cond: [
-              { $gt: ['$egresos', 0] },
-              { $multiply: [{ $divide: ['$utilidad', '$egresos'] }, 100] },
-              null
-            ]
-          }
-        }
-      },
-      ...(sortBy === 'nombres'
-        ? [{ $sort: { farmaciaNombre: 1, usuarioNombre: 1 } }]
-        : [{ $sort: { utilidad: sortDir, farmaciaNombre: 1, usuarioNombre: 1 } }]
-      ),
     ];
 
-    const rows = await Venta.aggregate(pipeline);
+    // Ordenamiento (aplicado tras map JS para usar utilidad calculada)
+    const rowsAgg = await Venta.aggregate(pipeline);
 
-    const safe = (n) => (Number.isFinite(n) ? n : 0);
-    const data = rows.map(r => ({
-      usuarioId: r.usuario,
-      usuario: r.usuarioNombre,
-      farmaciaId: r.farmacia,
-      farmacia: r.farmaciaNombre,
-      numVentas: safe(r.ventasCount),
-      impVentas: safe(r.impVentas),
-      costoVentas: safe(r.costoVentas),
-      numPedidos: safe(r.pedidosCount),
-      impPedidos: safe(r.impPedidos),
-      costoPedidos: safe(r.costoPedidos),
-      ingresos: safe(r.ingresos),
-      egresos: safe(r.egresos),
-      utilidad: safe(r.utilidad),
-      gananciaPct: (r.gananciaPct === null ? null : safe(r.gananciaPct)),
-    }));
+    // ---- Proyección JS + %Gan en JS + footer
+    const safe = (n) => (Number.isFinite(+n) ? +n : 0);
+    const rows = rowsAgg.map(r => {
+      const ingresos = safe(r.impVentas) + safe(r.impPedidos);
+      const egresos = safe(r.costoVentas) + safe(r.costoPedidos);
+      const utilidad = ingresos - egresos;
+      const gananciaPct = egresos > 0 ? (utilidad / egresos) * 100 : null;
+      return {
+        usuarioId: r.usuario,
+        usuario: r.usuarioNombre,
+        farmaciaId: r.farmacia,
+        farmacia: r.farmaciaNombre,
+        numVentas: safe(r.ventasCount),
+        impVentas: safe(r.impVentas),
+        costoVentas: safe(r.costoVentas),
+        numPedidos: safe(r.pedidosCount),
+        impPedidos: safe(r.impPedidos),
+        costoPedidos: safe(r.costoPedidos),
+        ingresos, egresos, utilidad, gananciaPct
+      };
+    });
+
+    rows.sort((a, b) => {
+      if (sortByVentas) {
+        const byVentas = cmpNum(a.numVentas, b.numVentas, dir);
+        if (byVentas !== 0) return byVentas;
+        const byUtil = cmpNum(a.utilidad, b.utilidad, dir);
+        if (byUtil !== 0) return byUtil;
+        return a.usuario.localeCompare(b.usuario, 'es');
+      } else {
+        const byUtil = cmpNum(a.utilidad, b.utilidad, dir);
+        if (byUtil !== 0) return byUtil;
+        const byVentas = cmpNum(a.numVentas, b.numVentas, dir);
+        if (byVentas !== 0) return byVentas;
+        return a.usuario.localeCompare(b.usuario, 'es');
+      }
+    });
+    ;
+
+    // Footer
+    const footer = rows.reduce((acc, r) => {
+      acc.totalVentas += r.numVentas;
+      acc.totalImpVentas += r.impVentas;
+      acc.totalCostoVentas += r.costoVentas;
+      acc.totalPedidos += r.numPedidos;
+      acc.totalImpPedidos += r.impPedidos;
+      acc.totalCostoPedidos += r.costoPedidos;
+      acc.totalIngresos += r.ingresos;
+      acc.totalEgresos += r.egresos;
+      acc.totalUtilidad += r.utilidad;
+      return acc;
+    }, {
+      totalVentas: 0, totalImpVentas: 0, totalCostoVentas: 0,
+      totalPedidos: 0, totalImpPedidos: 0, totalCostoPedidos: 0,
+      totalIngresos: 0, totalEgresos: 0, totalUtilidad: 0,
+      gananciaPct: null
+    });
+    footer.gananciaPct = footer.totalEgresos > 0
+      ? (footer.totalUtilidad / footer.totalEgresos) * 100
+      : null;
 
     return res.json({
       ok: true,
       reporte: 'Utilidad por usuario',
       rango: { fechaIni: gte, fechaFin: lt },
-      filtros: { farmaciaId: farmaciaId || null, usuarioId: usuarioId || null, orden: sortDirRaw },
+      filtros: {
+        farmaciaId: farmaciaOid ? farmaciaId : null,
+        usuarioId: usuarioOid ? usuarioId : null,
+        orden: sortByVentas ? 'ventas' : 'utilidad',
+        dir: dir === 1 ? 'asc' : 'desc'
+      },
       columns: ['Usuario', 'Farmacia', '#Ventas', 'Imp. Ventas', 'Costo Ventas', '#Pedidos', 'Imp. Pedidos', 'Costo Pedidos', 'Ingresos', 'Egresos', 'Utilidad', '%Gan'],
-      rows: data
+      rows,
+      footer
     });
   } catch (e) {
     console.error('[utilidadXusuario][ERROR]', e);
@@ -516,19 +539,13 @@ exports.utilidadXcliente = async (req, res) => {
   try {
     const { clienteId, fechaIni, fechaFin } = req.query;
 
-    // --- NUEVO: parámetro de orden ---
+    // Ordenamiento: utilidad (default) o ventas
     const ordenRaw = String(req.query.orden || req.query.sort || '').trim().toLowerCase();
-    const orden = ['ventas','compras','numventas','num_ventas'].includes(ordenRaw) ? 'ventas' : 'utilidad';
-    const sortStage = (orden === 'ventas')
-      ? { $sort: { ventasCount: -1, utilidad: -1, clienteNombre: 1 } }
-      : { $sort: { utilidad: -1, ventasCount: -1, clienteNombre: 1 } };
+    const sortByVentas = ['ventas', 'numventas', 'num_ventas', '#ventas'].includes(ordenRaw);
+    const dirRaw = String(req.query.dir || req.query.order || 'desc').toLowerCase();
+    const dir = (dirRaw === 'asc') ? 1 : -1;
 
-    // Validación de clienteId (si viene)
-    if (clienteId && !Types.ObjectId.isValid(clienteId)) {
-      return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
-    }
-
-    // Si NO viene clienteId, CantClientes es OBLIGATORIO (Top-N)
+    // Si no viene clienteId => CantClientes es obligatorio
     const cantParam = req.query.CantClientes ?? req.query.cantClientes ?? req.query.limit;
     let topN = null;
     if (!clienteId) {
@@ -542,21 +559,22 @@ exports.utilidadXcliente = async (req, res) => {
       topN = n;
     }
 
-    // Rango por defecto: del 1 del mes a hoy (local) → UTC [gte, lt)
+    // Fechas
     const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
 
-    // MATCH por colección (sin filtro por farmacia)
+    const clienteOid = castIdSafe(clienteId);
+
     const ventasMatch = {
       fecha: { $gte: gte, $lt: lt },
-      ...(clienteId ? { cliente: new Types.ObjectId(clienteId) } : {}),
+      ...(clienteOid ? { cliente: clienteOid } : {}),
     };
     const pedidosMatchBase = {
       fechaPedido: { $gte: gte, $lt: lt },
-      ...(clienteId ? { cliente: new Types.ObjectId(clienteId) } : {}),
+      ...(clienteOid ? { cliente: clienteOid } : {}),
     };
 
     const pipeline = [
-      // --- VENTAS por CLIENTE ---
+      // VENTAS
       { $match: ventasMatch },
       { $match: { cliente: { $ne: null } } },
       {
@@ -566,7 +584,12 @@ exports.utilidadXcliente = async (req, res) => {
               $map: {
                 input: { $ifNull: ['$productos', []] },
                 as: 'p',
-                in: { $multiply: [ { $ifNull: ['$$p.costo', 0] }, { $ifNull: ['$$p.cantidad', 0] } ] }
+                in: {
+                  $multiply: [
+                    { $ifNull: ['$$p.costo', 0] },
+                    { $ifNull: ['$$p.cantidad', 0] }
+                  ]
+                }
               }
             }
           }
@@ -587,16 +610,12 @@ exports.utilidadXcliente = async (req, res) => {
         $project: {
           _id: 0,
           cliente: '$_id.cliente',
-          ventasCount: 1,
-          impVentas: 1,
-          costoVentas: 1,
-          pedidosCount: 1,
-          impPedidos: 1,
-          costoPedidos: 1,
+          ventasCount: 1, impVentas: 1, costoVentas: 1,
+          pedidosCount: 1, impPedidos: 1, costoPedidos: 1,
         }
       },
 
-      // --- PEDIDOS por CLIENTE (estado != 'cancelado') ---
+      // PEDIDOS (no cancelados)
       {
         $unionWith: {
           coll: 'pedidos',
@@ -635,19 +654,15 @@ exports.utilidadXcliente = async (req, res) => {
               $project: {
                 _id: 0,
                 cliente: '$_id.cliente',
-                ventasCount: 1,
-                impVentas: 1,
-                costoVentas: 1,
-                pedidosCount: 1,
-                impPedidos: 1,
-                costoPedidos: 1,
+                ventasCount: 1, impVentas: 1, costoVentas: 1,
+                pedidosCount: 1, impPedidos: 1, costoPedidos: 1,
               }
             }
           ]
         }
       },
 
-      // --- TOTALES por CLIENTE ---
+      // TOTALES por CLIENTE
       {
         $group: {
           _id: { cliente: '$cliente' },
@@ -672,79 +687,101 @@ exports.utilidadXcliente = async (req, res) => {
         }
       },
 
-      // --- LOOKUP de CLIENTE ---
+      // LOOKUP cliente
       { $lookup: { from: 'clientes', localField: 'cliente', foreignField: '_id', as: 'c' } },
       {
         $addFields: {
           clienteNombre: { $ifNull: [{ $arrayElemAt: ['$c.nombre', 0] }, '(sin nombre)'] },
-          clienteTelefono: { $ifNull: [{ $arrayElemAt: ['$c.telefono', 0] }, '' ] },
-          clienteTotalMonedero: { $ifNull: [{ $arrayElemAt: ['$c.totalMonedero', 0] }, 0] },
+          clienteTelefono: { $ifNull: [{ $arrayElemAt: ['$c.telefono', 0] }, ''] },
+          clienteMonedero: { $ifNull: [{ $arrayElemAt: ['$c.totalMonedero', 0] }, 0] },
         }
       },
       { $project: { c: 0 } },
-
-      // --- Derivados ---
-      {
-        $addFields: {
-          ingresos: { $add: [{ $ifNull: ['$impVentas', 0] }, { $ifNull: ['$impPedidos', 0] }] },
-          egresos:  { $add: [{ $ifNull: ['$costoVentas', 0] }, { $ifNull: ['$costoPedidos', 0] }] },
-        }
-      },
-      {
-        $addFields: {
-          utilidad: { $subtract: ['$ingresos', '$egresos'] },
-          gananciaPct: {
-            $cond: [
-              { $gt: ['$egresos', 0] },
-              { $multiply: [{ $divide: ['$utilidad', '$egresos'] }, 100] },
-              null
-            ]
-          }
-        }
-      },
-
-      // --- ORDEN DINÁMICO (NUEVO) ---
-      sortStage,
-
-      // Top-N si no se pidió cliente específico
-      ...(clienteId ? [] : [{ $limit: topN }]),
     ];
 
     const rowsAgg = await Venta.aggregate(pipeline);
 
-    const safe = (n) => (Number.isFinite(n) ? n : 0);
-    const rows = rowsAgg.map(r => ({
-      clienteId: r.cliente,
-      cliente: r.clienteNombre,
-      telefono: r.clienteTelefono || '',
-      totalMonedero: safe(r.clienteTotalMonedero),
-      numVentas: safe(r.ventasCount),
-      impVentas: safe(r.impVentas),
-      costoVentas: safe(r.costoVentas),
-      numPedidos: safe(r.pedidosCount),
-      impPedidos: safe(r.impPedidos),
-      costoPedidos: safe(r.costoPedidos),
-      ingresos: safe(r.ingresos),
-      egresos: safe(r.egresos),
-      utilidad: safe(r.utilidad),
-      gananciaPct: (r.gananciaPct === null ? null : safe(r.gananciaPct)),
-    }));
+    // Map JS + %Gan JS + footer
+    const safe = (n) => (Number.isFinite(+n) ? +n : 0);
+    let rows = rowsAgg.map(r => {
+      const ingresos = safe(r.impVentas) + safe(r.impPedidos);
+      const egresos = safe(r.costoVentas) + safe(r.costoPedidos);
+      const utilidad = ingresos - egresos;
+      const gananciaPct = egresos > 0 ? (utilidad / egresos) * 100 : null;
+      return {
+        clienteId: r.cliente,
+        cliente: r.clienteNombre,
+        telefono: r.clienteTelefono,
+        totalMonedero: safe(r.clienteMonedero),
+        numVentas: safe(r.ventasCount),
+        impVentas: safe(r.impVentas),
+        costoVentas: safe(r.costoVentas),
+        numPedidos: safe(r.pedidosCount),
+        impPedidos: safe(r.impPedidos),
+        costoPedidos: safe(r.costoPedidos),
+        ingresos, egresos, utilidad, gananciaPct
+      };
+    });
+
+    rows.sort((a, b) => {
+      if (sortByVentas) {
+        const byVentas = cmpNum(a.numVentas, b.numVentas, dir);
+        if (byVentas !== 0) return byVentas;
+        const byUtil = cmpNum(a.utilidad, b.utilidad, dir);
+        if (byUtil !== 0) return byUtil;
+        return a.cliente.localeCompare(b.cliente, 'es');
+      } else {
+        const byUtil = cmpNum(a.utilidad, b.utilidad, dir);
+        if (byUtil !== 0) return byUtil;
+        const byVentas = cmpNum(a.numVentas, b.numVentas, dir);
+        if (byVentas !== 0) return byVentas;
+        return a.cliente.localeCompare(b.cliente, 'es');
+      }
+    });
+
+    // Top-N si no se pidió cliente específico
+    if (!clienteOid && topN) rows = rows.slice(0, topN);
+
+    // Footer
+    const footer = rows.reduce((acc, r) => {
+      acc.totalVentas += r.numVentas;
+      acc.totalImpVentas += r.impVentas;
+      acc.totalCostoVentas += r.costoVentas;
+      acc.totalPedidos += r.numPedidos;
+      acc.totalImpPedidos += r.impPedidos;
+      acc.totalCostoPedidos += r.costoPedidos;
+      acc.totalIngresos += r.ingresos;
+      acc.totalEgresos += r.egresos;
+      acc.totalUtilidad += r.utilidad;
+      acc.totalMonedero += r.totalMonedero;
+      return acc;
+    }, {
+      totalVentas: 0, totalImpVentas: 0, totalCostoVentas: 0,
+      totalPedidos: 0, totalImpPedidos: 0, totalCostoPedidos: 0,
+      totalIngresos: 0, totalEgresos: 0, totalUtilidad: 0,
+      totalMonedero: 0, gananciaPct: null
+    });
+    footer.gananciaPct = footer.totalEgresos > 0
+      ? (footer.totalUtilidad / footer.totalEgresos) * 100
+      : null;
 
     return res.json({
       ok: true,
       reporte: 'Utilidad por cliente',
-      rango: { fechaIni: gte, fechaFin: lt },  // UTC
+      rango: { fechaIni: gte, fechaFin: lt },
       filtros: {
-        clienteId: clienteId || null,
-        CantClientes: topN,
-        orden // ← 'utilidad' | 'ventas'
+        clienteId: clienteOid ? clienteId : null,
+        CantClientes: clienteOid ? null : topN,
+        orden: sortByVentas ? 'ventas' : 'utilidad',
+        dir: dir === 1 ? 'asc' : 'desc'
       },
       columns: [
         'Cliente', '#Ventas', 'Imp. Ventas', 'Costo Ventas',
         '#Pedidos', 'Imp. Pedidos', 'Costo Pedidos',
-        'Ingresos', 'Egresos', 'Utilidad', '%Gan','Monedero'
+        'Ingresos', 'Egresos', 'Utilidad', '%Gan', 'Monedero'
       ],
-      rows
+      rows,
+      footer
     });
   } catch (e) {
     console.error('[utilidadXcliente][ERROR]', e);
@@ -756,7 +793,7 @@ exports.utilidadXproducto = async (req, res) => {
   try {
     const { fechaIni, fechaFin, productoId, farmaciaId } = req.query;
 
-    // ----- Validaciones básicas -----
+    // Validaciones mínimas
     if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
       return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
     }
@@ -764,7 +801,7 @@ exports.utilidadXproducto = async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: 'productoId inválido' });
     }
 
-    // Top-N obligatorio si NO hay productoId
+    // Top-N si no hay productoId
     const cantParam = req.query.cantProductos ?? req.query.CantProductos ?? req.query.limit;
     let topN = null;
     if (!productoId) {
@@ -772,7 +809,7 @@ exports.utilidadXproducto = async (req, res) => {
       if (!Number.isFinite(n) || n <= 0) {
         return res.status(400).json({
           ok: false,
-          mensaje: 'Cuando no se envía productoId, el parámetro cantProductos (entero > 0) es obligatorio'
+          mensaje: 'Cuando no se envía productoId, el parámetro cantProductos (> 0) es obligatorio'
         });
       }
       topN = n;
@@ -780,50 +817,56 @@ exports.utilidadXproducto = async (req, res) => {
 
     // Orden (default utilidad desc; alternativo "ventas")
     const ordenRaw = String(req.query.orden || req.query.sort || '').trim().toLowerCase();
-    const ordenarPorVentas = ['ventas','numventas','cantidad','compras'].includes(ordenRaw);
+    const ordenarPorVentas = ['ventas', 'numventas', 'cantidad', 'compras'].includes(ordenRaw);
     const sortStage = ordenarPorVentas
       ? { $sort: { cantidad: -1, utilidad: -1, productoNombre: 1 } }
       : { $sort: { utilidad: -1, cantidad: -1, productoNombre: 1 } };
 
-    // Rango fechas: 1° del mes → hoy si no mandan fechas
+    // Rango (usa tu helper existente)
     const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
 
-    // Match base en ventas
+    // Construcción de filtros base
     const matchVenta = {
       fecha: { $gte: gte, $lt: lt },
       ...(farmaciaId ? { farmacia: new Types.ObjectId(farmaciaId) } : {})
     };
 
-    // Pipeline
+    // Construye el filtro de producto UNA sola vez (solo si lo mandan)
+    const prodMatch = productoId
+      ? { 'productos.producto': new Types.ObjectId(productoId) }
+      : null;
+
     const pipeline = [
       { $match: matchVenta },
-      { $project: { productos: 1 } },
       { $unwind: { path: '$productos', preserveNullAndEmptyArrays: false } },
-      // si se envía productoId, filtra el renglón del subdocumento
-      ...(productoId ? [{ $match: { 'productos.producto': new Types.ObjectId(productoId) } }] : []),
+
+      // El match del producto **después** del unwind
+      ...(prodMatch ? [{ $match: prodMatch }] : []),
+
       {
         $group: {
           _id: '$productos.producto',
-          // #Ventas = suma de cantidades
-          cantidad: { $sum: { $ifNull: ['$productos.cantidad', 0] } },
-          // Importe = suma totalRen
-          importe:  { $sum: { $ifNull: ['$productos.totalRen', 0] } },
-          // Costo total = suma (costo * cantidad)
-          costo:    { $sum: { $multiply: [
-            { $ifNull: ['$productos.costo', 0] },
-            { $ifNull: ['$productos.cantidad', 0] }
-          ] } },
+          cantidad: { $sum: { $ifNull: ['$productos.cantidad', 0] } }, // #Ventas
+          importe: { $sum: { $ifNull: ['$productos.totalRen', 0] } },
+          costo: {
+            $sum: {
+              $multiply: [
+                { $ifNull: ['$productos.costo', 0] },
+                { $ifNull: ['$productos.cantidad', 0] }
+              ]
+            }
+          }
         }
       },
-      { $project: {
-          _id: 1, cantidad: 1, importe: 1, costo: 1,
-          utilidad: { $subtract: [
-            { $ifNull: ['$importe', 0] },
-            { $ifNull: ['$costo', 0] }
-          ] }
+      {
+        $project: {
+          _id: 1,
+          cantidad: 1,
+          importe: 1,
+          costo: 1,
+          utilidad: { $subtract: [{ $ifNull: ['$importe', 0] }, { $ifNull: ['$costo', 0] }] }
         }
       },
-      // Lookup de datos del producto (nombre y código de barras)
       {
         $lookup: {
           from: 'productos',
@@ -834,12 +877,11 @@ exports.utilidadXproducto = async (req, res) => {
       },
       {
         $addFields: {
-          productoNombre:  { $ifNull: [{ $arrayElemAt: ['$prod.nombre', 0] }, '(sin nombre)'] },
-          codigoBarras:    { $ifNull: [{ $arrayElemAt: ['$prod.codigoBarras', 0] }, '' ] },
+          productoNombre: { $ifNull: [{ $arrayElemAt: ['$prod.nombre', 0] }, '(sin nombre)'] },
+          codigoBarras: { $ifNull: [{ $arrayElemAt: ['$prod.codigoBarras', 0] }, ''] }
         }
       },
       { $project: { prod: 0 } },
-      // %Gan = utilidad / costo * 100 (si costo == 0 -> null)
       {
         $addFields: {
           gananciaPct: {
@@ -851,9 +893,7 @@ exports.utilidadXproducto = async (req, res) => {
           }
         }
       },
-      // Orden dinámico
       sortStage,
-      // Top-N si no pidieron producto específico
       ...(productoId ? [] : [{ $limit: topN }])
     ];
 
@@ -871,10 +911,20 @@ exports.utilidadXproducto = async (req, res) => {
       gananciaPct: (r.gananciaPct === null ? null : safe(r.gananciaPct)),
     }));
 
+    // Footer totales
+    const footer = rows.reduce((acc, r) => {
+      acc.numVentas += r.numVentas;
+      acc.importe += r.importe;
+      acc.costo += r.costo;
+      acc.utilidad += r.utilidad;
+      return acc;
+    }, { numVentas: 0, importe: 0, costo: 0, utilidad: 0 });
+    footer.gananciaPct = footer.costo > 0 ? (footer.utilidad / footer.costo) * 100 : null;
+
     return res.json({
       ok: true,
       reporte: 'Utilidad por producto',
-      rango: { fechaIni: gte, fechaFin: lt },  // UTC
+      rango: { fechaIni: gte, fechaFin: lt },
       filtros: {
         productoId: productoId || null,
         cantProductos: topN,
@@ -882,10 +932,12 @@ exports.utilidadXproducto = async (req, res) => {
         orden: ordenarPorVentas ? 'ventas' : 'utilidad'
       },
       columns: ['Producto', 'Código de Barras', '#Ventas', 'Importe', 'Costo', 'Utilidad', '%Gan'],
-      rows
+      rows,
+      footer
     });
   } catch (e) {
     console.error('[utilidadXproducto][ERROR]', e);
     return res.status(500).json({ ok: false, mensaje: 'Error al generar Utilidad por producto' });
   }
 };
+
