@@ -40,7 +40,7 @@ import { Observable, of } from 'rxjs';
 export class VentasComponent implements OnInit, AfterViewInit {
   @ViewChild('codigoBarrasRef') codigoBarrasRef!: ElementRef<HTMLInputElement>;
   @ViewChild('efectivoRecibidoRef') efectivoRecibidoRef!: ElementRef<HTMLInputElement>; // <-- para enfocar el primer input del modal
-  @ViewChild(MatAutocompleteTrigger) autoTrigger ?: MatAutocompleteTrigger;
+  @ViewChild(MatAutocompleteTrigger) autoTrigger?: MatAutocompleteTrigger;
 
   private pendingFocusEfectivo = false;
   barcodeFocusTimer: any = null;
@@ -837,6 +837,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         console.error('Error en existenciaProducto: ', error);
       });
     }
+    this.syncClienteCtrlDisabled();
     this.calcularTotal();
   }
 
@@ -852,6 +853,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       producto.cantidad--;
       this.eliminarProducto(index);
     }
+    this.syncClienteCtrlDisabled();
   }
 
   esPromocionPorCantidad(tipoDescuento: string): boolean {
@@ -932,6 +934,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.efectivoRecibido = 0;
     this.cambio = 0;
     this.hayCliente = false;
+    this.syncClienteCtrlDisabled();
   }
 
   abrirModalPago() {
@@ -1083,6 +1086,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.montoVale = 0;
     this.cambio = 0;
     this.mostrarModalPago = false;
+    this.syncClienteCtrlDisabled();
     this.focusBarcode(50);
   }
 
@@ -1232,7 +1236,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
           timerProgressBar: true,
           allowOutsideClick: false,
           allowEscapeKey: false,
-          didClose: () => {
+          didClose: () => {this.syncClienteCtrlDisabled();
             this.focusBarcode(50);
           }
         });
@@ -1243,11 +1247,12 @@ export class VentasComponent implements OnInit, AfterViewInit {
         const esErrorDeVale = mensaje.includes('**');
         if (!esErrorDeVale) {
           this.mostrarModalPago = false;
-          this.limpiarVenta();
+          this.limpiarVenta();this.syncClienteCtrlDisabled();
           setTimeout(() => this.focusBarcode(50), 0);
         }
       }
     });
+    
   }
 
   abrirModalConsultaPrecio() {

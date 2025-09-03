@@ -10,8 +10,7 @@
     <div class="col-md-3">
       <mat-form-field class="compact-field wide-client" appearance="outline">
         <mat-label>Buscar cliente por nombre</mat-label>
-        <input type="text" matInput [formControl]="clienteNombreCtrl" [matAutocomplete]="autoClientes"
-          />
+        <input type="text" matInput [formControl]="clienteNombreCtrl" [matAutocomplete]="autoClientes"/>
 
         <mat-autocomplete #autoClientes="matAutocomplete" [displayWith]="displayCliente"
           (optionSelected)="onClienteSelected($event.option.value)">
