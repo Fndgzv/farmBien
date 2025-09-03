@@ -6,7 +6,7 @@ function generarFolioBase({ prefijo = 'FB', incluirDia = true }) {
 
   const fechaStr = incluirDia ? `${year}${month}${day}` : `${year}${month}`;
 
-  const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let cadenaAleatoria = '';
   for (let i = 0; i < 6; i++) {
     const randomIndex = Math.floor(Math.random() * caracteres.length);

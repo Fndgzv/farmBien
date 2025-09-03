@@ -116,12 +116,12 @@ const crearVenta = async (req, res) => {
 
     let folioFinal = folio;
 
-    if (!folioFinal || await Venta.exists({ folio: folioFinal })) {
+/*     if (!folioFinal || await Venta.exists({ folio: folioFinal })) {
       folioFinal = await generarFolioUnico(Venta, {
         prefijo: 'FB',
         incluirDia: true
       });
-    }
+    } */
 
     const usuario = req.usuario;
 

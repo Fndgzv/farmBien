@@ -1180,19 +1180,37 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.yaPreguntoInapam = false;
   }
 
+  /*   generarFolioLocal(): string {
+      const fecha = new Date();
+      const baseFolio = 'FB';
+      const fechaFormateada = fecha.toISOString().split('T')[0].replace(/-/g, '');
+      const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let cadenaAleatoria = '';
+      for (let i = 0; i < 6; i++) {
+        const randomIndex = Math.floor(Math.random() * caracteres.length);
+        cadenaAleatoria += caracteres[randomIndex];
+      }
+      const folio = `${baseFolio}${fechaFormateada}-${cadenaAleatoria}`;
+      return folio;
+    } */
+
+  private yyyymmddLocal(d = new Date()): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}${m}${day}`;
+  }
+
   generarFolioLocal(): string {
-    const fecha = new Date();
     const baseFolio = 'FB';
-    const fechaFormateada = fecha.toISOString().split('T')[0].replace(/-/g, '');
+    const fechaFormateada = this.yyyymmddLocal();
     const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    /* const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; */
     let cadenaAleatoria = '';
     for (let i = 0; i < 6; i++) {
       const randomIndex = Math.floor(Math.random() * caracteres.length);
       cadenaAleatoria += caracteres[randomIndex];
     }
-    const folio = `${baseFolio}${fechaFormateada}-${cadenaAleatoria}`;
-    return folio;
+    return `${baseFolio}${fechaFormateada}-${cadenaAleatoria}`;
   }
 
   guardarVentaDespuesDeImpresion(folio: string) {
@@ -1237,7 +1255,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
           timerProgressBar: true,
           allowOutsideClick: false,
           allowEscapeKey: false,
-          didClose: () => {this.syncClienteCtrlDisabled();
+          didClose: () => {
+            this.syncClienteCtrlDisabled();
             this.focusBarcode(50);
           }
         });
@@ -1248,12 +1267,12 @@ export class VentasComponent implements OnInit, AfterViewInit {
         const esErrorDeVale = mensaje.includes('**');
         if (!esErrorDeVale) {
           this.mostrarModalPago = false;
-          this.limpiarVenta();this.syncClienteCtrlDisabled();
+          this.limpiarVenta(); this.syncClienteCtrlDisabled();
           setTimeout(() => this.focusBarcode(50), 0);
         }
       }
     });
-    
+
   }
 
   abrirModalConsultaPrecio() {

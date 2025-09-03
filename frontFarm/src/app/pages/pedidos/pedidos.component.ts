@@ -14,7 +14,6 @@ import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faMinus, faPlus, faEyeSlash, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-
 import Swal from 'sweetalert2';
 import { firstValueFrom } from 'rxjs';
 
@@ -619,22 +618,42 @@ export class PedidosComponent implements OnInit {
     });
   }
 
-  generarFolioLocal() {
-    const fecha = new Date();
-    const year = fecha.getFullYear();
-    const month = String(fecha.getMonth() + 1).padStart(2, '0');
+  /*   generarFolioLocal() {
+      const fecha = new Date();
+      const year = fecha.getFullYear();
+      const month = String(fecha.getMonth() + 1).padStart(2, '0');
+  
+      const fechaStr = `${year}${month}`;
+  
+      const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let cadenaAleatoria = '';
+      for (let i = 0; i < 6; i++) {
+        const randomIndex = Math.floor(Math.random() * caracteres.length);
+        cadenaAleatoria += caracteres[randomIndex];
+      }
+  
+      return `FBPed${fechaStr}-${cadenaAleatoria}`;
+    } */
 
-    const fechaStr = `${year}${month}`;
+  // Opción A: sin librerías, usa hora LOCAL del navegador
+  private yyyymmddLocal(d = new Date()): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}${m}`;
+  }
 
+  generarFolioLocal(): string {
+    const baseFolio = 'FBPed';
+    const fechaFormateada = this.yyyymmddLocal(); // <- local, no UTC
     const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let cadenaAleatoria = '';
     for (let i = 0; i < 6; i++) {
       const randomIndex = Math.floor(Math.random() * caracteres.length);
       cadenaAleatoria += caracteres[randomIndex];
     }
-
-    return `FBPed${fechaStr}-${cadenaAleatoria}`;
+    return `${baseFolio}${fechaFormateada}-${cadenaAleatoria}`;
   }
+
 
   async solicitarDatosPedido(): Promise<{ descripcion: string; total: number; anticipo: number } | null> {
     const { value: formValues } = await Swal.fire({

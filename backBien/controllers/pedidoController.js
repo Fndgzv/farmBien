@@ -75,12 +75,12 @@ const crearPedido = async (req, res) => {
         // Crear nuevo pedido, generando folio si no lo trae
         let folioFinal = folio;
 
-        if (!folioFinal || await Pedido.exists({ folio: folioFinal })) {
+        /* if (!folioFinal || await Pedido.exists({ folio: folioFinal })) {
             folioFinal = await generarFolioUnico(Pedido, {
                 prefijo: 'FBPed',
                 incluirDia: false
             });
-        }
+        } */
 
         const pedido = new Pedido({
             folio: folioFinal,
