@@ -820,6 +820,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.carrito.splice(indexGratis, 1);
       }
     }
+    this.syncClienteCtrlDisabled();
     this.calcularTotal();
   }
 
