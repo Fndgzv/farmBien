@@ -227,6 +227,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.nombreCliente = c.nombre || '';           // para mostrar
     this.telefonoCliente = c.telefono || '';       // tu campo existente
     this.montoMonederoCliente = Number(c.totalMonedero || 0);
+    this.hayCliente = true;
 
     // Si deseas bloquear edición por teléfono al elegir por nombre:
     // (ya se deshabilita si carrito.length > 0)
@@ -1179,20 +1180,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.aplicaInapam = false;
     this.yaPreguntoInapam = false;
   }
-
-  /*   generarFolioLocal(): string {
-      const fecha = new Date();
-      const baseFolio = 'FB';
-      const fechaFormateada = fecha.toISOString().split('T')[0].replace(/-/g, '');
-      const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      let cadenaAleatoria = '';
-      for (let i = 0; i < 6; i++) {
-        const randomIndex = Math.floor(Math.random() * caracteres.length);
-        cadenaAleatoria += caracteres[randomIndex];
-      }
-      const folio = `${baseFolio}${fechaFormateada}-${cadenaAleatoria}`;
-      return folio;
-    } */
 
   private yyyymmddLocal(d = new Date()): string {
     const y = d.getFullYear();

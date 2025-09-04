@@ -618,23 +618,6 @@ export class PedidosComponent implements OnInit {
     });
   }
 
-  /*   generarFolioLocal() {
-      const fecha = new Date();
-      const year = fecha.getFullYear();
-      const month = String(fecha.getMonth() + 1).padStart(2, '0');
-  
-      const fechaStr = `${year}${month}`;
-  
-      const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      let cadenaAleatoria = '';
-      for (let i = 0; i < 6; i++) {
-        const randomIndex = Math.floor(Math.random() * caracteres.length);
-        cadenaAleatoria += caracteres[randomIndex];
-      }
-  
-      return `FBPed${fechaStr}-${cadenaAleatoria}`;
-    } */
-
   // Opción A: sin librerías, usa hora LOCAL del navegador
   private yyyymmddLocal(d = new Date()): string {
     const y = d.getFullYear();
