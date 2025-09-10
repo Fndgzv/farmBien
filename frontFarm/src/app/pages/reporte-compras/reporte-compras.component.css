@@ -1,0 +1,24 @@
+/* src/app/pages/compras/compras.component.css */
+.filtros .fila {
+  display: grid;
+  grid-template-columns: 1.2fr .6fr .6fr .8fr .8fr auto;
+  gap: .75rem;
+  align-items: end;
+  margin-bottom: .75rem;
+}
+.filtros .grp label { display:block; font-size:.85rem; color:#475569; margin-bottom:.25rem; }
+.filtros .acciones { display:flex; gap:.5rem; align-items:center; }
+
+.table-wrap.loading { opacity:.6; pointer-events:none; }
+
+.tabla { width:100%; border-collapse: collapse; }
+.tabla th, .tabla td { padding:.5rem .65rem; border-bottom:1px solid #e5e7eb; }
+.tabla th { background:#f8fafc; font-weight:600; }
+.text-end { text-align:right; }
+.fw-600 { font-weight:600; }
+
+.detalle { background:#f9fbff; border:1px solid #e6eefc; border-radius:10px; padding:.75rem; margin:.5rem 0; }
+.detalle-titulo { font-weight:600; margin-bottom:.35rem; color:#334155; }
+
+.tabla.sub { background:white; border:1px solid #e2e8f0; }
+.tabla.sub th { background:#f1f5f9; }

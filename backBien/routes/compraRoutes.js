@@ -2,9 +2,12 @@
 const express = require('express');
 const router  = express.Router();
 const auth    = require('../middlewares/authMiddleware');
-const { obtenerCompras, crearCompra } = require('../controllers/compraController');
+const isAdmin = require('../middlewares/isAdmin');
 
-router.get('/',    auth, obtenerCompras);
-router.post('/',   auth, crearCompra);
+const { obtenerCompras, consultarCompras, crearCompra } = require('../controllers/compraController');
+
+router.get('/',    auth, isAdmin, obtenerCompras);
+router.get('/',    auth, isAdmin, consultarCompras);
+router.post('/',   auth, isAdmin, crearCompra);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 // controllers/compraController.js
-const Compra = require('../models/Compra');
+const mongoose = require('mongoose');
 const Proveedor = require('../models/Proveedor');
+const Compra = require('../models/Compra');
 const Producto = require('../models/Producto');
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 
@@ -8,7 +9,7 @@ exports.obtenerCompras = async (req, res) => {
     try {
         const compras = await Compra
             .find()
-            .populate('proveedor usuario farmacia productos.producto');
+            .populate('proveedor usuario productos.producto');
         res.json(compras);
     } catch (error) {
         console.error(error);
@@ -122,4 +123,94 @@ exports.crearCompra = async (req, res) => {
         console.error('Error al crear compra:', error);
         res.status(500).json({ mensaje: 'Error interno al crear compra', error: error.message });
     }
+};
+
+// helper para blindar fechas locales → UTC
+function dayRangeUtcFromQuery(fechaIni, fechaFin) {
+  const hoy = new Date();
+  const primeroMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+
+  const ini = fechaIni ? new Date(fechaIni) : primeroMes;
+  const fin = fechaFin ? new Date(fechaFin) : hoy;
+
+  // normalizar a UTC (half-open interval: [gte, lt))
+  const gte = new Date(Date.UTC(ini.getFullYear(), ini.getMonth(), ini.getDate(), 0, 0, 0));
+  const lt  = new Date(Date.UTC(fin.getFullYear(), fin.getMonth(), fin.getDate() + 1, 0, 0, 0));
+
+  return { gte, lt };
+}
+
+exports.consultarCompras = async (req, res) => {
+  try {
+    // filtros de query
+    const { fechaIni, fechaFin, proveedor, importeDesde, importeHasta } = req.query;
+    const page  = Math.max(1, parseInt(req.query.page || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '15', 10)));
+    const skip  = (page - 1) * limit;
+
+    // rango de fechas blindado
+    const { gte, lt } = dayRangeUtcFromQuery(fechaIni, fechaFin);
+
+    // armar filtro principal
+    const filtro = { fecha: { $gte: gte, $lt: lt } };
+
+    // filtro por proveedor (coincidencia parcial insensible a mayúsculas)
+    if (proveedor) {
+      const proveedorDocs = await Proveedor.find({ nombre: { $regex: proveedor, $options: 'i' } }, { _id: 1 });
+      const ids = proveedorDocs.map(p => p._id);
+      filtro.proveedor = { $in: ids };
+    }
+
+    // filtros por importe total
+    if (importeDesde && importeHasta) {
+      filtro.total = { $gte: Number(importeDesde), $lte: Number(importeHasta) };
+    } else if (importeDesde) {
+      filtro.total = { $gte: Number(importeDesde) };
+    } else if (importeHasta) {
+      filtro.total = { $lte: Number(importeHasta) };
+    }
+
+    // consulta con populate
+    const [docs, total] = await Promise.all([
+      Compra.find(filtro)
+        .sort({ fecha: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('proveedor', 'nombre')
+        .populate('productos.producto', 'nombre codigoBarras'),
+      Compra.countDocuments(filtro)
+    ]);
+
+    // formatear rows
+    const rows = docs.map(c => ({
+      compraId: c._id,
+      fecha: c.fecha,
+      proveedor: c.proveedor?.nombre || '(s/proveedor)',
+      total: c.total,
+      productos: c.productos.map(p => ({
+        nombre: p.producto?.nombre || '',
+        codigoBarras: p.producto?.codigoBarras || '',
+        cantidad: p.cantidad,
+        lote: p.lote,
+        fechaCaducidad: p.fechaCaducidad,
+        costoUnitario: p.costoUnitario,
+        precioUnitario: p.precioUnitario
+      }))
+    }));
+
+    res.json({
+      ok: true,
+      paginacion: {
+        page,
+        limit,
+        total,
+        totalPaginas: Math.ceil(total / limit)
+      },
+      rows
+    });
+
+  } catch (e) {
+    console.error('[consultarCompras][ERROR]', e);
+    res.status(500).json({ ok: false, mensaje: 'Error al consultar compras' });
+  }
 };

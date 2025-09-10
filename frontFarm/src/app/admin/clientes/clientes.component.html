@@ -10,6 +10,7 @@
             style="width: 40px; height: 40px;" [disabled]="cargando">
             <fa-icon [icon]="faTimes"></fa-icon>
         </button>
+        <mat-hint align="end">Ingresa nombre y enter</mat-hint>
     </mat-form-field>
 
     <div class="fechas-movs" style="margin-top: -1rem;">
@@ -286,7 +287,7 @@
                                                     <span style="margin-right: 1rem;">Transferencia:</span>
                                                     <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
                                                         v.formaPago?.transferencia || 0 | number:'1.2-2' }}</span>
-                                                    <span style="margin-right: 1rem;">Vale:</span>
+                                                    <span style="margin-right: 1rem;">Monedero:</span>
                                                     <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
                                                         v.formaPago?.vale || 0 | number:'1.2-2' }}</span>
                                                 </div>
@@ -448,7 +449,7 @@
                                                     <span style="margin-right: 1rem;">Transferencia:</span>
                                                     <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
                                                         pd.formasPago.anticipo.transferencia + pd.formasPago.resta.transferencia|| 0 | number:'1.2-2' }}</span>
-                                                    <span style="margin-right: 1rem;">Vale:</span>
+                                                    <span style="margin-right: 1rem;">Monedero:</span>
                                                     <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
                                                         pd.formasPago.anticipo.vale + pd.formasPago.resta.vale || 0 | number:'1.2-2' }}</span>
                                                 </div>

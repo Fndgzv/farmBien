@@ -1,0 +1,129 @@
+<!-- src/app/pages/compras/compras.component.html -->
+<div class="filtros">
+  <div class="fila">
+    <div class="grp">
+      <label>Proveedor</label>
+      <input type="text" class="form-control" [(ngModel)]="proveedor" (keyup.enter)="buscar(true)" placeholder="Nombre del proveedor">
+    </div>
+
+    <div class="grp">
+      <label>Importe desde</label>
+      <input type="number" class="form-control" [(ngModel)]="importeDesde" (keyup.enter)="buscar(true)">
+    </div>
+    <div class="grp">
+      <label>Importe hasta</label>
+      <input type="number" class="form-control" [(ngModel)]="importeHasta" (keyup.enter)="buscar(true)">
+    </div>
+
+    <div class="grp">
+      <label>Fecha inicial</label>
+      <input type="date" class="form-control" [(ngModel)]="fechaIni" (change)="buscar(true)">
+    </div>
+    <div class="grp">
+      <label>Fecha final</label>
+      <input type="date" class="form-control" [(ngModel)]="fechaFin" (change)="buscar(true)">
+    </div>
+
+    <div class="grp acciones">
+      <button mat-raised-button color="primary" (click)="buscar(true)" [disabled]="cargando">
+        <mat-icon>search</mat-icon>&nbsp;Buscar
+      </button>
+      <button mat-stroked-button color="warn" (click)="limpiarFiltros()" [disabled]="cargando">
+        <mat-icon>clear</mat-icon>&nbsp;Limpiar
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="table-wrap" [class.loading]="cargando">
+  <table mat-table [dataSource]="rows" class="tabla" multiTemplateDataRows>
+
+    <!-- Fecha -->
+    <ng-container matColumnDef="fecha">
+      <th mat-header-cell *matHeaderCellDef>Fecha</th>
+      <td mat-cell *matCellDef="let r">{{ r.fecha | date:'dd/MM/yyyy HH:mm' }}</td>
+    </ng-container>
+
+    <!-- Proveedor -->
+    <ng-container matColumnDef="proveedor">
+      <th mat-header-cell *matHeaderCellDef>Proveedor</th>
+      <td mat-cell *matCellDef="let r">{{ r.proveedor }}</td>
+    </ng-container>
+
+    <!-- Total -->
+    <ng-container matColumnDef="total">
+      <th mat-header-cell *matHeaderCellDef class="text-end">Total</th>
+      <td mat-cell *matCellDef="let r" class="text-end fw-600">
+        ${{ r.total | number:'1.2-2' }}
+      </td>
+    </ng-container>
+
+    <!-- Acciones -->
+    <ng-container matColumnDef="acciones">
+      <th mat-header-cell *matHeaderCellDef>Acciones</th>
+      <td mat-cell *matCellDef="let r">
+        <button mat-icon-button (click)="toggleDetalle(r)" matTooltip="Ver detalle">
+          <mat-icon>{{ expandedId === r.compraId ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+
+    <!-- Fila principal -->
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns; trackBy: trackByCompra"></tr>
+
+    <!-- Fila de detalle -->
+    <ng-container matColumnDef="detail">
+      <td mat-cell *matCellDef="let row" [attr.colspan]="displayedColumns.length">
+        <div class="detalle" *ngIf="expandedId === row.compraId">
+          <div class="detalle-titulo">Productos de la compra</div>
+          <table class="tabla sub">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Código de Barras</th>
+                <th class="text-end">Cantidad</th>
+                <th>Lote</th>
+                <th>Caducidad</th>
+                <th class="text-end">Costo U.</th>
+                <th class="text-end">Precio U.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of row.productos; trackBy: trackByProd">
+                <td>{{ p.nombre }}</td>
+                <td>{{ p.codigoBarras }}</td>
+                <td class="text-end">{{ p.cantidad | number }}</td>
+                <td>{{ p.lote }}</td>
+                <td>{{ p.fechaCaducidad | date:'dd/MM/yyyy' }}</td>
+                <td class="text-end">${{ p.costoUnitario | number:'1.2-2' }}</td>
+                <td class="text-end">${{ p.precioUnitario | number:'1.2-2' }}</td>
+              </tr>
+              <tr *ngIf="!row.productos || row.productos.length === 0">
+                <td colspan="7" class="text-center text-muted">Sin productos en esta compra.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </ng-container>
+    <tr mat-row *matRowDef="let row; columns: ['detail'];"></tr>
+
+    <!-- Mensaje sin resultados -->
+    <tr *ngIf="!cargando && rows.length === 0">
+      <td [attr.colspan]="displayedColumns.length" class="text-center text-muted p-2">
+        Sin resultados en el rango/criterios seleccionados.
+      </td>
+    </tr>
+  </table>
+</div>
+
+<mat-paginator
+  #paginator
+  class="paginator-custom"
+  [length]="paginacion.total || 0"
+  [pageSize]="limit"
+  [pageIndex]="(page - 1)"
+  [pageSizeOptions]="[15, 30, 50, 100]"
+  (page)="cambioPagina($event)">
+</mat-paginator>

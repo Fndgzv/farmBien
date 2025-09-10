@@ -122,7 +122,10 @@
         </ul>
       </li>
 
-      <li>Compras</li>
+      <li  *ngIf="userRol === 'admin'" class="submenu" [routerLink]="'/reporte/compras'" routerLinkActive="active">
+        Compras
+        <fa-icon [icon]="'truck'" class="menu-icon"></fa-icon>
+      </li>
 
       <li *ngIf="userRol === 'admin'" class="has-submenu">
         <span (click)="toggleSubMenu('balance')">

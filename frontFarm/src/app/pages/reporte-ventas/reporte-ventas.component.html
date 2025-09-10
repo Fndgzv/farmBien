@@ -214,7 +214,7 @@
             <button (click)="anterior()" [disabled]="cargando || page === 1">
                 <i class="fa fa-angle-left"></i>
             </button>
-            Ventas:{{ totalRegistros }}
+            Ventas: {{ totalRegistros }}
             &nbsp; | &nbsp; Página: {{ page }} / {{ totalPaginas || 1 }}
 
             <button (click)="siguiente()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0">

@@ -1092,78 +1092,96 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.focusBarcode(50);
   }
 
-  finalizarVenta() {
-    // Normalizar
-    this.efectivoRecibido = Math.max(0, this.pagoEfectivo);
-    this.montoTarjeta = Math.max(0, this.pagoTarjeta1);
-    this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
-    this.montoVale = Math.max(0, this.pagoVale1);
-    this.cambio = Math.max(0, this.cambio);
+finalizarVenta() {
+  // Normalizar
+  this.efectivoRecibido   = Math.max(0, this.pagoEfectivo);
+  this.montoTarjeta       = Math.max(0, this.pagoTarjeta1);
+  this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
+  this.montoVale          = Math.max(0, this.pagoVale1);
+  this.cambio             = Math.max(0, this.cambio);
 
-    const totalPagado = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
-    const pagosDigitales = this.montoTarjeta + this.montoTransferencia + this.montoVale;
+  const totalPagado     = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
+  const pagosDigitales  = this.montoTarjeta + this.montoTransferencia + this.montoVale;
 
-    if (pagosDigitales > this.total) {
-      Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
-      return;
-    }
-    if (totalPagado < this.total) {
-      Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
-      return;
-    }
+  if (pagosDigitales > this.total) {
+    Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
+    return;
+  }
+  if (totalPagado < this.total) {
+    Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
+    return;
+  }
 
-    const folio = this.folioVentaGenerado || this.generarFolioLocal();
-    this.folioVentaGenerado = folio;
+  const folio = this.folioVentaGenerado || this.generarFolioLocal();
+  this.folioVentaGenerado = folio;
 
-    const productos = this.carrito.map(p => ({
-      producto: p.producto,
-      nombre: p.nombre,
-      barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
-      cantidad: p.cantidad,
-      precio: p.precioFinal,
-      totalRen: p.precioFinal * p.cantidad,
-      precioOriginal: p.precioOriginal,
-      iva: p.iva,
-      tipoDescuento: p.tipoDescuento,
-      descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
-      cadenaDescuento: p.cadDesc ?? '',
-      monederoCliente: (p.almonedero ?? 0) * p.cantidad,
-    }));
+  const productos = this.carrito.map(p => ({
+    producto: p.producto,
+    nombre: p.nombre,
+    barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
+    cantidad: p.cantidad,
+    precio: p.precioFinal,
+    totalRen: p.precioFinal * p.cantidad,
+    precioOriginal: p.precioOriginal,
+    iva: p.iva,
+    tipoDescuento: p.tipoDescuento,
+    descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
+    cadenaDescuento: p.cadDesc ?? '',
+    monederoCliente: (p.almonedero ?? 0) * p.cantidad,
+  }));
 
-    this.ventaParaImpresion = {
-      folio: this.folioVentaGenerado,
-      cliente: this.nombreCliente,
-      farmacia: {
-        nombre: this.farmaciaNombre,
-        direccion: this.farmaciaDireccion,
-        telefono: this.farmaciaTelefono
-      },
-      productos,
-      cantidadProductos: this.totalArticulos,
-      total: this.total,
-      totalDescuento: this.totalDescuento,
-      totalMonederoCliente: this.totalAlmonedero,
-      formaPago: {
-        efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
-        tarjeta: this.montoTarjeta,
-        transferencia: this.montoTransferencia,
-        vale: this.montoVale
-      },
-      AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
-      elcambio: this.cambio,
-      fecha: new Date().toISOString(),
-      usuario: this.nombreUs
-    };
+  this.ventaParaImpresion = {
+    folio: this.folioVentaGenerado,
+    cliente: this.nombreCliente,
+    farmacia: {
+      nombre: this.farmaciaNombre,
+      direccion: this.farmaciaDireccion,
+      telefono: this.farmaciaTelefono
+    },
+    productos,
+    cantidadProductos: this.totalArticulos,
+    total: this.total,
+    totalDescuento: this.totalDescuento,
+    totalMonederoCliente: this.totalAlmonedero,
+    formaPago: {
+      efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
+      tarjeta: this.montoTarjeta,
+      transferencia: this.montoTransferencia,
+      vale: this.montoVale
+    },
+    AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
+    elcambio: this.cambio,
+    fecha: new Date().toISOString(),
+    usuario: this.nombreUs
+  };
 
-    this.mostrarTicket = true;
+  // Mostrar ticket y CERRAR el modal de pago antes de imprimir
+  this.mostrarTicket = true;
+  this.mostrarModalPago = false;
+  this.cdRef.detectChanges();
 
-    setTimeout(() => {
-      window.print();
+  // Handler robusto para después de imprimir
+  const afterPrint = () => {
+    window.removeEventListener('afterprint', afterPrint);
+    this.ngZone.run(() => {
       this.mostrarTicket = false;
       this.hayCliente = false;
       this.guardarVentaDespuesDeImpresion(folio);
-    }, 100);
-  }
+    });
+  };
+  window.addEventListener('afterprint', afterPrint);
+
+  // Lanzar impresión (bloquea hasta que el usuario cierra el diálogo)
+  setTimeout(() => {
+    try {
+      window.print();
+    } catch {
+      // Si algo raro pasa, aseguremos la ruta de salida
+      afterPrint();
+    }
+  }, 0);
+}
+
 
   limpiarVenta() {
     this.carrito = [];
