@@ -54,8 +54,8 @@ export class ProductoService {
   }
 
 
-  actualizarProductoIndividual(producto: Producto): Observable<any> {
-    return this.http.put(`${this.apiUrl}/actualizar-producto/${producto._id}`, producto);
+  actualizarProductoIndividual(id: string, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}/actualizar-producto/${id}`, data);
   }
 
   obtenerProductoPorId(id: string) {

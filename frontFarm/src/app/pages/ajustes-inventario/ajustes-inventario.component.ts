@@ -350,32 +350,51 @@ export class AjustesInventarioComponent implements OnInit {
     this.productosFiltrados.forEach(p => p.seleccionado = checked);
   }
 
-  editarProducto(prod: Producto) {
-    const productoClonado = JSON.parse(JSON.stringify(prod));
-    this.modalService.abrirModal(productoClonado, (productoEditado: Producto) => {
-      this.guardarProductoEditado(productoEditado);
-    });
-  }
+editarProducto(prod: Producto) {
+  const productoClonado = JSON.parse(JSON.stringify(prod));
+  this.modalService.abrirModal(productoClonado, (productoEditado: Producto) => {
+    this.guardarProductoEditado(productoEditado);
+  });
+}
 
-  guardarProductoEditado(productoActualizado: Producto) {
-    this.productoService.actualizarProductoIndividual(productoActualizado).subscribe({
-      next: () => {
-        Swal.fire({
-          icon: 'success',
-          title: 'Éxito',
-          text: 'Producto actualizado correctamente',
-          timer: 1600,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false
-        });
-        this.cargarProductos(false); // recarga sin borrar filtros
-      },
-      error: () => {
-        Swal.fire('Error', 'No se pudo actualizar el producto', 'error');
-      }
-    });
-  }
+guardarProductoEditado(productoActualizado: Producto) {
+  // 1) separa id y crea payload sin _id
+  const id = (productoActualizado as any)._id;
+  const payload: any = { ...productoActualizado };
+  delete payload._id;
+  delete payload.__v;
+  delete payload.createdAt;
+  delete payload.updatedAt;
+
+  // 2) normaliza numéricos (ajusta las llaves a tu modelo real)
+  ['precioVenta','costo','existencia','iva','minimo','maximo'].forEach(k => {
+    if (payload[k] !== undefined && payload[k] !== null) {
+      payload[k] = Number(payload[k]) || 0;
+    }
+  });
+
+  // 3) llama el servicio con id en la URL y body sin _id
+  this.productoService.actualizarProductoIndividual(id, payload).subscribe({
+    next: () => {
+      Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: 'Producto actualizado correctamente',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+      this.cargarProductos(false);
+    },
+    error: (err) => {
+      const msg = err?.error?.mensaje || err?.error?.message || err?.message || 'No se pudo actualizar el producto';
+      Swal.fire('Error', msg, 'error');
+      console.error('[actualizarProducto][ERROR]', err);
+    }
+  });
+}
+
 
   grabarCambios() {
     try {
