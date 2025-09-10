@@ -48,8 +48,12 @@
         </ul>
       </li>
       <li [routerLink]="'/usuarios'" routerLinkActive="active">Usuarios <fa-icon [icon]="'user'"
-          class="menu-icon"></fa-icon></li>
-      <li>Clientes <fa-icon [icon]="'users'" class="menu-icon"></fa-icon></li>
+          class="menu-icon"></fa-icon>
+      </li>
+      
+      <li [routerLink]="'/clientes'" routerLinkActive="active">Clientes - reportes<fa-icon [icon]="'users'" 
+        class="menu-icon"></fa-icon>
+      </li>
 
       <li [routerLink]="'/cortes-de-caja'" routerLinkActive="active">Cortes de caja
         <fa-icon [icon]="'file-signature'" class="menu-icon"></fa-icon>

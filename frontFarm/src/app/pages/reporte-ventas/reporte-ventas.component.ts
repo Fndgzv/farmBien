@@ -16,6 +16,7 @@ import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
+type ClienteLite = { _id: string; nombre: string };
 @Component({
   selector: 'app-reporte-ventas',
   standalone: true,
@@ -31,7 +32,8 @@ export class ReporteVentasComponent implements OnInit {
 
   // Catálogos
   farmacias: Farmacia[] = [];
-  clientes: Array<{ _id: string; nombre: string }> = [];
+  clientes: ClienteLite[] = [];
+
   usuarios: Usuario[] = [];
 
   farmaciasCargadas = false;
@@ -62,8 +64,11 @@ export class ReporteVentasComponent implements OnInit {
     numeric: true,
   });
 
+  // ✅ preserva todas las propiedades (incluido _id)
   private sortByNombre<T extends { nombre?: string }>(arr: T[]): T[] {
-    return [...arr].sort((a, b) => this.collator.compare(a.nombre || '', b.nombre || ''));
+    return [...(arr || [])].sort((a, b) =>
+      (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' })
+    );
   }
 
   constructor(
@@ -111,9 +116,18 @@ export class ReporteVentasComponent implements OnInit {
 
     // Clientes
     this.clienteSrv.getClientes().subscribe({
-      next: (list) => {
-        const base = (list || []).map((c: any) => ({ _id: c._id, nombre: c.nombre }));
-        const ordenadas = this.sortByNombre(base);
+      next: (resp: any) => {
+        const rows = Array.isArray(resp) ? resp : (resp?.rows ?? []);
+
+        // ✨ TIPADO EXPLÍCITO AQUÍ:
+        const base: ClienteLite[] = rows.map((c: any): ClienteLite => ({
+          _id: c._id?.toString() || '',
+          nombre: c.nombre || ''
+        }));
+
+        // ✨ Y/O GENÉRICO EXPLÍCITO AQUÍ:
+        const ordenadas = this.sortByNombre<ClienteLite>(base);
+
         this.clientes = [{ _id: '', nombre: 'TODOS' }, ...ordenadas];
         this.clientesCargados = true;
         this.dispararInicialSiListos();
@@ -142,6 +156,7 @@ export class ReporteVentasComponent implements OnInit {
       }
     });
   }
+
 
   private dispararInicialSiListos() {
     if (this.farmaciasCargadas && this.clientesCargados && this.usuariosCargados) {

@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 
 const reportesRoutes = require('./routes/reportesRoutes');
+const clientesRoutes = require('./routes/api');
 
 const app = express();
 
@@ -41,8 +42,9 @@ app.use('/api/surtirFarmacias', require('./routes/surtidoFarmaciaRoutes'));
 app.use('/api/compras', require('./routes/compraRoutes'));
 app.use('/api/inventario-farmacia', require('./routes/ajusteInventarioRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api', require('./routes/api')); // Rutas de: ventas, devoluciones, pedidos, clientes
 app.use('/api/reportes', reportesRoutes);
+app.use('/api/clientes', clientesRoutes);
+app.use('/api', require('./routes/api')); // Rutas de: ventas, devoluciones, pedidos, clientes
 
 
 // ---------- Archivos estáticos (uploads) ----------
@@ -84,6 +86,7 @@ const Producto = require('./models/Producto');
 const Pedido = require('./models/Pedido');
 const Devolucion = require('./models/Devolucion');
 const Cancelacion = require('./models/Cancelacion');
+const Cliente = require('./models/Cliente')
 
 mongoose.connection.once('open', async () => {
   try {
@@ -94,8 +97,9 @@ mongoose.connection.once('open', async () => {
       Devolucion.syncIndexes(),
       Pedido.syncIndexes(),
       Cancelacion.syncIndexes(),
+      Cliente.syncIndexes(),
     ]);
-    console.log('✅ Índices sincronizados: Venta, Producto, Pedido, Devolución y Cancelación');
+    console.log('✅ Índices sincronizados: Venta, Producto, Pedido, Devolución, Cancelación y Cliente');
   } catch (e) {
     console.error('❌ Error al sincronizar índices:', e?.message || e);
   }

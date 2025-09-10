@@ -106,13 +106,13 @@
                                 <thead>
                                     <tr>
                                         <th colspan="2">Estado: {{ pedido.estado }}</th>
-                                        <th colspan="2">Precio: ${{ pedido.total }}</th>
+                                        <th colspan="2">Precio: {{ pedido.total | currency }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td colspan="2" class="sub-title-tabla">Anticipo: ${{ pedido.aCuenta }}</td>
-                                        <td colspan="2" class="sub-title-tabla">Resta: ${{ pedido.resta }}</td>
+                                        <td colspan="2" class="sub-title-tabla">Anticipo: {{ pedido.aCuenta | currency }}</td>
+                                        <td colspan="2" class="sub-title-tabla">Resta: {{ pedido.resta | currency }}</td>
                                     </tr>
                                     <tr>
                                         <td>Efectivo:</td>

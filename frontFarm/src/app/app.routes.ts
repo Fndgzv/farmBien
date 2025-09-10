@@ -97,6 +97,15 @@ export const routes: Routes = [
         canActivate: [authGuard]
       },
       {
+        path: 'clientes',
+        loadComponent: () =>
+          import('./admin/clientes/clientes.component').then(n => n.ClientesComponent),
+        data: {
+          rolesPermitidos: ['admin']
+        },
+        canActivate: [authGuard]
+      },
+      {
         path: 'proveedores',
         loadComponent: () =>
           import('./admin/proveedores/proveedores.component').then(m => m.ProveedoresComponent),

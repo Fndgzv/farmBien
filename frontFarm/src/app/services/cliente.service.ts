@@ -1,6 +1,6 @@
 // services/cliente.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 
 import { environment } from '../../environments/environment';
@@ -13,9 +13,7 @@ export interface Cliente {
   totalMonedero?: number;
 }
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class ClienteService {
 
   private apiUrl = `${environment.apiUrl}/clientes`;
@@ -60,5 +58,35 @@ export class ClienteService {
     return this.http.get<Cliente[]>(`${this.apiUrl}`);
   }
 
+  listar(params: any): Observable<any> {
+    const token = localStorage.getItem('auth_token') || '';
+    const headers = token ? new HttpHeaders({ 'x-auth-token': token }) : undefined;
+    return this.http.get(this.apiUrl, { params, headers });
+  }
 
+  crear(data: any): Observable<any> {
+    return this.http.post(this.apiUrl, data);
+  }
+
+  actualizar(id: string, data: any): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/${id}`, data);
+  }
+
+  // ===== Subtablas =====
+  ventas(id: string, params: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/ventas`, { params });
+  }
+  pedidos(id: string, params: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/pedidos`, { params });
+  }
+  devoluciones(id: string, params: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/devoluciones`, { params });
+  }
+  cancelaciones(id: string, params: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/cancelaciones`, { params });
+  }
+  monedero(id: string, params: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/monedero`, { params });
+  }
 }
+

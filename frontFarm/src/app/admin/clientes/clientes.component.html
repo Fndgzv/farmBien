@@ -1,0 +1,512 @@
+<h2 class="titulo" style="text-align: center;">Mantenimiento y consultas de Clientes</h2>
+<div class="d-flex justify-content-between align-items-center mb-2">
+
+    <mat-form-field appearance="outline" class="filtro-nombre">
+        <mat-label>Buscar por nombre</mat-label>
+        <input matInput [(ngModel)]="filtro" (keyup.enter)="buscar()" #filtroInput />
+
+        <button *ngIf="filtro" matSuffix aria-label="Limpiar filtro" (click)="limpiarFiltro()"
+            class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+            style="width: 40px; height: 40px;" [disabled]="cargando">
+            <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+    </mat-form-field>
+
+    <div class="fechas-movs" style="margin-top: -1rem;">
+        <label class="lbl">Fechas de los movimientos</label>
+        <div class="fechas-row">
+            <input type="date" [(ngModel)]="fechaIni" (change)="onChangeFechas()" [max]="fechaFin">
+            <span class="sep">—</span>
+            <input type="date" [(ngModel)]="fechaFin" (change)="onChangeFechas()" [min]="fechaIni">
+        </div>
+    </div>
+
+    <div class="add-row d-flex items-center gap-3 justify-end">
+        <!-- Nombre -->
+        <mat-form-field appearance="outline" class="w-56">
+            <mat-label>Nombre</mat-label>
+            <input matInput #nombreNuevoRef matInput [(ngModel)]="nuevoCliente.nombre"
+                [disabled]="!agregando || cargando" (keydown.enter)="agregarCliente()" />
+        </mat-form-field>
+
+        <!-- Teléfono -->
+        <mat-form-field appearance="outline" class="w-48">
+            <mat-label>Teléfono</mat-label>
+            <input matInput [(ngModel)]="nuevoCliente.telefono" [disabled]="!agregando || cargando" inputmode="numeric"
+                maxlength="10" (input)="solo10Digitos()" (keydown.enter)="agregarCliente()" />
+            <mat-hint align="end">{{ (nuevoCliente.telefono || '').length }}/10</mat-hint>
+        </mat-form-field>
+
+        <ng-container *ngIf="!agregando; else editBtns">
+            <button (click)="empezarAgregar()" [disabled]="cargando" class="btn-gris" style="height: 3rem;">
+                <fa-icon [icon]="faPlus"></fa-icon> Agregar
+            </button>
+        </ng-container>
+
+        <ng-template #editBtns>
+            <button class="btn-icon-chico btn-rojo-chico" [disabled]="cargando"
+                style="font-size: larger; height: 3rem; width: 3rem;" (click)="cancelarAgregar()" matTooltip="Cancelar">
+                <fa-icon [icon]="faTimes"></fa-icon>
+            </button>
+
+            <button class="btn-icon-chico btn-gris-chico" (click)="agregarCliente()"
+                style="font-size: larger; height: 3rem; width: 3rem;" [disabled]="!validoNuevo() || cargando"
+                matTooltip="Guardar">
+                <mat-icon>save</mat-icon>
+            </button>
+        </ng-template>
+    </div>
+
+</div>
+
+<table mat-table [dataSource]="dataSource" class="tabla" multiTemplateDataRows>
+
+    <!-- Nombre -->
+    <ng-container matColumnDef="nombre">
+        <th mat-header-cell *matHeaderCellDef>Nombre</th>
+        <td mat-cell *matCellDef="let c">
+            <ng-container *ngIf="editandoId !== c._id; else editNombre">
+                {{ c.nombre }}
+            </ng-container>
+            <ng-template #editNombre>
+                <input matInput [(ngModel)]="c.nombre">
+            </ng-template>
+        </td>
+    </ng-container>
+
+    <!-- Teléfono -->
+    <ng-container matColumnDef="telefono">
+        <th mat-header-cell *matHeaderCellDef>Teléfono</th>
+        <td mat-cell *matCellDef="let c">
+            <ng-container *ngIf="editandoId !== c._id; else editTel">
+                {{ c.telefono }}
+            </ng-container>
+            <ng-template #editTel>
+                <input matInput [(ngModel)]="c.telefono">
+            </ng-template>
+        </td>
+    </ng-container>
+
+    <!-- Email -->
+    <ng-container matColumnDef="email">
+        <th mat-header-cell *matHeaderCellDef>Email</th>
+        <td mat-cell *matCellDef="let c">
+            <ng-container *ngIf="editandoId !== c._id; else editEmail">
+                {{ c.email }}
+            </ng-container>
+            <ng-template #editEmail>
+                <input matInput [(ngModel)]="c.email">
+            </ng-template>
+        </td>
+    </ng-container>
+
+    <!-- Domicilio -->
+    <ng-container matColumnDef="domicilio">
+        <th mat-header-cell *matHeaderCellDef>Domicilio</th>
+        <td mat-cell *matCellDef="let c">
+            <ng-container *ngIf="editandoId !== c._id; else editDom">
+                {{ c.domicilio }}
+            </ng-container>
+            <ng-template #editDom>
+                <input matInput [(ngModel)]="c.domicilio">
+            </ng-template>
+        </td>
+    </ng-container>
+
+    <!-- Monedero -->
+    <ng-container matColumnDef="monedero">
+        <th mat-header-cell *matHeaderCellDef>Monedero</th>
+        <td mat-cell *matCellDef="let c">
+            ${{ c.totalMonedero | number:'1.2-2' }}
+        </td>
+    </ng-container>
+
+    <!-- Acciones -->
+    <ng-container matColumnDef="acciones">
+        <th mat-header-cell *matHeaderCellDef>Acciones</th>
+        <td mat-cell *matCellDef="let c">
+            <ng-container *ngIf="editandoId !== c._id; else editBtns">
+                <button class="btn-icon-chico btn-gris-chico" (click)="toggleSubtabla(c,'ventas')" matTooltip="Compras">
+                    <fa-icon [icon]="'cash-register'"></fa-icon>
+                </button>
+                <button class="btn-icon-chico btn-verde-chico" (click)="toggleSubtabla(c,'pedidos')"
+                    matTooltip="Pedidos">
+                    <fa-icon [icon]="'shopping-cart'"></fa-icon>
+                </button>
+                <button class="btn-icon-chico btn-amarillo-chico" (click)="toggleSubtabla(c,'devoluciones')"
+                    matTooltip="Devoluciones de compras">
+                    <fa-icon [icon]="'undo'"></fa-icon>
+                </button>
+                <button class="btn-icon-chico btn-rojo-chico" (click)="toggleSubtabla(c,'cancelaciones')"
+                    matTooltip="Cancelaciones de pedidos">
+                    <i class="fas fa-times"></i>
+                </button>
+                <button class="btn-icon-chico btn-monedero" (click)="toggleSubtabla(c,'monedero')"
+                    matTooltip="Movimientos del monedero">
+                    <i class="fas fa-wallet"></i>
+                </button>
+                <button class="btn-icon-chico btn-editar" (click)="iniciarEdicion(c)" matTooltip="Editar datos cliente">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </ng-container>
+            <ng-template #editBtns>
+                <button class="btn-icon-chico btn-verde-chico" (click)="guardarEdicion(c)" matTooltip="Grabar cambios">
+                    <fa-icon [icon]="faSave"></fa-icon>
+                </button>
+                <button class="btn-icon-chico btn-cancelar-edicion" (click)="cancelarEdicion(c)"
+                    matTooltip="Cancelar edición">
+                    <fa-icon [icon]="faTimes"></fa-icon></button>
+            </ng-template>
+        </td>
+    </ng-container>
+
+    <ng-container matColumnDef="detail">
+        <td mat-cell *matCellDef="let row" [attr.colspan]="displayedColumns.length">
+
+            <!-- Ventas (compras) del cliente -->
+            <ng-container *ngIf="expandedRow === (row._id + '_ventas')">
+
+                <!-- Si hay filas, pinta la tabla; si no, muestra #sinCompras -->
+                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinCompras">
+                    <div class="sub-title-tabla">Compras de: {{ row.nombre }}</div>
+                    <div class="detalle-tabla-wrapper">
+                        <table class="detalle-tabla">
+                            <thead>
+                                <tr>
+                                    <th class="col-det">Det.</th>
+                                    <th>Farmacia</th>
+                                    <th>Usuario</th>
+                                    <th>Fecha</th>
+                                    <th>Folio</th>
+                                    <th class="text-end"># Prod.</th>
+                                    <th class="text-end">Al moned.</th>
+                                    <th class="text-end">Descuento</th>
+                                    <th class="text-end">Costo</th>
+                                    <th class="text-end">Utilidad</th>
+                                    <th class="text-end">% Gan.</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <ng-container *ngFor="let v of subRows[expandedRow]; trackBy: trackVentaBy">
+                                    <tr>
+                                        <td class="col-det">
+                                            <button class="btn-det" (click)="toggleDetalleVenta(v, expandedRow)">
+                                                <span [class.open]="subVentaOpen[expandedRow] === v._id">▸</span>
+                                            </button>
+                                        </td>
+                                        <td>{{ v.farmaciaNombre }}</td>
+                                        <td>{{ v.usuarioNombre }}</td>
+                                        <td>{{ (v.fecha | date:'dd/MM/yyyy HH:mm') || '' }}</td>
+                                        <td>{{ v.folio }}</td>
+                                        <td class="text-end">{{ v.numProductos | number }}</td>
+                                        <td class="text-end text-success">${{ v.alMonedero | number:'1.2-2' }}</td>
+                                        <td class="text-end text-muted">${{ v.descuento | number:'1.2-2' }}</td>
+                                        <td class="text-end text-negativo">${{ v.costo | number:'1.2-2' }}</td>
+                                        <td class="text-end"
+                                            [ngClass]="{'text-success': (v.utilidad||0) >= 0, 'text-danger': (v.utilidad||0) < 0}">
+                                            ${{ v.utilidad | number:'1.2-2' }}
+                                        </td>
+                                        <td class="text-end">
+                                            {{ v.gananciaPct == null ? '—' : (v.gananciaPct | number:'1.0-2') + '%' }}
+                                        </td>
+                                        <td class="text-end fw-600">${{ v.total | number:'1.2-2' }}</td>
+                                    </tr>
+
+                                    <!-- Detalle de productos (solo si está abierto ese v) -->
+                                    <tr class="venta-detail" *ngIf="subVentaOpen[expandedRow] === v._id">
+                                        <td class="no-pad" colspan="12">
+                                            <div class="subdetalle">
+                                                <table class="subdetalle-tabla">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Producto</th>
+                                                            <th class="text-end">Cant.</th>
+                                                            <th class="text-end">P. U.</th>
+                                                            <th class="text-end">Imp. normal</th>
+                                                            <th>Promo</th>
+                                                            <th class="text-end">% desc</th>
+                                                            <th class="text-end">Monedero</th>
+                                                            <th class="text-end">Desc.</th>
+                                                            <th class="text-end">Costo</th>
+                                                            <th class="text-end">Utilidad</th>
+                                                            <th class="text-end">% Gan.</th>
+                                                            <th class="text-end">Total</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr *ngFor="let p of (v.productos || [])">
+                                                            <td>
+                                                                {{ p.nombre || p.producto?.nombre || '' }}
+                                                                <div class="cb"
+                                                                    *ngIf="p.codigoBarras || p.producto?.codigoBarras">
+                                                                    CB: {{ p.codigoBarras || p.producto?.codigoBarras }}
+                                                                </div>
+                                                            </td>
+                                                            <td class="text-end">{{ p.cantidad | number }}</td>
+                                                            <td class="text-end">${{ p.precio | number:'1.2-2' }}</td>
+                                                            <td class="text-end">${{ p.precio | number:'1.2-2' }}</td>
+                                                            <td>{{ p.tipoDescuento || 'Cliente' }}</td>
+                                                            <td class="text-end">
+                                                                {{ p.descuento ? (100 * (p.descuento / (p.precio || 1))
+                                                                | number:'1.0-0') + '%' : '—' }}
+                                                            </td>
+                                                            <td class="text-end">${{ p.monederoCliente || 0 |
+                                                                number:'1.2-2' }}</td>
+                                                            <td class="text-end">${{ p.descuento || 0 | number:'1.2-2'
+                                                                }}</td>
+                                                            <td class="text-end">${{ p.costo || 0 | number:'1.2-2' }}
+                                                            </td>
+                                                            <td class="text-end">
+                                                                ${{ ((p.totalRen||0) - (p.costo||0)) | number:'1.2-2' }}
+                                                            </td>
+                                                            <td class="text-end">
+                                                                {{
+                                                                (p.costo||0) > 0
+                                                                ? ((((p.totalRen||0)-(p.costo||0)) / (p.costo||1)) * 100
+                                                                | number:'1.0-2') + '%'
+                                                                : '—'
+                                                                }}
+                                                            </td>
+                                                            <td class="text-end">${{ p.totalRen | number:'1.2-2' }}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+
+                                                <div class="forma-pago">
+                                                    <span style="margin-right: 3rem; color: rgb(255, 199, 110);">Forma
+                                                        de pago:</span>
+                                                    <span style="margin-right: 1rem;">Efectivo:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        v.formaPago?.efectivo || 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Tarjeta:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        v.formaPago?.tarjeta || 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Transferencia:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        v.formaPago?.transferencia || 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Vale:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        v.formaPago?.vale || 0 | number:'1.2-2' }}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </ng-container>
+                            </tbody>
+
+                            <tfoot *ngIf="subFooter[expandedRow]">
+                                <tr>
+                                    <th class="col-det"></th>
+                                    <th colspan="3" class="text-end">Totales:</th>
+                                    <th></th>
+                                    <th class="text-end">{{ subFooter[expandedRow]?.numProductos | number }}</th>
+                                    <th class="text-end text-success">${{ subFooter[expandedRow]?.alMonedero |
+                                        number:'1.2-2' }}</th>
+                                    <th class="text-end text-muted">${{ subFooter[expandedRow]?.descuento |
+                                        number:'1.2-2' }}</th>
+                                    <th class="text-end text-negativo">${{ subFooter[expandedRow]?.costo |
+                                        number:'1.2-2' }}</th>
+                                    <th class="text-end"
+                                        [ngClass]="{'text-success': (subFooter[expandedRow]?.utilidad||0) >= 0, 'text-danger': (subFooter[expandedRow]?.utilidad||0) < 0}">
+                                        ${{ subFooter[expandedRow]?.utilidad | number:'1.2-2' }}
+                                    </th>
+                                    <th></th>
+                                    <th class="text-end fw-600">${{ subFooter[expandedRow]?.total | number:'1.2-2' }}
+                                    </th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </ng-container>
+            </ng-container>
+
+            <!-- Mensaje cuando no hay compras -->
+            <ng-template #sinCompras>
+                <div class="subtabla-vacia text-center text-muted p-2">
+                    Sin compras en el rango seleccionado.
+                </div>
+            </ng-template>
+
+            <ng-container *ngIf="expandedRow === (row._id + '_pedidos')">
+                <!-- Si hay filas, pinta la tabla; si no, muestra #sinPedidos -->
+                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinPedidos">
+                    <!-- subtabla pedidos -->
+                    <div class="sub-title-tabla">Pedidos de: {{ row.nombre }}</div>
+                    <div class="detalle-tabla-wrapper">
+                        <table class="detalle-tabla">
+                            <thead>
+                                <tr>
+                                    <th>Det.</th>
+                                    <th>Farmacia</th>
+                                    <th>Folio</th>
+                                    <th>F. pedido</th>
+                                    <th>Descripción</th>
+                                    <th>Estado</th>
+                                    <th>Costo</th>
+                                    <th>Precio</th>
+                                    <th>A cuenta</th>
+                                    <th>Resta</th>
+                                    <th>Tot. Ingreso</th>
+                                    <th>Utilidad</th>
+                                    <th>% Gan</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <ng-container *ngFor="let pd of subRows[expandedRow]; trackBy: trackPedidoBy">
+                                    <tr>
+                                        <td class="col-det">
+                                            <button class="btn-det" (click)="toggleDetallePedido(pd, expandedRow)">
+                                                <span [class.open]="subPedidoOpen[expandedRow] === pd._id">▸</span>
+                                            </button>
+                                        </td>
+                                        <td>{{ pd.farmacia }}</td>
+                                        <td>{{ pd.folio }}</td>
+                                        <td>{{ (pd.fechaPedido | date:'dd/MM/yyyy HH:mm') || '' }}</td>
+                                        <td>{{ pd.descripcion }}</td>
+                                        <td>{{ pd.estado }}</td>
+                                        <td class="text-end">${{ pd.costo | number:'1.2-2' }}</td>
+                                        <td class="text-end">${{ pd.precio | number:'1.2-2' }}</td>
+                                        <td class="text-end text-success">${{ pd.aCuenta | number:'1.2-2' }}</td>
+                                        <td class="text-end text-negativo">${{ pd.resta | number:'1.2-2' }}</td>
+                                        <td class="text-end text-negativo">${{ pd.precio - pd.resta | number:'1.2-2' }}
+                                        </td>
+                                        <td class="text-end text-negativo">${{ pd.precio - pd.resta - pd.costo |
+                                            number:'1.2-2'}}</td>
+                                        <td class="text-end text-negativo">
+                                            {{ pd.costo > 0 ? (( (pd.precio - pd.resta - pd.costo) / pd.costo ) * 100 |
+                                            number:'1.0-2') + '%' : '100%' }}
+                                        </td>
+
+                                    </tr>
+
+                                    <!-- Detalle de pedidos (solo si está abierto ese v) -->
+                                    <tr class="venta-detail" *ngIf="subPedidoOpen[expandedRow] === pd._id">
+                                        <td class="no-pad" colspan="100">
+                                            <div class="subdetalle">
+                                                <table class="subdetalle-tabla">
+                                                    <thead>
+                                                        <tr>
+                                                            <th colspan="2">Estado: {{ pd.estado }}</th>
+                                                            <th colspan="2">Precio: {{ pd.precio | currency }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td colspan="2" class="sub-title-tabla">Anticipo: {{
+                                                                pd.aCuenta | currency }}</td>
+                                                            <td colspan="2" class="sub-title-tabla">Resta: {{
+                                                                pd.resta | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Efectivo:</td>
+                                                            <td>{{ pd.formasPago.anticipo.efectivo | currency }}</td>
+                                                            <td>Efectivo:</td>
+                                                            <td>{{ pd.formasPago.resta.efectivo | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Tarjeta:</td>
+                                                            <td>{{ pd.formasPago.anticipo.tarjeta | currency }}</td>
+                                                            <td>Tarjeta:</td>
+                                                            <td>{{ pd.formasPago.resta.tarjeta | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Transferencia:</td>
+                                                            <td>{{ pd.formasPago.anticipo.transferencia | currency }}</td>
+                                                            <td>Transferencia:</td>
+                                                            <td>{{ pd.formasPago.resta.transferencia | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Monedero:</td>
+                                                            <td>{{ pd.formasPago.anticipo.vale | currency }}</td>
+                                                            <td>Monedero</td>
+                                                            <td>{{ pd.formasPago.resta.vale | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td colspan="1">Levantó:</td>
+                                                            <td colspan="2">{{ pd.usuarioPidio }}</td>
+                                                            <td colspan="1">{{ pd.fechaPedido | date:
+                                                                'dd/MM/yyyy':'America/Mexico_City'
+                                                                }} </td>
+                                                        </tr>
+
+                                                    </tbody>
+                                                </table>
+
+                                                <div class="forma-pago">
+                                                    <span style="margin-right: 3rem; color: rgb(255, 199, 110);">
+                                                        Forma de pago:
+                                                    </span>
+                                                    <span style="margin-right: 1rem;">Efectivo:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        pd.formasPago.anticipo.efectivo + pd.formasPago.resta.efectivo || 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Tarjeta:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        pd.formasPago.anticipo.tarjeta + pd.formasPago.resta.tarjeta || 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Transferencia:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        pd.formasPago.anticipo.transferencia + pd.formasPago.resta.transferencia|| 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Vale:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        pd.formasPago.anticipo.vale + pd.formasPago.resta.vale || 0 | number:'1.2-2' }}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </ng-container>
+                            </tbody>
+                        </table>
+                    </div>
+                </ng-container>
+            </ng-container>
+
+            <!-- Mensaje cuando no hay compras -->
+            <ng-template #sinCompras class="subtabla-vacia">
+                <div class="subtabla-vacia text-center">
+                    Sin compras en el rango seleccionado.
+                </div>
+            </ng-template>
+
+            <!-- Mensaje cuando no hay pedidos -->
+            <ng-template #sinPedidos class="subtabla-vacia">
+                <div class="subtabla-vacia text-center">
+                    Sin pedidos en el rango seleccionado.
+                </div>
+            </ng-template>
+
+            <ng-container *ngIf="expandedRow === (row._id + '_devoluciones')">
+                <!-- subtabla devoluciones -->
+                 <div style="color:red">Las devoluciones están en construcción</div>
+            </ng-container>
+
+            <ng-container *ngIf="expandedRow === (row._id + '_cancelaciones')">
+                <!-- subtabla cancelaciones -->
+                 <div style="color:red">Las cancelaciones están en construcción</div>
+            </ng-container>
+
+            <ng-container *ngIf="expandedRow === (row._id + '_monedero')">
+                <!-- subtabla monedero -->
+                 <div style="color:red">Las movimientos del monedero están en construcción</div>
+            </ng-container>
+
+        </td>
+    </ng-container>
+
+
+    <!-- filas -->
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    <tr mat-row *matRowDef="let row; columns: ['detail']; when: isDetailRow"></tr>
+
+</table>
+
+<!-- Mensaje vacío -->
+<div *ngIf="!cargando && (!dataSource || dataSource.data?.length === 0)" class="text-center text-muted py-3">
+    Sin resultados
+</div>
+
+<mat-paginator class="paginator-custom" [length]="paginacion.total || 0" [pageSize]="limit" [pageIndex]="(page - 1)"
+    [pageSizeOptions]="[10, 20, 50, 100]" (page)="cambioPagina($event)">
+</mat-paginator>

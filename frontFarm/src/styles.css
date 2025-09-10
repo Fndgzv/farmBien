@@ -346,6 +346,44 @@ button {
   /* Color para filas pares */
 }
 
+/* Tabla de sub subdetalle  */
+.subdetalle {
+  background-color: white;
+  padding: 5px;
+  border: 2px solid #2e04fe;
+}
+
+.subdetalle-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #f9f9f9 !important;
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  font: bold;
+}
+
+.subdetalle-tabla th,
+.subdetalle-tabla td {
+  border: 1px solid #f1effc;
+  padding: 5px;
+  text-align: left;
+}
+
+.subdetalle-tabla th {
+  background-color: #2e04fe !important;
+  text-align: center;
+  color: white;
+}
+
+.subdetalle-tabla tr:nth-child(odd) {
+  background-color: rgb(174, 171, 177);
+  /* Color para filas impares */
+}
+
+.subdetalle-tabla tr:nth-child(even) {
+  background-color: rgb(213, 204, 214);
+  /* Color para filas pares */
+}
+
 .sub-title-tabla {
   color: rgb(122, 18, 18);
   font-weight: bolder;
@@ -450,4 +488,43 @@ body {
   margin: 0;
   /* font-family: Roboto, "Helvetica Neue", sans-serif; */
   font-family: "Roboto Condensed", Arial, sans-serif !important;
+}
+
+/* ✅ Aumenta tipografía del panel de opciones del mat-select (global) */
+.cdk-overlay-container .mat-mdc-select-panel {
+  /* Tokens de MDC que usa mat-select para las opciones */
+  --mdc-typography-body2-font-size: 1.3rem;
+  --mdc-typography-body2-line-height: 1.5px;
+}
+
+/* Fallback por si tu build no respeta los tokens anteriores */
+.cdk-overlay-container
+  .mat-mdc-select-panel
+  .mdc-list-item__primary-text {
+  font-size: 1.3rem !important;
+}
+
+/* (opcional) más alto cada renglón del panel */
+.cdk-overlay-container
+  .mat-mdc-select-panel
+  .mat-mdc-option.mdc-list-item {
+  height: 50px; /* ajusta a gusto */
+}
+
+/* ===== Panel del mat-select (global) ===== */
+.cdk-overlay-container .mat-mdc-select-panel .mat-mdc-option {
+  background: #fbdddd;           /* fondo normal */
+}
+
+/* Hover con el mouse */
+.cdk-overlay-container .mat-mdc-select-panel .mat-mdc-option.mdc-list-item:hover {
+  background-color: blueviolet;
+  color: aqua;         /* hover */
+}
+
+/* Activo (mousedown) para cualquier opción */
+.cdk-overlay-container
+  .mat-mdc-select-panel
+  .mat-mdc-option.mdc-list-item:active {
+  background-color: #dfeaff;
 }

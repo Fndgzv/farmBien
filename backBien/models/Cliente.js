@@ -42,7 +42,6 @@ const ClienteSchema = new mongoose.Schema({
     monedero: [MonederoSchema],
     totalMonedero: { type: Number, require: true, default: 0 },
     historialMedico: [
-        // 🚧 Pendiente de definir la estructura exacta cuando se cuente con la especificación de la receta médica.
         {
             receta: {
                 medico: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario" },
@@ -50,7 +49,6 @@ const ClienteSchema = new mongoose.Schema({
                 indicaciones: String,
                 diagnostico: String,
                 fecha: Date,
-                // otros campos necesarios
             }
         }
     ]
@@ -58,5 +56,6 @@ const ClienteSchema = new mongoose.Schema({
 
 // Índices para optimizar búsquedas
 ClienteSchema.index({ "historialCompras.producto": 1, "historialCompras.fechaCompra": 1 });
+ClienteSchema.index({ nombre: 1 });
 
 module.exports = mongoose.model("Cliente", ClienteSchema);

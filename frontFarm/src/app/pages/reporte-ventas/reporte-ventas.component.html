@@ -188,13 +188,14 @@
 
             <tfoot *ngIf="rows.length > 0">
                 <tr>
-                    <td colspan="6" class="text-end"><strong>Totales (filtro completo):</strong></td>
+                    <td colspan="6" class="text-end"><strong>Totales ===></strong></td>
                     <td class="text-end" style="font-weight:600;">{{sumaCantidadProductos}}</td>
                     <td class="text-end" style="font-weight:600;">${{sumaTotalMonederoCliente | number:'1.2-2'}}</td>
                     <td class="text-end" style="font-weight:600;">${{sumaTotalDescuento | number:'1.2-2'}}</td>
                     <td class="text-end" style="font-weight:600;">${{sumaCosto | number:'1.2-2'}}</td>
                     <td class="text-end" style="font-weight:600;">${{sumaUtilidad | number:'1.2-2'}}</td>
-                    <td colspan="2" class="text-end"><strong>${{ sumaTotalFiltro | number:'1.2-2' }}</strong></td>
+                    <td class="text-end" style="font-weight:600;">{{sumaUtilidad / sumaCosto * 100 | number:'1.2-2'}}%</td>
+                    <td class="text-end"><strong>${{ sumaTotalFiltro | number:'1.2-2' }}</strong></td>
                 </tr>
                 <!-- <tr>
                     <td colspan="6" class="text-end"><strong>Total (página):</strong></td>

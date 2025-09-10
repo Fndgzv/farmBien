@@ -1,3 +1,4 @@
+// backBien\models\Devolucion.js
 const mongoose = require("mongoose");
 
 const DevolucionSchema = new mongoose.Schema({

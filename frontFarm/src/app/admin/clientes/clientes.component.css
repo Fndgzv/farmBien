@@ -1,0 +1,189 @@
+.tabla {
+    width: 100%;
+}
+
+.subtabla-vacia {
+    color: red !important;
+}
+
+.sub-row {
+    background: #f9f9f9;
+}
+
+.mat-form-field {
+    min-width: 160px;
+}
+
+.btn-monedero {
+    font-size: small;
+    font-weight: 400;
+    padding: 3px;
+    border-radius: 6px;
+    background: linear-gradient(45deg, #fc7813, #fcd30a);
+    color: blue;
+}
+
+.btn-monedero:hover {
+    background: linear-gradient(45deg, #a7f944, #fc7813);
+    box-shadow: 0 4px 8px rgba(255, 204, 0, 0.5);
+    color: white;
+}
+
+.btn-monedero:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-monedero[disabled]:hover {
+    background: linear-gradient(45deg, #a7f944, #fc7813);
+    box-shadow: none;
+    color: black;
+}
+
+.btn-editar {
+    font-size: small;
+    font-weight: 400;
+    padding: 3px;
+    border-radius: 6px;
+    background: linear-gradient(45deg, #fcd30a, #13fc1f);
+    color: rgb(51, 49, 49);
+}
+
+.btn-editar:hover {
+    background: linear-gradient(45deg, #13fc1f, #fcd30a);
+    box-shadow: 0 4px 8px rgba(255, 204, 0, 0.5);
+    color: red;
+}
+
+.btn-editar:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-editar[disabled]:hover {
+    background: linear-gradient(45deg, #a7f944, #fc7813);
+    box-shadow: none;
+    color: black;
+}
+
+.btn-cancelar-edicion {
+    font-size: small;
+    font-weight: 400;
+    padding: 3px;
+    border-radius: 6px;
+    background: linear-gradient(45deg, orange, red);
+    color: blue;
+}
+
+.btn-cancelar-edicion:hover {
+    background: linear-gradient(45deg, red, orange);
+    box-shadow: 0 4px 8px rgba(168, 135, 1, 0.5);
+    color: white;
+}
+
+.btn-cancelar-edicion:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-cancelar-edicion[disabled]:hover {
+    background: gray;
+    box-shadow: none;
+    color: black;
+}
+
+.paginator-custom .mat-mdc-paginator {
+    background: #f5fbff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .06);
+}
+
+/* Aplica a todas las celdas de la fila marcada */
+.restore-flash td {
+    animation: flashRestore 1.2s ease-out;
+}
+
+.forma-pago {
+    /* border: 1px solid #2a04e4; */
+    padding: 4px;
+    background: #2e04fe !important;
+    text-align: center;
+    font-size: large;
+    color: white;
+}
+
+.forma-pago-cantidad{
+    color: hsl(87, 91%, 87%);
+}
+
+/* Animación de fondo: del amarillo suave a transparente */
+@keyframes flashRestore {
+    0% {
+        background: #fff7cc;
+    }
+
+    /* amarillo tenue */
+    30% {
+        background: #ffef99;
+    }
+
+    100% {
+        background: transparent;
+    }
+}
+
+
+/* Alinea todo verticalmente en el paginador */
+.paginator-custom .mat-mdc-paginator-container,
+.paginator-custom .mat-mdc-paginator-page-size,
+.paginator-custom .mat-mdc-paginator-range-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.paginator-custom .mat-mdc-paginator-page-size-label,
+.paginator-custom .mat-mdc-paginator-range-label {
+    font-size: 1.3rem;
+    color: blueviolet;
+    line-height: 1;
+}
+
+/* Botones redondos con el icono centrado */
+.paginator-custom .mat-mdc-icon-button {
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s ease, transform .05s;
+}
+
+.paginator-custom .mat-mdc-icon-button:hover {
+    background: blueviolet;
+}
+
+.paginator-custom .mat-mdc-icon-button:active {
+    transform: translateY(1px);
+}
+
+.paginator-custom .mat-mdc-paginator-icon {
+    fill: aqua;
+    width: 3.25rem;
+    height: 3.25rem;
+}
+
+.paginator-custom .mat-mdc-paginator-range-actions .mat-mdc-icon-button[disabled] .mat-mdc-paginator-icon {
+    fill: #cbd5e1;
+}
+
+.paginator-custom {
+    background-color: #fbdddd;
+}
+
+.paginator-custom .mat-mdc-paginator-page-size .mat-mdc-select-trigger,
+.paginator-custom .mat-mdc-paginator-page-size .mat-mdc-select-value-text {
+    font-size: 1.3rem;
+    color: blueviolet;
+    line-height: 1.1;
+}

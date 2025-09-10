@@ -1,3 +1,4 @@
+// backBien\models\Cancelacion.js
 const mongoose = require("mongoose");
 
 const CancelacionSchema = new mongoose.Schema({
