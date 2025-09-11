@@ -2,7 +2,6 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middlewares/authMiddleware");
-const isAdmin = require('../middlewares/isAdmin');
 const ventaController = require("../controllers/ventaController");
 const devolucionController = require("../controllers/devolucionController")
 const pedidoController = require("../controllers/pedidoController")
@@ -24,7 +23,7 @@ router.patch('/pedidos/actualizar-costo/:id', authMiddleware, pedidoController.a
 router.get("/clientes/id/:clienteId", clienteController.obtenerClientePorId);
 router.get("/clientes", authMiddleware, clienteController.obtenerClientes);
 router.get("/clientes/telefono/:telefono", clienteController.buscarClientePorTelefono);
-router.get("/clientes/buscar", authMiddleware, isAdmin, clienteController.buscarClientesPorNombre);
+router.get("/clientes/buscar", authMiddleware, clienteController.buscarClientesPorNombre);
 router.post("/clientes", authMiddleware, clienteController.crearClienteDesdeVenta);
 
 // LISTA / CRUD básico

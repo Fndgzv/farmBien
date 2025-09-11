@@ -323,18 +323,142 @@
                 </ng-container>
             </ng-container>
 
-            <!-- Mensaje cuando no hay compras -->
-            <ng-template #sinCompras>
-                <div class="subtabla-vacia text-center text-muted p-2">
-                    Sin compras en el rango seleccionado.
-                </div>
-            </ng-template>
-
+            <!-- subtabla pedidos -->
             <ng-container *ngIf="expandedRow === (row._id + '_pedidos')">
-                <!-- Si hay filas, pinta la tabla; si no, muestra #sinPedidos -->
-                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinPedidos">
-                    <!-- subtabla pedidos -->
+                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinPedidos">              
                     <div class="sub-title-tabla">Pedidos de: {{ row.nombre }}</div>
+                    <div class="detalle-tabla-wrapper">
+                        <table class="detalle-tabla">
+                            <thead>
+                                <tr>
+                                    <th>Det.</th>
+                                    <th>Farmacia</th>
+                                    <th>Folio</th>
+                                    <th>F. pedido</th>
+                                    <th>Descripción</th>
+                                    <th>Estado</th>
+                                    <th>Costo</th>
+                                    <th>Precio</th>
+                                    <th>A cuenta</th>
+                                    <th>Resta</th>
+                                    <th>Tot. Ingreso</th>
+                                    <th>Utilidad</th>
+                                    <th>% Gan</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <ng-container *ngFor="let pd of subRows[expandedRow]; trackBy: trackPedidoBy">
+                                    <tr>
+                                        <td class="col-det">
+                                            <button class="btn-det" (click)="toggleDetallePedido(pd, expandedRow)">
+                                                <span [class.open]="subPedidoOpen[expandedRow] === pd._id">▸</span>
+                                            </button>
+                                        </td>
+                                        <td>{{ pd.farmacia }}</td>
+                                        <td>{{ pd.folio }}</td>
+                                        <td>{{ (pd.fechaPedido | date:'dd/MM/yyyy HH:mm') || '' }}</td>
+                                        <td>{{ pd.descripcion }}</td>
+                                        <td>{{ pd.estado }}</td>
+                                        <td class="text-end">${{ pd.costo | number:'1.2-2' }}</td>
+                                        <td class="text-end">${{ pd.precio | number:'1.2-2' }}</td>
+                                        <td class="text-end text-success">${{ pd.aCuenta | number:'1.2-2' }}</td>
+                                        <td class="text-end text-negativo">${{ pd.resta | number:'1.2-2' }}</td>
+                                        <td class="text-end text-negativo">${{ pd.precio - pd.resta | number:'1.2-2' }}
+                                        </td>
+                                        <td class="text-end text-negativo">${{ pd.precio - pd.resta - pd.costo |
+                                            number:'1.2-2'}}</td>
+                                        <td class="text-end text-negativo">
+                                            {{ pd.costo > 0 ? (( (pd.precio - pd.resta - pd.costo) / pd.costo ) * 100 |
+                                            number:'1.0-2') + '%' : '100%' }}
+                                        </td>
+
+                                    </tr>
+
+                                    <!-- Detalle de pedidos (solo si está abierto ese v) -->
+                                    <tr class="venta-detail" *ngIf="subPedidoOpen[expandedRow] === pd._id">
+                                        <td class="no-pad" colspan="100">
+                                            <div class="subdetalle">
+                                                <table class="subdetalle-tabla">
+                                                    <thead>
+                                                        <tr>
+                                                            <th colspan="2">Estado: {{ pd.estado }}</th>
+                                                            <th colspan="2">Precio: {{ pd.precio | currency }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr>
+                                                            <td colspan="2" class="sub-title-tabla">Anticipo: {{
+                                                                pd.aCuenta | currency }}</td>
+                                                            <td colspan="2" class="sub-title-tabla">Resta: {{
+                                                                pd.resta | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Efectivo:</td>
+                                                            <td>{{ pd.formasPago.anticipo.efectivo | currency }}</td>
+                                                            <td>Efectivo:</td>
+                                                            <td>{{ pd.formasPago.resta.efectivo | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Tarjeta:</td>
+                                                            <td>{{ pd.formasPago.anticipo.tarjeta | currency }}</td>
+                                                            <td>Tarjeta:</td>
+                                                            <td>{{ pd.formasPago.resta.tarjeta | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Transferencia:</td>
+                                                            <td>{{ pd.formasPago.anticipo.transferencia | currency }}</td>
+                                                            <td>Transferencia:</td>
+                                                            <td>{{ pd.formasPago.resta.transferencia | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>Monedero:</td>
+                                                            <td>{{ pd.formasPago.anticipo.vale | currency }}</td>
+                                                            <td>Monedero</td>
+                                                            <td>{{ pd.formasPago.resta.vale | currency }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td colspan="1">Levantó:</td>
+                                                            <td colspan="2">{{ pd.usuarioPidio }}</td>
+                                                            <td colspan="1">{{ pd.fechaPedido | date:
+                                                                'dd/MM/yyyy':'America/Mexico_City'
+                                                                }} </td>
+                                                        </tr>
+
+                                                    </tbody>
+                                                </table>
+
+                                                <div class="forma-pago">
+                                                    <span style="margin-right: 3rem; color: rgb(255, 199, 110);">
+                                                        Forma de pago:
+                                                    </span>
+                                                    <span style="margin-right: 1rem;">Efectivo:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        pd.formasPago.anticipo.efectivo + pd.formasPago.resta.efectivo || 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Tarjeta:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        pd.formasPago.anticipo.tarjeta + pd.formasPago.resta.tarjeta || 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Transferencia:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        pd.formasPago.anticipo.transferencia + pd.formasPago.resta.transferencia|| 0 | number:'1.2-2' }}</span>
+                                                    <span style="margin-right: 1rem;">Monedero:</span>
+                                                    <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
+                                                        pd.formasPago.anticipo.vale + pd.formasPago.resta.vale || 0 | number:'1.2-2' }}</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </ng-container>
+                            </tbody>
+                        </table>
+                    </div>
+                </ng-container>
+            </ng-container>
+
+            <!-- subtabla devoluciones -->
+            <ng-container *ngIf="expandedRow === (row._id + '_devoluciones')">
+                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinDevoluciones">              
+                    <div class="sub-title-tabla">Devoluciones de: {{ row.nombre }}</div>
                     <div class="detalle-tabla-wrapper">
                         <table class="detalle-tabla">
                             <thead>
@@ -477,10 +601,12 @@
                 </div>
             </ng-template>
 
-            <ng-container *ngIf="expandedRow === (row._id + '_devoluciones')">
-                <!-- subtabla devoluciones -->
-                 <div style="color:red">Las devoluciones están en construcción</div>
-            </ng-container>
+            <!-- Mensaje cuando no hay devoluciones -->
+            <ng-template #sinDevoluciones class="subtabla-vacia">
+                <div class="subtabla-vacia text-center">
+                    Sin devoluciones en el rango seleccionado.
+                </div>
+            </ng-template>
 
             <ng-container *ngIf="expandedRow === (row._id + '_cancelaciones')">
                 <!-- subtabla cancelaciones -->

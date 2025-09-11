@@ -98,6 +98,7 @@ export class ClientesComponent implements OnInit {
 
   subVentaOpen: Record<string, string | null> = {};
   subPedidoOpen: Record<string, string | null> = {};
+  subDevolucionOpen: Record<string, string | null> = {};
   trackVentaBy(_i: number, v: any) { return v._id; }
   trackPedidoBy(_i: number, v: any) { return v._id; }
 
@@ -180,6 +181,7 @@ export class ClientesComponent implements OnInit {
     delete this.subFooter[key];
     this.subVentaOpen[key] = null;
     this.subPedidoOpen[key] = null;
+    this.subDevolucionOpen[key] = null;
 
     this.fetchSubtabla(clienteId, tipo as any, key);
   }
@@ -196,7 +198,7 @@ export class ClientesComponent implements OnInit {
           const limit = resp?.paginacion?.limit ?? this.limit;
 
           this.clientes = rows;
-          this.dataSource.data = rows;           // <- NO recrees dataSource en cada búsqueda
+          this.dataSource.data = rows;           // <- NO recrear dataSource en cada búsqueda
           this.paginacion = { total, page, limit };
           this.totalDocs = total;
 
@@ -226,6 +228,7 @@ export class ClientesComponent implements OnInit {
       delete this.subFooter[this.expandedRow];
       delete this.subVentaOpen[this.expandedRow];
       delete this.subPedidoOpen[this.expandedRow];
+      delete this.subDevolucionOpen[this.expandedRow];
       this.expandedRow = null;
     }
 
@@ -338,6 +341,7 @@ export class ClientesComponent implements OnInit {
       delete this.subFooter[key];
       delete this.subVentaOpen[key];
       delete this.subPedidoOpen[key];
+      delete this.subDevolucionOpen[key];
       this.table?.renderRows();
       this.cdr.detectChanges();
       return;
@@ -349,12 +353,14 @@ export class ClientesComponent implements OnInit {
       delete this.subFooter[this.expandedRow];
       delete this.subVentaOpen[this.expandedRow];
       delete this.subPedidoOpen[this.expandedRow];
+      delete this.subDevolucionOpen[this.expandedRow];
     }
 
     // Abrir la nueva
     this.expandedRow = key;
-    this.subVentaOpen[key] = null; // ningún detalle abierto aún
-    this.subPedidoOpen[key] = null; // ningún detalle abierto aún
+    this.subVentaOpen[key] = null;
+    this.subPedidoOpen[key] = null; 
+    this.subDevolucionOpen[key] = null;
     this.table?.renderRows();
     this.cdr.detectChanges();
 
@@ -384,6 +390,7 @@ export class ClientesComponent implements OnInit {
           delete this.subFooter[key];
           this.subVentaOpen[key] = null;
           this.subPedidoOpen[key] = null;
+          this.subDevolucionOpen[key] = null;
         } else {
           this.subRows[key] = rows;
           this.subFooter[key] = resp?.footer ?? null;
@@ -402,6 +409,7 @@ export class ClientesComponent implements OnInit {
         delete this.subFooter[key];
         this.subVentaOpen[key] = null;
         this.subPedidoOpen[key] = null;
+        this.subDevolucionOpen[key] = null;
         this.table?.renderRows();
         this.cdr.detectChanges();
       }
@@ -427,6 +435,17 @@ export class ClientesComponent implements OnInit {
     } else {
       // abrir ese y cerrar cualquier otro dentro de la misma subtabla
       this.subPedidoOpen[key] = v._id;
+    }
+    this.cdr.detectChanges();
+  }
+
+  toggleDetalleDevolucion(v: any, key: string) {
+    // si ya está abierto ese v, ciérralo
+    if (this.subDevolucionOpen[key] === v._id) {
+      this.subDevolucionOpen[key] = null;
+    } else {
+      // abrir ese y cerrar cualquier otro dentro de la misma subtabla
+      this.subDevolucionOpen[key] = v._id;
     }
     this.cdr.detectChanges();
   }

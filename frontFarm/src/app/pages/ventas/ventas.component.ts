@@ -396,7 +396,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     });
   }
 
-  registrarNuevoCliente(nuevoCliente: any) {
+/*   registrarNuevoCliente(nuevoCliente: any) {
     this.clienteService.crearCliente(nuevoCliente).subscribe({
       next: (response: any) => {
         if (response && response.nombre && response._id) {
@@ -438,6 +438,75 @@ export class VentasComponent implements OnInit, AfterViewInit {
       }
     });
   }
+ */
+
+  registrarNuevoCliente(nuevoCliente: any) {
+  this.clienteService.crearCliente(nuevoCliente).subscribe({
+    next: (resp: any) => {
+      // normalización de formatos comunes
+      const candidato =
+        resp?.cliente ??
+        resp?.data ??
+        resp?.result ??
+        resp; // si ya viene plano
+
+      const _id     = candidato?._id ?? resp?.insertedId ?? resp?._id ?? null;
+      const nombre  = candidato?.nombre ?? nuevoCliente?.nombre ?? '';
+      const telefono = candidato?.telefono ?? nuevoCliente?.telefono ?? '';
+      const totalMonedero = Number(candidato?.totalMonedero ?? 0);
+
+      if (_id && nombre) {
+        // setea estado de la venta
+        this.nombreCliente = nombre;
+        this.ventaForm.controls['cliente'].setValue(_id);
+        this.hayCliente = true;
+        this.cliente = _id;
+        this.montoMonederoCliente = totalMonedero;
+
+        // opcional: refrescar/inyectar en cache local para el autocomplete
+        try {
+          const yaExiste = (this.clientes || []).some((c: any) => c?._id === _id);
+          if (!yaExiste) {
+            this.clientes = [
+              { _id, nombre, telefono, totalMonedero: totalMonedero },
+              ...(this.clientes || [])
+            ];
+          }
+        } catch {}
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Cliente registrado',
+          text: `El cliente ${nombre} ha sido registrado correctamente.`,
+          timer: 1500,
+          showConfirmButton: false
+        });
+      } else {
+        // No logramos extraer el id/nombre: log y aviso amable
+        console.error('⚠️ Respuesta inesperada del backend:', resp);
+        Swal.fire({
+          icon: 'warning',
+          title: 'Cliente registrado',
+          text: 'Se registró el cliente, pero no pude leer su ID desde la respuesta.',
+          confirmButtonText: 'OK',
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        });
+      }
+    },
+    error: (error) => {
+      console.error('❌ Error al registrar cliente:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo registrar el cliente. Inténtelo de nuevo.',
+        confirmButtonText: 'OK',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+    }
+  });
+}
 
   limpiarCliente() {
     this.cliente = '';

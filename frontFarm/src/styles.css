@@ -387,6 +387,7 @@ button {
 .sub-title-tabla {
   color: rgb(122, 18, 18);
   font-weight: bolder;
+  text-align: center !important;
 }
 
 .no-found-error {

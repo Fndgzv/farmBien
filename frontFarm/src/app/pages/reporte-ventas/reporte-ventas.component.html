@@ -21,7 +21,7 @@
             </div>
 
             <div class="col-md-3" style="align-items: end;">
-                <label class="form-label">Usuario</label>
+                <label class="form-label">Vendió:</label>
                 <select class="form-select" formControlName="usuarioId" (change)="buscar(true)"
                     [disabled]="cargando || !usuariosCargados">
                     <option *ngFor="let u of usuarios" [ngValue]="u._id">{{ u.nombre }}</option>
@@ -72,7 +72,7 @@
                 <tr>
                     <th style="width: 40px;">Det.</th>
                     <th>Farmacia</th>
-                    <th>Usuario</th>
+                    <th>Vendió</th>
                     <th>Fecha</th>
                     <th>Folio</th>
                     <th>Cliente</th>
