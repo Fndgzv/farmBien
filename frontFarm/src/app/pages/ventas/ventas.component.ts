@@ -1,7 +1,7 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
-import { distinctUntilChanged, debounceTime, startWith, map } from 'rxjs/operators';
-import { BehaviorSubject, combineLatest, of } from 'rxjs';
+import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, of, Observable } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -41,8 +41,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
   @ViewChild('codigoBarrasRef') codigoBarrasRef!: ElementRef<HTMLInputElement>;
   @ViewChild('efectivoRecibidoRef') efectivoRecibidoRef!: ElementRef<HTMLInputElement>; // <-- para enfocar el primer input del modal
 
-  @ViewChild('clienteTrigger', { read: MatAutocompleteTrigger })
-  private clienteTrigger?: MatAutocompleteTrigger;
+  @ViewChild('cliTrigger', { read: MatAutocompleteTrigger })
+  cliTrigger?: MatAutocompleteTrigger;
+
+  opcionesClientes: any[] = [];
 
   private pendingFocusEfectivo = false;
   barcodeFocusTimer: any = null;
@@ -95,8 +97,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   productos: any[] = [];
   clientes: any[] = [];
   private clientes$ = new BehaviorSubject<any[]>([]);
-  filteredClientes$ = of<any[]>([]);
-
 
   farmaciaId: string = '';
   farmaciaNombre: string = '';
@@ -131,8 +131,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
   ventaEnProceso: boolean = false;
 
   clienteNombreCtrl = new FormControl<string | any>({ value: '', disabled: false });
+  filteredClientes$: Observable<any[]> = of([]);
 
-  trackByCliente = (_: number, c: any) => c?._id || c?.nombre;
+  private sinAcentos(s: string) {
+    return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
 
   // Helpers numéricos
   private toNum(v: any): number {
@@ -177,9 +180,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
         distinctUntilChanged()
       )
       .subscribe(() => {
-        if (this.clienteNombreCtrl.enabled && this.clienteTrigger) {
-          if (!this.clienteTrigger.panelOpen) this.clienteTrigger.openPanel();
-          else this.clienteTrigger.updatePosition();
+        if (this.clienteNombreCtrl.enabled && this.cliTrigger) {
+          if (!this.cliTrigger.panelOpen) this.cliTrigger.openPanel();
+          else this.cliTrigger.updatePosition();
         }
       });
   }
@@ -195,7 +198,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   ngOnInit() {
     this.obtenerProductos();
-    this.obtenerClientes();
     const stored = localStorage.getItem('user_farmacia');
     const farmacia = stored ? JSON.parse(stored) : null;
 
@@ -211,18 +213,36 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     this.ventasPausadas = this.ventaService.getVentasPausadas();
 
-    this.filteredClientes$ = combineLatest([
-      this.clienteNombreCtrl.valueChanges.pipe(startWith(''), debounceTime(80)),
-      this.clientes$.asObservable()
-    ]).pipe(
-      map(([v, clientes]) => {
-        const term = (typeof v === 'string' ? v : (v?.nombre ?? '')).toLowerCase().trim();
-        if (!term) return clientes.slice(0, 50);       // evita listas enormes
-        return (clientes || []).filter(c =>
-          (c?.nombre || '').toLowerCase().includes(term)
-        ).slice(0, 50);
+    this.filteredClientes$ = this.clienteNombreCtrl.valueChanges.pipe(
+      map(v => (typeof v === 'string' ? v : (v?.nombre ?? '')) as string),
+      map(txt => txt.trim()),
+      debounceTime(200),
+      distinctUntilChanged(),
+      switchMap(term => {
+        if (term.length < 2) return of([]);
+        // 👇 mandamos el texto tal cual lo escribe el usuario
+        return this.clienteService.buscarClientesPorNombre(term, 20).pipe(
+          map(resp => resp?.rows ?? []),
+          catchError(() => of([]))
+        );
       })
     );
+
+
+    this.clienteNombreCtrl.valueChanges.pipe(
+      startWith(''),
+      debounceTime(120),
+      distinctUntilChanged(),
+      map(v => typeof v === 'string' ? v : (v?.nombre ?? ''))
+    ).subscribe(txt => {
+      this.opcionesClientes = this.filtraClientesLocal(txt);
+      // abre/cierra panel solo del campo cliente
+      if ((txt || '').length && this.opcionesClientes.length && !this.clienteNombreCtrl.disabled) {
+        this.cliTrigger?.openPanel();
+      } else {
+        this.cliTrigger?.closePanel();
+      }
+    });
 
   }
 
@@ -232,34 +252,28 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     if (debeDeshabilitar && ctrl.enabled) {
       ctrl.disable({ emitEvent: false });
-      this.clienteTrigger?.closePanel(); // cerrar panel si estaba abierto
+      this.cliTrigger?.closePanel(); // cerrar panel si estaba abierto
     } else if (!debeDeshabilitar && ctrl.disabled) {
       ctrl.enable({ emitEvent: false });
     }
   }
 
-  private filterClientes(v: any): any[] {
-    const term = typeof v === 'string' ? v : (v?.nombre ?? v?.value ?? '');
-    const q = term.toString().trim().toLowerCase();
-    if (!q) return this.clientes ?? [];
-    return (this.clientes ?? []).filter(c => (c?.nombre || '').toLowerCase().includes(q));
+  onClienteInput() {
+    const v = this.clienteNombreCtrl.value;
+    if (typeof v === 'string' && v.trim()) {
+      this.cliTrigger?.openPanel();
+    }
   }
 
   displayCliente = (c: any) => (c?.nombre || '');
 
   onClienteSelected(c: any) {
     if (!c) return;
-    // Setea todo tu estado actual
-    this.cliente = c._id;                          // id del cliente
-    this.nombreCliente = c.nombre || '';           // para mostrar
-    this.telefonoCliente = c.telefono || '';       // tu campo existente
+    this.cliente = c._id;
+    this.nombreCliente = c.nombre || '';
+    this.telefonoCliente = c.telefono || '';
     this.montoMonederoCliente = Number(c.totalMonedero || 0);
     this.hayCliente = true;
-
-    // Si deseas bloquear edición por teléfono al elegir por nombre:
-    // (ya se deshabilita si carrito.length > 0)
-
-    // Opcional: mueve foco al lector
     this.focusBarcode(60);
   }
 
@@ -300,21 +314,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }, delay);
   }
 
-  private focusEfectivo(delay = 0) {
-    const doFocus = () => {
-      const el = this.efectivoRecibidoRef?.nativeElement;
-      if (el && !el.disabled) {
-        try {
-          el.focus();
-          el.select();
-        } catch { }
-      }
-    };
-    setTimeout(() => {
-      requestAnimationFrame(() => doFocus());
-    }, delay);
-  }
-
   nombreDiaSemana(dia: number): string {
     const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     return dias[dia] || '';
@@ -323,7 +322,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   abrirAutoClientes() {
     if (this.clienteNombreCtrl.enabled) {
       // abre en el siguiente ciclo para que Angular tenga el DOM listo
-      setTimeout(() => this.clienteTrigger?.openPanel(), 0);
+      setTimeout(() => this.cliTrigger?.openPanel(), 0);
     }
   }
 
@@ -591,16 +590,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.productoService.obtenerProductos().subscribe({
       next: (data) => this.productos = data,
       error: (error) => console.error('Error al obtener productos', error)
-    });
-  }
-
-  obtenerClientes() {
-    this.clienteService.obtenerClientes().subscribe({
-      next: (data) => {
-        this.clientes = data || [];
-        this.clientes$.next(this.clientes);   // << clave
-      },
-      error: (error) => console.error('Error al obtener clientes', error)
     });
   }
 
@@ -1469,4 +1458,87 @@ export class VentasComponent implements OnInit, AfterViewInit {
       });
     });
   }
+
+  // --- AUTOCOMPLETE FALLBACK (CLIENTE) ---
+
+  clienteBoxVisible = false;
+  clienteIndex = -1; // para flechas
+
+  onClienteBlur() {
+    // pequeño delay para permitir click en opción
+    setTimeout(() => { this.clienteBoxVisible = false; }, 120);
+  }
+
+  onClienteKeyDown(ev: KeyboardEvent) {
+    if (!this.clienteBoxVisible || this.opcionesClientes.length === 0) return;
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      this.clienteIndex = Math.min(this.clienteIndex + 1, this.opcionesClientes.length - 1);
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      this.clienteIndex = Math.max(this.clienteIndex - 1, 0);
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      if (this.clienteIndex >= 0) {
+        this.selectCliente(this.opcionesClientes[this.clienteIndex]);
+      }
+    } else if (ev.key === 'Escape') {
+      this.clienteBoxVisible = false;
+    }
+  }
+
+  selectCliente(c: any) {
+    if (!c) return;
+    // deja el nombre en el input
+    this.clienteNombreCtrl.setValue(c.nombre, { emitEvent: false });
+    this.clienteBoxVisible = false;
+
+    // y llama tu flujo existente de selección
+    this.onClienteSelected(c);
+  }
+
+  trackByCliente = (_: number, c: any) => c?._id || c?.nombre || _;
+
+  // ---- util: asegura array sin importar el formato del backend ----
+  private ensureClientesArray(src: any): any[] {
+    if (Array.isArray(src)) return src;
+    if (Array.isArray(src?.rows)) return src.rows;
+    if (Array.isArray(src?.data)) return src.data;
+    if (Array.isArray(src?.clientes)) return src.clientes;
+    return [];
+  }
+
+  // Asegura que this.clientes sea un array y filtra por nombre/teléfono
+  private filtraClientesLocal(term: string): any[] {
+    const base: any[] = Array.isArray(this.clientes)
+      ? this.clientes
+      : (Array.isArray((this.clientes as any)?.rows) ? (this.clientes as any).rows : []);
+
+    const t = (term || '').trim().toLowerCase();
+    if (!t) return base.slice(0, 50);
+
+    const tDigits = term.replace(/\D/g, '');
+    return base.filter(c => {
+      const nombre = (c?.nombre || '').toLowerCase();
+      const tel = String(c?.telefono || '');
+      return nombre.includes(t) || (tDigits && tel.includes(tDigits));
+    }).slice(0, 50);
+  }
+
+  // ligado al (input) del <datalist>
+  filtraClientesDatalist(term: string) {
+    this.opcionesClientes = this.filtraClientesLocal(term);
+  }
+
+  // cuando el usuario elige una opción (o pega el texto)
+  onClienteElegidoDesdeTexto(text: string) {
+    const nombre = String(text || '').split(' — ')[0].trim().toLowerCase();
+    if (!nombre) return;
+    const base = this.ensureClientesArray(this.clientes);
+    const c = base.find(x => String(x?.nombre || '').toLowerCase() === nombre);
+    if (c) this.onClienteSelected(c); // <- tu método existente
+  }
+
+
+
 }

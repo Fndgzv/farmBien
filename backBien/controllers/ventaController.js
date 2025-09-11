@@ -5,8 +5,6 @@ const Venta = require("../models/Venta");
 const Producto = require("../models/Producto");
 const Cliente = require("../models/Cliente");
 const InventarioFarmacia = require("../models/InventarioFarmacia");
-const generarFolioUnico = require('../utils/generarFolioUnico').default;
-// const { dayRangeUtcFromQuery } = require('../utils/dateRange');
 
 const ZONE = process.env.APP_TZ || 'America/Mexico_City';
 
@@ -67,30 +65,6 @@ function soloFechaMxJS(d) {
   return dt.setZone(ZONE).startOf('day').toJSDate();
 }
 
-// --- helpers de fecha (déjalos arriba del archivo) ---
-function soloFecha(d) {
-  if (!d) return new Date(NaN);
-  const dt = d instanceof Date ? d : new Date(d);
-  if (isNaN(dt.getTime())) return new Date(NaN);
-  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-}
-
-function parseFecha(val) {
-  if (!val) return null;
-  if (val instanceof Date) return soloFecha(val);
-
-  if (typeof val === 'string') {
-    // dd/mm/aaaa
-    let m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (m) return soloFecha(new Date(+m[3], +m[2] - 1, +m[1]));
-    // aaaa-mm-dd o ISO
-    m = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return soloFecha(new Date(+m[1], +m[2] - 1, +m[3]));
-  }
-
-  const dt = new Date(val);
-  return isNaN(dt.getTime()) ? null : soloFecha(dt);
-}
 
 function enRangoHoy(ini, fin, hoy) {
   if (ini && fin) return ini <= hoy && hoy <= fin;

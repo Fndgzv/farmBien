@@ -50,6 +50,11 @@ export class ClienteService {
     return this.http.get<any>(`${this.apiUrl}/telefono/${telefono}`);
   }
 
+  buscarClientesPorNombre(termino: string, limit = 20) {
+    const params = new HttpParams().set('q', termino).set('limit', limit.toString());
+    return this.http.get<{ ok: boolean; rows: any[] }>(`${this.apiUrl}/buscar`, { params });
+  }
+
   getClienteById(id: string) {
     return this.http.get<any>(`${this.apiUrl}/id/${id}`);
   }

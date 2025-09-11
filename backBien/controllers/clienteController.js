@@ -59,6 +59,66 @@ exports.buscarClientePorTelefono = async (req, res) => {
 };
 
 
+/**
+ * GET /api/clientes/buscar?q=texto&limit=20
+ * Devuelve una lista (limitada) de clientes cuyo nombre
+ * coincide con el texto, ignorando acentos y mayúsculas.
+ * Ej: "Noe" coincide con "Noé", "Maria" con "María", etc.
+ */
+exports.buscarClientesPorNombre = async (req, res) => {
+  try {
+    const qRaw = String(req.query.q || '').trim();
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '20', 10)));
+
+    if (!qRaw) return res.json({ ok: true, rows: [] });
+
+    // Construye un regex que contempla acentos (tanto si los teclean como si no)
+    const rx = buildAccentInsensitiveRegex(qRaw);
+
+    const rows = await Cliente.find(
+      { nombre: rx },
+      { _id: 1, nombre: 1, telefono: 1, totalMonedero: 1 }
+    )
+      // NO usamos collation para que el control de acentos dependa del regex
+      .sort({ nombre: 1 })
+      .limit(limit)
+      .lean();
+
+    res.json({ ok: true, rows });
+  } catch (e) {
+    console.error('[buscarClientesPorNombre][ERROR]', e);
+    res.status(500).json({ ok: false, mensaje: 'Error al buscar clientes' });
+  }
+};
+
+/**
+ * Genera un RegExp que iguala letras con y sin acento (y mayúsc/minúsc).
+ * Ej: "Noe" -> /N[oóòöôOÓÒÖÔ]…/i
+ */
+function buildAccentInsensitiveRegex(text) {
+  // Escapa meta-caracteres de regex
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Mapa de variantes acentuadas (incluye mayúsculas)
+  const map = {
+    a: 'aáàäâAÁÀÄÂ',
+    e: 'eéèëêEÉÈËÊ',
+    i: 'iíìïîIÍÌÏÎ',
+    o: 'oóòöôOÓÒÖÔ',
+    u: 'uúùüûUÚÙÜÛ',
+    n: 'nñNÑ',
+    c: 'cçCÇ',
+  };
+
+  // Construye el patrón sumando clases de caracteres
+  const pattern = [...text].map(ch => {
+    const group = map[ch] || map[ch.toLowerCase()];
+    return group ? `[${esc(group)}]` : esc(ch);
+  }).join('');
+
+  return new RegExp(pattern, 'i'); // i = case-insensitive
+}
+
 // Crear un nuevo cliente, desde una venta, con telefono y nombre
 exports.crearClienteDesdeVenta = async (req, res) => {
     try {
