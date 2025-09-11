@@ -1,6 +1,7 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
-import { take, startWith, map } from 'rxjs/operators';
+import { distinctUntilChanged, debounceTime, startWith, map } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, of } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -20,7 +21,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 
 import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
-import { Observable, of } from 'rxjs';
 @Component({
   selector: 'app-ventas',
   standalone: true,
@@ -40,7 +40,9 @@ import { Observable, of } from 'rxjs';
 export class VentasComponent implements OnInit, AfterViewInit {
   @ViewChild('codigoBarrasRef') codigoBarrasRef!: ElementRef<HTMLInputElement>;
   @ViewChild('efectivoRecibidoRef') efectivoRecibidoRef!: ElementRef<HTMLInputElement>; // <-- para enfocar el primer input del modal
-  @ViewChild(MatAutocompleteTrigger) autoTrigger?: MatAutocompleteTrigger;
+
+  @ViewChild('clienteTrigger', { read: MatAutocompleteTrigger })
+  private clienteTrigger?: MatAutocompleteTrigger;
 
   private pendingFocusEfectivo = false;
   barcodeFocusTimer: any = null;
@@ -92,6 +94,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
   productosFiltradosPorCodigo: any[] = [];
   productos: any[] = [];
   clientes: any[] = [];
+  private clientes$ = new BehaviorSubject<any[]>([]);
+  filteredClientes$ = of<any[]>([]);
+
 
   farmaciaId: string = '';
   farmaciaNombre: string = '';
@@ -127,6 +132,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   clienteNombreCtrl = new FormControl<string | any>({ value: '', disabled: false });
 
+  trackByCliente = (_: number, c: any) => c?._id || c?.nombre;
+
   // Helpers numéricos
   private toNum(v: any): number {
     const n = Number(v);
@@ -159,12 +166,22 @@ export class VentasComponent implements OnInit, AfterViewInit {
     });
   }
 
-  //clienteNombreCtrl = new FormControl<string | any>('');
-  filteredClientes$: Observable<any[]> = of([]);
-
   ngAfterViewInit(): void {
     // foco inicial al entrar al componente
     this.focusBarcode();
+    // 👇 Fuerza abrir el panel mientras el usuario escribe
+    this.clienteNombreCtrl.valueChanges
+      .pipe(
+        startWith(this.clienteNombreCtrl.value ?? ''),
+        debounceTime(50),
+        distinctUntilChanged()
+      )
+      .subscribe(() => {
+        if (this.clienteNombreCtrl.enabled && this.clienteTrigger) {
+          if (!this.clienteTrigger.panelOpen) this.clienteTrigger.openPanel();
+          else this.clienteTrigger.updatePosition();
+        }
+      });
   }
 
   ngAfterViewChecked() {
@@ -194,10 +211,19 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     this.ventasPausadas = this.ventaService.getVentasPausadas();
 
-    this.filteredClientes$ = this.clienteNombreCtrl.valueChanges.pipe(
-      startWith(this.clienteNombreCtrl.value ?? ''),
-      map(v => this.filterClientes(v))
+    this.filteredClientes$ = combineLatest([
+      this.clienteNombreCtrl.valueChanges.pipe(startWith(''), debounceTime(80)),
+      this.clientes$.asObservable()
+    ]).pipe(
+      map(([v, clientes]) => {
+        const term = (typeof v === 'string' ? v : (v?.nombre ?? '')).toLowerCase().trim();
+        if (!term) return clientes.slice(0, 50);       // evita listas enormes
+        return (clientes || []).filter(c =>
+          (c?.nombre || '').toLowerCase().includes(term)
+        ).slice(0, 50);
+      })
     );
+
   }
 
   private syncClienteCtrlDisabled(): void {
@@ -206,16 +232,17 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     if (debeDeshabilitar && ctrl.enabled) {
       ctrl.disable({ emitEvent: false });
-      this.autoTrigger?.closePanel(); // cerrar panel si estaba abierto
+      this.clienteTrigger?.closePanel(); // cerrar panel si estaba abierto
     } else if (!debeDeshabilitar && ctrl.disabled) {
       ctrl.enable({ emitEvent: false });
     }
   }
 
   private filterClientes(v: any): any[] {
-    const term = (typeof v === 'string' ? v : v?.nombre || '').toLowerCase().trim();
-    if (!term) return this.clientes ?? [];
-    return (this.clientes ?? []).filter(c => (c?.nombre || '').toLowerCase().includes(term));
+    const term = typeof v === 'string' ? v : (v?.nombre ?? v?.value ?? '');
+    const q = term.toString().trim().toLowerCase();
+    if (!q) return this.clientes ?? [];
+    return (this.clientes ?? []).filter(c => (c?.nombre || '').toLowerCase().includes(q));
   }
 
   displayCliente = (c: any) => (c?.nombre || '');
@@ -263,7 +290,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
   private focusBarcode(delay = 60) {
     this.clearBarcodeFocusTimer();
     this.barcodeFocusTimer = setTimeout(() => {
-      if (!this.mostrarModalPago && this.codigoBarrasRef) {
+      const ae = document.activeElement as HTMLElement | null;
+      const typing =
+        !!ae && (ae.tagName === 'INPUT' || ae.getAttribute('contenteditable') === 'true');
+      if (!this.mostrarModalPago && !typing && this.codigoBarrasRef) {
         this.codigoBarrasRef.nativeElement.focus();
       }
       this.barcodeFocusTimer = null;
@@ -288,6 +318,13 @@ export class VentasComponent implements OnInit, AfterViewInit {
   nombreDiaSemana(dia: number): string {
     const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     return dias[dia] || '';
+  }
+
+  abrirAutoClientes() {
+    if (this.clienteNombreCtrl.enabled) {
+      // abre en el siguiente ciclo para que Angular tenga el DOM listo
+      setTimeout(() => this.clienteTrigger?.openPanel(), 0);
+    }
   }
 
   buscarCliente() {
@@ -496,7 +533,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   pausarVenta() {
     this.ventasPausadas.push({
-      // opcional pero recomendado: un id para la pausada
       _uid: 'p' + Date.now() + Math.random().toString(36).slice(2, 8),
       cliente: this.ventaForm.value.cliente,
       productos: [...this.carrito],
@@ -509,9 +545,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
       totalDescuento: this.totalDescuento,
       totalAlmonedero: this.totalAlmonedero,
       aplicaInapam: this.aplicaInapam,
-      captionButtomReanudar: this.captionButtomReanudar
+      captionButtomReanudar: this.captionButtomReanudar || '(venta pausada)'
     });
     this.ventaService.setVentasPausadas(this.ventasPausadas);
+
+    this.ventasPausadas = this.ventaService.getVentasPausadas() || [];
 
     this.carrito = [];
     this.total = 0;
@@ -558,7 +596,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   obtenerClientes() {
     this.clienteService.obtenerClientes().subscribe({
-      next: (data) => this.clientes = data,
+      next: (data) => {
+        this.clientes = data || [];
+        this.clientes$.next(this.clientes);   // << clave
+      },
       error: (error) => console.error('Error al obtener clientes', error)
     });
   }
@@ -1092,95 +1133,112 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.focusBarcode(50);
   }
 
-finalizarVenta() {
-  // Normalizar
-  this.efectivoRecibido   = Math.max(0, this.pagoEfectivo);
-  this.montoTarjeta       = Math.max(0, this.pagoTarjeta1);
-  this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
-  this.montoVale          = Math.max(0, this.pagoVale1);
-  this.cambio             = Math.max(0, this.cambio);
+  finalizarVenta() {
+    // Normalizar
+    this.efectivoRecibido = Math.max(0, this.pagoEfectivo);
+    this.montoTarjeta = Math.max(0, this.pagoTarjeta1);
+    this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
+    this.montoVale = Math.max(0, this.pagoVale1);
+    this.cambio = Math.max(0, this.cambio);
 
-  const totalPagado     = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
-  const pagosDigitales  = this.montoTarjeta + this.montoTransferencia + this.montoVale;
+    const totalPagado = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
+    const pagosDigitales = this.montoTarjeta + this.montoTransferencia + this.montoVale;
 
-  if (pagosDigitales > this.total) {
-    Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
-    return;
-  }
-  if (totalPagado < this.total) {
-    Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
-    return;
-  }
-
-  const folio = this.folioVentaGenerado || this.generarFolioLocal();
-  this.folioVentaGenerado = folio;
-
-  const productos = this.carrito.map(p => ({
-    producto: p.producto,
-    nombre: p.nombre,
-    barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
-    cantidad: p.cantidad,
-    precio: p.precioFinal,
-    totalRen: p.precioFinal * p.cantidad,
-    precioOriginal: p.precioOriginal,
-    iva: p.iva,
-    tipoDescuento: p.tipoDescuento,
-    descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
-    cadenaDescuento: p.cadDesc ?? '',
-    monederoCliente: (p.almonedero ?? 0) * p.cantidad,
-  }));
-
-  this.ventaParaImpresion = {
-    folio: this.folioVentaGenerado,
-    cliente: this.nombreCliente,
-    farmacia: {
-      nombre: this.farmaciaNombre,
-      direccion: this.farmaciaDireccion,
-      telefono: this.farmaciaTelefono
-    },
-    productos,
-    cantidadProductos: this.totalArticulos,
-    total: this.total,
-    totalDescuento: this.totalDescuento,
-    totalMonederoCliente: this.totalAlmonedero,
-    formaPago: {
-      efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
-      tarjeta: this.montoTarjeta,
-      transferencia: this.montoTransferencia,
-      vale: this.montoVale
-    },
-    AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
-    elcambio: this.cambio,
-    fecha: new Date().toISOString(),
-    usuario: this.nombreUs
-  };
-
-  // Mostrar ticket y CERRAR el modal de pago antes de imprimir
-  this.mostrarTicket = true;
-  this.mostrarModalPago = false;
-  this.cdRef.detectChanges();
-
-  // Handler robusto para después de imprimir
-  const afterPrint = () => {
-    window.removeEventListener('afterprint', afterPrint);
-    this.ngZone.run(() => {
-      this.mostrarTicket = false;
-      this.hayCliente = false;
-      this.guardarVentaDespuesDeImpresion(folio);
-    });
-  };
-  window.addEventListener('afterprint', afterPrint);
-
-  // Lanzar impresión (bloquea hasta que el usuario cierra el diálogo)
-  setTimeout(() => {
-    try {
-      window.print();
-    } catch {
-      // Si algo raro pasa, aseguremos la ruta de salida
-      afterPrint();
+    if (pagosDigitales > this.total) {
+      Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
+      return;
     }
-  }, 0);
-}
+    if (totalPagado < this.total) {
+      Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
+      return;
+    }
+
+    const folio = this.folioVentaGenerado || this.generarFolioLocal();
+    this.folioVentaGenerado = folio;
+
+    const productos = this.carrito.map(p => ({
+      producto: p.producto,
+      nombre: p.nombre,
+      barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
+      cantidad: p.cantidad,
+      precio: p.precioFinal,
+      totalRen: p.precioFinal * p.cantidad,
+      precioOriginal: p.precioOriginal,
+      iva: p.iva,
+      tipoDescuento: p.tipoDescuento,
+      descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
+      cadenaDescuento: p.cadDesc ?? '',
+      monederoCliente: (p.almonedero ?? 0) * p.cantidad,
+    }));
+
+    this.ventaParaImpresion = {
+      folio: this.folioVentaGenerado,
+      cliente: this.nombreCliente,
+      farmacia: {
+        nombre: this.farmaciaNombre,
+        direccion: this.farmaciaDireccion,
+        telefono: this.farmaciaTelefono
+      },
+      productos,
+      cantidadProductos: this.totalArticulos,
+      total: this.total,
+      totalDescuento: this.totalDescuento,
+      totalMonederoCliente: this.totalAlmonedero,
+      formaPago: {
+        efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
+        tarjeta: this.montoTarjeta,
+        transferencia: this.montoTransferencia,
+        vale: this.montoVale
+      },
+      AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
+      elcambio: this.cambio,
+      fecha: new Date().toISOString(),
+      usuario: this.nombreUs
+    };
+
+    // Mostrar ticket y cerrar el modal ANTES de imprimir
+    this.mostrarTicket = true;
+    this.mostrarModalPago = false;
+    this.cdRef.detectChanges();
+
+    // Salida única y robusta
+    let finished = false;
+    const safeFinish = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      this.ngZone.run(() => {
+        this.mostrarTicket = false;
+        this.hayCliente = false;
+        this.guardarVentaDespuesDeImpresion(folio);
+      });
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('afterprint', onAfterPrint);
+      mq?.removeEventListener?.('change', onMQ);
+      if (watchdog) clearTimeout(watchdog);
+    };
+
+    const onAfterPrint = () => safeFinish();
+
+    // Safari/Firefox fallback
+    const mq = (window as any).matchMedia ? window.matchMedia('print') : null;
+    const onMQ = (e: any) => {
+      if (!e?.matches) safeFinish(); // terminó de imprimir
+    };
+
+    window.addEventListener('afterprint', onAfterPrint);
+    mq?.addEventListener?.('change', onMQ);
+
+    // Watchdog: si nada dispara, cerramos igual
+    const watchdog = setTimeout(safeFinish, 6000);
+
+    // Imprimir
+    setTimeout(() => {
+      try { window.print(); } catch { safeFinish(); }
+    }, 0);
+  }
 
 
   limpiarVenta() {

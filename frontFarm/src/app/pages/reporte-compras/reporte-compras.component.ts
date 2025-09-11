@@ -2,13 +2,17 @@
 import { Component, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatTableModule } from '@angular/material/table';
+import { MatTableModule, MatTable } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { CompraService } from '../../services/compra.service';
+
+import { faTimes } from '@fortawesome/free-solid-svg-icons';
+import { FaIconLibrary, FontAwesomeModule } from '@fortawesome/angular-fontawesome';
+
 
 type RowCompra = {
   compraId: string;
@@ -28,13 +32,15 @@ type RowCompra = {
 
 @Component({
   selector: 'app-reporte-compras',
+  standalone: true,
   imports: [
     CommonModule, FormsModule,
-    MatTableModule, MatPaginatorModule,
+    MatTableModule, MatPaginatorModule, FontAwesomeModule,
     MatButtonModule, MatIconModule, MatTooltipModule
   ], templateUrl: './reporte-compras.component.html',
   styleUrl: './reporte-compras.component.css'
 })
+
 export class ReporteComprasComponent {
   // filtros
   proveedor = '';
@@ -42,10 +48,16 @@ export class ReporteComprasComponent {
   importeHasta: number | null = null;
   fechaIni = ''; // yyyy-MM-dd
   fechaFin = '';
+  productoNombre = '';
+  codigoBarras = '';
 
   // datos
   rows: RowCompra[] = [];
-  displayedColumns = ['fecha', 'proveedor', 'total', 'acciones'];
+  displayedColumns = ['acciones', 'fecha', 'proveedor', 'total'];
+
+
+  @ViewChild(MatTable) table!: MatTable<RowCompra>;
+  isDetailRow = (_: number, row: RowCompra) => this.expandedId === row.compraId;
 
   // paginación
   page = 1;
@@ -58,7 +70,11 @@ export class ReporteComprasComponent {
 
   @ViewChild('paginator') paginator: any;
 
-  constructor(private comprasSrv: CompraService, private cdr: ChangeDetectorRef) { }
+  faTimes = faTimes;
+
+  constructor(private comprasSrv: CompraService, private cdr: ChangeDetectorRef, private library: FaIconLibrary,) {
+    library.addIcons( faTimes );
+  }
 
   ngOnInit(): void {
     this.setFechasPorDefecto();
@@ -70,12 +86,14 @@ export class ReporteComprasComponent {
     const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 10);
   }
+
   private setFechasPorDefecto(): void {
     const hoy = new Date();
     const primeroMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     this.fechaIni = this.toLocalISODate(primeroMes);
     this.fechaFin = this.toLocalISODate(hoy);
   }
+
   /** fechaFin inclusiva -> enviamos fin+1 para usar $lt en backend */
   private getFechaFinExclusiveISO(): string {
     const fin = new Date(this.fechaFin);
@@ -88,7 +106,45 @@ export class ReporteComprasComponent {
     this.importeDesde = null;
     this.importeHasta = null;
     this.setFechasPorDefecto();
+    this.productoNombre = '';
+    this.codigoBarras = '';
     this.page = 1;
+    this.buscar(true);
+  }
+
+  limpiarCodigo(): void {
+    this.codigoBarras = '';
+    this.buscar(true);
+  }
+
+  limpiarIni(): void {
+    const hoy = new Date();
+    const primeroMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    this.fechaIni = this.toLocalISODate(primeroMes);
+  }
+
+  limpiarFin(): void {
+    const hoy = new Date();
+    this.fechaFin = this.toLocalISODate(hoy);
+  }
+
+  limpiarDesde(): void {
+    this.importeDesde = null;
+    this.buscar(true);
+  }
+  
+  limpiarHasta(): void {
+    this.importeHasta = null;
+    this.buscar(true);
+  }
+
+  limpiarProveedor(): void {
+    this.proveedor = '';
+    this.buscar(true);
+  }
+
+  limpiarProducto(): void {
+    this.productoNombre = '';
     this.buscar(true);
   }
 
@@ -110,6 +166,9 @@ export class ReporteComprasComponent {
     if (this.importeHasta !== null && this.importeHasta !== undefined && this.importeHasta !== ('' as any)) {
       params.importeHasta = this.importeHasta;
     }
+    if (this.productoNombre?.trim()) params.productoNombre = this.productoNombre.trim();
+    if (this.codigoBarras?.trim()) params.codigoBarras = this.codigoBarras.trim();
+
 
     this.cargando = true;
     this.expandedId = null;
@@ -128,6 +187,7 @@ export class ReporteComprasComponent {
 
         this.cargando = false;
         this.cdr.detectChanges();
+        this.table?.renderRows();
       },
       error: _ => {
         this.rows = [];
@@ -148,6 +208,7 @@ export class ReporteComprasComponent {
   // ===== detalle expandible =====
   toggleDetalle(row: RowCompra): void {
     this.expandedId = (this.expandedId === row.compraId) ? null : row.compraId;
+    this.table?.renderRows();
   }
 
   trackByCompra = (_: number, r: RowCompra) => r.compraId;

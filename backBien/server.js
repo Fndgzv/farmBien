@@ -87,7 +87,7 @@ const Pedido = require('./models/Pedido');
 const Devolucion = require('./models/Devolucion');
 const Cancelacion = require('./models/Cancelacion');
 const Cliente = require('./models/Cliente')
-
+const Compra = require('./models/Compra')
 mongoose.connection.once('open', async () => {
   try {
     // Si quieres, sincroniza más colecciones aquí (agrega otros modelos al Promise.all)
@@ -98,8 +98,9 @@ mongoose.connection.once('open', async () => {
       Pedido.syncIndexes(),
       Cancelacion.syncIndexes(),
       Cliente.syncIndexes(),
+      Compra.syncIndexes(),
     ]);
-    console.log('✅ Índices sincronizados: Venta, Producto, Pedido, Devolución, Cancelación y Cliente');
+    console.log('✅ Índices sincronizados: Venta, Producto, Pedido, Devolución, Cancelación, Cliente y Compra');
   } catch (e) {
     console.error('❌ Error al sincronizar índices:', e?.message || e);
   }

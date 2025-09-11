@@ -1,42 +1,119 @@
 <!-- src/app/pages/compras/compras.component.html -->
 <div class="filtros">
-  <div class="fila">
-    <div class="grp">
-      <label>Proveedor</label>
-      <input type="text" class="form-control" [(ngModel)]="proveedor" (keyup.enter)="buscar(true)" placeholder="Nombre del proveedor">
+  <h2 class="titulo text-center">Reporte General de Compras</h2>
+  <div class="row">
+    <div class="col-3">
+      <label style="white-space: nowrap;">Proveedor</label>
+      <div class="position-relative">
+        <input type="text" class="form-control" [(ngModel)]="proveedor" (keyup.enter)="buscar(true)"
+          placeholder="Nombre del proveedor">
+        <button *ngIf="proveedor" type="button"
+          class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+          (click)="limpiarProveedor()">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+      </div>
     </div>
 
-    <div class="grp">
-      <label>Importe desde</label>
-      <input type="number" class="form-control" [(ngModel)]="importeDesde" (keyup.enter)="buscar(true)">
-    </div>
-    <div class="grp">
-      <label>Importe hasta</label>
-      <input type="number" class="form-control" [(ngModel)]="importeHasta" (keyup.enter)="buscar(true)">
-    </div>
-
-    <div class="grp">
-      <label>Fecha inicial</label>
-      <input type="date" class="form-control" [(ngModel)]="fechaIni" (change)="buscar(true)">
-    </div>
-    <div class="grp">
-      <label>Fecha final</label>
-      <input type="date" class="form-control" [(ngModel)]="fechaFin" (change)="buscar(true)">
+    <div class="col-3">
+      <label style="white-space: nowrap;">Producto</label>
+      <div class="position-relative">
+        <input type="text" class="form-control" [(ngModel)]="productoNombre" (keyup.enter)="buscar(true)"
+          placeholder="Nombre del producto">
+        <button *ngIf="productoNombre" type="button"
+          class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+          (click)="limpiarProducto()">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+      </div>
     </div>
 
-    <div class="grp acciones">
-      <button mat-raised-button color="primary" (click)="buscar(true)" [disabled]="cargando">
-        <mat-icon>search</mat-icon>&nbsp;Buscar
-      </button>
-      <button mat-stroked-button color="warn" (click)="limpiarFiltros()" [disabled]="cargando">
+    <div class="col-2">
+      <label style="white-space: nowrap;">Código de barras</label>
+      <div class="position-relative">
+        <input type="text" class="form-control" [(ngModel)]="codigoBarras" (keyup.enter)="buscar(true)"
+          placeholder="Código de barras">
+        <button *ngIf="codigoBarras" type="button"
+          class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+          (click)="limpiarCodigo()">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+      </div>
+    </div>
+    <div class="col-2">
+      <label style="white-space: nowrap;">Importe desde</label>
+      <div class="position-relative">
+        <input type="number" class="form-control" [(ngModel)]="importeDesde" (keyup.enter)="buscar(true)">
+        <button *ngIf="importeDesde" type="button" style="margin-right: 2rem;"
+          class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+          (click)="limpiarDesde()">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+      </div>
+    </div>
+    <div class="col-2">
+      <label style="white-space: nowrap;">Importe hasta</label>
+      <div class="position-relative">
+        <input type="number" class="form-control" [(ngModel)]="importeHasta" (keyup.enter)="buscar(true)">
+        <button *ngIf="importeHasta" type="button" style="margin-right: 2rem;"
+          class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+          (click)="limpiarHasta()">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-2">
+      <label style="white-space: nowrap;">Fecha inicial</label>
+      <div class="position-relative">
+        <input type="date" class="form-control" [(ngModel)]="fechaIni" (change)="buscar(true)">
+        <button *ngIf="fechaIni" type="button" style="margin-right: 2.5rem;"
+          class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+          (click)="limpiarIni()">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+      </div>
+    </div>
+    <div class="col-2">
+      <label style="white-space: nowrap;">Fecha final</label>
+      <div class="position-relative">
+        <input type="date" class="form-control" [(ngModel)]="fechaFin" (change)="buscar(true)">
+        <button *ngIf="fechaFin" type="button" style="margin-right: 2.5rem;"
+          class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+          (click)="limpiarFin()">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+      </div>
+    </div>
+
+    <div class="col-4" style="text-align: start; margin-top: 1rem;">
+      <button class="btn-rojo" (click)="limpiarFiltros()" [disabled]="cargando">
         <mat-icon>clear</mat-icon>&nbsp;Limpiar
+      </button>
+    </div>
+
+    <div class="col-4" style="text-align: end; height: min-content; margin-top: 1rem;">
+      <button class="btn-gris" (click)="buscar(true)" [disabled]="cargando">
+        <mat-icon>search</mat-icon>&nbsp;Buscar
       </button>
     </div>
   </div>
 </div>
 
-<div class="table-wrap" [class.loading]="cargando">
+<div [class.loading]="cargando">
   <table mat-table [dataSource]="rows" class="tabla" multiTemplateDataRows>
+
+    <!-- Detalle -->
+    <ng-container matColumnDef="acciones">
+      <th mat-header-cell *matHeaderCellDef>Det.</th>
+      <td mat-cell *matCellDef="let r">
+        <button mat-icon-button (click)="toggleDetalle(r)" matTooltip="Ver detalle">
+          <mat-icon>{{ expandedId === r.compraId ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+      </td>
+    </ng-container>
 
     <!-- Fecha -->
     <ng-container matColumnDef="fecha">
@@ -58,26 +135,11 @@
       </td>
     </ng-container>
 
-    <!-- Acciones -->
-    <ng-container matColumnDef="acciones">
-      <th mat-header-cell *matHeaderCellDef>Acciones</th>
-      <td mat-cell *matCellDef="let r">
-        <button mat-icon-button (click)="toggleDetalle(r)" matTooltip="Ver detalle">
-          <mat-icon>{{ expandedId === r.compraId ? 'expand_less' : 'expand_more' }}</mat-icon>
-        </button>
-      </td>
-    </ng-container>
-
-    <!-- Fila principal -->
-    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns; trackBy: trackByCompra"></tr>
-
     <!-- Fila de detalle -->
     <ng-container matColumnDef="detail">
       <td mat-cell *matCellDef="let row" [attr.colspan]="displayedColumns.length">
-        <div class="detalle" *ngIf="expandedId === row.compraId">
-          <div class="detalle-titulo">Productos de la compra</div>
-          <table class="tabla sub">
+        <div class="detalle-tabla-wrapper">
+          <table class="detalle-tabla">
             <thead>
               <tr>
                 <th>Producto</th>
@@ -107,7 +169,12 @@
         </div>
       </td>
     </ng-container>
-    <tr mat-row *matRowDef="let row; columns: ['detail'];"></tr>
+
+    <!-- Fila principal -->
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns; trackBy: trackByCompra"></tr>
+
+    <tr mat-row *matRowDef="let row; columns: ['detail']; when: isDetailRow"></tr>
 
     <!-- Mensaje sin resultados -->
     <tr *ngIf="!cargando && rows.length === 0">
@@ -118,12 +185,7 @@
   </table>
 </div>
 
-<mat-paginator
-  #paginator
-  class="paginator-custom"
-  [length]="paginacion.total || 0"
-  [pageSize]="limit"
-  [pageIndex]="(page - 1)"
-  [pageSizeOptions]="[15, 30, 50, 100]"
-  (page)="cambioPagina($event)">
+<mat-paginator #paginator class="paginator-custom" [length]="paginacion.total || 0" [pageSize]="limit"
+  [pageIndex]="(page - 1)" [pageSizeOptions]="[15, 30, 50, 100]" (page)="cambioPagina($event)"
+  [showFirstLastButtons]="true">
 </mat-paginator>

@@ -10,11 +10,13 @@
     <div class="col-md-3">
       <mat-form-field class="compact-field wide-client" appearance="outline">
         <mat-label>Buscar cliente por nombre</mat-label>
-        <input type="text" matInput [formControl]="clienteNombreCtrl" [matAutocomplete]="autoClientes"/>
+        <input type="text" matInput [formControl]="clienteNombreCtrl" [matAutocomplete]="autoClientes"
+          #clienteTrigger="matAutocompleteTrigger"
+          (focus)="abrirAutoClientes()" (click)="abrirAutoClientes()" />
 
         <mat-autocomplete #autoClientes="matAutocomplete" [displayWith]="displayCliente"
           (optionSelected)="onClienteSelected($event.option.value)">
-          <mat-option *ngFor="let c of filteredClientes$ | async" [value]="c">
+          <mat-option *ngFor="let c of filteredClientes$ | async; trackBy: trackByCliente" [value]="c">
             {{ c.nombre }}
             <small *ngIf="c.telefono"> — {{ c.telefono }}</small>
           </mat-option>
@@ -54,8 +56,7 @@
     <!-- Filtro por CÓDIGO venta -->
     <mat-form-field appearance="outline" class="compact-field wide-field mr-field">
       <mat-label>Buscar Cód. barras</mat-label>
-      <input matInput [(ngModel)]="busquedaPorCodigo" [matAutocomplete]="autoCodigo"
-        (input)="filtrarPorCodigo()">
+      <input matInput [(ngModel)]="busquedaPorCodigo" [matAutocomplete]="autoCodigo" (input)="filtrarPorCodigo()">
       <mat-autocomplete #autoCodigo="matAutocomplete" [displayWith]="displayCodigo"
         (optionSelected)="seleccionarPorCodigo($event)">
         <mat-option *ngFor="let p of productosFiltradosPorCodigo" [value]="p._id">
@@ -67,8 +68,7 @@
     <!-- Filtro por NOMBRE venta -->
     <mat-form-field appearance="outline" class="compact-field wider-field">
       <mat-label>Buscar producto</mat-label>
-      <input matInput [(ngModel)]="busquedaProducto" [matAutocomplete]="autoNombre"
-        (input)="filtrarProductos()">
+      <input matInput [(ngModel)]="busquedaProducto" [matAutocomplete]="autoNombre" (input)="filtrarProductos()">
       <mat-autocomplete #autoNombre="matAutocomplete" [displayWith]="displayNombre"
         (optionSelected)="seleccionarProducto($event)">
         <mat-option *ngFor="let p of productosFiltrados" [value]="p._id">

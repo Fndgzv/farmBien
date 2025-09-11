@@ -7,7 +7,7 @@ const isAdmin = require('../middlewares/isAdmin');
 const { obtenerCompras, consultarCompras, crearCompra } = require('../controllers/compraController');
 
 router.get('/',    auth, isAdmin, obtenerCompras);
-router.get('/',    auth, isAdmin, consultarCompras);
+router.get('/consulta',    auth, isAdmin, consultarCompras);
 router.post('/',   auth, isAdmin, crearCompra);
 
 module.exports = router;

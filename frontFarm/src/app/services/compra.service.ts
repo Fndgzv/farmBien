@@ -30,6 +30,6 @@ export class CompraService {
     Object.entries(params || {}).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') hp = hp.set(k, String(v));
     });
-    return this.http.get(this.base, { params: hp });
+    return this.http.get(`${this.base}/consulta`, { params: hp });
   }
 }

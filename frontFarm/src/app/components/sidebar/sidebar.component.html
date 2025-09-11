@@ -50,9 +50,9 @@
       <li [routerLink]="'/usuarios'" routerLinkActive="active">Usuarios <fa-icon [icon]="'user'"
           class="menu-icon"></fa-icon>
       </li>
-      
-      <li [routerLink]="'/clientes'" routerLinkActive="active">Clientes - reportes<fa-icon [icon]="'users'" 
-        class="menu-icon"></fa-icon>
+
+      <li [routerLink]="'/clientes'" routerLinkActive="active">Clientes - reportes<fa-icon [icon]="'users'"
+          class="menu-icon"></fa-icon>
       </li>
 
       <li [routerLink]="'/cortes-de-caja'" routerLinkActive="active">Cortes de caja
@@ -122,9 +122,21 @@
         </ul>
       </li>
 
-      <li  *ngIf="userRol === 'admin'" class="submenu" [routerLink]="'/reporte/compras'" routerLinkActive="active">
-        Compras
-        <fa-icon [icon]="'truck'" class="menu-icon"></fa-icon>
+      <li *ngIf="userRol === 'admin'" class="has-submenu">
+        <span (click)="toggleSubMenu('compras')">
+          Compras <fa-icon [icon]="'truck'" class="menu-icon"></fa-icon>
+          {{ expandedSubMenu === 'compras' ? '▲' : '▶' }}
+        </span>
+        <ul *ngIf="expandedSubMenu === 'compras'" class="submenu">
+          <li [routerLink]="'reporte/compras'" routerLinkActive="active" class="submenu-item">
+            <span>Compras general<fa-icon [icon]="'shopping-cart'" class="menu-icon"></fa-icon></span>
+          </li>
+        </ul>
+        <ul *ngIf="expandedSubMenu === 'compras'" class="submenu">
+          <li [routerLink]="'reporte/compras-resumen'" routerLinkActive="active" class="submenu-item">
+            <span>Compras resumen<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
+          </li>
+        </ul>
       </li>
 
       <li *ngIf="userRol === 'admin'" class="has-submenu">

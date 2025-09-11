@@ -20,4 +20,9 @@ const CompraSchema = new Schema({
   fecha: { type: Date, default: Date.now }
 }, { timestamps: true });
 
+CompraSchema.index ({ fecha: -1 });
+CompraSchema.index ({ total: 1 });
+CompraSchema.index ({ proveedor: 1 });
+CompraSchema.index ({ 'productos.producto': 1 });
+
 module.exports = mongoose.model("Compra", CompraSchema);
