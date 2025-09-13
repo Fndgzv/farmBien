@@ -7,11 +7,16 @@
 
     <!-- CABECERA: PROVEEDOR -->
     <form [formGroup]="headerForm" class="header-form">
-        <label> Proveedor:</label>
+        <label>Proveedor:</label>
         <select class="input-text select" style="width: max-content;" formControlName="proveedor">
             <option [ngValue]="null">-- Selecciona --</option>
             <option *ngFor="let p of proveedores" [ngValue]="p._id">{{ p.nombre }}</option>
         </select>
+
+        <!-- NUEVO: Fecha de compra (permite backdate, no futuro) -->
+        <label style="margin-left:12px;">Fecha de compra:</label>
+        <input type="date" class="input-text" style="width:max-content;" formControlName="fechaCompra" [max]="hoyISO"
+            title="Fecha efectiva de la compra (no futuro)" />
     </form>
 
     <!-- FORMULARIO DE INGRESO DE PRODUCTO -->
@@ -37,7 +42,7 @@
 
                 <input id="caducidadMMAAAA" type="text" inputmode="numeric" maxlength="6"
                     formControlName="caducidadMMAAAA" placeholder="mmaaaa" autocomplete="off"
-                    (blur)="itemForm.get('caducidadMMAAAA')?.markAsTouched()"/>
+                    (blur)="itemForm.get('caducidadMMAAAA')?.markAsTouched()" />
 
                 <!-- ayuda -->
                 <small class="field-help text-muted" *ngIf="itemForm.value.fechaCaducidad">
@@ -60,7 +65,8 @@
             <label style="width: 10%;">Stock máximo.: <input type="number" formControlName="stockMaximo"
                     step="1" /></label>
 
-            <button [disabled]="itemForm.invalid" class="btn-verde" style="height: fit-content; margin-top: 1rem;" type="button" (click)="onAgregarItem()">Agregar al
+            <button [disabled]="itemForm.invalid" class="btn-verde" style="height: fit-content; margin-top: 1rem;"
+                type="button" (click)="onAgregarItem()">Agregar al
                 carrito</button>
         </div>
     </div>

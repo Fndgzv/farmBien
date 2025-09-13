@@ -52,55 +52,65 @@ export class ComprasComponent implements OnInit {
     private compraService: CompraService,
   ) { }
 
+  // helpers de fecha local -> 'YYYY-MM-DD'
+  private toLocalISODate(d: Date): string {
+    const x = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return x.toISOString().slice(0, 10);
+  }
+
+  // hoy en local para poner como [max] y default
+  hoyISO = this.toLocalISODate(new Date());
+
   ngOnInit(): void {
     this.initForms();
 
-  this.itemForm.get('caducidadMMAAAA')!.valueChanges.subscribe((raw: string) => {
-    const digits = (raw ?? '').toString().replace(/\D/g, ''); // solo números
-    if (digits !== raw) {
-      // normaliza a solo números sin re-disparar valueChanges
-      this.itemForm.patchValue({ caducidadMMAAAA: digits }, { emitEvent: false });
-    }
+    this.itemForm.get('caducidadMMAAAA')!.valueChanges.subscribe((raw: string) => {
+      const digits = (raw ?? '').toString().replace(/\D/g, ''); // solo números
+      if (digits !== raw) {
+        // normaliza a solo números sin re-disparar valueChanges
+        this.itemForm.patchValue({ caducidadMMAAAA: digits }, { emitEvent: false });
+      }
 
-    if (digits.length !== 6) {
-      // incompleto o borrado: limpia fechaCaducidad
-      this.itemForm.patchValue({ fechaCaducidad: null }, { emitEvent: false });
-      return;
-    }
+      if (digits.length !== 6) {
+        // incompleto o borrado: limpia fechaCaducidad
+        this.itemForm.patchValue({ fechaCaducidad: null }, { emitEvent: false });
+        return;
+      }
 
-    const mm = +digits.slice(0, 2);
-    const yyyy = +digits.slice(2);
-    if (mm < 1 || mm > 12) {
-      this.itemForm.patchValue({ fechaCaducidad: null }, { emitEvent: false });
-      return;
-    }
+      const mm = +digits.slice(0, 2);
+      const yyyy = +digits.slice(2);
+      if (mm < 1 || mm > 12) {
+        this.itemForm.patchValue({ fechaCaducidad: null }, { emitEvent: false });
+        return;
+      }
 
-    // Último día del mes: Date(yyyy, mm, 0)
-    const last = new Date(yyyy, mm, 0);
-    const y = String(last.getFullYear());
-    const m = String(last.getMonth() + 1).padStart(2, '0');
-    const d = String(last.getDate()).padStart(2, '0');
+      // Último día del mes: Date(yyyy, mm, 0)
+      const last = new Date(yyyy, mm, 0);
+      const y = String(last.getFullYear());
+      const m = String(last.getMonth() + 1).padStart(2, '0');
+      const d = String(last.getDate()).padStart(2, '0');
 
-    this.itemForm.patchValue({ fechaCaducidad: `${y}-${m}-${d}` }, { emitEvent: false });
-  });
+      this.itemForm.patchValue({ fechaCaducidad: `${y}-${m}-${d}` }, { emitEvent: false });
+    });
 
     this.loadProveedores();
     this.loadProductos();
   }
 
   mmAaaaValidator(control: AbstractControl) {
-  const v = (control.value ?? '').toString().replace(/\D/g, '');
-  if (v === '') return null; // permite vacío si aún no capturan
-  if (!/^\d{6}$/.test(v)) return { mmAaaa: 'Debe ser mmaaaa (6 dígitos)' };
-  const mm = +v.slice(0, 2);
-  const yyyy = +v.slice(2);
-  if (mm < 1 || mm > 12 || yyyy < 1900 || yyyy > 9999) return { mmAaaa: 'Mes/Año inválidos' };
-  return null;
-}
+    const v = (control.value ?? '').toString().replace(/\D/g, '');
+    if (v === '') return null; // permite vacío si aún no capturan
+    if (!/^\d{6}$/.test(v)) return { mmAaaa: 'Debe ser mmaaaa (6 dígitos)' };
+    const mm = +v.slice(0, 2);
+    const yyyy = +v.slice(2);
+    if (mm < 1 || mm > 12 || yyyy < 1900 || yyyy > 9999) return { mmAaaa: 'Mes/Año inválidos' };
+    return null;
+  }
 
   private initForms(): void {
     this.headerForm = this.fb.group({
-      proveedor: [null, Validators.required]
+      proveedor: [null, Validators.required],
+      fechaCompra: [this.hoyISO],
     });
 
     this.itemForm = this.fb.group({
@@ -306,21 +316,39 @@ export class ComprasComponent implements OnInit {
       return;
     }
 
+    // Validar que no se seleccione futuro
+    const fSel = this.headerForm.value.fechaCompra as string | null;
+    if (fSel) {
+      const hoy = new Date(this.hoyISO);
+      const sel = new Date(fSel);
+      if (sel > hoy) {
+        Swal.fire('Fecha inválida', 'La fecha de compra no puede ser futura.', 'warning');
+        return;
+      }
+    }
+
     const proveedorId = this.headerForm.value.proveedor;
     const proveedorSeleccionado = this.proveedores.find(p => p._id === proveedorId);
     const nombreProveedor = proveedorSeleccionado?.nombre || 'Desconocido';
+
+    // Construir fecha ISO segura (12:00 local) si el usuario eligió fecha
+    const fechaCompraIso = fSel
+      ? new Date(`${fSel}T12:00:00`).toISOString()
+      : null; // si no mandan, el backend puede usar "ahora"
+
     Swal.fire({
       icon: 'question',
       title: 'Confirmar compra',
       html: `Proveedor: <strong>${nombreProveedor}</strong><hr>
-             <h2 style = "color: blue">Total: <strong>$${this.total.toFixed(2)}</strong></h2>`,
+           <div>Fecha compra: <strong>${fSel || this.hoyISO}</strong></div>
+           <h2 style="color: blue">Total: <strong>$${this.total.toFixed(2)}</strong></h2>`,
       showCancelButton: true,
       confirmButtonText: 'Registrar',
     }).then(result => {
       if (!result.isConfirmed) return;
       Swal.showLoading();
 
-      const payload = {
+      const payload: any = {
         proveedor: this.headerForm.value.proveedor,
         productos: this.carrito.map(item => ({
           codigoBarras: item.codigoBarras,
@@ -334,6 +362,13 @@ export class ComprasComponent implements OnInit {
           promociones: item.promociones
         }))
       };
+
+      // ⬅️ Agregar la fecha al payload si se seleccionó
+      if (fechaCompraIso) {
+        payload.fecha = fechaCompraIso;
+        // si tu backend prefiere nombre diferente, duplica:
+        // payload.fechaCompra = fechaCompraIso;
+      }
 
       this.compraService.crearCompra(payload).subscribe({
         next: () => {
@@ -349,6 +384,7 @@ export class ComprasComponent implements OnInit {
       });
     });
   }
+
 
   resetCompras(): void {
     this.headerForm.reset();

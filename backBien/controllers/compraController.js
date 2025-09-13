@@ -17,6 +17,35 @@ exports.obtenerCompras = async (req, res) => {
   }
 };
 
+/** Helpers */
+const toNum = (v) => (Number.isFinite(+v) ? +v : 0);
+
+/**
+ * Intenta leer una fecha desde el body:
+ * - Acepta body.fecha o body.fechaCompra
+ * - Formato 'YYYY-MM-DD' => genera Date local a las 12:00 (evita saltos por TZ)
+ * - Formato ISO u otros => new Date(cadena)
+ * Retorna Date válida o null si no hay/invalid.
+ */
+function readFechaFromBody(body) {
+  const raw = body?.fecha ?? body?.fechaCompra;
+  if (!raw) return null;
+
+  const s = String(raw).trim();
+
+  // 'YYYY-MM-DD'
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const y = +m[1], mo = +m[2], d = +m[3];
+    // Mediodía local para no "rebotar" al día anterior/siguiente por TZ
+    return new Date(y, mo - 1, d, 12, 0, 0, 0);
+  }
+
+  // Intento directo (ISO u otros)
+  const dt = new Date(s);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 exports.crearCompra = async (req, res) => {
   try {
     // 1️⃣ Solo admin puede registrar compra
@@ -33,10 +62,26 @@ exports.crearCompra = async (req, res) => {
       return res.status(404).json({ mensaje: 'Proveedor no encontrado' });
     }
 
+    // 2.1️⃣ Determinar fecha de la compra (opcional, no futuro)
+    const now = new Date();
+    let fechaCompra = readFechaFromBody(req.body); // null si no mandaron
+    if (fechaCompra && fechaCompra > now) {
+      return res.status(400).json({ mensaje: 'La fecha de compra no puede ser futura' });
+    }
+    if (!fechaCompra) {
+      // si no mandan, usamos ahora
+      fechaCompra = now;
+    }
+
+    // 3️⃣ Validaciones básicas
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({ mensaje: 'Debes enviar al menos un producto' });
+    }
+
     let total = 0;
     const items = [];
 
-    // 3️⃣ Procesar cada producto
+    // 4️⃣ Procesar cada producto
     for (const p of productos) {
       const {
         codigoBarras,
@@ -48,80 +93,113 @@ exports.crearCompra = async (req, res) => {
         stockMinimo,
         stockMaximo,
         promociones
-      } = p;
+      } = p || {};
+
+      if (!codigoBarras) {
+        return res.status(400).json({ mensaje: 'Falta código de barras en un renglón' });
+      }
+      const cant = toNum(cantidad);
+      const costo = toNum(costoUnitario);
+      const precio = toNum(precioUnitario);
+
+      if (cant <= 0) {
+        return res.status(400).json({ mensaje: `Cantidad inválida para ${codigoBarras}` });
+      }
+      if (costo < 0 || precio < 0) {
+        return res.status(400).json({ mensaje: `Costo/precio inválidos para ${codigoBarras}` });
+      }
 
       const prodDB = await Producto.findOne({ codigoBarras });
       if (!prodDB) {
         return res.status(404).json({ mensaje: `Producto no encontrado: ${codigoBarras}` });
       }
 
-      // 4️⃣ Actualizar costo, precio unitario, stockMinimo y stockMaximo
-      prodDB.costo = costoUnitario;
-      prodDB.precio = precioUnitario;
-      prodDB.stockMinimo = stockMinimo;
-      prodDB.stockMaximo = stockMaximo;
+      // 5️⃣ Actualizar costo, precio y stocks configurables
+      if (Number.isFinite(costo)) prodDB.costo = costo;
+      if (Number.isFinite(precio)) prodDB.precio = precio;
 
-      // 5️⃣ Actualizar promociones si vienen
-      if (promociones) {
+      if (stockMinimo !== undefined) prodDB.stockMinimo = toNum(stockMinimo);
+      if (stockMaximo !== undefined) prodDB.stockMaximo = toNum(stockMaximo);
+
+      // 6️⃣ Actualizar promociones si vienen (mantiene lo anterior si no mandan)
+      if (promociones && typeof promociones === 'object') {
         Object.assign(prodDB, {
-          promoLunes: promociones.promoLunes ?? prodDB.promoLunes,
-          promoMartes: promociones.promoMartes ?? prodDB.promoMartes,
-          promoMiercoles: promociones.promoMiercoles ?? prodDB.promoMiercoles,
-          promoJueves: promociones.promoJueves ?? prodDB.promoJueves,
-          promoViernes: promociones.promoViernes ?? prodDB.promoViernes,
-          promoSabado: promociones.promoSabado ?? prodDB.promoSabado,
-          promoDomingo: promociones.promoDomingo ?? prodDB.promoDomingo,
-          promoCantidadRequerida: promociones.promoCantidadRequerida ?? prodDB.promoCantidadRequerida,
-          inicioPromoCantidad: promociones.inicioPromoCantidad ?? prodDB.inicioPromoCantidad,
-          finPromoCantidad: promociones.finPromoCantidad ?? prodDB.finPromoCantidad,
-          descuentoINAPAM: promociones.descuentoINAPAM ?? prodDB.descuentoINAPAM,
-          promoDeTemporada: promociones.promoDeTemporada ?? prodDB.promoDeTemporada
+          promoLunes:               promociones.promoLunes ?? prodDB.promoLunes,
+          promoMartes:              promociones.promoMartes ?? prodDB.promoMartes,
+          promoMiercoles:           promociones.promoMiercoles ?? prodDB.promoMiercoles,
+          promoJueves:              promociones.promoJueves ?? prodDB.promoJueves,
+          promoViernes:             promociones.promoViernes ?? prodDB.promoViernes,
+          promoSabado:              promociones.promoSabado ?? prodDB.promoSabado,
+          promoDomingo:             promociones.promoDomingo ?? prodDB.promoDomingo,
+          promoCantidadRequerida:   promociones.promoCantidadRequerida ?? prodDB.promoCantidadRequerida,
+          inicioPromoCantidad:      promociones.inicioPromoCantidad ?? prodDB.inicioPromoCantidad,
+          finPromoCantidad:         promociones.finPromoCantidad ?? prodDB.finPromoCantidad,
+          descuentoINAPAM:          promociones.descuentoINAPAM ?? prodDB.descuentoINAPAM,
+          promoDeTemporada:         promociones.promoDeTemporada ?? prodDB.promoDeTemporada
         });
       }
 
-      // 6️⃣ Actualizar lotes
-      prodDB.lotes.push({ lote, fechaCaducidad, cantidad });
+      // 7️⃣ Actualizar/merge de lotes:
+      //    - si llega un lote que ya existe, acumula cantidades
+      //    - si es nuevo, lo agrega
+      if (lote && cant > 0) {
+        const idx = (prodDB.lotes || []).findIndex(l => l.lote === lote);
+        if (idx >= 0) {
+          prodDB.lotes[idx].cantidad = toNum(prodDB.lotes[idx].cantidad) + cant;
+          // si viene fechaCaducidad en la compra, actualízala (o conserva si no mandan)
+          if (fechaCaducidad) prodDB.lotes[idx].fechaCaducidad = fechaCaducidad;
+        } else {
+          prodDB.lotes.push({
+            lote,
+            fechaCaducidad: fechaCaducidad || null,
+            cantidad: cant
+          });
+        }
+      }
 
-      // Limpiar lotes vacíos por si acaso
-      prodDB.lotes = prodDB.lotes.filter(l => l.cantidad > 0);
+      // Limpia lotes sin cantidad
+      prodDB.lotes = (prodDB.lotes || []).filter(l => toNum(l.cantidad) > 0);
+
       await prodDB.save();
 
-      // 7️⃣ Actualizar precios en farmacias (precio de venta sincronizado)
+      // 8️⃣ Sincronizar precio de venta en inventarios (todas las farmacias del producto)
+      // (si tu negocio requiere solo una farmacia, ajusta el filtro)
       await InventarioFarmacia.updateMany(
         { producto: prodDB._id },
-        { precioVenta: precioUnitario }
+        { $set: { precioVenta: precio } }
       );
 
-      // 8️⃣ Acumular detalle para guardar la compra
-      total += costoUnitario * cantidad;
+      // 9️⃣ Acumular detalle para la compra
+      total += costo * cant;
       items.push({
         producto: prodDB._id,
-        cantidad,
-        lote,
-        fechaCaducidad,
-        costoUnitario,
-        precioUnitario
+        cantidad: cant,
+        lote: lote || null,
+        fechaCaducidad: fechaCaducidad || null,
+        costoUnitario: costo,
+        precioUnitario: precio
       });
     }
 
-    // 9️⃣ Guardar el documento de compra
+    // 🔟 Guardar el documento de compra
     const compra = new Compra({
       usuario: usuarioId,
       proveedor,
       productos: items,
-      total
+      total: +total.toFixed(2),
+      fecha: fechaCompra   // ⬅️ fecha efectiva de la compra (backdate-friendly)
     });
 
     await compra.save();
 
-    res.status(201).json({
+    return res.status(201).json({
       mensaje: 'Compra registrada correctamente',
       compra
     });
 
   } catch (error) {
     console.error('Error al crear compra:', error);
-    res.status(500).json({ mensaje: 'Error interno al crear compra', error: error.message });
+    return res.status(500).json({ mensaje: 'Error interno al crear compra', error: error.message });
   }
 };
 
