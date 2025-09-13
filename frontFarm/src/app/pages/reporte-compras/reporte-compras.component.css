@@ -1,0 +1,59 @@
+:host ::ng-deep .mat-mdc-paginator {
+    background: #f5fbff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .06);
+}
+
+:host ::ng-deep .mat-mdc-icon-button {
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s ease, transform .05s;
+}
+
+:host ::ng-deep .mat-mdc-icon-button:hover {
+    background: blueviolet;
+}
+
+:host ::ng-deep .mat-mdc-paginator-icon {
+    fill: aqua;
+    width: 3.25rem;
+    height: 3.25rem;
+}
+
+:host ::ng-deep .mat-mdc-paginator-range-actions .mat-mdc-icon-button[disabled] .mat-mdc-paginator-icon {
+    fill: #cbd5e1;
+}
+
+:host ::ng-deep .mat-mdc-paginator-page-size .mat-mdc-select-value-text {
+    font-size: 1.3rem;
+    color: blueviolet;
+    line-height: 1.1;
+}
+
+.paginator-custom {
+    background-color: #fbdddd;
+}
+
+/* Si el CSS está en el .css del componente: usa ::ng-deep o desactiva la encapsulación */
+:host ::ng-deep .paginator-custom .mat-mdc-paginator-page-size-label {
+    font-size: 1.3rem;
+    color: blueviolet;
+    letter-spacing: .2px;
+    margin-right: .5rem;
+    line-height: 1.1;
+}
+
+/* De paso: el rango y el select */
+:host ::ng-deep .paginator-custom .mat-mdc-paginator-range-label {
+    font-size: 1.3rem;
+    color: blueviolet;
+}
+
+:host ::ng-deep .paginator-custom .mat-mdc-select-trigger,
+:host ::ng-deep .paginator-custom .mat-mdc-select-value-text {
+    font-size: 1.05rem;
+    color: blueviolet;
+}

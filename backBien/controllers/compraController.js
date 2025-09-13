@@ -211,20 +211,13 @@ function dayRangeUtcFromQuery(fechaIni, fechaFin) {
   const ini = fechaIni ? new Date(fechaIni) : primeroMes;
   const fin = fechaFin ? new Date(fechaFin) : hoy;
 
-  // normalizar a UTC (half-open interval: [gte, lt))
+  // [gte, lt) en UTC
   const gte = new Date(Date.UTC(ini.getFullYear(), ini.getMonth(), ini.getDate(), 0, 0, 0));
-  const lt = new Date(Date.UTC(fin.getFullYear(), fin.getMonth(), fin.getDate() + 1, 0, 0, 0));
+  const lt  = new Date(Date.UTC(fin.getFullYear(), fin.getMonth(), fin.getDate() + 1, 0, 0, 0));
 
   return { gte, lt };
 }
 
-// GET /api/compras/consulta
-// query:
-//   fechaIni, fechaFin     -> rango de fechas (local-safe via dayRangeUtcFromQuery)
-//   proveedor              -> match parcial por nombre de proveedor
-//   importeDesde, importeHasta
-//   productoNombre         -> match parcial por nombre de producto
-//   productoCodigoBarras   -> match parcial por código de barras
 exports.consultarCompras = async (req, res) => {
   try {
     const {
@@ -237,9 +230,9 @@ exports.consultarCompras = async (req, res) => {
       codigoBarras
     } = req.query;
 
-    const page = Math.max(1, parseInt(req.query.page || '1', 10));
+    const page  = Math.max(1, parseInt(req.query.page  || '1',  10));
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '15', 10)));
-    const skip = (page - 1) * limit;
+    const skip  = (page - 1) * limit;
     const barra = (codigoBarras ?? '').trim();
 
     // Rango de fechas blindado a local -> UTC exclusivo
@@ -248,14 +241,14 @@ exports.consultarCompras = async (req, res) => {
     // Filtro base
     const filtro = { fecha: { $gte: gte, $lt: lt } };
 
-    // --- Proveedor: por nombre (regex case-insensitive)
+    // --- Proveedor (regex case-insensitive)
     if (proveedor) {
       const provDocs = await Proveedor.find(
         { nombre: { $regex: String(proveedor), $options: 'i' } },
         { _id: 1 }
       );
       const provIds = provDocs.map(p => p._id);
-      filtro.proveedor = { $in: provIds.length ? provIds : [null] }; // [null] forzará 0 matches si vacío
+      filtro.proveedor = { $in: provIds.length ? provIds : [null] };
     }
 
     // --- Producto: por nombre y/o código de barras
@@ -265,26 +258,25 @@ exports.consultarCompras = async (req, res) => {
         prodQuery.nombre = { $regex: String(productoNombre), $options: 'i' };
       }
       if (barra) {
-        // opcional: exacto si parece un código completo; si no, regex
-        const escaped = String(barra).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escapa regex
+        const escaped = String(barra).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         prodQuery.codigoBarras =
           barra.length >= 8 ? new RegExp(`^${escaped}$`, 'i') : new RegExp(escaped, 'i');
       }
 
       const prodDocs = await Producto.find(prodQuery, { _id: 1 });
-      const prodIds = prodDocs.map(p => p._id);
+      const prodIds  = prodDocs.map(p => p._id);
 
       if (prodIds.length === 0) {
         return res.json({
           ok: true,
           paginacion: { page, limit, total: 0, totalPaginas: 0 },
+          footer: { totalCompras: 0 },
           rows: []
         });
       }
 
       filtro['productos.producto'] = { $in: prodIds };
     }
-
 
     // --- Filtros de importe total
     const d = Number(importeDesde), h = Number(importeHasta);
@@ -296,16 +288,24 @@ exports.consultarCompras = async (req, res) => {
       filtro.total = { $lte: h };
     }
 
-    // Consulta y conteo
-    const [docs, total] = await Promise.all([
+    // Consulta, conteo y footer (suma total de la búsqueda)
+    const [docs, total, footAgg] = await Promise.all([
       Compra.find(filtro)
         .sort({ fecha: -1 })
         .skip(skip)
         .limit(limit)
         .populate('proveedor', 'nombre')
         .populate('productos.producto', 'nombre codigoBarras'),
-      Compra.countDocuments(filtro)
+      Compra.countDocuments(filtro),
+      Compra.aggregate([
+        { $match: filtro },
+        { $group: { _id: null, totalCompras: { $sum: '$total' } } }
+      ])
     ]);
+
+    const footer = {
+      totalCompras: +Number(footAgg?.[0]?.totalCompras || 0).toFixed(2)
+    };
 
     // Formato de salida
     const rows = docs.map(c => ({
@@ -332,6 +332,7 @@ exports.consultarCompras = async (req, res) => {
         total,
         totalPaginas: Math.ceil(total / limit)
       },
+      footer,
       rows
     });
 

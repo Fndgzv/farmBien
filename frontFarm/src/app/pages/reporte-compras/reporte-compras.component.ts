@@ -3,7 +3,7 @@ import { Component, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule, MatTable } from '@angular/material/table';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorIntl, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -30,6 +30,22 @@ type RowCompra = {
   }>;
 };
 
+export function paginatorEs(): MatPaginatorIntl {
+  const p = new MatPaginatorIntl();
+  p.itemsPerPageLabel = 'Compras por página:';
+  p.nextPageLabel = 'Siguiente';
+  p.previousPageLabel = 'Anterior';
+  p.firstPageLabel = 'Primera página';
+  p.lastPageLabel = 'Última página';
+  p.getRangeLabel = (page, pageSize, length) => {
+    if (length === 0 || pageSize === 0) return `0 de ${length}`;
+    const start = page * pageSize + 1;
+    const end = Math.min(start + pageSize - 1, length);
+    return `${start} – ${end} de ${length}`;
+  };
+  return p;
+}
+
 @Component({
   selector: 'app-reporte-compras',
   standalone: true,
@@ -37,7 +53,9 @@ type RowCompra = {
     CommonModule, FormsModule,
     MatTableModule, MatPaginatorModule, FontAwesomeModule,
     MatButtonModule, MatIconModule, MatTooltipModule
-  ], templateUrl: './reporte-compras.component.html',
+  ], 
+  providers: [{ provide: MatPaginatorIntl, useFactory: paginatorEs }],
+  templateUrl: './reporte-compras.component.html',
   styleUrl: './reporte-compras.component.css'
 })
 
@@ -71,6 +89,8 @@ export class ReporteComprasComponent {
   @ViewChild('paginator') paginator: any;
 
   faTimes = faTimes;
+
+  footer: { totalCompras: number } | null = null;
 
   constructor(private comprasSrv: CompraService, private cdr: ChangeDetectorRef, private library: FaIconLibrary,) {
     library.addIcons( faTimes );
@@ -185,9 +205,12 @@ export class ReporteComprasComponent {
         this.limit = limit;
         this.page = page;
 
+        this.footer = resp?.footer ?? null;
+
         this.cargando = false;
         this.cdr.detectChanges();
         this.table?.renderRows();
+
       },
       error: _ => {
         this.rows = [];

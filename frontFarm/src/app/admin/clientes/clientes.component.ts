@@ -19,7 +19,7 @@ type SubKind = 'ventas' | 'pedidos' | 'devoluciones' | 'cancelaciones' | 'monede
 
 export function paginatorEs(): MatPaginatorIntl {
   const p = new MatPaginatorIntl();
-  p.itemsPerPageLabel = 'Items por página:';
+  p.itemsPerPageLabel = 'Clientes por página:';
   p.nextPageLabel = 'Siguiente';
   p.previousPageLabel = 'Anterior';
   p.firstPageLabel = 'Primera página';
