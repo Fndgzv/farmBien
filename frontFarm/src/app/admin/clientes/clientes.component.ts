@@ -2,7 +2,7 @@
 import { Component, OnInit, ViewChild, ChangeDetectorRef, ElementRef, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatTable, MatTableModule, MatTableDataSource } from '@angular/material/table';
+import { MatTable, MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent, MatPaginator, MatPaginatorIntl } from '@angular/material/paginator';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -84,8 +84,6 @@ export class ClientesComponent implements OnInit {
   lastExpandedKey: string | null = null;
 
   displayedColumns = ['nombre', 'telefono', 'email', 'domicilio', 'monedero', 'acciones'];
-  dataSource: MatTableDataSource<any, MatPaginator> =
-    new MatTableDataSource<any, MatPaginator>([]);
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild('filtroInput') filtroInput!: ElementRef<HTMLInputElement>;
@@ -157,12 +155,6 @@ export class ClientesComponent implements OnInit {
     this.buscar();
   }
 
-
-  ngAfterViewInit(): void {
-    // engancha el paginador de Material
-    this.dataSource.paginator = this.paginator;
-  }
-
   /** Si hay subtabla abierta, la recargamos con el nuevo rango */
   onChangeFechas() {
     // Si hay una subtabla abierta, recárgala con las nuevas fechas
@@ -188,36 +180,31 @@ export class ClientesComponent implements OnInit {
 
     this.fetchSubtabla(clienteId, tipo as any, key);
   }
+buscar(): void {
+  this.cargando = true;
+  this.clienteSrv.listar({ q: this.filtro, page: this.page, limit: this.limit })
+    .subscribe({
+      next: (resp: any) => {
+        const rows  = resp?.rows ?? [];
+        const total = resp?.paginacion?.total ?? 0;
+        const page  = resp?.paginacion?.page  ?? this.page;
+        const limit = resp?.paginacion?.limit ?? this.limit;
 
-  buscar(): void {
-    this.cargando = true;
+        this.clientes = rows;                            // <— solo array
+        this.paginacion = { total, page, limit };
+        this.totalDocs = total;
 
-    this.clienteSrv.listar({ q: this.filtro, page: this.page, limit: this.limit })
-      .subscribe({
-        next: (resp: any) => {
-          const rows = resp?.rows ?? [];
-          const total = resp?.paginacion?.total ?? 0;
-          const page = resp?.paginacion?.page ?? this.page;
-          const limit = resp?.paginacion?.limit ?? this.limit;
-
-          this.clientes = rows;
-          this.dataSource.data = rows;           // <- NO recrear dataSource en cada búsqueda
-          this.paginacion = { total, page, limit };
-          this.totalDocs = total;
-
-          this.cargando = false;
-        },
-        error: _ => {
-          this.clientes = [];
-          this.dataSource.data = [];
-          /* this.dataSource = new MatTableDataSource<any, MatPaginator>([]); */
-          this.paginacion = { total: 0, page: 1, limit: this.limit };
-          this.totalDocs = 0;
-          this.cargando = false;
-        }
-      });
-  }
-
+        this.cargando = false;
+        this.table?.renderRows?.();
+      },
+      error: _ => {
+        this.clientes = [];
+        this.paginacion = { total: 0, page: 1, limit: this.limit };
+        this.totalDocs = 0;
+        this.cargando = false;
+      }
+    });
+}
 
   cambioPagina(e: PageEvent): void {
     const sizeChanged = e.pageSize !== this.limit;
@@ -247,30 +234,27 @@ export class ClientesComponent implements OnInit {
   // Campos que el usuario puede editar en línea
   private readonly EDITABLE_KEYS = ['nombre', 'telefono', 'email', 'domicilio'] as const;
 
-  cancelarEdicion(c: any): void {
-    // Restaura campo por campo y elimina los que no existían en backup
-    this.EDITABLE_KEYS.forEach((k) => {
-      if (Object.prototype.hasOwnProperty.call(c._backup, k)) {
-        c[k] = c._backup[k];        // valor original
-      } else {
-        delete c[k];                // si el backup no lo tenía, bórralo
-      }
-    });
-
-    delete c._backup;
-    this.editandoId = null;
-
-    // refresca tabla para que el DOM marque el cambio inmediatamente
-    if (this.dataSource instanceof MatTableDataSource) {
-      this.dataSource.data = [...this.dataSource.data];
+cancelarEdicion(c: any): void {
+  // Restaura solo los campos editables desde el backup
+  this.EDITABLE_KEYS.forEach((k) => {
+    if (c._backup && Object.prototype.hasOwnProperty.call(c._backup, k)) {
+      c[k] = c._backup[k];
     } else {
-      this.table?.renderRows?.();
+      delete c[k];
     }
+  });
 
-    // flash de restauración (si ya lo tienes)
-    this.flashId = c._id;
-    setTimeout(() => (this.flashId = null), 1200);
-  }
+  delete c._backup;
+  this.editandoId = null;
+
+  // 🔄 Fuerza cambio de referencia para que Angular repinte la fila/tabla
+  this.clientes = [...this.clientes];
+  this.table?.renderRows?.();
+
+  // Flash opcional
+  this.flashId = c._id;
+  setTimeout(() => (this.flashId = null), 1200);
+}
 
   guardarEdicion(c: any): void {
     this.clienteSrv.actualizar(c._id, {

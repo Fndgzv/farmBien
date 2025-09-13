@@ -39,8 +39,8 @@
         </mat-form-field>
 
         <ng-container *ngIf="!agregando; else editBtns">
-            <button (click)="empezarAgregar()" [disabled]="cargando"
-                class="btn-gris" style="height: 3rem;" matTooltip="Agregar un cliente nuevo">
+            <button (click)="empezarAgregar()" [disabled]="cargando" class="btn-gris" style="height: 3rem;"
+                matTooltip="Agregar un cliente nuevo">
                 <fa-icon [icon]="faPlus"></fa-icon> Agregar
             </button>
         </ng-container>
@@ -61,7 +61,7 @@
 
 </div>
 
-<table mat-table [dataSource]="dataSource" class="tabla" multiTemplateDataRows>
+<table mat-table [dataSource]="clientes" class="tabla" multiTemplateDataRows>
 
     <!-- Nombre -->
     <ng-container matColumnDef="nombre">
@@ -326,7 +326,7 @@
 
             <!-- subtabla pedidos -->
             <ng-container *ngIf="expandedRow === (row._id + '_pedidos')">
-                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinPedidos">              
+                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinPedidos">
                     <div class="sub-title-tabla">Pedidos de: {{ row.nombre }}</div>
                     <div class="detalle-tabla-wrapper">
                         <table class="detalle-tabla">
@@ -408,7 +408,8 @@
                                                         </tr>
                                                         <tr>
                                                             <td>Transferencia:</td>
-                                                            <td>{{ pd.formasPago.anticipo.transferencia | currency }}</td>
+                                                            <td>{{ pd.formasPago.anticipo.transferencia | currency }}
+                                                            </td>
                                                             <td>Transferencia:</td>
                                                             <td>{{ pd.formasPago.resta.transferencia | currency }}</td>
                                                         </tr>
@@ -435,16 +436,20 @@
                                                     </span>
                                                     <span style="margin-right: 1rem;">Efectivo:</span>
                                                     <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
-                                                        pd.formasPago.anticipo.efectivo + pd.formasPago.resta.efectivo || 0 | number:'1.2-2' }}</span>
+                                                        pd.formasPago.anticipo.efectivo + pd.formasPago.resta.efectivo
+                                                        || 0 | number:'1.2-2' }}</span>
                                                     <span style="margin-right: 1rem;">Tarjeta:</span>
                                                     <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
-                                                        pd.formasPago.anticipo.tarjeta + pd.formasPago.resta.tarjeta || 0 | number:'1.2-2' }}</span>
+                                                        pd.formasPago.anticipo.tarjeta + pd.formasPago.resta.tarjeta ||
+                                                        0 | number:'1.2-2' }}</span>
                                                     <span style="margin-right: 1rem;">Transferencia:</span>
                                                     <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
-                                                        pd.formasPago.anticipo.transferencia + pd.formasPago.resta.transferencia|| 0 | number:'1.2-2' }}</span>
+                                                        pd.formasPago.anticipo.transferencia +
+                                                        pd.formasPago.resta.transferencia|| 0 | number:'1.2-2' }}</span>
                                                     <span style="margin-right: 1rem;">Monedero:</span>
                                                     <span class="forma-pago-cantidad" style="margin-right: 3rem;">${{
-                                                        pd.formasPago.anticipo.vale + pd.formasPago.resta.vale || 0 | number:'1.2-2' }}</span>
+                                                        pd.formasPago.anticipo.vale + pd.formasPago.resta.vale || 0 |
+                                                        number:'1.2-2' }}</span>
                                                 </div>
                                             </div>
                                         </td>
@@ -512,7 +517,8 @@
                                                             <td>{{ p.codigoBarras || '' }}</td>
                                                             <td>{{ p.motivo || '' }}</td>
                                                             <td class="text-end">{{ p.cantidad | number }}</td>
-                                                            <td class="text-end text-negativo">${{ p.devuelto | number:'1.2-2' }}</td>
+                                                            <td class="text-end text-negativo">${{ p.devuelto |
+                                                                number:'1.2-2' }}</td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
@@ -587,9 +593,10 @@
                                         <td>{{ v.motivo }}</td>
                                         <td class="text-end text-success">${{ v.ingreso | number:'1.2-2' }}</td>
                                         <td class="text-end text-negativo">${{ v.egreso | number:'1.2-2' }}</td>
-                                        <td class="text-end" [ngClass]="{'text-success': v.ingreso - v.egreso >= 0, 'text-negativo': v.ingreso - v.egreso < 0}">
+                                        <td class="text-end"
+                                            [ngClass]="{'text-success': v.ingreso - v.egreso >= 0, 'text-negativo': v.ingreso - v.egreso < 0}">
                                             ${{ v.ingreso - v.egreso | number:'1.2-2' }}
-                                        </td>                                      
+                                        </td>
                                     </tr>
                                 </ng-container>
                             </tbody>
@@ -642,14 +649,20 @@
     <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     <tr mat-row *matRowDef="let row; columns: ['detail']; when: isDetailRow"></tr>
 
+    <tr *ngIf="!cargando && (clientes?.length || 0) === 0">
+        <td [attr.colspan]="displayedColumns.length" class="text-center text-muted p-2">
+            Sin resultados
+        </td>
+    </tr>
+
+
 </table>
 
 <!-- Mensaje vacío -->
-<div *ngIf="!cargando && (!dataSource || dataSource.data?.length === 0)" class="text-center text-muted py-3">
+<!-- <div *ngIf="!cargando && (!dataSource || dataSource.data?.length === 0)" class="text-center text-muted py-3">
     Sin resultados
-</div>
+</div> -->
 
 <mat-paginator class="paginator-custom" [length]="paginacion.total || 0" [pageSize]="limit" [pageIndex]="(page - 1)"
-    [pageSizeOptions]="[10, 20, 50, 100]" (page)="cambioPagina($event)"
-    [showFirstLastButtons]="true">
+    [pageSizeOptions]="[10, 20, 50, 100]" (page)="cambioPagina($event)" [showFirstLastButtons]="true">
 </mat-paginator>
