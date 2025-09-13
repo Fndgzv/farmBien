@@ -1,8 +1,7 @@
 .compras-container {
   width: 100%;
   /*   max-width: 1000px;*/
-  margin: 1rem auto;
-  padding: 0 1rem;
+  /* padding: 0 1rem; */
   
 }
 
@@ -16,15 +15,14 @@
 .header-form label {
   display: flex;
   flex-direction: column;
-  font-weight: bold;
+  margin-top: 0.5rem;
 }
 
 .item-form {
   margin-bottom: 1rem;
-  padding: 1rem;
+  /* padding: 1rem; */
   font-size: large;
   border-bottom: 2px solid #0453b3;
-
 }
 
 .item-form .buscar {
