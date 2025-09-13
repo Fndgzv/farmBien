@@ -18,6 +18,10 @@ export class ClienteService {
 
   private apiUrl = `${environment.apiUrl}/clientes`;
 
+  private withTz(params: any = {}) {
+    return new HttpParams({ fromObject: { ...params, tz: String(new Date().getTimezoneOffset()) } });
+  }
+
   constructor(private http: HttpClient) { }
 
   getClientes() {
@@ -78,20 +82,20 @@ export class ClienteService {
   }
 
   // ===== Subtablas =====
-  ventas(id: string, params: any): Observable<any> {
-    return this.http.get(`${this.apiUrl}/${id}/ventas`, { params });
+  ventas(id: string, p: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/ventas`, { params: this.withTz(p) });
   }
-  pedidos(id: string, params: any): Observable<any> {
-    return this.http.get(`${this.apiUrl}/${id}/pedidos`, { params });
+  pedidos(id: string, p: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/pedidos`, { params: this.withTz(p) });
   }
-  devoluciones(id: string, params: any): Observable<any> {
-    return this.http.get(`${this.apiUrl}/${id}/devoluciones`, { params });
+  devoluciones(id: string, p: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/devoluciones`, { params: this.withTz(p) });
   }
-  cancelaciones(id: string, params: any): Observable<any> {
-    return this.http.get(`${this.apiUrl}/${id}/cancelaciones`, { params });
+  cancelaciones(id: string, p: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/cancelaciones`, { params: this.withTz(p) });
   }
-  monedero(id: string, params: any): Observable<any> {
-    return this.http.get(`${this.apiUrl}/${id}/monedero`, { params });
+  monedero(id: string, p: any): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}/monedero`, { params: this.withTz(p) });
   }
 }
 

@@ -57,21 +57,9 @@ exports.buscarClientePorTelefono = async (req, res) => {
   }
 };
 
-
-// ==== helpers de fechas: interpretar 'YYYY-MM-DD' como LOCAL ====
-function parseISODateLocal(iso /* 'YYYY-MM-DD' */) {
-  if (!iso || typeof iso !== 'string') return null;
-  const [y, m, d] = iso.split('-').map(n => parseInt(n, 10));
-  if (!y || !m || !d) return null;
-  // LOCAL midnight:
-  return new Date(y, m - 1, d, 0, 0, 0, 0);
-}
-
 // Interpreta 'YYYY-MM-DD' como medianoche LOCAL de la zona enviada por el front (tz = getTimezoneOffset en minutos)
 // Devuelve { gte, lt } en UTC (lt = día siguiente exclusivo)
 function dayRangeUtcFromQuery(fechaIni, fechaFin, tzMinParam) {
-  const now = new Date();
-
   const parseYMD = (s, defDate) => {
     if (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) {
       const [y, m, d] = s.split('-').map(Number);
@@ -80,22 +68,21 @@ function dayRangeUtcFromQuery(fechaIni, fechaFin, tzMinParam) {
     return { y: defDate.getFullYear(), m: defDate.getMonth() + 1, d: defDate.getDate() };
   };
 
+  const now = new Date();
   const defIni = new Date(now.getFullYear(), now.getMonth(), 1);
   const defFin = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   const { y: yi, m: mi, d: di } = parseYMD(fechaIni, defIni);
   const { y: yf, m: mf, d: df } = parseYMD(fechaFin, defFin);
 
-  // getTimezoneOffset (minutos para ir de LOCAL a UTC). Ej. CDMX = 360 ó 300 en DST
-  const tzMin = Number.isFinite(+tzMinParam) ? +tzMinParam : new Date().getTimezoneOffset();
+  // ⚠️ Fallback a CDMX si no llega tz (360). En México ya no hay DST en CDMX.
+  const tzMin = Number.isFinite(+tzMinParam) ? +tzMinParam : 360;
 
-  // Medianoche local -> UTC = Date.UTC(...) + tzMin*60k
-  const gteMs = Date.UTC(yi, mi - 1, di) + tzMin * 60000;
-  const ltMs  = Date.UTC(yf, mf - 1, df + 1) + tzMin * 60000;
+  const gteMs = Date.UTC(yi, mi - 1, di) + tzMin * 60000;        // 00:00 local → UTC
+  const ltMs  = Date.UTC(yf, mf - 1, df + 1) + tzMin * 60000;    // (fin+1d) local → UTC
 
   return { gte: new Date(gteMs), lt: new Date(ltMs) };
 }
-
 
 /**
  * GET /api/clientes/buscar?q=texto&limit=20
