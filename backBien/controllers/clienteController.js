@@ -67,23 +67,33 @@ function parseISODateLocal(iso /* 'YYYY-MM-DD' */) {
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
-/**
- * Convierte fechas de query (en LOCAL) a un rango [gte, lt) correcto.
- * Ej.: '2025-09-11' => gte = 2025-09-11 00:00 LOCAL, lt = 2025-09-12 00:00 LOCAL.
- * Al ser objetos Date, ya comparan en UTC correctamente contra Mongo.
- */
-function dayRangeUtcFromQuery(fechaIni, fechaFin) {
+// Interpreta 'YYYY-MM-DD' como medianoche LOCAL de la zona enviada por el front (tz = getTimezoneOffset en minutos)
+// Devuelve { gte, lt } en UTC (lt = día siguiente exclusivo)
+function dayRangeUtcFromQuery(fechaIni, fechaFin, tzMinParam) {
   const now = new Date();
-  const defIniLocal = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);       // 1° del mes LOCAL
-  const defFinLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0); // HOY LOCAL
 
-  const ini = parseISODateLocal(fechaIni) || defIniLocal;
-  const fin = parseISODateLocal(fechaFin) || defFinLocal;
+  const parseYMD = (s, defDate) => {
+    if (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split('-').map(Number);
+      return { y, m, d };
+    }
+    return { y: defDate.getFullYear(), m: defDate.getMonth() + 1, d: defDate.getDate() };
+  };
 
-  const lt = new Date(fin.getFullYear(), fin.getMonth(), fin.getDate() + 1, 0, 0, 0, 0); // fin exclusivo +1 día
-  const gte = ini;
+  const defIni = new Date(now.getFullYear(), now.getMonth(), 1);
+  const defFin = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  return gte <= lt ? { gte, lt } : { gte: lt, lt: gte };
+  const { y: yi, m: mi, d: di } = parseYMD(fechaIni, defIni);
+  const { y: yf, m: mf, d: df } = parseYMD(fechaFin, defFin);
+
+  // getTimezoneOffset (minutos para ir de LOCAL a UTC). Ej. CDMX = 360 ó 300 en DST
+  const tzMin = Number.isFinite(+tzMinParam) ? +tzMinParam : new Date().getTimezoneOffset();
+
+  // Medianoche local -> UTC = Date.UTC(...) + tzMin*60k
+  const gteMs = Date.UTC(yi, mi - 1, di) + tzMin * 60000;
+  const ltMs  = Date.UTC(yf, mf - 1, df + 1) + tzMin * 60000;
+
+  return { gte: new Date(gteMs), lt: new Date(ltMs) };
 }
 
 
@@ -276,7 +286,7 @@ exports.subVentas = async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
     }
 
-    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin);
+    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
 
     const match = { cliente: new mongoose.Types.ObjectId(id), fecha: { $gte: gte, $lt: lt } };
 
@@ -459,7 +469,7 @@ exports.subPedidos = async (req, res) => {
     const { id } = req.params;
     if (!okId(id)) return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
 
-    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin);
+    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
     const incluirDetalle = ['1', 'true', 'sí', 'si'].includes(String(req.query.detalle || '').toLowerCase());
 
     const filtro = { cliente: id, fechaPedido: { $gte: gte, $lt: lt } };
@@ -550,7 +560,7 @@ exports.subDevoluciones = async (req, res) => {
     const { id } = req.params;
     if (!okId(id)) return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
 
-    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin);
+    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
 
     const filtro = { cliente: id, fecha: { $gte: gte, $lt: lt } };
 
@@ -611,7 +621,7 @@ exports.subCancelaciones = async (req, res) => {
     const { id } = req.params;
     if (!okId(id)) return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
 
-    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin);
+    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
     const oid = new mongoose.Types.ObjectId(id);
 
     const [agg] = await Cancelacion.aggregate([
@@ -686,7 +696,7 @@ exports.subMonedero = async (req, res) => {
     const { id } = req.params;
     if (!okId(id)) return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
 
-    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin);
+    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
     const oid = new mongoose.Types.ObjectId(id);
 
     const [agg] = await Cliente.aggregate([
