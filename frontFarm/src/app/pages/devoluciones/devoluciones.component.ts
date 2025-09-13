@@ -13,7 +13,7 @@ import Swal from 'sweetalert2';
 
 import { AuthService } from '../../services/auth.service';
 import { ClienteService } from '../../services/cliente.service';
-import { FarmaciaService } from '../../services/farmacia.service'; 
+import { FarmaciaService } from '../../services/farmacia.service';
 import { DevolucionService } from '../../services/devolucion.service';
 import { DevolucionTicketComponent } from '../../impresiones/devolucion-ticket/devolucion-ticket.component';
 
@@ -76,7 +76,7 @@ export class DevolucionesComponent implements OnInit {
     private FarmaciaService: FarmaciaService,
     private library: FaIconLibrary, private authService: AuthService,) {
     this.library.addIcons(faPlus, faMinus, faTimes); // Registra íconos
-  } 
+  }
 
   ngOnInit(): void {
     const stored = localStorage.getItem('user_farmacia');
@@ -162,6 +162,32 @@ export class DevolucionesComponent implements OnInit {
     }
   }
 
+  /** Redondeo amable */
+  private round2(n: number): number {
+    return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  }
+
+  /** Calcula el reverso proporcional del monedero regalado en la venta */
+  private calcReversoMonedero(venta: any, seleccionados: any[]): number {
+    let rev = 0;
+    (seleccionados || []).forEach(sel => {
+      // Busca la línea original de la venta por _id de producto
+      const vl = (venta?.productos || []).find((p: any) =>
+        (p?.producto?._id && sel?.producto?._id && String(p.producto._id) === String(sel.producto._id)) ||
+        (p?.producto && sel?.producto?._id && String(p.producto) === String(sel.producto._id))
+      );
+
+      const monederoLinea = Number(vl?.monederoCliente ?? vl?.alMonedero ?? 0);
+      const cantComprada = Number(vl?.cantidad ?? 0);
+      const cantDev = Number(sel?.cantidadDevuelta ?? 0);
+
+      if (monederoLinea > 0 && cantComprada > 0 && cantDev > 0) {
+        rev += (monederoLinea * cantDev / cantComprada);
+      }
+    });
+    return this.round2(rev);
+  }
+
   async confirmarDevolucion(venta: any): Promise<void> {
     // 1) Primero obtén SOLO los productos seleccionados con cantidad > 0
     const productosSeleccionados = venta.productos.filter((p: any) =>
@@ -243,6 +269,28 @@ export class DevolucionesComponent implements OnInit {
       this.idCliente = hayCliente._id;
       this.nombreCliente = hayCliente.nombre;
     }
+
+    // === Estimar impacto en monedero para el ticket ===
+    let saldoAntes = 0;
+    if (this.esCliente && this.idCliente) {
+      try {
+        const cli = await firstValueFrom(this.clienteService.getClienteById(this.idCliente));
+        saldoAntes = Number(cli?.totalMonedero ?? 0);
+      } catch { saldoAntes = 0; }
+    }
+
+    // Reverso proporcional del monedero regalado en la venta
+    const reversoEstimado = this.calcReversoMonedero(venta, productosSeleccionados);
+
+    // Clampea el egreso para no dejar saldo negativo (igual que el backend)
+    const egresoReal = this.round2(Math.min(reversoEstimado, saldoAntes + totalDevolverVales));
+
+    // Cambios netos y saldo final
+    const monederoIngreso = this.round2(totalDevolverVales);
+    const monederoReverso = egresoReal;
+    const monederoCambioNeto = this.round2(monederoIngreso - monederoReverso);
+    const saldoDespues = this.round2(saldoAntes + monederoCambioNeto);
+
 
     // Solicitar firma antes de devolver
     let firmaInput = await Swal.fire({
@@ -339,6 +387,11 @@ export class DevolucionesComponent implements OnInit {
         totalADevolver: totalADevolver,
         totalDevolverEfectivo: totalDevolverEfectivo,
         totalDevolverVales: totalDevolverVales,
+        monederoIngreso,          // + por devolución
+        monederoReverso,          // - reverso de monedero regalado
+        monederoSaldoAntes: saldoAntes,
+        monederoSaldoDespues: saldoDespues,
+        monederoCambioNeto,
         usuario: this.usuarioNombre,
         farmacia: {
           nombre: this.farmaciaNombre,

@@ -47,13 +47,42 @@
 
     <hr />
 
-    <div class="totales">
+<!--     <div class="totales">
         <div style="text-align: right;">Total: <strong>${{ venta.totalADevolver | number:'1.2-2' }}</strong></div>
         <div style="text-align: right;" *ngIf="venta.totalDevolverVales > 0">Abonó a su monedero: <strong>${{
                 venta.totalDevolverVales | number:'1.2-2' }}</strong></div>
         <div style="text-align: right;" *ngIf="venta.totalDevolverEfectivo > 0">Devolución de efectivo: <strong>${{
                 venta.totalDevolverEfectivo | number:'1.2-2'}}</strong></div>
+    </div> -->
+
+<div class="totales">
+  <div style="text-align: right;">
+    Total: <strong>${{ venta.totalADevolver | number:'1.2-2' }}</strong>
+  </div>
+
+  <!-- Monedero desglosado -->
+  <ng-container *ngIf="venta.monederoIngreso || venta.monederoReverso">
+    <div style="text-align: right;">
+      Monedero: 
+      <strong *ngIf="venta.monederoIngreso">+${{ venta.monederoIngreso | number:'1.2-2' }}</strong>
+      <span *ngIf="venta.monederoReverso && venta.monederoReverso > 0">
+        — <strong>-${{ venta.monederoReverso | number:'1.2-2' }}</strong> (reverso)
+      </span>
     </div>
+    <div style="text-align: right;" *ngIf="venta.monederoSaldoAntes !== undefined">
+      Saldo antes: <strong>${{ venta.monederoSaldoAntes | number:'1.2-2' }}</strong>
+      &nbsp;|&nbsp;
+      Saldo final: <strong>${{ venta.monederoSaldoDespues | number:'1.2-2' }}</strong>
+    </div>
+  </ng-container>
+
+  <!-- Efectivo si aplica -->
+  <div style="text-align: right;" *ngIf="venta.totalDevolverEfectivo > 0">
+    Devolución de efectivo:
+    <strong>${{ venta.totalDevolverEfectivo | number:'1.2-2' }}</strong>
+  </div>
+</div>
+
 
     <hr />
     <div class="info-general">
