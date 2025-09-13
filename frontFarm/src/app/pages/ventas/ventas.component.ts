@@ -396,50 +396,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     });
   }
 
-/*   registrarNuevoCliente(nuevoCliente: any) {
-    this.clienteService.crearCliente(nuevoCliente).subscribe({
-      next: (response: any) => {
-        if (response && response.nombre && response._id) {
-          this.nombreCliente = response.nombre;
-          this.ventaForm.controls['cliente'].setValue(response._id);
-          Swal.fire({
-            icon: 'success',
-            title: 'Cliente registrado',
-            text: `El cliente ${response.nombre} ha sido registrado correctamente.`,
-            timer: 1500,
-            showConfirmButton: false
-          });
-          this.hayCliente = true;
-          this.cliente = response._id;
-          this.montoMonederoCliente = 0;
-        } else {
-          this.hayCliente = false;
-          console.error("⚠️ Respuesta inesperada del backend:", response);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'No se pudo registrar el cliente. Respuesta inesperada.',
-            confirmButtonText: 'OK',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-          });
-        }
-      },
-      error: (error) => {
-        console.error('❌ Error al registrar cliente:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudo registrar el cliente. Inténtelo de nuevo.',
-          confirmButtonText: 'OK',
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-        });
-      }
-    });
-  }
- */
-
   registrarNuevoCliente(nuevoCliente: any) {
   this.clienteService.crearCliente(nuevoCliente).subscribe({
     next: (resp: any) => {

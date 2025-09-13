@@ -6,145 +6,148 @@ const Producto = require('../models/Producto');
 const Farmacia = require('../models/Farmacia');
 const Cliente = require('../models/Cliente');
 
+const toNum = v => (Number.isFinite(+v) ? +v : 0);
+const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+
 const registrarDevolucion = async (req, res) => {
   const ahora = new Date();
   try {
     const { folioVenta, farmaciaQueDevuelve, idCliente } = req.body;
     const usuario = req.usuario;
-    let productosDevueltos = req.body.productosDevueltos;
+    let productosDevueltos = req.body.productosDevueltos || [];
 
     const culpaCliente = productosDevueltos.filter(p => p.motivoIndex < 6).length;
-
-    if (idCliente === undefined && culpaCliente > 0 ) 
-      return res.status(407).json({ mensaje: '** Para devolver y poder abonar a tu monedero, registrate como cliente **' });
-
-    if (!idCliente && culpaCliente > 0 )
-      return res.status(407).json({ mensaje: '** Para devolver y poder abonar a tu monedero, registrate como cliente **' });
 
     if (!['admin', 'empleado'].includes(usuario.rol)) {
       return res.status(403).json({ mensaje: '** No autorizado para realizar devoluciones **' });
     }
 
-    // Obtener la venta
+    if (culpaCliente > 0 && !idCliente) {
+      return res.status(407).json({ mensaje: '** Para devolver y poder abonar a tu monedero, registrate como cliente **' });
+    }
+
+    // Buscar venta
     const venta = await Venta.findOne({ folio: folioVenta })
-      .populate('cliente').populate('productos.producto', 'nombre');
+      .populate('cliente')
+      .populate('productos.producto', 'nombre');
     if (!venta) {
       return res.status(404).json({ mensaje: '** Venta no encontrada con ese folio **' });
     }
 
-    // obtener nombre de la farmacia donde se esta haciendo la devolución
-    const farmaciaDev = await Farmacia.findById(farmaciaQueDevuelve);
-    const nombreFarmaciaDev = farmaciaDev ? farmaciaDev.nombre : '—';
-
-    const farmaciaOrigen = await Farmacia.findById(venta.farmacia);  // buscamos la farmacia donde compro el cliente
-    const nombreFarmacia = farmaciaOrigen ? farmaciaOrigen.nombre : '—';  // obtener nombre de la farmacia donde se hizo la compra
-
-    // Comprobar que la venta se haya realizado en la farmacia donde se quiere hacer la devolución
-    if (venta.farmacia === farmaciaQueDevuelve) {
-      return res.status(404).json({
-        mensaje: `La venta no fue realizada en esta farmacia, acude a ${nombreFarmacia}`
-      })
+    // === ENLAZAR VENTA AL NUEVO CLIENTE (si la venta no tenía cliente) ===
+    if (idCliente && (!venta.cliente || !venta.cliente._id)) {
+      await Venta.updateOne({ _id: venta._id }, { $set: { cliente: idCliente } });
+      // opcional: reflejar en memoria por si lo necesitas más adelante
+      venta.cliente = idCliente;
     }
 
-    //validar fecha (máx. 7 días)
-    const fechaVenta = new Date(venta.fecha);
-    const diasPasados = (ahora - fechaVenta) / (1000 * 60 * 60 * 24);
+    // Validación de farmacia (misma farmacia de la venta)
+    const farmaciaDev = await Farmacia.findById(farmaciaQueDevuelve);
+    const nombreFarmaciaDev = farmaciaDev ? farmaciaDev.nombre : '—';
+    const farmaciaOrigen = await Farmacia.findById(venta.farmacia);
+    const nombreFarmacia = farmaciaOrigen ? farmaciaOrigen.nombre : '—';
+
+    if (String(venta.farmacia) !== String(farmaciaQueDevuelve)) {
+      return res.status(404).json({
+        mensaje: `La venta no fue realizada en esta farmacia, acude a ${nombreFarmacia}`
+      });
+    }
+
+    // Máx 7 días
+    const diasPasados = (ahora - new Date(venta.fecha)) / (1000 * 60 * 60 * 24);
     if (diasPasados > 7) {
       return res.status(400).json({
         mensaje: `No se permiten devoluciones después de 7 días de la venta en ${nombreFarmaciaDev}`
       });
     }
 
-    // Construir map de cantidades ya devueltas por producto
+    // Cantidades ya devueltas
     const devolucionesPrevias = await Devolucion.find({ venta: venta._id });
-    const retornosPrevios = new Map(); // prodId -> cantidad ya devuelta
+    const retornosPrevios = new Map();
     devolucionesPrevias.forEach(d => {
-      d.productosDevueltos.forEach(p => {
-        const pid = p.producto.toString();
-        retornosPrevios.set(pid, (retornosPrevios.get(pid) || 0) + p.cantidad);
+      (d.productosDevueltos || []).forEach(p => {
+        const pid = String(p.producto);
+        retornosPrevios.set(pid, (retornosPrevios.get(pid) || 0) + toNum(p.cantidad));
       });
     });
 
-    // Validaciones de cada devolución solicitada
-    let totalRefund = 0;  // total a devolver
-    let valeDevuelto = 0; // total de devolver en vales
-    let seDevuelveEnEfectivo = 0; // total a devolver en efectivo, solo cuando el motivo es responsabilidad de la farmacia
+    let totalRefund = 0;
+    let valeDevuelto = 0;
+    let efectivoDevuelto = 0;
+    let monederoARetirar = 0;
 
     for (const dev of productosDevueltos) {
+      const prodIdStr = String(dev.producto);
 
-      // Nombre del producto solicitado
-      const prodInfo = await Producto.findById(dev.producto).select('nombre');
+      const prodInfo = await Producto.findById(dev.producto).select('nombre categoria');
       const nombreReq = prodInfo ? prodInfo.nombre : dev.producto;
 
-      const prodVenta = venta.productos.find(p => p.producto._id.toString() === dev.producto);
+      const prodVenta = venta.productos.find(p => String(p.producto._id) === prodIdStr);
       if (!prodVenta) {
         return res.status(400).json({
           mensaje: `El producto ${nombreReq} no existe en la venta ${folioVenta} en ${nombreFarmacia}.`
         });
       }
-      // no devoluciones en promociones 2x1, etc.
+
       if (['2x1', '3x2', '4x3'].includes(prodVenta.tipoDescuento)) {
         return res.status(400).json({
           mensaje: `No se permiten devoluciones en productos con promo ${prodVenta.tipoDescuento}.`
         });
       }
 
-      // no devoluciones en categoria = Recargas ó Servicio Médico
-      if (prodInfo.categoria === 'Servicio Médico' || prodInfo.categoria === 'Recargas') {
+      if (prodInfo?.categoria === 'Servicio Médico' || prodInfo?.categoria === 'Recargas') {
         return res.status(400).json({
           mensaje: "No se permiten devoluciones en Recargas ó Servicio Médico."
         });
       }
 
-      // cantidad total devuelta no exceda lo comprado
-      const prev = retornosPrevios.get(dev.producto) || 0;
-
-      if (prev + dev.cantidad > prodVenta.cantidad) {
+      const prev = toNum(retornosPrevios.get(prodIdStr));
+      if (prev + toNum(dev.cantidad) > toNum(prodVenta.cantidad)) {
         return res.status(400).json({
-          mensaje: `Antes devolviste ${prev} unidades de ${prodVenta.producto.nombre}, solo puedes devolver ${prodVenta.cantidad - prev}`
+          mensaje: `Antes devolviste ${prev} unidades de ${prodVenta.producto.nombre}, solo puedes devolver ${toNum(prodVenta.cantidad) - prev}`
         });
       }
-      // acumular importe total a devolver (cantidad * precio unitario)
-      totalRefund += dev.cantidad * prodVenta.precio;
 
-      // determinar devolución en efectivo
-      if (dev.motivoIndex >= 6) seDevuelveEnEfectivo += dev.cantidad * prodVenta.precio;
+      const importe = toNum(dev.cantidad) * toNum(prodVenta.precio);
+      totalRefund += importe;
 
-      // determinar devolución en monedero (colección vales)
-      if (dev.motivoIndex < 6 && dev.motivoIndex >= 0) valeDevuelto += dev.cantidad * prodVenta.precio;
-
-      // Devolver existencia al inventario
-      const inv = await InventarioFarmacia.findOne({ producto: prodVenta.producto, farmacia: venta.farmacia });
-      if (inv) {
-        inv.existencia += dev.cantidad;
-        await inv.save();
+      if (dev.motivoIndex >= 6) {
+        efectivoDevuelto += importe;
+      } else {
+        valeDevuelto += importe;
       }
 
+      const monederoLinea = toNum(prodVenta.monederoCliente);
+      const cantComprada = toNum(prodVenta.cantidad);
+      if (monederoLinea > 0 && cantComprada > 0) {
+        monederoARetirar += (monederoLinea * toNum(dev.cantidad) / cantComprada);
+      }
+
+      const inv = await InventarioFarmacia.findOne({ producto: prodVenta.producto, farmacia: venta.farmacia });
+      if (inv) {
+        inv.existencia += toNum(dev.cantidad);
+        await inv.save();
+      }
     }
 
-    // Antes de crear la devolución, reescribimos productosDevueltos:
-    productosDevueltos = productosDevueltos.map(p => {
-      const { motivoIndex, ...rest } = p;  // Separamos motivoIndex y el resto de propiedades
-      // Devolvemos un nuevo objeto sin motivoIndex
-      return {
-        ...rest,
-      };
-    });
+    totalRefund = round2(totalRefund);
+    valeDevuelto = round2(valeDevuelto);
+    efectivoDevuelto = round2(efectivoDevuelto);
+    monederoARetirar = round2(monederoARetirar);
 
-    // Ahora creamos el documento:
-    const devolucion = new Devolucion({
+    productosDevueltos = productosDevueltos.map(({ motivoIndex, ...rest }) => rest);
+
+    const devolucion = await Devolucion.create({
       venta: venta._id,
       cliente: idCliente || null,
       farmacia: venta.farmacia,
       productosDevueltos,
-      dineroDevuelto: seDevuelveEnEfectivo,
+      dineroDevuelto: efectivoDevuelto,
       valeDevuelto: valeDevuelto,
       totalDevuelto: totalRefund,
       usuario: usuario.id
     });
-    await devolucion.save();
 
-    // === NUEVO: grabar referencia de la devolución en el historial del cliente ===
     if (idCliente) {
       await Cliente.findByIdAndUpdate(
         idCliente,
@@ -152,28 +155,48 @@ const registrarDevolucion = async (req, res) => {
       );
     }
 
-    /* Aqui acumulamos el monedero del cliente */
-    if (valeDevuelto > 0) {
-      const clienteEncontrado = await Cliente.findById(idCliente);
-      if (clienteEncontrado) {
-        // Saneamos totalMonedero a 0 si es falsy
-        const actual = Number.isFinite(clienteEncontrado.totalMonedero)
-          ? clienteEncontrado.totalMonedero : 0;
-        clienteEncontrado.monedero.push({
-          fechaUso: new Date(),
-          montoIngreso: valeDevuelto,
-          montoEgreso: 0,
-          motivo: 'Devolución venta',
-          farmaciaUso: farmaciaQueDevuelve
-        });
-        clienteEncontrado.totalMonedero = actual + valeDevuelto;
-        await clienteEncontrado.save();
+    if (idCliente) {
+      const cliente = await Cliente.findById(idCliente);
+      if (cliente) {
+        const saldoActual = toNum(cliente.totalMonedero);
+        const movs = [];
+
+        if (valeDevuelto > 0) {
+          movs.push({
+            fechaUso: ahora,
+            montoIngreso: valeDevuelto,
+            montoEgreso: 0,
+            motivo: `Devolución venta`,
+            farmaciaUso: farmaciaQueDevuelve
+          });
+        }
+
+        let egresoReal = 0;
+        if (monederoARetirar > 0) {
+          egresoReal = Math.min(monederoARetirar, saldoActual + valeDevuelto);
+          egresoReal = round2(egresoReal);
+          if (egresoReal > 0) {
+            movs.push({
+              fechaUso: ahora,
+              montoIngreso: 0,
+              montoEgreso: egresoReal,
+              motivo: `Reverso monedero por devolución`,
+              farmaciaUso: farmaciaQueDevuelve
+            });
+          }
+        }
+
+        if (movs.length) {
+          cliente.monedero.push(...movs);
+          cliente.totalMonedero = round2(saldoActual + valeDevuelto - egresoReal);
+          await cliente.save();
+        }
       }
     }
 
     return res.status(201).json({
       mensaje: 'Devolución registrada correctamente',
-      devolucion,
+      devolucion
     });
 
   } catch (error) {

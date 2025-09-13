@@ -2,7 +2,7 @@
     width: 100%;
 }
 
-.subtabla-vacia {
+.subtabla-vacia, .text-negativo {
     color: red !important;
 }
 
@@ -10,6 +10,10 @@
     background: #f9f9f9;
 }
 
+.lbl {
+    color: #2e04fe;
+    font-size: large;
+}
 .mat-form-field {
     min-width: 160px;
 }

@@ -99,8 +99,13 @@ export class ClientesComponent implements OnInit {
   subVentaOpen: Record<string, string | null> = {};
   subPedidoOpen: Record<string, string | null> = {};
   subDevolucionOpen: Record<string, string | null> = {};
+  subCancelacionOpen: Record<string, string | null> = {};
+  subMonederoOpen: Record<string, string | null> = {};
   trackVentaBy(_i: number, v: any) { return v._id; }
   trackPedidoBy(_i: number, v: any) { return v._id; }
+  trackDevolucionBy(_i: number, v: any) { return v._id; }
+  trackCancelacionBy(_i: number, v: any) { return v._id; }
+  trackMonederoBy(_i: number, v: any) { return v._id; }
 
   isDetailRow = (_: number, row: any) => {
     if (!this.expandedRow) return false;
@@ -144,9 +149,7 @@ export class ClientesComponent implements OnInit {
 
   /** fechaFin inclusiva -> enviamos fin+1 para usar $lt en el backend */
   private getFechaFinExclusiveISO(): string {
-    const fin = new Date(this.fechaFin);
-    fin.setDate(fin.getDate() + 1);
-    return this.toLocalISODate(fin);
+    return this.fechaFin;
   }
 
   ngOnInit(): void {
@@ -342,6 +345,8 @@ export class ClientesComponent implements OnInit {
       delete this.subVentaOpen[key];
       delete this.subPedidoOpen[key];
       delete this.subDevolucionOpen[key];
+      delete this.subCancelacionOpen[key];
+      delete this.subMonederoOpen[key];
       this.table?.renderRows();
       this.cdr.detectChanges();
       return;
@@ -354,13 +359,17 @@ export class ClientesComponent implements OnInit {
       delete this.subVentaOpen[this.expandedRow];
       delete this.subPedidoOpen[this.expandedRow];
       delete this.subDevolucionOpen[this.expandedRow];
+      delete this.subCancelacionOpen[this.expandedRow];
+      delete this.subMonederoOpen[this.expandedRow];
     }
 
     // Abrir la nueva
     this.expandedRow = key;
     this.subVentaOpen[key] = null;
-    this.subPedidoOpen[key] = null; 
+    this.subPedidoOpen[key] = null;
     this.subDevolucionOpen[key] = null;
+    this.subCancelacionOpen[key] = null;
+    this.subMonederoOpen[key] = null;
     this.table?.renderRows();
     this.cdr.detectChanges();
 
@@ -378,7 +387,7 @@ export class ClientesComponent implements OnInit {
 
     const params: any = { page: 1, limit: 20 };
     if (this.fechaIni) params.fechaIni = this.fechaIni;
-    if (this.fechaFin) params.fechaFin = this.getFechaFinExclusiveISO(); // fin + 1 día
+    if (this.fechaFin) params.fechaFin = this.fechaFin;
 
     fetch(clienteId, params).subscribe({
       next: (resp: any) => {
@@ -391,12 +400,14 @@ export class ClientesComponent implements OnInit {
           this.subVentaOpen[key] = null;
           this.subPedidoOpen[key] = null;
           this.subDevolucionOpen[key] = null;
+          this.subCancelacionOpen[key] = null;
+          this.subMonederoOpen[key] = null;
         } else {
           this.subRows[key] = rows;
           this.subFooter[key] = resp?.footer ?? null;
 
           console.log('sub tabla', rows);
-          console.log('footer', ); resp.footer
+          console.log('footer',); resp.footer
 
         }
 
@@ -404,12 +415,14 @@ export class ClientesComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: _ => {
-        // En error también muéstralo como vacío (para que salga #sinCompras)
+        // En error también muéstralo como vacío (para que salga #sinCompras, #sinPedidos ....)
         this.subRows[key] = [];
         delete this.subFooter[key];
         this.subVentaOpen[key] = null;
         this.subPedidoOpen[key] = null;
         this.subDevolucionOpen[key] = null;
+        this.subCancelacionOpen[key] = null;
+        this.subMonederoOpen[key] = null;
         this.table?.renderRows();
         this.cdr.detectChanges();
       }
@@ -446,6 +459,28 @@ export class ClientesComponent implements OnInit {
     } else {
       // abrir ese y cerrar cualquier otro dentro de la misma subtabla
       this.subDevolucionOpen[key] = v._id;
+    }
+    this.cdr.detectChanges();
+  }
+
+  toggleDetalleCancelacion(v: any, key: string) {
+    // si ya está abierto ese v, ciérralo
+    if (this.subCancelacionOpen[key] === v._id) {
+      this.subCancelacionOpen[key] = null;
+    } else {
+      // abrir ese y cerrar cualquier otro dentro de la misma subtabla
+      this.subCancelacionOpen[key] = v._id;
+    }
+    this.cdr.detectChanges();
+  }
+
+  toggleDetalleMonedero(v: any, key: string) {
+    // si ya está abierto ese v, ciérralo
+    if (this.subMonederoOpen[key] === v._id) {
+      this.subMonederoOpen[key] = null;
+    } else {
+      // abrir ese y cerrar cualquier otro dentro de la misma subtabla
+      this.subMonederoOpen[key] = v._id;
     }
     this.cdr.detectChanges();
   }

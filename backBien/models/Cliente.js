@@ -16,7 +16,13 @@ const MonederoSchema = new mongoose.Schema({
     motivo: {
         type: String,
         enum: [
-            "Pago venta", "Pago pedido", "Devolución venta", "Cancelación pedido", "Premio", "Premio-Pago venta"
+            "Pago venta",
+            "Pago pedido",
+            "Devolución venta",
+            "Cancelación pedido",
+            "Premio",
+            "Premio-Pago venta",
+            "Reverso monedero por devolución"
         ],
     },
     farmaciaUso: { type: mongoose.Schema.Types.ObjectId, ref: 'Farmacia', required: true }

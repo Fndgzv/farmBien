@@ -59,13 +59,6 @@ function enRangoHoyMx(iniDT, finDT, hoyDT) {
   return true; // sin fechas => válido
 }
 
-// Por si sigues necesitando un Date JS “00:00 CDMX”
-function soloFechaMxJS(d) {
-  const dt = (d instanceof Date) ? DateTime.fromJSDate(d, { zone: 'utc' }) : DateTime.fromJSDate(new Date(d), { zone: 'utc' });
-  return dt.setZone(ZONE).startOf('day').toJSDate();
-}
-
-
 function enRangoHoy(ini, fin, hoy) {
   if (ini && fin) return ini <= hoy && hoy <= fin;
   if (ini && !fin) return ini <= hoy;
@@ -278,8 +271,6 @@ const crearVenta = async (req, res) => {
           }
         }
 
-        let descuento = (precioBase - precioFinal) / precioBase * 100;    // calcular el % de descuento aplicado
-
         const puedeSumarInapam = clienteInapam && productoDB.descuentoINAPAM && descuentoMenorQue25(precioBase, precioFinal);
 
         if (descuentoRenglon >= 0) {
@@ -364,11 +355,6 @@ const crearVenta = async (req, res) => {
         mensaje: `La suma de pagos (${fromCents(sumaPagosCents).toFixed(2)}) no coincide con el total (${fromCents(totalVentaCents).toFixed(2)}).`
       });
     }
-
-
-    /* if (Math.abs(sumaPagos - totalVenta) > 0.019) {
-        return res.status(400).json({ mensaje: 'La suma de efectivo y otras formas de pago no coincide con el total de la venta.' });
-    } */
 
     const venta = new Venta({
       farmacia: farmaciaId,
