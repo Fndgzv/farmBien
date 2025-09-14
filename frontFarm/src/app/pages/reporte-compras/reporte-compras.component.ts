@@ -178,7 +178,7 @@ export class ReporteComprasComponent {
     };
 
     if (this.fechaIni) params.fechaIni = this.fechaIni;
-    if (this.fechaFin) params.fechaFin = this.getFechaFinExclusiveISO();
+    if (this.fechaFin) params.fechaFin = this.fechaFin;
     if (this.proveedor) params.proveedor = this.proveedor.trim();
     if (this.importeDesde !== null && this.importeDesde !== undefined && this.importeDesde !== ('' as any)) {
       params.importeDesde = this.importeDesde;

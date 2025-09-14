@@ -17,6 +17,13 @@
         <label style="margin-left:12px;">Fecha de compra:</label>
         <input type="date" class="input-text" style="width:max-content;" formControlName="fechaCompra" [max]="hoyISO"
             title="Fecha efectiva de la compra (no futuro)" />
+
+        <label style="margin: 0.5rem 0 0 4rem;" for="chk-afectar-exist">Afectar existencias:</label>
+        <input id="chk-afectar-exist" type="checkbox" formControlName="afectarExistencias"
+            title="Si está marcado, se actualizarán lotes/precios/inventarios; si no, solo se registrará la compra." />
+        <small style="margin-top: 0.5rem; color:#f6a80c">
+            {{ headerForm.value.afectarExistencias ? 'Sí (actualiza productos)' : 'No (solo registra compra)' }}
+        </small>
     </form>
 
     <!-- FORMULARIO DE INGRESO DE PRODUCTO -->

@@ -111,6 +111,7 @@ export class ComprasComponent implements OnInit {
     this.headerForm = this.fb.group({
       proveedor: [null, Validators.required],
       fechaCompra: [this.hoyISO],
+      afectarExistencias: [true]
     });
 
     this.itemForm = this.fb.group({
@@ -310,80 +311,80 @@ export class ComprasComponent implements OnInit {
     this.editingPromoIndex = null;
   }
 
-  onRegistrarCompra(): void {
-    if (this.headerForm.invalid || this.carrito.length === 0) {
-      Swal.fire('Datos incompletos', 'Selecciona proveedor y agrega productos.', 'warning');
+onRegistrarCompra(): void {
+  if (this.headerForm.invalid || this.carrito.length === 0) {
+    Swal.fire('Datos incompletos', 'Selecciona proveedor y agrega productos.', 'warning');
+    return;
+  }
+
+  // Validar que no se seleccione futuro
+  const fSel = this.headerForm.value.fechaCompra as string | null;
+  if (fSel) {
+    const hoy = new Date(this.hoyISO);
+    const sel = new Date(fSel);
+    if (sel > hoy) {
+      Swal.fire('Fecha inválida', 'La fecha de compra no puede ser futura.', 'warning');
       return;
     }
-
-    // Validar que no se seleccione futuro
-    const fSel = this.headerForm.value.fechaCompra as string | null;
-    if (fSel) {
-      const hoy = new Date(this.hoyISO);
-      const sel = new Date(fSel);
-      if (sel > hoy) {
-        Swal.fire('Fecha inválida', 'La fecha de compra no puede ser futura.', 'warning');
-        return;
-      }
-    }
-
-    const proveedorId = this.headerForm.value.proveedor;
-    const proveedorSeleccionado = this.proveedores.find(p => p._id === proveedorId);
-    const nombreProveedor = proveedorSeleccionado?.nombre || 'Desconocido';
-
-    // Construir fecha ISO segura (12:00 local) si el usuario eligió fecha
-    const fechaCompraIso = fSel
-      ? new Date(`${fSel}T12:00:00`).toISOString()
-      : null; // si no mandan, el backend puede usar "ahora"
-
-    Swal.fire({
-      icon: 'question',
-      title: 'Confirmar compra',
-      html: `Proveedor: <strong>${nombreProveedor}</strong><hr>
-           <div>Fecha compra: <strong>${fSel || this.hoyISO}</strong></div>
-           <h2 style="color: blue">Total: <strong>$${this.total.toFixed(2)}</strong></h2>`,
-      showCancelButton: true,
-      confirmButtonText: 'Registrar',
-    }).then(result => {
-      if (!result.isConfirmed) return;
-      Swal.showLoading();
-
-      const payload: any = {
-        proveedor: this.headerForm.value.proveedor,
-        productos: this.carrito.map(item => ({
-          codigoBarras: item.codigoBarras,
-          cantidad: item.cantidad,
-          lote: item.lote,
-          fechaCaducidad: item.fechaCaducidad,
-          costoUnitario: item.costoUnitario,
-          precioUnitario: item.precioUnitario,
-          stockMinimo: item.stockMinimo,
-          stockMaximo: item.stockMaximo,
-          promociones: item.promociones
-        }))
-      };
-
-      // ⬅️ Agregar la fecha al payload si se seleccionó
-      if (fechaCompraIso) {
-        payload.fecha = fechaCompraIso;
-        // si tu backend prefiere nombre diferente, duplica:
-        // payload.fechaCompra = fechaCompraIso;
-      }
-
-      this.compraService.crearCompra(payload).subscribe({
-        next: () => {
-          Swal.hideLoading();
-          Swal.fire('Compra registrada', 'Se guardó correctamente.', 'success');
-          this.resetCompras();
-        },
-        error: err => {
-          Swal.hideLoading();
-          console.error(err);
-          Swal.fire('Error', 'No se pudo registrar la compra.', 'error');
-        }
-      });
-    });
   }
+
+  const proveedorId = this.headerForm.value.proveedor;
+  const proveedorSeleccionado = this.proveedores.find(p => p._id === proveedorId);
+  const nombreProveedor = proveedorSeleccionado?.nombre || 'Desconocido';
+
+  // Construye ISO “seguro” (12:00 local) para evitar desfases por zona
+  const fechaCompraIso = fSel ? new Date(`${fSel}T12:00:00`).toISOString() : null;
+
+  const afectarExistencias = !!this.headerForm.value.afectarExistencias;
+
+  Swal.fire({
+    icon: 'question',
+    title: 'Confirmar compra',
+    html: `
+      Proveedor: <strong>${nombreProveedor}</strong><hr>
+      <div>Fecha compra: <strong>${fSel || this.hoyISO}</strong></div>
+      <div>Afectar existencias: <strong>${afectarExistencias ? 'Sí' : 'No'}</strong></div>
+      <h2 style="color: blue">Total: <strong>$${this.total.toFixed(2)}</strong></h2>`,
+    showCancelButton: true,
+    confirmButtonText: 'Registrar',
+  }).then(result => {
+    if (!result.isConfirmed) return;
+    Swal.showLoading();
+
+    const payload: any = {
+      proveedor: this.headerForm.value.proveedor,
+      afectarExistencias,                 // ⬅️ NUEVO
+      productos: this.carrito.map(item => ({
+        codigoBarras: item.codigoBarras,
+        cantidad: item.cantidad,
+        lote: item.lote,
+        fechaCaducidad: item.fechaCaducidad,
+        costoUnitario: item.costoUnitario,
+        precioUnitario: item.precioUnitario,
+        stockMinimo: item.stockMinimo,
+        stockMaximo: item.stockMaximo,
+        promociones: item.promociones
+      }))
+    };
+
+    // ⬅️ Enviar la fecha con el nombre que espera el backend
+    if (fechaCompraIso) payload.fechaCompra = fechaCompraIso;
+
+    this.compraService.crearCompra(payload).subscribe({
+      next: () => {
+        Swal.hideLoading();
+        Swal.fire('Compra registrada', 'Se guardó correctamente.', 'success');
+        this.resetCompras();
+      },
+      error: err => {
+        Swal.hideLoading();
+        console.error(err);
+        Swal.fire('Error', 'No se pudo registrar la compra.', 'error');
+      }
+    });
+  });
+}
+
 
 
   resetCompras(): void {
