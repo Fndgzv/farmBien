@@ -37,7 +37,7 @@
         <span class="user-info" *ngIf="userNombre">
           Bienvenido, {{ userNombre }} ({{ userRol }})
         </span>
-        <button mat-icon-button matTooltip="Cerrar sesión" (click)="authService.logout()" class="icon-button">
+        <button mat-icon-button matTooltip="Cerrar sesión" (click)="authService.logout()" class="icon-button-exit">
           <mat-icon>logout</mat-icon>
         </button>
       </div>

@@ -194,6 +194,22 @@
   color: yellow;
 }
 
+.icon-button-exit {
+  color: rgb(248, 4, 4);
+  background: transparent;
+  border: none;
+  padding: 4px;
+  margin: 0;
+  width: 40px;
+  height: 40px;
+  line-height: 1;
+}
+
+.icon-button-exit:hover {
+  background: linear-gradient(45deg, rgb(248, 4, 4), white);
+  color: yellow;
+}
+
 
 @media (max-width: 768px) {
   .user-info {
