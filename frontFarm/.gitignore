@@ -45,3 +45,9 @@ Thumbs.db
 .env
 dist/
 node_modules/
+
+# --- permitir trackear reportes-devoluciones (anula ignores previos)
+!frontFarm/
+!frontFarm/src/
+!frontFarm/src/app/
+!frontFarm/src/app/reportes-devoluciones/**
