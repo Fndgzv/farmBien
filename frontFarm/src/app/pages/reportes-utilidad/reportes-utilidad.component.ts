@@ -268,21 +268,13 @@ export class ReportesUtilidadComponent implements OnInit {
   // ====== CLIENTES ======
   private buscarClientes(val: any) {
     const clienteId = val.clienteId || undefined;
-    const orden = (val.ordenClientes || 'utilidad').toLowerCase(); // utilidad | ventas
+    const ordSel = val.ordenClientes || { campo: 'utilidad', dir: 'desc' };
 
     if (!clienteId) {
       const n = parseInt(String(val.cantClientes || '').trim(), 10);
       if (!Number.isFinite(n) || n <= 0) {
         this.cargando = false;
-        Swal.fire({
-          icon: 'warning',
-          title: 'Faltan datos',
-          text: 'Ingresa ¿Cuántos clientes? ó selecciona un cliente.',
-          timer: 3000,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-        });
+        Swal.fire('Faltan datos', 'Ingresa ¿Cuántos clientes? ó selecciona un cliente.', 'warning');
         return;
       }
     }
@@ -292,7 +284,8 @@ export class ReportesUtilidadComponent implements OnInit {
       fechaFin: val.fechaFin,
       clienteId,
       CantClientes: clienteId ? undefined : val.cantClientes,
-      orden
+      orden: ordSel.campo,      // 'utilidad' | 'ventas'
+      dir: ordSel.dir         // 'asc' | 'desc'
     });
 
     this.reportes.getUtilidadPorClientes(params).subscribe({
@@ -318,24 +311,15 @@ export class ReportesUtilidadComponent implements OnInit {
   // ====== PRODUCTOS ======
   private buscarProductos(_val: any) {
     const val = _val ?? this.filtroForm.getRawValue();
-
     const productoId = (val.productoId ?? '').toString().trim() || undefined;
-    const orden = (val.ordenProductos || 'utilidad').toLowerCase();
     const farmaciaId = (val.farmaciaId ?? '').toString().trim() || undefined;
+    const ordSel = val.ordenProductos || { campo: 'utilidad', dir: 'desc' };
 
     if (!productoId) {
       const n = parseInt(String(val.cantProductos || '').trim(), 10);
       if (!Number.isFinite(n) || n <= 0) {
         this.cargando = false;
-        Swal.fire({
-          icon: 'warning',
-          title: 'Faltan datos',
-          text: 'Ingresa ¿Cuántos productos? ó selecciona un producto.',
-          timer: 3000,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-        });
+        Swal.fire('Faltan datos', 'Ingresa ¿Cuántos productos? ó selecciona un producto.', 'warning');
         return;
       }
     }
@@ -345,7 +329,8 @@ export class ReportesUtilidadComponent implements OnInit {
       fechaFin: val.fechaFin,
       productoId,
       cantProductos: productoId ? undefined : val.cantProductos,
-      orden,
+      orden: ordSel.campo,
+      dir: ordSel.dir,
       farmaciaId
     });
 
@@ -370,13 +355,14 @@ export class ReportesUtilidadComponent implements OnInit {
   // ====== USUARIOS ======
   private buscarUsuarios(val: any) {
     const usuarioId = val.usuarioId || undefined;
-    const orden = (val.ordenUsuarios || 'utilidad').toLowerCase(); // utilidad | ventas
+    const ordSel = val.ordenUsuarios || { campo: 'utilidad', dir: 'desc' };
 
     const params = this.cleanParams({
       fechaIni: val.fechaIni,
       fechaFin: val.fechaFin,
       usuarioId,
-      orden
+      orden: ordSel.campo,
+      dir: ordSel.dir
     });
 
     this.reportes.getUtilidadPorUsuarios(params).subscribe({
@@ -395,15 +381,6 @@ export class ReportesUtilidadComponent implements OnInit {
         Swal.fire('Error', msg, 'error');
       }
     });
-  }
-
-  private toYmd(d: any): string | undefined {
-    if (!d) return undefined;
-    const date = d instanceof Date ? d : new Date(d);
-    if (isNaN(date.getTime())) return undefined;
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    return `${date.getFullYear()}-${mm}-${dd}`;
   }
 
   private cleanParams<T extends Record<string, any>>(obj: T): Partial<T> {

@@ -64,16 +64,6 @@ export class ReportesService {
 
   constructor(private http: HttpClient) { }
 
-  private formatYmd(d?: any): string | undefined {
-    if (!d) return undefined;
-    const date = (d instanceof Date) ? d : new Date(d);
-    if (isNaN(date.getTime())) return undefined;
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    return `${date.getFullYear()}-${mm}-${dd}`;
-    //  ^^^ el backend convierte este día local MX a UTC rango [gte, lt)
-  }
-
   getVentasPorFarmacia(params: {
     farmaciaId?: string;
     fechaIni?: string | Date;
@@ -196,7 +186,8 @@ getUtilidadPorClientes(p: any) {
     fechaFin: this.toYmdLocal(p.fechaFin),
     clienteId: p.clienteId || undefined,
     CantClientes: p.CantClientes || p.cantClientes,
-    orden: p.orden || 'utilidad'
+    orden: p.orden || 'utilidad',
+    dir:   p.dir   || 'desc'
   };
   let params = new HttpParams();
   Object.keys(obj).forEach(k => { const v = obj[k]; if (v !== undefined && v !== '') params = params.set(k, v); });
@@ -213,6 +204,7 @@ getUtilidadPorProductos(p: any) {
     productoId: p.productoId || undefined,
     cantProductos: p.cantProductos,
     orden: p.orden || 'utilidad',
+    dir:   p.dir   || 'desc',
     farmaciaId: p.farmaciaId || undefined
   };
   let params = new HttpParams();
@@ -228,7 +220,8 @@ getUtilidadPorUsuarios(p: any) {
     fechaIni: this.toYmdLocal(p.fechaIni),
     fechaFin: this.toYmdLocal(p.fechaFin),
     usuarioId: p.usuarioId || undefined,
-    orden: p.orden || 'utilidad'
+    orden: p.orden || 'utilidad',
+    dir:   p.dir   || 'desc'
   };
   let params = new HttpParams();
   Object.keys(obj).forEach(k => { const v = obj[k]; if (v !== undefined && v !== '') params = params.set(k, v); });

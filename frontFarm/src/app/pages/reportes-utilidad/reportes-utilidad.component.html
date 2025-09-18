@@ -45,7 +45,6 @@
     <hr class="my-3">
 
     <!-- Parámetros específicos por reporte -->
-
     <!-- ===== Usuarios ===== -->
     <div *ngIf="reportType === 'usuarios'" class="row g-2 align-items-end">
       <div class="col-md-3">
@@ -57,10 +56,12 @@
       </div>
 
       <div class="col-md-3">
-        <label class="form-label">Los mejores por:</label>
+        <label class="form-label">Los mejores / peores por:</label>
         <select class="form-select" formControlName="ordenUsuarios" [disabled]="cargando">
-          <option value="'Num. de ventas'">Núm. de ventas</option>
-          <option value="utilidad">Utilidad</option>
+          <option [ngValue]="{ campo: 'ventas',   dir: 'desc' }">Núm. de ventas las mejores</option>
+          <option [ngValue]="{ campo: 'utilidad', dir: 'desc' }">Utilidad las mejores</option>
+          <option [ngValue]="{ campo: 'ventas',   dir: 'asc'  }">Núm. de ventas las peores</option>
+          <option [ngValue]="{ campo: 'utilidad', dir: 'asc'  }">Utilidad las peores</option>
         </select>
       </div>
     </div>
@@ -80,10 +81,12 @@
           [disabled]="cargando || !!filtroForm.value.clienteId">
       </div>
       <div class="col-md-3">
-        <label class="form-label">Los mejores por:</label>
+        <label class="form-label">Los mejores / peores por:</label>
         <select class="form-select" formControlName="ordenClientes" [disabled]="cargando">
-          <option value="ventas">Núm. de compras</option>
-          <option value="utilidad">Utilidad</option>
+          <option [ngValue]="{ campo: 'ventas',   dir: 'desc' }">Núm. de compras las mejores</option>
+          <option [ngValue]="{ campo: 'utilidad', dir: 'desc' }">Utilidad las mejores</option>
+          <option [ngValue]="{ campo: 'ventas',   dir: 'asc'  }">Núm. de compras las peores</option>
+          <option [ngValue]="{ campo: 'utilidad', dir: 'asc'  }">Utilidad las peores</option>
         </select>
       </div>
     </div>
@@ -120,10 +123,12 @@
       </div>
 
       <div class="col-md-2">
-        <label class="form-label">Los mejores por: </label>
+        <label class="form-label">Los mejores / peores por: </label>
         <select class="form-select" formControlName="ordenProductos" [disabled]="cargando">
-          <option value="ventas">Núm. de Ventas</option>
-          <option value="utilidad">Utilidad</option>
+          <option [ngValue]="{ campo: 'ventas',   dir: 'desc' }">Núm. de Ventas las mejores</option>
+          <option [ngValue]="{ campo: 'utilidad', dir: 'desc' }">Utilidad las mejores</option>
+          <option [ngValue]="{ campo: 'ventas',   dir: 'asc'  }">Núm. de Ventas las peores</option>
+          <option [ngValue]="{ campo: 'utilidad', dir: 'asc'  }">Utilidad las peores</option>
         </select>
       </div>
     </div>
@@ -248,11 +253,15 @@
             <td class="text-end"><strong>Totales:</strong></td>
             <td class="text-end"><strong>${{ footerClientes.totalMonedero | number:'1.2-2' }}</strong></td>
             <td class="text-end"><strong>{{ footerClientes.totalVentas | number }}</strong></td>
-            <td class="text-end text-success"><strong>${{ footerClientes.totalImpVentas | number:'1.2-2' }}</strong></td>
-            <td class="text-end text-negativo"><strong>${{ footerClientes.totalCostoVentas | number:'1.2-2' }}</strong></td>
+            <td class="text-end text-success"><strong>${{ footerClientes.totalImpVentas | number:'1.2-2' }}</strong>
+            </td>
+            <td class="text-end text-negativo"><strong>${{ footerClientes.totalCostoVentas | number:'1.2-2' }}</strong>
+            </td>
             <td class="text-end"><strong>{{ footerClientes.totalPedidos | number }}</strong></td>
-            <td class="text-end text-success"><strong>${{ footerClientes.totalImpPedidos | number:'1.2-2' }}</strong></td>
-            <td class="text-end text-negativo"><strong>${{ footerClientes.totalCostoPedidos | number:'1.2-2' }}</strong></td>
+            <td class="text-end text-success"><strong>${{ footerClientes.totalImpPedidos | number:'1.2-2' }}</strong>
+            </td>
+            <td class="text-end text-negativo"><strong>${{ footerClientes.totalCostoPedidos | number:'1.2-2' }}</strong>
+            </td>
             <td class="text-end text-success"><strong>${{ footerClientes.totalIngresos | number:'1.2-2' }}</strong></td>
             <td class="text-end text-negativo"><strong>${{ footerClientes.totalEgresos | number:'1.2-2' }}</strong></td>
             <td class="text-end"

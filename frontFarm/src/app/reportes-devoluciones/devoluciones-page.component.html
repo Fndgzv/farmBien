@@ -1,0 +1,217 @@
+<!-- src/app/reportes-devoluciones/views/devoluciones-page.component.html -->
+<h2 class="titulo text-center">Reportes de Devoluciones</h2>
+<form [formGroup]="filtroForm" class="filtros">
+
+    <div class="row g-2 align-items-end mb-3">
+        <div class="col-md-3">
+            <label class="form-label d-block">Vista del reporte</label>
+            <div class="d-flex gap-2 flex-wrap">
+                <label class="report-chip" [class.active]="filtroForm.get('vista')?.value === 'resumen'">
+                    <input type="radio" formControlName="vista" value="resumen">Resumen</label>
+                <label class="report-chip" [class.active]="filtroForm.get('vista')?.value === 'agrupado'">
+                    <input type="radio" formControlName="vista" value="agrupado">Agrupado</label>
+                <label class="report-chip" [class.active]="filtroForm.get('vista')?.value === 'listado'">
+                    <input type="radio" formControlName="vista" value="listado">Listado</label>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label">Farmacia</label>
+            <select class="form-select" formControlName="farmaciaId" [disabled]="cargando">
+                <option value="">(Todas)</option>
+                <option *ngFor="let f of farmacias" [value]="f._id">{{f.nombre}}</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Fecha Inicial</label>
+            <input type="date" class="form-control" formControlName="fechaIni" [disabled]="cargando">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Fecha Final</label>
+            <input type="date" class="form-control" formControlName="fechaFin" [disabled]="cargando">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Usuario</label>
+            <select class="form-select" formControlName="usuarioId" [disabled]="cargando">
+                <option value="">(Todos)</option>
+                <option *ngFor="let u of usuarios" [value]="u._id">{{u.nombre}}</option>
+            </select>
+        </div>
+    </div>
+    <!-- Segundo renglón de filtros -->
+    <div class="row g-2 align-items-end mb-3">
+
+        <div class="col-md-3">
+            <label class="form-label">Motivo</label>
+            <select class="form-select" formControlName="motivo" [disabled]="cargando">
+                <option value="">(Todos)</option>
+                <option *ngFor="let m of motivos" [value]="m">{{m}}</option>
+            </select>
+        </div>
+
+        <!-- === Cliente === -->
+        <div class="col-md-3 position-relative">
+            <label class="form-label">Cliente</label>
+
+            <!-- Input con referencia -->
+            <input #cliInput type="text" class="form-control" placeholder="Escribe nombre (mín. 2 letras)"
+                [disabled]="cargando || !!clienteSel" (input)="onClienteInput(cliInput.value)" />
+
+            <!-- Sugerencias -->
+            <div class="suggest-panel" *ngIf="clienteOpts.length && !clienteSel">
+                <button type="button" class="suggest-item" *ngFor="let c of clienteOpts" (click)="selectCliente(c)">
+                    <div class="fw-semibold">{{ c.nombre || '(sin nombre)' }}</div>
+                    <small class="text-muted">{{ c.telefono || '—' }}</small>
+                </button>
+            </div>
+
+            <!-- Selección hecha -->
+            <div class="mt-1" *ngIf="clienteSel">
+                <span class="badge bg-primary-subtle text-primary border">
+                    {{ clienteSel.nombre }} <span *ngIf="clienteSel.telefono">· {{ clienteSel.telefono }}</span>
+                </span>
+                <!-- Pasamos la ref del input -->
+                <button type="button" class="btn btn-link btn-sm ps-2" (click)="clearCliente(cliInput)">Cambiar</button>
+            </div>
+        </div>
+
+        <!-- Campo real (oculto) que ya usa tu backend -->
+        <input type="hidden" formControlName="clienteId" />
+
+        <!-- === Producto === -->
+        <div class="col-md-3 position-relative">
+            <label class="form-label">Producto</label>
+
+            <input #proInput type="text" class="form-control" placeholder="Nombre o código de barras"
+                [disabled]="cargando || !!productoSel" (input)="onProductoInput(proInput.value)"
+                (keyup.enter)="onProductoEnter(proInput.value)" />
+
+            <div class="suggest-panel" *ngIf="productoOpts.length && !productoSel">
+                <button type="button" class="suggest-item" *ngFor="let p of productoOpts" (click)="selectProducto(p)">
+                    <div class="fw-semibold">{{ p.nombre || '(sin nombre)' }}</div>
+                    <small class="text-muted">CB: {{ p.codigoBarras || '—' }}</small>
+                </button>
+            </div>
+
+            <div class="mt-1" *ngIf="productoSel">
+                <span class="badge bg-success-subtle text-success border">
+                    {{ productoSel.nombre }} <span *ngIf="productoSel.codigoBarras">· {{ productoSel.codigoBarras
+                        }}</span>
+                </span>
+                <button type="button" class="btn btn-link btn-sm ps-2"
+                    (click)="clearProducto(proInput)">Cambiar</button>
+            </div>
+        </div>
+
+        <!-- Campo real (oculto) que ya usa tu backend -->
+        <input type="hidden" formControlName="productoId" />
+
+        <div class="col-md-1 ms-auto text-start" *ngIf="filtroForm.value.vista ==='resumen'">
+            <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando"
+                matTooltip="Limpiar filtros"><i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="col-md-2 ms-auto text-end" *ngIf="filtroForm.value.vista ==='resumen'">
+            <button type="button" class="btn-gris" (click)="buscar()"
+                [disabled]="cargando">{{cargando?'Consultando…':'Buscar'}}</button>
+        </div>
+
+    </div>
+
+    <ng-container *ngIf="filtroForm.value.vista==='agrupado'">
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-2">
+                <label class="form-label">Agrupar por</label>
+                <select class="form-select" formControlName="agrupacion" [disabled]="cargando">
+                    <option *ngFor="let a of agrupaciones" [value]="a">{{a}}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Top N</label>
+                <input type="number" class="form-control" formControlName="topNAgr" min="1" max="100"
+                    [disabled]="cargando">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Ordenar por:</label>
+                <select class="form-select" formControlName="ordenAgr" [disabled]="cargando">
+                    <option *ngFor="let o of ordenesTop" [value]="o">{{o}}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Descendente ó Ascendente</label>
+                <select class="form-select" formControlName="dirAgr" [disabled]="cargando">
+                    <option *ngFor="let d of dirs" [value]="d">{{d}}</option>
+                </select>
+            </div>
+            <div class="col-md-2 ms-auto text-start">
+                <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando"
+                    matTooltip="Limpiar filtros"><i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="col-md-2 ms-auto text-end">
+                <button type="button" class="btn-gris" (click)="buscar()"
+                    [disabled]="cargando">{{cargando?'Consultando…':'Buscar'}}</button>
+            </div>
+        </div>
+    </ng-container>
+
+    <ng-container *ngIf="filtroForm.value.vista==='listado'">
+        <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-2">
+                <label class="form-label">Ordenar por:</label>
+                <select class="form-select" formControlName="ordenList" [disabled]="cargando">
+                    <option value="fecha">fecha</option>
+                    <option value="importe">importe</option>
+                    <option value="cantidad">cantidad</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Descendente ó Ascendente</label>
+                <select class="form-select" formControlName="dirList" [disabled]="cargando">
+                    <option *ngFor="let d of dirs" [value]="d">{{d}}</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Renglones x Página</label>
+                <input type="number" class="form-control" formControlName="limit" min="1" max="200"
+                    [disabled]="cargando">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Ir a la página</label>
+                <input type="number" class="form-control" formControlName="page" min="1" [disabled]="cargando">
+            </div>
+            <div class="col-md-2 ms-auto text-start">
+                <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando"
+                    matTooltip="Limpiar filtros"><i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="col-md-2 ms-auto text-end">
+                <button type="button" class="btn-gris" (click)="buscar()"
+                    [disabled]="cargando">{{cargando?'Consultando…':'Buscar'}}</button>
+            </div>
+        </div>
+    </ng-container>
+
+</form>
+
+<!-- RESUMEN -->
+<app-devoluciones-kpis *ngIf="filtroForm.value.vista==='resumen' && kpis" [kpis]="kpis"></app-devoluciones-kpis>
+
+<div *ngIf="filtroForm.value.vista==='resumen'">
+    <app-devoluciones-top-tabla title="Productos más devueltos" [rows]="tops.productos"></app-devoluciones-top-tabla>
+    <app-devoluciones-top-tabla title="Motivos de devolución más comunes" [rows]="tops.motivos"></app-devoluciones-top-tabla>
+    <app-devoluciones-top-tabla title="Clientes que más devuelven" [rows]="tops.clientes"></app-devoluciones-top-tabla>
+    <app-devoluciones-top-tabla title="Empleados que más productos han devuelto" [rows]="tops.usuarios"></app-devoluciones-top-tabla>
+    <app-devoluciones-top-tabla title="Farmacias con más productos devueltos" [rows]="tops.farmacias"></app-devoluciones-top-tabla>
+</div>
+
+<!-- AGRUPADO -->
+<app-devoluciones-top-tabla *ngIf="filtroForm.value.vista==='agrupado'"
+    [title]="'Top por ' + filtroForm.value.agrupacion" [rows]="rowsAgrupado"></app-devoluciones-top-tabla>
+
+<!-- LISTADO -->
+<app-devoluciones-listado *ngIf="filtroForm.value.vista==='listado' && listado" [data]="listado"
+    (pageChange)="pageChange($event)"></app-devoluciones-listado>

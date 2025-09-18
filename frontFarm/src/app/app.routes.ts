@@ -19,6 +19,7 @@ import { ReporteResumenUtilidadesComponent } from './pages/reporte-resumen-utili
 import { ReportesUtilidadComponent } from './pages/reportes-utilidad/reportes-utilidad.component';
 import { ReporteComprasComponent } from './pages/reporte-compras/reporte-compras.component';
 import { ReporteComprasResumenComponent } from './pages/reporte-compras-resumen/reporte-compras-resumen.component';
+import { devolucionesCatalogosResolver } from './reportes-devoluciones/devoluciones-catalogos.resolver';
 
 export const routes: Routes = [
   {
@@ -129,6 +130,13 @@ export const routes: Routes = [
       { path: 'reporte/utilidades', component: ReportesUtilidadComponent },
       { path: 'reporte/compras', component: ReporteComprasComponent },
       { path: 'reporte/compras-resumen', component: ReporteComprasResumenComponent },
+
+      {
+        path: 'reportes/devoluciones',
+        loadComponent: () => import('./reportes-devoluciones/devoluciones-page.component')
+          .then(m => m.DevolucionesPageComponent),
+        resolve: { cat: devolucionesCatalogosResolver }
+      }
 
       // ... otras rutas protegidas
     ]

@@ -19,7 +19,9 @@
   transition:all .15s ease-in-out;
 }
 .report-chip input{ margin:0; }
-.report-chip:hover{ background:#f6f8fa; }
+
+.report-chip:hover{ background:#a5d1fa; }
+
 .report-chip.active{
   border-color:#0d6efd;
   background:#e7f1ff;

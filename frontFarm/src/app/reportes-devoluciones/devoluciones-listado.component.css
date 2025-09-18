@@ -1,0 +1,18 @@
+.paginacion {
+  text-align: center;
+  font-size: large;
+  font-weight: 500;
+  color: blueviolet;
+}
+
+.paginacion button {
+  color: aqua;
+  background-color: blueviolet;
+}
+
+.paginacion button:disabled,
+.paginacion button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+  color: gray;
+}

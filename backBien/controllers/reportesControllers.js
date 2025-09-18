@@ -1,7 +1,5 @@
 // backBien/controllers/reportesControllers.js
-const { DateTime } = require('luxon');
 const { Types } = require('mongoose');
-const { ObjectId } = require('mongodb');
 const mongoose = require('mongoose');
 
 const Venta = require('../models/Venta');
@@ -9,9 +7,23 @@ const Producto = require('../models/Producto');
 const Pedido = require('../models/Pedido');
 const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
+const Cliente = require('../models/Cliente');
+const Usuario = require('../models/Usuario');
+const Farmacia = require('../models/Farmacia');
 
+const oid = (s) => (s && mongoose.isValidObjectId(s)) ? new Types.ObjectId(s) : undefined;
 
-const toObjectId = (v) => (v && ObjectId.isValid(v) ? new ObjectId(v) : null);
+const {
+  dayRangeUtc,
+  dayRangeUtcOrMTD,
+  dayRangeUtcFromQuery,
+} = require('../utils/fechas');
+
+const parseSort = (orden = 'importe', dir = 'desc') => {
+  const campo = ['importe', 'piezas', 'devoluciones', 'avgDias'].includes(orden) ? orden : 'importe';
+  const sentido = (dir === 'asc') ? 1 : -1;
+  return { [campo]: sentido, _id: 1 }; // _id para desempate estable
+};
 
 const {
   pipelineVentasProductoDetalle,
@@ -20,55 +32,16 @@ const {
 
 const ZONE = process.env.APP_TZ || 'America/Mexico_City';
 
-// Rango por defecto: últimos 15 días en zona local → UTC [gte, lt)
-function defaultRangeLast15DaysUtc() {
-  const endExLocal = DateTime.now().setZone(ZONE).plus({ days: 1 }).startOf('day'); // mañana 00:00 local
-  const startLocal = endExLocal.minus({ days: 15 }).startOf('day');                  // hace 15 días
-  return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
-}
-
-// Convierte 'YYYY-MM-DD' a UTC [gte, lt). Si falta una fecha, usa la otra.
-// Si faltan ambas, usa defaultRangeLast15DaysUtc.
-function dayRangeUtc(fechaIni, fechaFin) {
-  if (!fechaIni && !fechaFin) return defaultRangeLast15DaysUtc();
-
-  const iniStr = (fechaIni || fechaFin).slice(0, 10);
-  const finStr = (fechaFin || fechaIni).slice(0, 10);
-
-  let startLocal = DateTime.fromISO(iniStr, { zone: ZONE }).startOf('day');
-  let endExLocal = DateTime.fromISO(finStr, { zone: ZONE }).plus({ days: 1 }).startOf('day');
-
-  // corrige rango invertido
-  if (endExLocal < startLocal) {
-    const tmp = startLocal;
-    startLocal = endExLocal.minus({ days: 1 });
-    endExLocal = tmp.plus({ days: 1 });
-  }
-
-  return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
-}
-
-// Rango por defecto para "Resumen utilidades": del 1 del mes (local) a hoy (local) → UTC [gte, lt)
-function defaultRangeMonthToTodayUtc() {
-  const now = DateTime.now().setZone(ZONE);
-  const startLocal = now.startOf('month');                 // 1 del mes actual 00:00 local
-  const endExLocal = now.plus({ days: 1 }).startOf('day'); // mañana 00:00 local (límite exclusivo)
-  return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
-}
-
-// Igual que dayRangeUtc, pero si no vienen fechas usa MTD (Month-To-Date)
-function dayRangeUtcOrMTD(fechaIni, fechaFin) {
-  if (!fechaIni && !fechaFin) return defaultRangeMonthToTodayUtc();
-  return dayRangeUtc(fechaIni, fechaFin);
-}
-
 function castIdSafe(id) {
   return (id && mongoose.isValidObjectId(id)) ? new Types.ObjectId(id) : null;
 }
 
-function cmpNum(a, b, dir) {
-  // dir: 1 = asc, -1 = desc
-  return (a - b) * dir;
+// Helper de comparación numérica con dirección
+function cmpNum(a, b, dir /* 1 asc, -1 desc */) {
+  const an = Number.isFinite(+a) ? +a : 0;
+  const bn = Number.isFinite(+b) ? +b : 0;
+  if (an === bn) return 0;
+  return (an < bn ? -1 : 1) * (dir === 1 ? 1 : -1);
 }
 
 exports.ventasProductoDetalle = async (req, res) => {
@@ -815,23 +788,24 @@ exports.utilidadXproducto = async (req, res) => {
       topN = n;
     }
 
-    // Orden (default utilidad desc; alternativo "ventas")
     const ordenRaw = String(req.query.orden || req.query.sort || '').trim().toLowerCase();
     const ordenarPorVentas = ['ventas', 'numventas', 'cantidad', 'compras'].includes(ordenRaw);
-    const sortStage = ordenarPorVentas
-      ? { $sort: { cantidad: -1, utilidad: -1, productoNombre: 1 } }
-      : { $sort: { utilidad: -1, cantidad: -1, productoNombre: 1 } };
 
-    // Rango (usa tu helper existente)
+    const dirRaw = String(req.query.dir || req.query.order || 'desc').toLowerCase();
+    const dir = (dirRaw === 'asc') ? 1 : -1;
+
+    // El sort ahora usa "dir" (1 asc, -1 desc) en la/s clave/s numéricas
+    const sortStage = ordenarPorVentas
+      ? { $sort: { cantidad: dir, utilidad: dir, productoNombre: 1 } }
+      : { $sort: { utilidad: dir, cantidad: dir, productoNombre: 1 } };
+
     const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
 
-    // Construcción de filtros base
     const matchVenta = {
       fecha: { $gte: gte, $lt: lt },
       ...(farmaciaId ? { farmacia: new Types.ObjectId(farmaciaId) } : {})
     };
 
-    // Construye el filtro de producto UNA sola vez (solo si lo mandan)
     const prodMatch = productoId
       ? { 'productos.producto': new Types.ObjectId(productoId) }
       : null;
@@ -839,14 +813,11 @@ exports.utilidadXproducto = async (req, res) => {
     const pipeline = [
       { $match: matchVenta },
       { $unwind: { path: '$productos', preserveNullAndEmptyArrays: false } },
-
-      // El match del producto **después** del unwind
       ...(prodMatch ? [{ $match: prodMatch }] : []),
-
       {
         $group: {
           _id: '$productos.producto',
-          cantidad: { $sum: { $ifNull: ['$productos.cantidad', 0] } }, // #Ventas
+          cantidad: { $sum: { $ifNull: ['$productos.cantidad', 0] } },
           importe: { $sum: { $ifNull: ['$productos.totalRen', 0] } },
           costo: {
             $sum: {
@@ -860,10 +831,7 @@ exports.utilidadXproducto = async (req, res) => {
       },
       {
         $project: {
-          _id: 1,
-          cantidad: 1,
-          importe: 1,
-          costo: 1,
+          _id: 1, cantidad: 1, importe: 1, costo: 1,
           utilidad: { $subtract: [{ $ifNull: ['$importe', 0] }, { $ifNull: ['$costo', 0] }] }
         }
       },
@@ -878,12 +846,7 @@ exports.utilidadXproducto = async (req, res) => {
       {
         $addFields: {
           productoNombre: { $ifNull: [{ $arrayElemAt: ['$prod.nombre', 0] }, '(sin nombre)'] },
-          codigoBarras: { $ifNull: [{ $arrayElemAt: ['$prod.codigoBarras', 0] }, ''] }
-        }
-      },
-      { $project: { prod: 0 } },
-      {
-        $addFields: {
+          codigoBarras: { $ifNull: [{ $arrayElemAt: ['$prod.codigoBarras', 0] }, ''] },
           gananciaPct: {
             $cond: [
               { $gt: ['$costo', 0] },
@@ -893,8 +856,9 @@ exports.utilidadXproducto = async (req, res) => {
           }
         }
       },
+      { $project: { prod: 0 } },
       sortStage,
-      ...(productoId ? [] : [{ $limit: topN }])
+      ...(productoId ? [] : [{ $limit: topN }])  // Nota: con dir=asc, limita a los "más bajos"
     ];
 
     const rowsAgg = await Venta.aggregate(pipeline);
@@ -940,4 +904,400 @@ exports.utilidadXproducto = async (req, res) => {
     return res.status(500).json({ ok: false, mensaje: 'Error al generar Utilidad por producto' });
   }
 };
+
+exports.devolucionesResumen = async (req, res) => {
+  try {
+    const {
+      fechaIni, fechaFin,
+      farmaciaId, clienteId, usuarioId, productoId, motivo,
+      orden = 'importe',
+      dir = 'desc',
+      topN = 10,
+    } = req.query;
+
+    const { gte, lt } = dayRangeUtcFromQuery(fechaIni, fechaFin);
+
+    const matchDoc = { fecha: { $gte: gte, $lt: lt } };
+    if (farmaciaId) matchDoc.farmacia = oid(farmaciaId);
+    if (clienteId) matchDoc.cliente = oid(clienteId);
+    if (usuarioId) matchDoc.usuario = oid(usuarioId);
+
+    const matchItem = {};
+    if (productoId) matchItem['productosDevueltos.producto'] = oid(productoId);
+    if (motivo) matchItem['productosDevueltos.motivo'] = String(motivo);
+
+    const sortTop = parseSort(orden, dir);
+    const top = Math.max(1, Math.min(100, parseInt(topN, 10) || 10));
+
+    const pipelineBase = [
+      { $match: matchDoc },
+      { $unwind: '$productosDevueltos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      {
+        $addFields: {
+          cantidad: '$productosDevueltos.cantidad',
+          importe: '$productosDevueltos.precioXCantidad',
+          producto: '$productosDevueltos.producto',
+          motivo: '$productosDevueltos.motivo'
+        }
+      },
+      {
+        $lookup: {
+          from: 'ventas',
+          localField: 'venta',
+          foreignField: '_id',
+          as: 'ventaDoc',
+          pipeline: [{ $project: { _id: 1, fecha: 1 } }]
+        }
+      },
+      { $unwind: { path: '$ventaDoc', preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          diasAlDevolver: {
+            $cond: [
+              { $and: ['$ventaDoc.fecha', '$fecha'] },
+              { $divide: [{ $subtract: ['$fecha', '$ventaDoc.fecha'] }, 1000 * 60 * 60 * 24] },
+              null
+            ]
+          }
+        }
+      },
+    ].filter(Boolean);
+
+    const facet = {
+      kpis: [
+        {
+          $group: {
+            _id: null,
+            totalImporte: { $sum: '$importe' },
+            totalPiezas: { $sum: '$cantidad' },
+            numDevoluciones: { $sum: 1 },
+            avgDias: { $avg: '$diasAlDevolver' }
+          }
+        },
+        { $project: { _id: 0, totalImporte: 1, totalPiezas: 1, numDevoluciones: 1, avgDias: { $round: ['$avgDias', 2] } } }
+      ],
+      topProductos: [
+        { $group: { _id: '$producto', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+        { $sort: sortTop }, { $limit: top },
+        { $lookup: { from: 'productos', localField: '_id', foreignField: '_id', as: 'p', pipeline: [{ $project: { nombre: 1, codigoBarras: 1, unidad: 1 } }] } },
+        { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 0, productoId: '$_id', nombre: '$p.nombre', codigoBarras: '$p.codigoBarras', unidad: '$p.unidad', piezas: 1, importe: 1, devoluciones: 1 } }
+      ],
+      topMotivos: [
+        { $group: { _id: '$motivo', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+        { $sort: sortTop }, { $limit: top },
+        { $project: { _id: 0, motivo: '$_id', piezas: 1, importe: 1, devoluciones: 1 } }
+      ],
+      topClientes: [
+        { $group: { _id: '$cliente', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+        { $sort: sortTop }, { $limit: top },
+        { $lookup: { from: 'clientes', localField: '_id', foreignField: '_id', as: 'c', pipeline: [{ $project: { nombre: 1, telefono: 1 } }] } },
+        { $unwind: { path: '$c', preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 0, clienteId: '$_id', nombre: '$c.nombre', telefono: '$c.telefono', piezas: 1, importe: 1, devoluciones: 1 } }
+      ],
+      topUsuarios: [
+        { $group: { _id: '$usuario', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+        { $sort: sortTop }, { $limit: top },
+        { $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline: [{ $project: { nombre: 1 } }] } },
+        { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 0, usuarioId: '$_id', nombre: '$u.nombre', piezas: 1, importe: 1, devoluciones: 1 } }
+      ],
+      topFarmacias: [
+        { $group: { _id: '$farmacia', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+        { $sort: sortTop }, { $limit: top },
+        { $lookup: { from: 'farmacias', localField: '_id', foreignField: '_id', as: 'f', pipeline: [{ $project: { nombre: 1 } }] } },
+        { $unwind: { path: '$f', preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 0, farmaciaId: '$_id', nombre: '$f.nombre', piezas: 1, importe: 1, devoluciones: 1 } }
+      ],
+    };
+
+    const data = await Devolucion.aggregate([...pipelineBase, { $facet: facet }]);
+    return res.json(data?.[0] || {});
+  } catch (err) {
+    console.error('[devoluciones-resumen][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo generar el resumen de devoluciones.' });
+  }
+};
+
+exports.devolucionesPorProducto = async (req, res) => {
+  try {
+    const { orden = 'importe', dir = 'desc', topN } = req.query;
+    const { matchDoc, matchItem } = buildMatches(req.query);
+    const sortTop = parseSort(orden, dir);
+    const top = topN ? Math.max(1, Math.min(100, parseInt(topN, 10))) : null;
+
+    const pipeline = [
+      { $match: matchDoc },
+      { $unwind: '$productosDevueltos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      {
+        $addFields: {
+          cantidad: '$productosDevueltos.cantidad',
+          importe: '$productosDevueltos.precioXCantidad',
+          producto: '$productosDevueltos.producto'
+        }
+      },
+      { $group: { _id: '$producto', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+      { $sort: sortTop },
+      top ? { $limit: top } : null,
+      { $lookup: { from: 'productos', localField: '_id', foreignField: '_id', as: 'p', pipeline: [{ $project: { nombre: 1, codigoBarras: 1 } }] } },
+      { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
+      { $project: { _id: 0, productoId: '$_id', nombre: '$p.nombre', codigoBarras: '$p.codigoBarras', piezas: 1, importe: 1, devoluciones: 1 } }
+    ].filter(Boolean);
+
+    const rows = await Devolucion.aggregate(pipeline);
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[devoluciones-producto][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar devoluciones por producto.' });
+  }
+};
+
+// Para el listado (campos válidos de orden)
+const parseSortListado = (orden = 'fecha', dir = 'desc') => {
+  const campo = ['fecha', 'importe', 'cantidad'].includes(orden) ? orden : 'fecha';
+  const sentido = (dir === 'asc') ? 1 : -1;
+  return { [campo]: sentido, _id: 1 };
+};
+
+// Construye los $match comunes (documento e item)
+function buildMatches(q) {
+  const { fechaIni, fechaFin, farmaciaId, clienteId, usuarioId, productoId, motivo } = q;
+  const { gte, lt } = dayRangeUtcFromQuery(fechaIni, fechaFin);
+
+  const matchDoc = { fecha: { $gte: gte, $lt: lt } };
+  if (farmaciaId) matchDoc.farmacia = oid(farmaciaId);
+  if (clienteId) matchDoc.cliente = oid(clienteId);
+  if (usuarioId) matchDoc.usuario = oid(usuarioId);
+
+  const matchItem = {};
+  if (productoId) matchItem['productosDevueltos.producto'] = oid(productoId);
+  if (motivo) matchItem['productosDevueltos.motivo'] = String(motivo);
+
+  return { matchDoc, matchItem };
+}
+
+
+exports.devolucionesPorMotivo = async (req, res) => {
+  try {
+    const { orden = 'importe', dir = 'desc', topN } = req.query;
+    const { matchDoc, matchItem } = buildMatches(req.query);
+    const sortTop = parseSort(orden, dir);
+    const top = topN ? Math.max(1, Math.min(100, parseInt(topN, 10))) : null;
+
+    const pipeline = [
+      { $match: matchDoc },
+      { $unwind: '$productosDevueltos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      {
+        $addFields: {
+          cantidad: '$productosDevueltos.cantidad',
+          importe: '$productosDevueltos.precioXCantidad',
+          motivo: '$productosDevueltos.motivo'
+        }
+      },
+      { $group: { _id: '$motivo', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+      { $sort: sortTop },
+      top ? { $limit: top } : null,
+      { $project: { _id: 0, motivo: '$_id', piezas: 1, importe: 1, devoluciones: 1 } }
+    ].filter(Boolean);
+
+    const rows = await Devolucion.aggregate(pipeline);
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[devoluciones-motivo][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar devoluciones por motivo.' });
+  }
+};
+
+
+exports.devolucionesPorCliente = async (req, res) => {
+  try {
+    const { orden = 'importe', dir = 'desc', topN } = req.query;
+    const { matchDoc, matchItem } = buildMatches(req.query);
+    const sortTop = parseSort(orden, dir);
+    const top = topN ? Math.max(1, Math.min(100, parseInt(topN, 10))) : null;
+
+    const pipeline = [
+      { $match: matchDoc },
+      { $unwind: '$productosDevueltos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      {
+        $addFields: {
+          cantidad: '$productosDevueltos.cantidad',
+          importe: '$productosDevueltos.precioXCantidad',
+        }
+      },
+      { $group: { _id: '$cliente', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+      { $sort: sortTop },
+      top ? { $limit: top } : null,
+      { $lookup: { from: 'clientes', localField: '_id', foreignField: '_id', as: 'c', pipeline: [{ $project: { nombre: 1, telefono: 1 } }] } },
+      { $unwind: { path: '$c', preserveNullAndEmptyArrays: true } },
+      { $project: { _id: 0, clienteId: '$_id', nombre: '$c.nombre', telefono: '$c.telefono', piezas: 1, importe: 1, devoluciones: 1 } }
+    ].filter(Boolean);
+
+    const rows = await Devolucion.aggregate(pipeline);
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[devoluciones-cliente][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar devoluciones por cliente.' });
+  }
+};
+
+
+exports.devolucionesPorUsuario = async (req, res) => {
+  try {
+    const { orden = 'importe', dir = 'desc', topN } = req.query;
+    const { matchDoc, matchItem } = buildMatches(req.query);
+    const sortTop = parseSort(orden, dir);
+    const top = topN ? Math.max(1, Math.min(100, parseInt(topN, 10))) : null;
+
+    const pipeline = [
+      { $match: matchDoc },
+      { $unwind: '$productosDevueltos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      {
+        $addFields: {
+          cantidad: '$productosDevueltos.cantidad',
+          importe: '$productosDevueltos.precioXCantidad',
+        }
+      },
+      { $group: { _id: '$usuario', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+      { $sort: sortTop },
+      top ? { $limit: top } : null,
+      { $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline: [{ $project: { nombre: 1 } }] } },
+      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+      { $project: { _id: 0, usuarioId: '$_id', nombre: '$u.nombre', piezas: 1, importe: 1, devoluciones: 1 } }
+    ].filter(Boolean);
+
+    const rows = await Devolucion.aggregate(pipeline);
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[devoluciones-usuario][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar devoluciones por usuario.' });
+  }
+};
+
+
+exports.devolucionesPorFarmacia = async (req, res) => {
+  try {
+    const { orden = 'importe', dir = 'desc', topN } = req.query;
+    const { matchDoc, matchItem } = buildMatches(req.query);
+    const sortTop = parseSort(orden, dir);
+    const top = topN ? Math.max(1, Math.min(100, parseInt(topN, 10))) : null;
+
+    const pipeline = [
+      { $match: matchDoc },
+      { $unwind: '$productosDevueltos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      {
+        $addFields: {
+          cantidad: '$productosDevueltos.cantidad',
+          importe: '$productosDevueltos.precioXCantidad',
+        }
+      },
+      { $group: { _id: '$farmacia', piezas: { $sum: '$cantidad' }, importe: { $sum: '$importe' }, devoluciones: { $sum: 1 } } },
+      { $sort: sortTop },
+      top ? { $limit: top } : null,
+      { $lookup: { from: 'farmacias', localField: '_id', foreignField: '_id', as: 'f', pipeline: [{ $project: { nombre: 1 } }] } },
+      { $unwind: { path: '$f', preserveNullAndEmptyArrays: true } },
+      { $project: { _id: 0, farmaciaId: '$_id', nombre: '$f.nombre', piezas: 1, importe: 1, devoluciones: 1 } }
+    ].filter(Boolean);
+
+    const rows = await Devolucion.aggregate(pipeline);
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[devoluciones-farmacia][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar devoluciones por farmacia.' });
+  }
+};
+
+exports.devolucionesListado = async (req, res) => {
+  try {
+    const { orden = 'fecha', dir = 'desc', page = 1, limit = 20 } = req.query;
+    const { matchDoc, matchItem } = buildMatches(req.query);
+    const sort = parseSortListado(orden, dir);
+    const pg = Math.max(1, parseInt(page, 10));
+    const lim = Math.max(1, Math.min(200, parseInt(limit, 10)));
+    const skip = (pg - 1) * lim;
+
+    const pipelineBase = [
+      { $match: matchDoc },
+      { $unwind: '$productosDevueltos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      {
+        $addFields: {
+          cantidad: '$productosDevueltos.cantidad',
+          importe: '$productosDevueltos.precioXCantidad',
+          producto: '$productosDevueltos.producto',
+          motivo: '$productosDevueltos.motivo',
+          precioUnit: {
+            $cond: [
+              { $gt: ['$productosDevueltos.cantidad', 0] },
+              { $divide: ['$productosDevueltos.precioXCantidad', '$productosDevueltos.cantidad'] },
+              null
+            ]
+          }
+        }
+      },
+      { $lookup: { from: 'productos', localField: 'producto', foreignField: '_id', as: 'p', pipeline: [{ $project: { nombre: 1, codigoBarras: 1, unidad: 1 } }] } },
+      { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: 'clientes', localField: 'cliente', foreignField: '_id', as: 'c', pipeline: [{ $project: { nombre: 1, telefono: 1 } }] } },
+      { $unwind: { path: '$c', preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: 'usuarios', localField: 'usuario', foreignField: '_id', as: 'u', pipeline: [{ $project: { nombre: 1 } }] } },
+      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: 'farmacias', localField: 'farmacia', foreignField: '_id', as: 'f', pipeline: [{ $project: { nombre: 1 } }] } },
+      { $unwind: { path: '$f', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          devolucionId: '$_id',
+          fecha: 1,
+          farmaciaId: '$farmacia', farmacia: '$f.nombre',
+          clienteId: '$cliente', cliente: '$c.nombre', clienteTel: '$c.telefono',
+          usuarioId: '$usuario', usuario: '$u.nombre',
+          productoId: '$producto', producto: '$p.nombre', codigoBarras: '$p.codigoBarras', unidad: '$p.unidad',
+          cantidad: 1,
+          precioUnit: { $round: ['$precioUnit', 2] },
+          importe: { $round: ['$importe', 2] },
+          motivo: '$motivo'
+        }
+      }
+    ].filter(Boolean);
+
+    const data = await Devolucion.aggregate([
+      {
+        $facet: {
+          total: [...pipelineBase, { $count: 'n' }],
+          rows: [...pipelineBase, { $sort: sort }, { $skip: skip }, { $limit: lim }],
+          sums: [...pipelineBase, { $group: { _id: null, importe: { $sum: '$importe' }, piezas: { $sum: '$cantidad' }, devoluciones: { $sum: 1 } } }]
+        }
+      }
+    ]);
+
+    const facet = data[0] || {};
+    const total = (facet.total && facet.total[0] && facet.total[0].n) || 0;
+    const rows = facet.rows || [];
+    const sums = (facet.sums && facet.sums[0]) || { importe: 0, piezas: 0, devoluciones: 0 };
+
+    return res.json({
+      page: pg,
+      limit: lim,
+      total,
+      pages: Math.ceil(total / lim),
+      rows,
+      footer: {
+        totalImporte: Math.round((sums.importe || 0) * 100) / 100,
+        totalPiezas: sums.piezas || 0,
+        numDevoluciones: sums.devoluciones || 0
+      }
+    });
+  } catch (err) {
+    console.error('[devoluciones-listado][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar el listado de devoluciones.' });
+  }
+};
+
+
 

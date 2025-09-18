@@ -1,0 +1,60 @@
+/* src/app/reportes-devoluciones/views/devoluciones-page.component.css */
+
+.filtros {
+    border-bottom: 2px solid #0453b3;
+    padding-bottom: 1rem;
+}
+
+.form-label {
+    margin-bottom: 0;
+}
+
+.report-chip{
+  border:1px solid #d0d7de;
+  border-radius:9999px;
+  padding:.375rem .75rem;
+  cursor:pointer;
+  user-select:none;
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+  transition:all .15s ease-in-out;
+}
+.report-chip input{ margin:0; }
+
+.report-chip:hover{ background:#a5d1fa; }
+
+.report-chip.active{
+  border-color:#0d6efd;
+  background:#e7f1ff;
+  color:#0d6efd;
+  font-weight:600;
+  box-shadow:0 0 0 2px rgba(13,110,253,.15) inset;
+}
+
+
+/* Panel liviano de sugerencias */
+/* devoluciones-page.component.css */
+.suggest-panel{
+  position: absolute;
+  top: calc(100% + 4px);   /* 👈 baja el panel debajo del input */
+  left: 0;
+  right: 0;
+  z-index: 1055;           /* 👈 por encima de cards/modals */
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  border-radius: .5rem;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.suggest-item{
+  width: 100%;
+  padding: .5rem .75rem;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.suggest-item:hover{ background: #f8f9fa; }

@@ -24,6 +24,12 @@ body {
   /* Opcional: Hace que el modal se vea atenuado */
 }
 
+.titulo-tabla {
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  font-size: 18px;
+  color: rgb(2, 18, 82);
+  font-weight: 600;
+}
 
 /* 📌 Títulos */
 .titulo-container {

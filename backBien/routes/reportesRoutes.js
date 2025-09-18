@@ -10,7 +10,14 @@ const {
   resumenUtilidades,
   utilidadXusuario,
   utilidadXcliente,
-  utilidadXproducto
+  utilidadXproducto,
+  devolucionesResumen,
+  devolucionesPorProducto,
+  devolucionesPorMotivo,
+  devolucionesPorCliente,
+  devolucionesPorUsuario,
+  devolucionesPorFarmacia,
+  devolucionesListado
 } = require('../controllers/reportesControllers');
 
 // 1) Productos vendidos por farmacia, día de hoy por defecto 
@@ -31,5 +38,12 @@ router.get('/utilidad-cliente', authMiddleware, isAdmin, utilidadXcliente);
 // top de productos utilidad por defecto en el mes actual
 router.get('/utilidad-producto', authMiddleware, isAdmin, utilidadXproducto);
 
+router.get('/devoluciones-resumen', devolucionesResumen);
+router.get('/devoluciones-producto', authMiddleware, isAdmin, devolucionesPorProducto);
+router.get('/devoluciones-motivo',  authMiddleware, isAdmin, devolucionesPorMotivo);
+router.get('/devoluciones-cliente', authMiddleware, isAdmin, devolucionesPorCliente);
+router.get('/devoluciones-usuario', authMiddleware, isAdmin, devolucionesPorUsuario);
+router.get('/devoluciones-farmacia',authMiddleware, isAdmin, devolucionesPorFarmacia);
+router.get('/devoluciones-listado', authMiddleware, isAdmin, devolucionesListado);
 
 module.exports = router;
