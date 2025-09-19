@@ -7,9 +7,8 @@ const Producto = require('../models/Producto');
 const Pedido = require('../models/Pedido');
 const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
-const Cliente = require('../models/Cliente');
-const Usuario = require('../models/Usuario');
-const Farmacia = require('../models/Farmacia');
+const Compra = require('../models/Compra');
+const Proveedor = require('../models/Proveedor');
 
 const oid = (s) => (s && mongoose.isValidObjectId(s)) ? new Types.ObjectId(s) : undefined;
 
@@ -1299,5 +1298,348 @@ exports.devolucionesListado = async (req, res) => {
   }
 };
 
+function parseSortCompras(orden = 'importe', dir = 'desc') {
+  const campo = ['importe','piezas','compras','margen','venta'].includes(orden) ? orden : 'importe';
+  const sentido = (String(dir).toLowerCase() === 'asc') ? 1 : -1;
+  // _id para desempate estable
+  return { [campo]: sentido, _id: 1 };
+}
 
+function buildMatchesCompras(q) {
+  const { fechaIni, fechaFin, proveedorId, usuarioId, productoId, categoria, farmaciaId } = q;
+  const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+
+  // Match a nivel documento
+  const matchDoc = { fecha: { $gte: gte, $lt: lt } };
+  if (proveedorId) matchDoc.proveedor = oid(proveedorId);
+  if (usuarioId)   matchDoc.usuario   = oid(usuarioId);
+  // Si tu Compra NO tiene farmacia, omite este filtro o agrega el campo (recomendado)
+  if (farmaciaId)  matchDoc.farmacia  = oid(farmaciaId);
+
+  // Match a nivel item
+  const matchItem = {};
+  if (productoId) matchItem['productos.producto'] = oid(productoId);
+
+  return { matchDoc, matchItem, rango: { gte, lt }, categoria: categoria?.trim() || null };
+}
+
+// ---------- RESUMEN (KPIs + TOPS) ----------
+exports.comprasResumen = async (req, res) => {
+  try {
+    const { matchDoc, matchItem, categoria } = buildMatchesCompras(req.query);
+    const orden = String(req.query.orden || 'importe');
+    const dir   = String(req.query.dir || 'desc');
+    const topN  = Math.max(1, Math.min(100, parseInt(req.query.topN, 10) || 10));
+    const sortTop = parseSortCompras(orden, dir);
+
+    const now = new Date();
+    const plusDays = (d) => new Date(now.getTime() + d*24*60*60*1000);
+
+    // Base items
+    const base = [
+      { $match: matchDoc },
+      { $unwind: '$productos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      { $addFields: {
+          compraId: '$_id',
+          proveedor: '$proveedor',
+          usuario: '$usuario',
+          producto: '$productos.producto',
+          cantidad: '$productos.cantidad',
+          costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
+          venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] },
+          fechaCad: '$productos.fechaCaducidad'
+      }},
+    ].filter(Boolean);
+
+    const facet = {
+      // KPIs a nivel item
+      kpisItems: [
+        ...base,
+        { $group: {
+            _id: null,
+            piezas: { $sum: '$cantidad' },
+            importe: { $sum: '$costo' },
+            ventaPotencial: { $sum: '$venta' },
+            productosDistintosArr: { $addToSet: '$producto' },
+            proveedoresDistintosArr: { $addToSet: '$proveedor' }
+        }},
+        { $project: {
+            _id: 0,
+            piezas: 1,
+            importe: 1,
+            ventaPotencial: 1,
+            productosDistintos: { $size: '$productosDistintosArr' },
+            proveedoresDistintos: { $size: '$proveedoresDistintosArr' }
+        }}
+      ],
+      // KPIs a nivel documento (para #compras y total reportado)
+      kpisDocs: [
+        { $match: matchDoc },
+        { $group: { _id: null, numCompras: { $sum: 1 }, totalDocs: { $sum: '$total' } } },
+        { $project: { _id: 0, numCompras: 1, totalDocs: 1 } }
+      ],
+      // Top Proveedores
+      topProveedores: [
+        ...base,
+        { $group: {
+            _id: '$proveedor',
+            piezas: { $sum: '$cantidad' },
+            importe: { $sum: '$costo' },
+            venta: { $sum: '$venta' },
+            comprasIds: { $addToSet: '$compraId' }
+        }},
+        { $addFields: { compras: { $size: '$comprasIds' }, margen: { $subtract: ['$venta', '$importe'] } } },
+        { $sort: sortTop }, { $limit: topN },
+        { $lookup: { from: 'proveedores', localField: '_id', foreignField: '_id', as: 'prov', pipeline: [{ $project: { nombre: 1, telefono: 1 } }] } },
+        { $unwind: { path: '$prov', preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 0, proveedorId: '$_id', nombre: '$prov.nombre', telefono: '$prov.telefono', piezas: 1, importe: 1, compras: 1, venta: 1, margen: 1 } }
+      ],
+      // Top Productos
+      topProductos: [
+        ...base,
+        { $group: {
+            _id: '$producto',
+            piezas: { $sum: '$cantidad' },
+            importe: { $sum: '$costo' },
+            venta: { $sum: '$venta' }
+        }},
+        { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
+        { $sort: sortTop }, { $limit: topN },
+        { $lookup: {
+            from: 'productos', localField: '_id', foreignField: '_id', as: 'p',
+            pipeline: [{ $project: { nombre:1, codigoBarras:1, unidad:1, categoria:1 } }]
+        }},
+        { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
+        ...(categoria ? [{ $match: { 'p.categoria': categoria } }] : []),
+        { $project: {
+            _id:0, productoId:'$_id', nombre:'$p.nombre', codigoBarras:'$p.codigoBarras', unidad:'$p.unidad',
+            categoria:'$p.categoria', piezas:1, importe:1, venta:1, margen:1
+        }}
+      ],
+      // Top Categorías
+      topCategorias: [
+        ...base,
+        { $lookup: {
+            from: 'productos', localField: 'producto', foreignField: '_id', as: 'p',
+            pipeline: [{ $project: { categoria: 1 } }]
+        }},
+        { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
+        ...(categoria ? [{ $match: { 'p.categoria': categoria } }] : []),
+        { $group: {
+            _id: '$p.categoria',
+            piezas: { $sum: '$cantidad' },
+            importe: { $sum: '$costo' },
+            venta: { $sum: '$venta' }
+        }},
+        { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
+        { $sort: sortTop }, { $limit: topN },
+        { $project: { _id:0, categoria:'$_id', piezas:1, importe:1, venta:1, margen:1 } }
+      ],
+      // Top Usuarios (quién registró)
+      topUsuarios: [
+        ...base,
+        { $group: {
+            _id: '$usuario',
+            piezas: { $sum: '$cantidad' },
+            importe: { $sum: '$costo' },
+            venta: { $sum: '$venta' }
+        }},
+        { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
+        { $sort: sortTop }, { $limit: topN },
+        { $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline: [{ $project: { nombre: 1 } }] } },
+        { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+        { $project: { _id:0, usuarioId:'$_id', nombre:'$u.nombre', piezas:1, importe:1, venta:1, margen:1 } }
+      ],
+      // Caducidad (30/60/90 días)
+      caducidades: [
+        ...base,
+        { $addFields: {
+            diasACaducar: {
+              $cond: [
+                '$fechaCad',
+                { $divide: [{ $subtract: ['$fechaCad', new Date()] }, 1000*60*60*24] },
+                null
+              ]
+            }
+        }},
+        { $group: {
+            _id: null,
+            piezas30: { $sum: { $cond: [{ $lte: ['$fechaCad', plusDays(30)] }, '$cantidad', 0] } },
+            piezas60: { $sum: { $cond: [{ $lte: ['$fechaCad', plusDays(60)] }, '$cantidad', 0] } },
+            piezas90: { $sum: { $cond: [{ $lte: ['$fechaCad', plusDays(90)] }, '$cantidad', 0] } },
+            avgDias: { $avg: '$diasACaducar' }
+        }},
+        { $project: { _id:0, piezas30:1, piezas60:1, piezas90:1, avgDias: { $round: ['$avgDias', 1] } } }
+      ],
+    };
+
+    const data = await Compra.aggregate([{ $facet: facet }]);
+    const f = data?.[0] || {};
+
+    const kItems = f.kpisItems?.[0] || { piezas:0, importe:0, ventaPotencial:0, productosDistintos:0, proveedoresDistintos:0 };
+    const kDocs  = f.kpisDocs?.[0]  || { numCompras:0, totalDocs:0 };
+    const ticketProm = kDocs.numCompras > 0 ? (kItems.importe / kDocs.numCompras) : 0;
+    const cpp = kItems.piezas > 0 ? (kItems.importe / kItems.piezas) : 0;
+    const margen = kItems.ventaPotencial - kItems.importe;
+    const margenPct = kItems.importe > 0 ? (margen / kItems.importe) * 100 : null;
+
+    return res.json({
+      ok: true,
+      kpis: {
+        numCompras: kDocs.numCompras,
+        importe: kItems.importe,
+        piezas: kItems.piezas,
+        ticketPromedio: ticketProm,
+        costoPromPonderado: cpp,
+        ventaPotencial: kItems.ventaPotencial,
+        margenTeorico: margen,
+        margenTeoricoPct: margenPct,
+        proveedoresDistintos: kItems.proveedoresDistintos,
+        productosDistintos: kItems.productosDistintos,
+      },
+      caducidades: f.caducidades?.[0] || { piezas30:0, piezas60:0, piezas90:0, avgDias:null },
+      topProveedores: f.topProveedores || [],
+      topProductos: f.topProductos || [],
+      topCategorias: f.topCategorias || [],
+      topUsuarios: f.topUsuarios || [],
+    });
+  } catch (err) {
+    console.error('[compras-resumen][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo generar el resumen de compras.' });
+  }
+};
+
+// ---------- AGRUPACIONES REUSABLES ----------
+exports.comprasPorProveedor = async (req, res) => {
+  try {
+    const { matchDoc, matchItem } = buildMatchesCompras(req.query);
+    const sortTop = parseSortCompras(req.query.orden || 'importe', req.query.dir || 'desc');
+    const top = Math.max(1, Math.min(100, parseInt(req.query.topN, 10) || 10));
+
+    const rows = await Compra.aggregate([
+      { $match: matchDoc },
+      { $unwind: '$productos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      { $addFields: {
+          proveedor: '$proveedor',
+          cantidad: '$productos.cantidad',
+          costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
+          venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] }
+      }},
+      { $group: {
+          _id: '$proveedor',
+          piezas: { $sum: '$cantidad' },
+          importe: { $sum: '$costo' },
+          venta: { $sum: '$venta' },
+          comprasIds: { $addToSet: '$_id' }
+      }},
+      { $addFields: { compras: { $size: '$comprasIds' }, margen: { $subtract: ['$venta', '$importe'] } } },
+      { $sort: sortTop }, { $limit: top },
+      { $lookup: { from: 'proveedores', localField: '_id', foreignField: '_id', as: 'prov', pipeline:[{ $project:{ nombre:1, telefono:1 } }] } },
+      { $unwind: { path: '$prov', preserveNullAndEmptyArrays: true } },
+      { $project: { _id:0, proveedorId:'$_id', nombre:'$prov.nombre', telefono:'$prov.telefono', piezas:1, importe:1, compras:1, venta:1, margen:1 } }
+    ].filter(Boolean));
+
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[compras-proveedor][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar compras por proveedor.' });
+  }
+};
+
+exports.comprasPorProducto = async (req, res) => {
+  try {
+    const { matchDoc, matchItem, categoria } = buildMatchesCompras(req.query);
+    const sortTop = parseSortCompras(req.query.orden || 'importe', req.query.dir || 'desc');
+    const top = Math.max(1, Math.min(100, parseInt(req.query.topN, 10) || 10));
+
+    const rows = await Compra.aggregate([
+      { $match: matchDoc },
+      { $unwind: '$productos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      { $addFields: {
+          producto: '$productos.producto',
+          cantidad: '$productos.cantidad',
+          costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
+          venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] }
+      }},
+      { $group: { _id: '$producto', piezas: { $sum: '$cantidad' }, importe: { $sum: '$costo' }, venta: { $sum: '$venta' } } },
+      { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
+      { $sort: sortTop }, { $limit: top },
+      { $lookup: { from: 'productos', localField: '_id', foreignField: '_id', as: 'p', pipeline:[{ $project:{ nombre:1, codigoBarras:1, unidad:1, categoria:1 } }] } },
+      { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
+      ...(categoria ? [{ $match: { 'p.categoria': categoria } }] : []),
+      { $project: { _id:0, productoId:'$_id', nombre:'$p.nombre', codigoBarras:'$p.codigoBarras', unidad:'$p.unidad', categoria:'$p.categoria', piezas:1, importe:1, venta:1, margen:1 } }
+    ].filter(Boolean));
+
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[compras-producto][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar compras por producto.' });
+  }
+};
+
+exports.comprasPorCategoria = async (req, res) => {
+  try {
+    const { matchDoc, matchItem, categoria } = buildMatchesCompras(req.query);
+    const sortTop = parseSortCompras(req.query.orden || 'importe', req.query.dir || 'desc');
+    const top = Math.max(1, Math.min(100, parseInt(req.query.topN, 10) || 10));
+
+    const rows = await Compra.aggregate([
+      { $match: matchDoc },
+      { $unwind: '$productos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      { $addFields: {
+          producto: '$productos.producto',
+          cantidad: '$productos.cantidad',
+          costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
+          venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] }
+      }},
+      { $lookup: { from: 'productos', localField: 'producto', foreignField: '_id', as: 'p', pipeline:[{ $project:{ categoria:1 } }] } },
+      { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
+      ...(categoria ? [{ $match: { 'p.categoria': categoria } }] : []),
+      { $group: { _id: '$p.categoria', piezas: { $sum: '$cantidad' }, importe: { $sum: '$costo' }, venta: { $sum: '$venta' } } },
+      { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
+      { $sort: sortTop }, { $limit: top },
+      { $project: { _id:0, categoria:'$_id', piezas:1, importe:1, venta:1, margen:1 } }
+    ].filter(Boolean));
+
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[compras-categoria][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar compras por categoría.' });
+  }
+};
+
+exports.comprasPorUsuario = async (req, res) => {
+  try {
+    const { matchDoc, matchItem } = buildMatchesCompras(req.query);
+    const sortTop = parseSortCompras(req.query.orden || 'importe', req.query.dir || 'desc');
+    const top = Math.max(1, Math.min(100, parseInt(req.query.topN, 10) || 10));
+
+    const rows = await Compra.aggregate([
+      { $match: matchDoc },
+      { $unwind: '$productos' },
+      Object.keys(matchItem).length ? { $match: matchItem } : null,
+      { $addFields: {
+          usuario: '$usuario',
+          cantidad: '$productos.cantidad',
+          costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
+          venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] }
+      }},
+      { $group: { _id: '$usuario', piezas: { $sum: '$cantidad' }, importe: { $sum: '$costo' }, venta: { $sum: '$venta' }, comprasIds: { $addToSet: '$_id' } } },
+      { $addFields: { compras: { $size: '$comprasIds' }, margen: { $subtract: ['$venta', '$importe'] } } },
+      { $sort: sortTop }, { $limit: top },
+      { $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline:[{ $project:{ nombre:1 } }] } },
+      { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+      { $project: { _id:0, usuarioId:'$_id', nombre:'$u.nombre', piezas:1, importe:1, compras:1, venta:1, margen:1 } }
+    ].filter(Boolean));
+
+    return res.json({ rows });
+  } catch (err) {
+    console.error('[compras-usuario][ERROR]', err);
+    return res.status(500).json({ mensaje: 'No se pudo consultar compras por usuario.' });
+  }
+};
 

@@ -17,14 +17,19 @@ const {
   devolucionesPorCliente,
   devolucionesPorUsuario,
   devolucionesPorFarmacia,
-  devolucionesListado
+  devolucionesListado,
+  comprasResumen,
+  comprasPorProveedor,
+  comprasPorProducto,
+  comprasPorCategoria,
+  comprasPorUsuario,
 } = require('../controllers/reportesControllers');
 
 // 1) Productos vendidos por farmacia, día de hoy por defecto 
-router.get('/ventas-por-farmacia', authMiddleware, isAdmin, resumenProductosVendidos );
+router.get('/ventas-por-farmacia', authMiddleware, isAdmin, resumenProductosVendidos);
 
 // (solo ventas de UN producto)(últimos 15 días por defecto)
-router.get('/ventas-producto-detalle', authMiddleware, isAdmin, ventasProductoDetalle );
+router.get('/ventas-producto-detalle', authMiddleware, isAdmin, ventasProductoDetalle);
 
 // utilidades ventas, pedidos, devoluciones y cancelaciones por defecto en el mes actual
 router.get('/resumen-utilidades', authMiddleware, isAdmin, resumenUtilidades);
@@ -40,10 +45,16 @@ router.get('/utilidad-producto', authMiddleware, isAdmin, utilidadXproducto);
 
 router.get('/devoluciones-resumen', devolucionesResumen);
 router.get('/devoluciones-producto', authMiddleware, isAdmin, devolucionesPorProducto);
-router.get('/devoluciones-motivo',  authMiddleware, isAdmin, devolucionesPorMotivo);
+router.get('/devoluciones-motivo', authMiddleware, isAdmin, devolucionesPorMotivo);
 router.get('/devoluciones-cliente', authMiddleware, isAdmin, devolucionesPorCliente);
 router.get('/devoluciones-usuario', authMiddleware, isAdmin, devolucionesPorUsuario);
-router.get('/devoluciones-farmacia',authMiddleware, isAdmin, devolucionesPorFarmacia);
+router.get('/devoluciones-farmacia', authMiddleware, isAdmin, devolucionesPorFarmacia);
 router.get('/devoluciones-listado', authMiddleware, isAdmin, devolucionesListado);
+
+router.get('/compras-resumen',  authMiddleware, isAdmin, comprasResumen);
+router.get('/compras-proveedor', authMiddleware, isAdmin, comprasPorProveedor);
+router.get('/compras-producto',  authMiddleware, isAdmin, comprasPorProducto);
+router.get('/compras-categoria', authMiddleware, isAdmin, comprasPorCategoria);
+router.get('/compras-usuario',   authMiddleware, isAdmin, comprasPorUsuario);
 
 module.exports = router;

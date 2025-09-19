@@ -1,0 +1,346 @@
+<!-- src/app/reportes-compras/compras-page.component.html -->
+
+<h3 class="titulo" style="text-align: center;">Reporte de Compras</h3>
+<!-- Filtros -->
+<form [formGroup]="filtroForm" (ngSubmit)="buscar()" class="filtros">
+  <div class="row g-2 align-items-end mb-3">
+    <div class="col-md-3">
+      <label class="form-label d-block">Vista del reporte</label>
+      <div class="d-flex gap-2 flex-wrap">
+        <label class="report-chip">
+          <input type="radio" formControlName="vista" value="resumen">Resumen
+        </label>
+        <label class="report-chip">
+          <input type="radio" formControlName="vista" value="agrupado">Agrupado
+        </label>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Desde</label>
+      <input type="date" class="form-control" formControlName="fechaIni" [disabled]="cargando" />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Hasta</label>
+      <input type="date" class="form-control" formControlName="fechaFin" [disabled]="cargando" />
+    </div>
+    <!-- Proveedor -->
+    <div class="col-md-3">
+      <label class="form-label">Proveedor</label>
+      <select class="form-select" formControlName="proveedorId" [disabled]="cargando"
+        (change)="onProveedorChange($any($event.target).value)">
+        <option value="">Todos</option>
+        <option *ngFor="let p of proveedores" [value]="p._id">
+          {{ p.nombre }}<ng-container *ngIf="p.telefono"> — {{ p.telefono }}</ng-container>
+        </option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Categoría</label>
+      <input type="text" class="form-control" formControlName="categoria" [disabled]="cargando"
+        placeholder="Opcional" />
+    </div>
+  </div>
+  <div *ngIf="filtroForm.value.vista === 'resumen'">
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-md-3 position-relative">
+        <label class="form-label">Producto</label>
+        <input #prodInput type="text" class="form-control" placeholder="Nombre del producto"
+          [disabled]="cargando || !!prodSel" (input)="onProdInput($any($event.target).value)" />
+        <div class="suggest-panel" *ngIf="prodOpts.length && !prodSel">
+          <button type="button" class="suggest-item" *ngFor="let p of prodOpts" (click)="selectProd(p)">
+            <div class="fw-semibold">{{ p.nombre || '(sin nombre)' }}</div>
+            <small class="text-muted">CB: {{ p.codigoBarras || '—' }}</small>
+          </button>
+        </div>
+        <div class="mt-1 d-flex align-items-center gap-2 flex-wrap" *ngIf="prodSel">
+          <span class="badge bg-success-subtle text-success border mb-0">
+            {{ prodSel.nombre }} <span *ngIf="prodSel.codigoBarras">· {{ prodSel.codigoBarras }}</span>
+          </span>
+          <button class="btn btn-link btn-sm p-0" type="button" (click)="clearProd(prodInput)">Cambiar</button>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Ordenado por:</label>
+        <div class="ms-auto d-flex gap-2">
+          <select class="form-select form-select-sm w-auto" formControlName="orden">
+            <option *ngFor="let o of ordenes" [value]="o">{{ o }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Ascen / Desc:</label>
+        <select class="form-select form-select-sm w-auto" formControlName="dir">
+          <option *ngFor="let d of dirs" [value]="d">{{ d }}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Top N</label>
+        <input type="number" class="form-control form-control-sm w-auto" formControlName="topN" min="1" max="100" />
+      </div>
+    </div>
+  </div>
+  <div *ngIf="filtroForm.value.vista === 'agrupado'">
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-md-3 position-relative">
+        <label class="form-label">Producto</label>
+        <input #prodInput type="text" class="form-control" placeholder="Nombre del producto"
+          [disabled]="cargando || !!prodSel" (input)="onProdInput($any($event.target).value)" />
+        <div class="suggest-panel" *ngIf="prodOpts.length && !prodSel">
+          <button type="button" class="suggest-item" *ngFor="let p of prodOpts" (click)="selectProd(p)">
+            <div class="fw-semibold">{{ p.nombre || '(sin nombre)' }}</div>
+            <small class="text-muted">CB: {{ p.codigoBarras || '—' }}</small>
+          </button>
+        </div>
+        <div class="mt-1 d-flex align-items-center gap-2 flex-wrap" *ngIf="prodSel">
+          <span class="badge bg-success-subtle text-success border mb-0">
+            {{ prodSel.nombre }} <span *ngIf="prodSel.codigoBarras">· {{ prodSel.codigoBarras }}</span>
+          </span>
+          <button class="btn btn-link btn-sm p-0" type="button" (click)="clearProd(prodInput)">Cambiar</button>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">agrupar por:</label>
+        <div class="ms-auto d-flex gap-2">
+          <select class="form-select form-select-sm w-auto" formControlName="agrupacion">
+            <option *ngFor="let a of agrupaciones" [value]="a">{{ a }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Ordenar por:</label>
+        <select class="form-select form-select-sm w-auto" formControlName="ordenAgr">
+          <option *ngFor="let o of ordenes" [value]="o">{{ o }}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Ascen / Desc:</label>
+        <select class="form-select form-select-sm w-auto" formControlName="dirAgr">
+          <option *ngFor="let d of dirs" [value]="d">{{ d }}</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Top N:</label>
+        <input type="number" class="form-control form-control-sm w-auto" formControlName="topNAgr" min="1" max="100" />
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-2 mb-3">
+    <div class="col-md-12" style="text-align: end;">
+      <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando" matTooltip="Limpiar filtros"><i
+          class="fas fa-times"></i>
+      </button>
+      <button type="submit" class="btn-gris" style="margin-left: 5rem;" [disabled]="cargando">Buscar</button>
+    </div>
+  </div>
+
+</form>
+
+<!-- === RESUMEN === -->
+<ng-container *ngIf="filtroForm.value.vista === 'resumen' && resumen as r">
+  <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-5 g-2">
+    <ng-container *ngFor="let k of [
+      {t:'Compras', v:r.kpis.numCompras},
+      {t:'Importe', v:r.kpis.importe, isMoney: true},
+      {t:'Piezas', v:r.kpis.piezas},
+      {t:'Ticket Prom.', v:r.kpis.ticketPromedio, isMoney: true},
+      {t:'Costo Prom. Ponderado', v:r.kpis.costoPromPonderado, isMoney: true},
+      {t:'Venta Potencial', v:r.kpis.ventaPotencial, isMoney: true},
+      {t:'Margen Teórico', v:r.kpis.margenTeorico, isMoney: true},
+      {t:'% Margen', v:r.kpis.margenTeoricoPct, isPct: true},
+      {t:'Proveedores Distintos', v:r.kpis.proveedoresDistintos},
+      {t:'Productos Distintos', v:r.kpis.productosDistintos}
+    ]">
+      <div class="col">
+        <div class="kpi-card h-100">
+          <div class="kpi-title">{{ k.t }}</div>
+          <div class="kpi-value">
+            {{
+            k.v === null
+            ? '—'
+            : k.isPct
+            ? (k.v | number:'1.0-2') + '%'
+            : k.isMoney
+            ? (k.v | currency)
+            : (k.v | number:'1.0-2')
+            }}
+          </div>
+
+        </div>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="col-12 mt-3">
+    <div class="card p-1" style="background-color: #edf69a; border-color: #0d6efd;">
+      <div class="fw-semibold mb-2 subtitulo text-center">Caducidad</div>
+
+      <div class="row g-2">
+        <div class="col-12 col-sm-6 col-lg-3"><b>30 días ó antes:</b> {{ r.caducidades.piezas30 }} productos</div>
+        <div class="col-12 col-sm-6 col-lg-3"><b>60 días ó antes:</b> {{ r.caducidades.piezas60 }} productos</div>
+        <div class="col-12 col-sm-6 col-lg-3"><b>90 días ó antes:</b> {{ r.caducidades.piezas90 }} productos</div>
+        <div class="col-12 col-sm-6 col-lg-3"><b>Prom. días a caducar:</b> {{ r.caducidades.avgDias ?? '—' }} días</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOPS -->
+  <div class="row justify-content-center gy-4 mt-1">
+    <div class="col-12 col-xl-8 mx-auto top-wrap">
+      <div class="subtitulo text-centersubtitulo text-center">Top Proveedores</div>
+      <div class="table-responsive">
+        <table class="tabla w-100">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Importe</th>
+              <th>Pzas</th>
+              <th>Compras</th>
+              <th>Venta</th>
+              <th>Margen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r2 of r.topProveedores">
+              <td>{{ r2.nombre || r2.proveedorId }}</td>
+              <td class="text-end">{{ r2.importe | currency }}</td>
+              <td class="text-end">{{ r2.piezas }}</td>
+              <td class="text-end">{{ r2.compras }}</td>
+              <td class="text-end">{{ r2.venta | currency }}</td>
+              <td class="text-end">{{ r2.margen | currency }}</td>
+            </tr>
+            <tr *ngIf="!r.topProveedores?.length">
+              <td colspan="6" class="text-center text-muted">Sin datos</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="row justify-content-center gy-4 mt-1">
+    <div class="col-12 col-xl-8 mx-auto top-wrap">
+      <div class="subtitulo text-center">Top Productos</div>
+      <div class="table-responsive">
+        <table class="tabla w-100">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>CB</th>
+              <th>Importe</th>
+              <th>Pzas</th>
+              <th>Venta</th>
+              <th>Margen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r3 of r.topProductos">
+              <td>{{ r3.nombre || r3.productoId }}</td>
+              <td>{{ r3.codigoBarras || '—' }}</td>
+              <td class="text-end">{{ r3.importe | currency }}</td>
+              <td class="text-end">{{ r3.piezas }}</td>
+              <td class="text-end">{{ r3.venta | currency }}</td>
+              <td class="text-end">{{ r3.margen | currency }}</td>
+            </tr>
+            <tr *ngIf="!r.topProductos?.length">
+              <td colspan="6" class="text-center text-muted">Sin datos</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="row justify-content-center gy-4 mt-1">
+    <div class="col-12 col-xl-8 mx-auto top-wrap">
+
+      <div class="subtitulo text-center">Top Categorías</div>
+      <div class="table-responsive">
+        <table class="tabla w-100">
+          <thead>
+            <tr>
+              <th>Categoría</th>
+              <th>Importe</th>
+              <th>Pzas</th>
+              <th>Venta</th>
+              <th>Margen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r4 of r.topCategorias">
+              <td>{{ r4.categoria || '(sin categoría)' }}</td>
+              <td class="text-end">{{ r4.importe | currency }}</td>
+              <td class="text-end">{{ r4.piezas }}</td>
+              <td class="text-end">{{ r4.venta | currency }}</td>
+              <td class="text-end">{{ r4.margen | currency }}</td>
+            </tr>
+            <tr *ngIf="!r.topCategorias?.length">
+              <td colspan="5" class="text-center text-muted">Sin datos</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="row justify-content-center gy-4 mt-1">
+    <div class="col-12 col-xl-8 mx-auto top-wrap">
+
+      <div class="subtitulo text-center">Top Usuarios</div>
+      <div class="table-responsive">
+        <table class="tabla w-100">
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Importe</th>
+              <th>Pzas</th>
+              <th>Venta</th>
+              <th>Margen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r5 of r.topUsuarios">
+              <td>{{ r5.nombre || r5.usuarioId }}</td>
+              <td class="text-end">{{ r5.importe | currency }}</td>
+              <td class="text-end">{{ r5.piezas }}</td>
+              <td class="text-end">{{ r5.venta | currency }}</td>
+              <td class="text-end">{{ r5.margen | currency }}</td>
+            </tr>
+            <tr *ngIf="!r.topUsuarios?.length">
+              <td colspan="5" class="text-center text-muted">Sin datos</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</ng-container>
+
+<!-- === AGRUPADO === -->
+<ng-container *ngIf="filtroForm.value.vista === 'agrupado'">
+  <div class="d-flex justify-content-end mb-2">
+    <button class="btn-amarillo" (click)="exportarCsv()" [disabled]="!rowsAgrupado.length">Exportar CSV</button>
+  </div>
+
+  <div class="table-responsive">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th *ngFor="let col of displayCols">{{ col.label }}</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let r of rowsAgrupado">
+          <td *ngFor="let col of displayCols" [class.t-num]="col.isNum">
+            {{ formatCell(r, col) }}
+          </td>
+        </tr>
+        <tr *ngIf="!rowsAgrupado.length">
+          <td class="text-center text-muted" colspan="20">Sin datos</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</ng-container>

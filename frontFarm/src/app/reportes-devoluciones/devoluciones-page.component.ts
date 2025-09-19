@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import Swal from 'sweetalert2';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { ReportesDevolucionesService } from './reportes-devoluciones.service';
 import { Agrupacion, Dir, Kpis, ListadoResp, OrdenTop, Vista } from './types';
@@ -18,7 +19,7 @@ type ProductoLite = { _id: string; nombre: string; codigoBarras?: string };
 @Component({
   standalone: true,
   selector: 'app-devoluciones-page',
-  imports: [CommonModule, ReactiveFormsModule, FormsModule,
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, MatTooltipModule,
     DevolucionesKpisComponent, DevolucionesTopTablaComponent, DevolucionesListadoComponent],
   templateUrl: './devoluciones-page.component.html',
   styleUrls: ['./devoluciones-page.component.css']

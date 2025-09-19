@@ -5,8 +5,6 @@ import { environment } from '../../environments/environment';
 import { catchError, map, Observable, of } from 'rxjs';
 import { ClienteLite, ListadoResp, ProductoLite } from './types';
 
-type ProdLite = { _id: string; nombre?: string; codigoBarras?: string };
-
 @Injectable({ providedIn: 'root' })
 export class ReportesDevolucionesService {
   private base = `${environment.apiUrl}/reportes`;

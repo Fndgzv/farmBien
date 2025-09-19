@@ -24,5 +24,9 @@ CompraSchema.index ({ fecha: -1 });
 CompraSchema.index ({ total: 1 });
 CompraSchema.index ({ proveedor: 1 });
 CompraSchema.index ({ 'productos.producto': 1 });
+CompraSchema.index({ proveedor: 1, fecha: -1 });
+CompraSchema.index({ usuario: 1, fecha: -1 });
+CompraSchema.index({ 'productos.producto': 1, fecha: -1 });
+CompraSchema.index({ 'productos.fechaCaducidad': 1 });
 
 module.exports = mongoose.model("Compra", CompraSchema);
