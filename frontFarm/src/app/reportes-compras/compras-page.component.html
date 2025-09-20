@@ -56,7 +56,7 @@
           <span class="badge bg-success-subtle text-success border mb-0">
             {{ prodSel.nombre }} <span *ngIf="prodSel.codigoBarras">· {{ prodSel.codigoBarras }}</span>
           </span>
-          <button class="btn btn-link btn-sm p-0" type="button" (click)="clearProd(prodInput)">Cambiar</button>
+          <button class="btn btn-link btn-sm p-0" type="button" (click)="clearProd(prodInput)">Borrar</button>
         </div>
       </div>
       <div class="col-md-2">
@@ -95,7 +95,7 @@
           <span class="badge bg-success-subtle text-success border mb-0">
             {{ prodSel.nombre }} <span *ngIf="prodSel.codigoBarras">· {{ prodSel.codigoBarras }}</span>
           </span>
-          <button class="btn btn-link btn-sm p-0" type="button" (click)="clearProd(prodInput)">Cambiar</button>
+          <button class="btn btn-link btn-sm p-0" type="button" (click)="clearProd(prodInput)">Borrar</button>
         </div>
       </div>
       <div class="col-md-2">
@@ -127,8 +127,8 @@
 
   <div class="row g-2 mb-3">
     <div class="col-md-12" style="text-align: end;">
-      <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando" matTooltip="Limpiar filtros"><i
-          class="fas fa-times"></i>
+      <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando" matTooltip="Limpiar filtros">
+        <i class="fas fa-times"></i>
       </button>
       <button type="submit" class="btn-gris" style="margin-left: 5rem;" [disabled]="cargando">Buscar</button>
     </div>

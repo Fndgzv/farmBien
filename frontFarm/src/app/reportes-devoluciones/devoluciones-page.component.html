@@ -1,5 +1,5 @@
 <!-- src/app/reportes-devoluciones/views/devoluciones-page.component.html -->
-<h2 class="titulo text-center">Reportes de Devoluciones</h2>
+<h2 class="titulo text-center">Reportes de devoluciones de ventas</h2>
 <form [formGroup]="filtroForm" class="filtros">
 
     <div class="row g-2 align-items-end mb-3">
@@ -71,7 +71,7 @@
                     {{ clienteSel.nombre }} <span *ngIf="clienteSel.telefono">· {{ clienteSel.telefono }}</span>
                 </span>
                 <!-- Pasamos la ref del input -->
-                <button type="button" class="btn btn-link btn-sm ps-2" (click)="clearCliente(cliInput)">Cambiar</button>
+                <button type="button" class="btn btn-link btn-sm ps-2" (click)="clearCliente(cliInput)">Borrar</button>
             </div>
         </div>
 
@@ -99,7 +99,7 @@
                         }}</span>
                 </span>
                 <button type="button" class="btn btn-link btn-sm ps-2"
-                    (click)="clearProducto(proInput)">Cambiar</button>
+                    (click)="clearProducto(proInput)">Borrar</button>
             </div>
         </div>
 

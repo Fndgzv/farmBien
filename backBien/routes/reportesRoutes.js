@@ -23,6 +23,10 @@ const {
   comprasPorProducto,
   comprasPorCategoria,
   comprasPorUsuario,
+  cancelacionesResumen,
+  cancelacionesPorUsuario,
+  cancelacionesPorFarmacia,
+  cancelacionesPorCliente,
 } = require('../controllers/reportesControllers');
 
 // 1) Productos vendidos por farmacia, día de hoy por defecto 
@@ -51,10 +55,15 @@ router.get('/devoluciones-usuario', authMiddleware, isAdmin, devolucionesPorUsua
 router.get('/devoluciones-farmacia', authMiddleware, isAdmin, devolucionesPorFarmacia);
 router.get('/devoluciones-listado', authMiddleware, isAdmin, devolucionesListado);
 
-router.get('/compras-resumen',  authMiddleware, isAdmin, comprasResumen);
+router.get('/compras-resumen', authMiddleware, isAdmin, comprasResumen);
 router.get('/compras-proveedor', authMiddleware, isAdmin, comprasPorProveedor);
-router.get('/compras-producto',  authMiddleware, isAdmin, comprasPorProducto);
+router.get('/compras-producto', authMiddleware, isAdmin, comprasPorProducto);
 router.get('/compras-categoria', authMiddleware, isAdmin, comprasPorCategoria);
-router.get('/compras-usuario',   authMiddleware, isAdmin, comprasPorUsuario);
+router.get('/compras-usuario', authMiddleware, isAdmin, comprasPorUsuario);
+
+router.get('/cancelaciones-resumen',  authMiddleware, isAdmin, cancelacionesResumen);
+router.get('/cancelaciones-usuario',  authMiddleware, isAdmin, cancelacionesPorUsuario);
+router.get('/cancelaciones-farmacia', authMiddleware, isAdmin, cancelacionesPorFarmacia);
+router.get('/cancelaciones-cliente',  authMiddleware, isAdmin, cancelacionesPorCliente);
 
 module.exports = router;

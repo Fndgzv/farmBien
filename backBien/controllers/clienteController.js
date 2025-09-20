@@ -6,7 +6,6 @@ const Venta = require('../models/Venta');
 const Pedido = require('../models/Pedido');
 const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
-const Farmacia = require('../models/Farmacia');
 
 // Obtener todos los clientes
 exports.obtenerClientes = async (req, res) => {
@@ -174,7 +173,6 @@ exports.crearClienteDesdeVenta = async (req, res) => {
   }
 };
 
-const toNum = v => (Number.isFinite(+v) ? +v : 0);
 const okId = id => mongoose.isValidObjectId(id);
 
 // Listar clientes con paginación y filtro por nombre

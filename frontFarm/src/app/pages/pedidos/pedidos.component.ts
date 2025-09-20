@@ -602,6 +602,7 @@ export class PedidosComponent implements OnInit {
           allowEscapeKey: false,
         });
         this.limpiarFiltroCompleto();
+        this.folioGenerado = '';
       },
       error: (err) => {
         const mensajeBack = err.error?.mensaje || err.error?.message || 'Falla en el sistema';

@@ -117,10 +117,13 @@
             <span>Un sólo producto<fa-icon [icon]="icons.faReceipt" class="menu-icon"></fa-icon></span>
           </li>
           <li [routerLink]="'reportes/devoluciones'" routerLinkActive="active" class="submenu-item">
-            <span>Devoluciones<fa-icon [icon]="'undo'" class="menu-icon"></fa-icon></span>
+            <span>Devoluciones ventas<fa-icon [icon]="'undo'" class="menu-icon"></fa-icon></span>
           </li>
           <li [routerLink]="'/reporte/pedidos'" routerLinkActive="active" class="submenu-item">
             <span>Pedidos<fa-icon [icon]="'shopping-cart'" class="menu-icon"></fa-icon></span>
+          </li>
+          <li [routerLink]="'reportes/cancelaciones'" routerLinkActive="active" class="submenu-item">
+            <span>Cancelaciones pedidos<fa-icon [icon]="'undo'" class="menu-icon"></fa-icon></span>
           </li>
         </ul>
       </li>

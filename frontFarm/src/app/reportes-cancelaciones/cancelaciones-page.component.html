@@ -1,0 +1,298 @@
+<h2 class="titulo text-center">Reportes de cancelaciones de pedidos</h2>
+<form [formGroup]="filtroForm" class="filtros" (ngSubmit)="buscar()">
+    <div class="row g-2 align-items-end">
+        <!-- Vista chips -->
+        <div class="col-md-3">
+            <label class="form-label d-block mb-1">Vista</label>
+            <div class="d-flex gap-2 flex-wrap">
+                <label class="report-chip"><input type="radio" formControlName="vista" value="resumen">Resumen</label>
+                <label class="report-chip"><input type="radio" formControlName="vista" value="agrupado">Agrupado</label>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <label class="form-label">Desde</label>
+            <input type="date" class="form-control" formControlName="fechaIni" [disabled]="cargando" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Hasta</label>
+            <input type="date" class="form-control" formControlName="fechaFin" [disabled]="cargando" />
+        </div>
+
+        <!-- Farmacia -->
+        <div class="col-md-2">
+            <label class="form-label">Farmacia</label>
+            <select class="form-select" formControlName="farmaciaId" [disabled]="cargando">
+                <option value="">Todas</option>
+                <option *ngFor="let f of farmacias; trackBy: trackById" [value]="f._id">
+                    {{ f.nombre }}
+                </option>
+            </select>
+        </div>
+
+        <!-- Usuario -->
+        <div class="col-md-3">
+            <label class="form-label">Usuario</label>
+            <select class="form-select" formControlName="usuarioId" [disabled]="cargando">
+                <option value="">Todos</option>
+                <option *ngFor="let u of usuariosOrdenados; trackBy: trackById" [value]="u._id">
+                    {{ (u.nombre || u.usuario) | titlecase }}
+                    <span *ngIf="u.farmacia?.nombre"> — {{ u.farmacia.nombre }}</span>
+                    <span class="text-muted" *ngIf="u.rol"> ({{ u.rol }})</span>
+                </option>
+            </select>
+        </div>
+
+        <!-- Cliente con sugerencias -->
+        <div class="col-md-4 position-relative">
+            <label class="form-label">Cliente</label>
+
+            <!-- Input -->
+            <input #cliInput type="text" class="form-control" placeholder="Nombre (mín. 2 letras)"
+                [disabled]="cargando || !!clienteSel" (input)="clienteInput$.next($any($event.target).value)" />
+
+            <!-- Sugerencias -->
+            <div class="suggest-panel" *ngIf="!clienteSel && (clienteOpts?.length ?? 0) > 0">
+                <button type="button" class="suggest-item" *ngFor="let c of clienteOpts" (click)="selectCliente(c)">
+                    <div class="fw-semibold">{{ c.nombre || '(sin nombre)' }}</div>
+                    <small class="text-muted">{{ c.telefono || '—' }}</small>
+                </button>
+            </div>
+
+            <!-- Selección hecha -->
+            <div class="mt-1 d-flex align-items-center gap-2 flex-wrap" *ngIf="clienteSel">
+                <span class="badge bg-primary-subtle text-primary border mb-0">
+                    {{ clienteSel.nombre }}
+                    <span *ngIf="clienteSel.telefono">· {{ clienteSel.telefono }}</span>
+                </span>
+                <button class="btn btn-link btn-sm p-0" type="button" (click)="clearCliente(cliInput)">
+                    Borrar
+                </button>
+            </div>
+
+            <!-- hidden: id para el form -->
+            <input type="hidden" formControlName="clienteId" />
+        </div>
+
+        <!-- Controles específicos -->
+        <ng-container *ngIf="filtroForm.value.vista === 'resumen'; else agrControls">
+            <div class="col-md-2">
+                <label class="form-label">Top N</label>
+                <input type="number" min="1" class="form-control" formControlName="topN" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Orden</label>
+                <select class="form-select" formControlName="orden">
+                    <option value="importe">Importe</option>
+                    <option value="cancelaciones"># Cancelaciones</option>
+                    <option value="avgDias">Prom. Días</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Dirección</label>
+                <select class="form-select" formControlName="dir">
+                    <option value="desc">Desc</option>
+                    <option value="asc">Asc</option>
+                </select>
+            </div>
+        </ng-container>
+
+        <ng-template #agrControls>
+            <div class="col-md-2">
+                <label class="form-label">Agrupar por</label>
+                <select class="form-select" formControlName="agrupacion">
+                    <option value="usuario">Usuario</option>
+                    <option value="farmacia">Farmacia</option>
+                    <option value="cliente">Cliente</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Top N</label>
+                <input type="number" min="1" class="form-control" formControlName="topNAgr" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Orden</label>
+                <select class="form-select" formControlName="ordenAgr">
+                    <option value="importe">Importe</option>
+                    <option value="cancelaciones"># Cancelaciones</option>
+                    <option value="avgDias">Prom. Días</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Dirección</label>
+                <select class="form-select" formControlName="dirAgr">
+                    <option value="desc">Desc</option>
+                    <option value="asc">Asc</option>
+                </select>
+            </div>
+        </ng-template>
+
+        <div class="col-auto ms-auto">
+            <button class="btn-rojo" type="button" (click)="limpiar()" matTooltip="Limpiar filtros"
+                [disabled]="cargando"><i class="fas fa-times"></i>
+            </button>
+            <button class="btn-gris" style="margin-left: 3rem;" type="submit" [disabled]="cargando" >Buscar</button>
+        </div>
+    </div>
+</form>
+
+<!-- ===== RESUMEN ===== -->
+<ng-container *ngIf="filtroForm.value.vista === 'resumen' && resumen as rr">
+
+    <!-- KPIs -->
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-lg-5 g-2" style="margin-top: 1rem;">
+        <ng-container *ngFor="let k of [
+      {t:'Cancelaciones', v:rr.kpis.numCancelaciones},
+      {t:'Total Devuelto', v:rr.kpis.totalDevuelto, money:true},
+      {t:'Devuelto en efectivo', v:rr.kpis.dineroDevuelto, money:true},
+      {t:'Devuelto en monedero', v:rr.kpis.valeDevuelto, money:true},
+      {t:'Ticket Prom. Devuelto', v:rr.kpis.ticketPromedioDevuelto, money:true},
+      {t:'% sobre pedidos', v:rr.kpis.porcCancelacionesSobrePedidos, pct:true},
+      {t:'Prom. días a cancelar', v:rr.kpis.avgDiasACancelar}
+    ]">
+            <div class="col">
+                <div class="kpi-card h-100">
+                    <div class="kpi-title">{{ k.t }}</div>
+                    <div class="kpi-value">
+                        {{
+                        k.v === null ? '—'
+                        : k.pct ? (k.v | number:'1.0-2') + '%'
+                        : k.money ? (k.v | currency)
+                        : (k.v | number:'1.0-2')
+                        }}
+                    </div>
+                </div>
+            </div>
+        </ng-container>
+    </div>
+
+    <!-- TOPS -->
+    <div class="row g-1 mt-2">
+        <div class="col-12 col-lg-6">
+            <div class="subtitulo text-center mb-0 mt-3">Top Farmacias</div>
+            <div class="table-responsive">
+                <table class="tabla w-100 mt-0">
+                    <thead>
+                        <tr>
+                            <th>Farmacia</th>
+                            <th>Importe</th>
+                            <th>Dinero</th>
+                            <th>Vale</th>
+                            <th>#</th>
+                            <th>Prom. Días</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let r of rr.topFarmacias">
+                            <td>{{ r.nombre || r.farmaciaId }}</td>
+                            <td>{{ r.importe | currency }}</td>
+                            <td>{{ r.dinero | currency }}</td>
+                            <td>{{ r.vale | currency }}</td>
+                            <td>{{ r.cancelaciones }}</td>
+                            <td>{{ r.avgDias === null ? '—' : (r.avgDias | number:'1.0-2') }}</td>
+                        </tr>
+                        <tr *ngIf="!rr.topFarmacias?.length">
+                            <td colspan="6" class="text-center text-muted">Sin datos</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="subtitulo text-center mb-0 mt-3">Top Usuarios</div>
+            <div class="table-responsive">
+                <table class="tabla w-100 mt-0">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Importe</th>
+                            <th>Dinero</th>
+                            <th>Vale</th>
+                            <th>#</th>
+                            <th>Prom. Días</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let r of rr.topUsuarios">
+                            <td>{{ r.nombre || r.usuarioId }}</td>
+                            <td>{{ r.importe | currency }}</td>
+                            <td>{{ r.dinero | currency }}</td>
+                            <td>{{ r.vale | currency }}</td>
+                            <td>{{ r.cancelaciones }}</td>
+                            <td>{{ r.avgDias === null ? '—' : (r.avgDias | number:'1.0-2') }}</td>
+                        </tr>
+                        <tr *ngIf="!rr.topUsuarios?.length">
+                            <td colspan="6" class="text-center text-muted">Sin datos</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="subtitulo text-center mb-0 mt-3">Top Clientes</div>
+            <div class="table-responsive">
+                <table class="tabla w-100 mt-0">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Teléfono</th>
+                            <th>Importe</th>
+                            <th>Dinero</th>
+                            <th>Vale</th>
+                            <th>#</th>
+                            <th>Prom. Días</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let r of rr.topClientes">
+                            <td>{{ r.nombre || r.clienteId }}</td>
+                            <td>{{ r.telefono || '—' }}</td>
+                            <td>{{ r.importe | currency }}</td>
+                            <td>{{ r.dinero | currency }}</td>
+                            <td>{{ r.vale | currency }}</td>
+                            <td>{{ r.cancelaciones }}</td>
+                            <td>{{ r.avgDias === null ? '—' : (r.avgDias | number:'1.0-2') }}</td>
+                        </tr>
+                        <tr *ngIf="!rr.topClientes?.length">
+                            <td colspan="7" class="text-center text-muted">Sin datos</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</ng-container>
+
+<!-- ===== AGRUPADO ===== -->
+<ng-container *ngIf="filtroForm.value.vista === 'agrupado'">
+    <div class="d-flex justify-content-end mb-1">
+        <button class="btn-amarillo mt-2" (click)="exportarCsv()" [disabled]="!rowsAgrupado.length">Exportar CSV</button>
+    </div>
+    <div class="table-responsive">
+        <table class="tabla w-100">
+            <thead>
+                <tr>
+                    <th *ngFor="let k of displayKeys">{{ k }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let r of rowsAgrupado">
+                    <td *ngFor="let k of displayKeys">
+                        <ng-container [ngSwitch]="k">
+                            <span *ngSwitchCase="'importe'">{{ r[k] | currency }}</span>
+                            <span *ngSwitchCase="'dinero'">{{ r[k] | currency }}</span>
+                            <span *ngSwitchCase="'vale'">{{ r[k] | currency }}</span>
+                            <span *ngSwitchCase="'avgDias'">{{ r[k] === null ? '—' : (r[k] | number:'1.0-2') }}</span>
+                            <span *ngSwitchDefault>{{ r[k] }}</span>
+                        </ng-container>
+                    </td>
+                </tr>
+                <tr *ngIf="!rowsAgrupado.length">
+                    <td class="text-center text-muted" colspan="20">Sin datos</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</ng-container>

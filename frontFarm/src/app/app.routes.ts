@@ -138,6 +138,11 @@ export const routes: Routes = [
         path: 'reportes-compras',
         loadComponent: () => import('./reportes-compras/compras-page.component')
           .then(m => m.ComprasPageComponent)
+      },
+      {
+        path: 'reportes/cancelaciones',
+        loadComponent: () => import('./reportes-cancelaciones/cancelaciones-page.component')
+          .then(m => m.CancelacionesPageComponent)
       }
 
 

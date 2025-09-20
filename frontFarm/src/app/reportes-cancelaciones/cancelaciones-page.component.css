@@ -1,0 +1,54 @@
+.filtros {
+    border-bottom: 2px solid #0453b3;
+    padding-bottom: 1rem;
+}
+
+/* chips */
+.report-chip{
+  border:1px solid #d0d7de; border-radius:9999px; padding:.375rem .75rem;
+  cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:.5rem;
+  transition:all .15s ease-in-out;
+}
+.report-chip input{ margin:0; }
+.report-chip:hover{ background:#a5d1fa; }
+.report-chip:has(input:checked){
+  border-color:#0d6efd; background:#e7f1ff; color:#0d6efd; font-weight:600;
+  box-shadow:0 0 0 2px rgba(13,110,253,.15) inset;
+}
+
+/* sugerencias */
+.suggest-panel{
+  position:absolute; z-index:20; left:0; right:0; top:100%;
+  background:#fff; border:1px solid #d0d7de; border-radius:.5rem; padding:.25rem; margin-top:.25rem;
+  max-height:240px; overflow:auto;
+}
+.suggest-item{
+  display:block; width:100%; text-align:left; padding:.375rem .5rem; border:0; background:transparent;
+}
+.suggest-item:hover{ background:#f2f6ff; }
+
+/* tarjetas KPI y tablas */
+.kpi-card{ border:1px solid #e5e7eb; border-radius:.75rem; padding:.75rem; background:#fff; }
+.kpi-title{ font-size:.85rem; color:#6b7280; }
+.kpi-value{ font-size:1.25rem; font-weight:600; }
+
+.subtitulo{ font-weight:600; margin-bottom:.5rem; }
+
+.tabla{ width:100%; border-collapse:collapse; }
+.tabla thead th{ background:#64b5f6; color:#0a2239; font-weight:600; padding:.5rem; }
+.tabla tbody td{ padding:.5rem; border-top:1px solid #e5e7eb; }
+.tabla tbody tr:nth-child(odd){ background:#e3f2fd; }
+.tabla tbody tr:nth-child(even){ background:#cfe8ff; }
+
+/* botón exportar */
+.btn-amarillo{ background:#ffd54f; border:1px solid #e0b100; font-weight:600; padding:.375rem .75rem; }
+.btn-amarillo:hover{ filter:brightness(.95); }
+
+
+.kpi-card{
+  border:1.5px solid #256dfc; border-radius:.75rem; padding:.75rem .9rem; background:#edf69a;
+  align-items: center;
+  text-align: center;
+}
+.kpi-title{ font-size:.8rem; color:#256dfc; }
+.kpi-value{ font-size:1.1rem; font-weight:700; }
