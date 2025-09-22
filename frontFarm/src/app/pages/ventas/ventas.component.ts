@@ -1,7 +1,7 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
 import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap } from 'rxjs/operators';
-import { BehaviorSubject, combineLatest, of, Observable } from 'rxjs';
+import { BehaviorSubject, of, Observable } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -156,8 +156,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     private ventasService: VentasService,
     private productoService: ProductoService,
     private clienteService: ClienteService,
-    private ticketService: TicketService,
-    private library: FaIconLibrary,
     private ventaService: VentaService,
     private cdRef: ChangeDetectorRef,
     private ngZone: NgZone

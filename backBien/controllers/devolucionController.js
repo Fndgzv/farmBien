@@ -16,14 +16,8 @@ const registrarDevolucion = async (req, res) => {
     const usuario = req.usuario;
     let productosDevueltos = req.body.productosDevueltos || [];
 
-    const culpaCliente = productosDevueltos.filter(p => p.motivoIndex < 6).length;
-
     if (!['admin', 'empleado'].includes(usuario.rol)) {
       return res.status(403).json({ mensaje: '** No autorizado para realizar devoluciones **' });
-    }
-
-    if (culpaCliente > 0 && !idCliente) {
-      return res.status(407).json({ mensaje: '** Para devolver y poder abonar a tu monedero, registrate como cliente **' });
     }
 
     // Buscar venta
@@ -33,11 +27,10 @@ const registrarDevolucion = async (req, res) => {
     if (!venta) {
       return res.status(404).json({ mensaje: '** Venta no encontrada con ese folio **' });
     }
-
+    
     // === ENLAZAR VENTA AL NUEVO CLIENTE (si la venta no tenía cliente) ===
     if (idCliente && (!venta.cliente || !venta.cliente._id)) {
       await Venta.updateOne({ _id: venta._id }, { $set: { cliente: idCliente } });
-      // opcional: reflejar en memoria por si lo necesitas más adelante
       venta.cliente = idCliente;
     }
 
@@ -71,14 +64,17 @@ const registrarDevolucion = async (req, res) => {
       });
     });
 
+    // === Acumuladores ===
     let totalRefund = 0;
     let valeDevuelto = 0;
     let efectivoDevuelto = 0;
     let monederoARetirar = 0;
 
+    // === Recorrer los renglones devueltos ===
     for (const dev of productosDevueltos) {
       const prodIdStr = String(dev.producto);
 
+      // Info de producto y renglón en la venta
       const prodInfo = await Producto.findById(dev.producto).select('nombre categoria');
       const nombreReq = prodInfo ? prodInfo.nombre : dev.producto;
 
@@ -89,6 +85,7 @@ const registrarDevolucion = async (req, res) => {
         });
       }
 
+      // Restricciones
       if (['2x1', '3x2', '4x3'].includes(prodVenta.tipoDescuento)) {
         return res.status(400).json({
           mensaje: `No se permiten devoluciones en productos con promo ${prodVenta.tipoDescuento}.`
@@ -101,6 +98,7 @@ const registrarDevolucion = async (req, res) => {
         });
       }
 
+      // No exceder cantidad vendida menos lo ya devuelto
       const prev = toNum(retornosPrevios.get(prodIdStr));
       if (prev + toNum(dev.cantidad) > toNum(prodVenta.cantidad)) {
         return res.status(400).json({
@@ -108,15 +106,11 @@ const registrarDevolucion = async (req, res) => {
         });
       }
 
+      // Importe a reembolsar por este renglón (precio ya incluía descuentos)
       const importe = toNum(dev.cantidad) * toNum(prodVenta.precio);
       totalRefund += importe;
 
-      if (dev.motivoIndex >= 6) {
-        efectivoDevuelto += importe;
-      } else {
-        valeDevuelto += importe;
-      }
-
+      // Reverso proporcional del monedero otorgado en la compra (si lo hubo)
       const monederoLinea = toNum(prodVenta.monederoCliente);
       const cantComprada = toNum(prodVenta.cantidad);
       if (monederoLinea > 0 && cantComprada > 0) {
@@ -131,36 +125,50 @@ const registrarDevolucion = async (req, res) => {
     }
 
     totalRefund = round2(totalRefund);
-    valeDevuelto = round2(valeDevuelto);
-    efectivoDevuelto = round2(efectivoDevuelto);
     monederoARetirar = round2(monederoARetirar);
 
+    const pagoEfectivo = toNum(venta.formaPago.efectivo ?? 0);
+    const pagoTarjeta = toNum(venta.formaPago.tarjeta ?? 0);
+    const pagoTransf = toNum(venta.formaPago.transferencia ?? 0);
+    const pagoMonedero = toNum(venta.formaPago.vale ?? 0);
+
+    const totalPagado = round2(pagoMonedero + pagoEfectivo + pagoTarjeta + pagoTransf);
+
+    // Si no hay totalPagado por algún motivo raro, devolvemos todo en efectivo
+    let proporcionVale = 0;
+    if (totalPagado > 0 && pagoMonedero > 0) {
+      // Proporción del pago original que fue con monedero
+      proporcionVale = Math.max(0, Math.min(1, pagoMonedero / totalPagado));
+    }
+
+    // División proporcional del reembolso
+    valeDevuelto = round2(totalRefund * proporcionVale);
+    efectivoDevuelto = round2(totalRefund - valeDevuelto);
+
+    // === Limpiar motivos del payload de productos devueltos (ya no se usan) ===
     productosDevueltos = productosDevueltos.map(({ motivoIndex, ...rest }) => rest);
 
+    // === Registrar Devolución ===
     const devolucion = await Devolucion.create({
       venta: venta._id,
-      cliente: idCliente || null,
+      cliente: idCliente || (venta.cliente?._id ?? null),
       farmacia: venta.farmacia,
       productosDevueltos,
-      dineroDevuelto: efectivoDevuelto,
-      valeDevuelto: valeDevuelto,
+      dineroDevuelto: efectivoDevuelto, // efectivo
+      valeDevuelto: valeDevuelto,       // monedero
       totalDevuelto: totalRefund,
       usuario: usuario.id
     });
-
-    if (idCliente) {
-      await Cliente.findByIdAndUpdate(
-        idCliente,
-        { $push: { historialCompras: { devolucion: devolucion._id } } }
-      );
-    }
-
-    if (idCliente) {
-      const cliente = await Cliente.findById(idCliente);
+    
+    // === Si hay cliente, reflejar movimientos en monedero ===
+    const clienteIdFinal = idCliente || (venta.cliente?._id ?? null);
+    if (clienteIdFinal) {
+      const cliente = await Cliente.findById(clienteIdFinal);
       if (cliente) {
         const saldoActual = toNum(cliente.totalMonedero);
         const movs = [];
 
+        // Ingreso por vale (parte proporcional del reembolso que va al monedero)
         if (valeDevuelto > 0) {
           movs.push({
             fechaUso: ahora,
@@ -171,8 +179,10 @@ const registrarDevolucion = async (req, res) => {
           });
         }
 
+        // Egreso por reverso del monedero otorgado en la compra (proporcional a lo devuelto)
         let egresoReal = 0;
         if (monederoARetirar > 0) {
+          // No permitir saldo negativo: egresamos hasta el saldo disponible tras el ingreso del vale
           egresoReal = Math.min(monederoARetirar, saldoActual + valeDevuelto);
           egresoReal = round2(egresoReal);
           if (egresoReal > 0) {
@@ -206,7 +216,7 @@ const registrarDevolucion = async (req, res) => {
       error: error.message
     });
   }
-};
+};;
 
 const buscarVentaPorCodigo = async (req, res) => {
   try {

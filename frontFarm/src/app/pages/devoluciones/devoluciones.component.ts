@@ -163,59 +163,71 @@ export class DevolucionesComponent implements OnInit {
   }
 
   /** Redondeo amable */
-  private round2(n: number): number {
-    return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+  private toNum = (v: any) => Number(v ?? 0) || 0;
+  private round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+  // === NUEVO: detecta cómo se pagó la venta y devuelve proporción para monedero ===
+  private calcularProporcionVale(venta: any): {
+    pagoMonedero: number; pagoEfectivo: number; pagoTarjeta: number; pagoTransferencia: number;
+    totalPagado: number; proporcionVale: number;
+  } {
+
+    const pagoMonedero = this.toNum(venta?.formaPago.vale);
+    const pagoEfectivo = this.toNum(venta?.formaPago.efectivo);
+    const pagoTarjeta = this.toNum(venta?.formaPago.tarjeta);
+    const pagoTransferencia = this.toNum(venta?.formaPago.transferencia);
+
+    const totalPagado = this.round2(pagoMonedero + pagoEfectivo + pagoTarjeta + pagoTransferencia);
+
+    let proporcionVale = 0;
+    if (totalPagado > 0 && pagoMonedero > 0) {
+      proporcionVale = Math.max(0, Math.min(1, pagoMonedero / totalPagado));
+    }
+    return { pagoMonedero, pagoEfectivo, pagoTarjeta, pagoTransferencia, totalPagado, proporcionVale };
   }
 
-  /** Calcula el reverso proporcional del monedero regalado en la venta */
-  private calcReversoMonedero(venta: any, seleccionados: any[]): number {
-    let rev = 0;
-    (seleccionados || []).forEach(sel => {
-      // Busca la línea original de la venta por _id de producto
-      const vl = (venta?.productos || []).find((p: any) =>
-        (p?.producto?._id && sel?.producto?._id && String(p.producto._id) === String(sel.producto._id)) ||
-        (p?.producto && sel?.producto?._id && String(p.producto) === String(sel.producto._id))
+  // === NUEVO: estima reverso de monedero regalado por las líneas devueltas ===
+  private calcReversoMonedero(venta: any, seleccion: any[]): number {
+    // venta.productos: cada renglón debe tener monederoCliente y cantidad
+    let egreso = 0;
+    for (const dev of seleccion) {
+      const idSel = dev.producto?._id ?? dev.producto; // tolerante a forma
+      const lineaVenta = (venta.productos || []).find((lv: any) =>
+        String(lv.producto?._id ?? lv.producto) === String(idSel)
       );
+      if (!lineaVenta) continue;
 
-      const monederoLinea = Number(vl?.monederoCliente ?? vl?.alMonedero ?? 0);
-      const cantComprada = Number(vl?.cantidad ?? 0);
-      const cantDev = Number(sel?.cantidadDevuelta ?? 0);
+      const monederoLinea = this.toNum(lineaVenta.monederoCliente);
+      const cantVendida = this.toNum(lineaVenta.cantidad);
+      const cantDevuelta = this.toNum(dev.cantidadDevuelta);
 
-      if (monederoLinea > 0 && cantComprada > 0 && cantDev > 0) {
-        rev += (monederoLinea * cantDev / cantComprada);
+      if (monederoLinea > 0 && cantVendida > 0 && cantDevuelta > 0) {
+        egreso += monederoLinea * (cantDevuelta / cantVendida);
       }
-    });
-    return this.round2(rev);
+    }
+    return this.round2(egreso);
   }
 
   async confirmarDevolucion(venta: any): Promise<void> {
-    // 1) Primero obtén SOLO los productos seleccionados con cantidad > 0
-    const productosSeleccionados = venta.productos.filter((p: any) =>
-      p.seleccionado && p.cantidadDevuelta > 0
+    // 1) Productos seleccionados con cantidad > 0
+    const productosSeleccionados = (venta.productos || []).filter((p: any) =>
+      p.seleccionado && this.toNum(p.cantidadDevuelta) > 0
     );
 
-    // 2) Si no hay ninguno, avisamos
     if (productosSeleccionados.length === 0) {
-      await Swal.fire(
-        'Aviso',
-        'Selecciona al menos un producto con cantidad válida',
-        'info'
-      );
+      await Swal.fire('Aviso', 'Selecciona al menos un producto con cantidad válida', 'info');
       return;
     }
 
-    // 3) Ahora filtro los que NO tengan un índice válido
     const sinMotivo = productosSeleccionados.filter((p: any) =>
-      p.motivoIndex == null      // null o undefined
-      || typeof p.motivoIndex !== 'number'
-      || p.motivoIndex < 0
+      p.motivoIndex == null ||
+      typeof p.motivoIndex !== 'number' ||
+      p.motivoIndex < 0 ||
+      !this.motivosDevolucion?.[p.motivoIndex]
     );
 
     if (sinMotivo.length > 0) {
-      // muestro los nombres para mayor claridad
-      const listaNombres = sinMotivo
-        .map((p: any) => p.producto.nombre)
-        .join(', ');
+      const listaNombres = sinMotivo.map((p: any) => p.producto.nombre).join(', ');
       await Swal.fire(
         'Aviso',
         `Debes indicar un motivo de devolución para: ${listaNombres}`,
@@ -224,97 +236,78 @@ export class DevolucionesComponent implements OnInit {
       return;
     }
 
-    const totalADevolver = productosSeleccionados.reduce(
-      (acc: number, p: any) => acc + (p.cantidadDevuelta * p.precio),
-      0
+    // 2) Total a devolver (precio ya trae descuentos aplicados)
+    const totalADevolver = this.round2(
+      productosSeleccionados.reduce((acc: number, p: any) =>
+        acc + (this.toNum(p.cantidadDevuelta) * this.toNum(p.precio)), 0)
     );
 
-    // Total en efectivo: sólo motivos ≥ 6
-    let totalDevolverEfectivo = productosSeleccionados.reduce(
-      (acc: number, p: any) =>
-        p.motivoIndex >= 6
-          ? acc + p.cantidadDevuelta * p.precio
-          : acc,
-      0
-    );
+    // 3) Proporción de pago con monedero en la venta original
+    const { proporcionVale } = this.calcularProporcionVale(venta);
 
-    // Total al monedero: sólo motivos < 6
-    let totalDevolverVales = productosSeleccionados.reduce(
-      (acc: number, p: any) =>
-        p.motivoIndex < 6
-          ? acc + p.cantidadDevuelta * p.precio
-          : acc,
-      0
-    );
+    // Reembolso proporcional
+    const totalDevolverVales = this.round2(totalADevolver * proporcionVale);
+    const totalDevolverEfectivo = this.round2(totalADevolver - totalDevolverVales);
 
-    // determinar si es cliente
-    this.esCliente = venta.cliente ? true : false;
-
+    // 4) Cliente (requerido SOLO si hay parte a monedero)
+    this.esCliente = !!venta?.cliente;
     if (this.esCliente) {
       this.idCliente = venta.cliente._id;
       this.nombreCliente = venta.cliente.nombre;
-
     } else {
       this.idCliente = null;
       this.nombreCliente = '';
     }
 
     if (!this.esCliente && totalDevolverVales > 0) {
-
       const hayCliente = await this.capturarTelefono();
-
-      if (!hayCliente) return; // Cancelado o error
-
+      if (!hayCliente) return; // cancelado
       this.esCliente = true;
       this.idCliente = hayCliente._id;
       this.nombreCliente = hayCliente.nombre;
     }
 
-    // === Estimar impacto en monedero para el ticket ===
+    // 5) Estimar impacto de monedero para el ticket (ingreso por vale y reverso de monedero regalado)
     let saldoAntes = 0;
     if (this.esCliente && this.idCliente) {
       try {
         const cli = await firstValueFrom(this.clienteService.getClienteById(this.idCliente));
-        saldoAntes = Number(cli?.totalMonedero ?? 0);
+        saldoAntes = this.toNum(cli?.totalMonedero);
       } catch { saldoAntes = 0; }
     }
 
-    // Reverso proporcional del monedero regalado en la venta
     const reversoEstimado = this.calcReversoMonedero(venta, productosSeleccionados);
-
-    // Clampea el egreso para no dejar saldo negativo (igual que el backend)
     const egresoReal = this.round2(Math.min(reversoEstimado, saldoAntes + totalDevolverVales));
 
-    // Cambios netos y saldo final
-    const monederoIngreso = this.round2(totalDevolverVales);
-    const monederoReverso = egresoReal;
+    const monederoIngreso = totalDevolverVales; // proporcional al pago con vale
+    const monederoReverso = egresoReal;         // no dejamos saldo negativo
     const monederoCambioNeto = this.round2(monederoIngreso - monederoReverso);
     const saldoDespues = this.round2(saldoAntes + monederoCambioNeto);
 
-
-    // Solicitar firma antes de devolver
-    let firmaInput = await Swal.fire({
+    // 6) Firma para autorizar
+    const firmaInput = await Swal.fire({
       title: 'Autorización requerida',
       html: `
-      <p style = "color: blue"><strong>Cliente: </strong>${this.nombreCliente}</p>
+      <p style="color: blue"><strong>Cliente: </strong>${this.nombreCliente || '—'}</p>
       <h4>Debes devolver en total: <strong>$${totalADevolver.toFixed(2)}</strong></h4>
-      <h2>Efectivo: <strong>$${totalDevolverEfectivo.toFixed(2)}</strong></h2>
-      <h2>Monedero: <strong>$${totalDevolverVales.toFixed(2)}</strong></h2  >
+      <h2>Monedero: <strong>$${totalDevolverVales.toFixed(2)}</strong></h2>
+      <h2 style="color: red">Efectivo: <strong>$${totalDevolverEfectivo.toFixed(2)}</strong></h2>
       <div id="firma-container"></div>
     `,
       didOpen: () => {
         const input = document.createElement('input');
-        input.setAttribute('type', 'text');
-        input.setAttribute('id', 'firma-autorizada');
-        input.setAttribute('placeholder', 'Ingrese la firma');
-        input.setAttribute('autocomplete', 'off');
-        input.setAttribute('autocorrect', 'off');
-        input.setAttribute('autocapitalize', 'off');
-        input.setAttribute('spellcheck', 'false');
-        input.setAttribute('class', 'swal2-input');
-        input.setAttribute('style', 'font-family: text-security-disc, sans-serif; -webkit-text-security: disc;');
-        input.setAttribute('name', 'firma_' + Date.now()); // nombre único para evitar autofill
-        input.focus(); // 🔹 enfoca automáticamente
+        input.type = 'text';
+        input.id = 'firma-autorizada';
+        input.placeholder = 'Ingrese la firma';
+        input.autocomplete = 'off';
+        //input.autocorrect = 'off' as any;
+        (input as any).autocapitalize = 'off';
+        input.spellcheck = false;
+        input.className = 'swal2-input';
+        (input.style as any).fontFamily = 'text-security-disc, sans-serif';
+        (input.style as any).webkitTextSecurity = 'disc';
+        input.name = 'firma_' + Date.now();
+        input.focus();
         document.getElementById('firma-container')?.appendChild(input);
       },
       focusConfirm: false,
@@ -324,90 +317,95 @@ export class DevolucionesComponent implements OnInit {
       allowOutsideClick: false,
       allowEscapeKey: false,
       preConfirm: async () => {
-
         const confirmButton = Swal.getConfirmButton();
         if (confirmButton) confirmButton.disabled = true;
 
         const input = (document.getElementById('firma-autorizada') as HTMLInputElement)?.value?.trim();
-
-        await new Promise(resolve => setTimeout(resolve, 200)); // pequeña pausa visual
+        await new Promise(r => setTimeout(r, 200));
 
         if (!input) {
           Swal.showValidationMessage('Debes ingresar la firma para continuar.');
           if (confirmButton) confirmButton.disabled = false;
           return false;
         }
-
         try {
-          const res = await firstValueFrom(
-            this.FarmaciaService.verificarFirma(this.farmaciaId!, input)
-          );
-
+          const res = await firstValueFrom(this.FarmaciaService.verificarFirma(this.farmaciaId!, input));
           if (!res.autenticado) {
             Swal.showValidationMessage('Firma incorrecta. Verifica con el encargado.');
             if (confirmButton) confirmButton.disabled = false;
             return false;
           }
-
           return true;
-
-        } catch (error) {
-          console.error('❌ Error al verificar firma:', error);
+        } catch (e) {
+          console.error('❌ Error al verificar firma:', e);
           Swal.showValidationMessage('Error al verificar la firma. Intenta más tarde.');
           if (confirmButton) confirmButton.disabled = false;
           return false;
         }
-
       },
     });
 
-    if (firmaInput.isConfirmed) {
-      this.paraGuardar = {
+    if (!firmaInput.isConfirmed) return;
+
+    // 7) Payload para backend (CON motivos)
+    this.paraGuardar = {
+      folioVenta: venta.folio,
+      farmaciaQueDevuelve: this.farmaciaId,
+      idCliente: this.idCliente,
+      productosDevueltos: productosSeleccionados.map((p: any) => {
+        const motivoDescripcion = this.motivosDevolucion[p.motivoIndex];
+        return {
+          producto: p.producto._id ?? p.producto,
+          cantidad: this.toNum(p.cantidadDevuelta),
+          motivoIndex: p.motivoIndex,
+          motivo: motivoDescripcion, // requerido por el backend
+          precioXCantidad: this.round2(this.toNum(p.cantidadDevuelta) * this.toNum(p.precio)), // requerido por el backend
+        };
+      }),
+    };
+
+
+    // 8) Estructura para impresión (pre-save, cálculo gemelo al backend)
+    this.paraImpresion = {
+      devolucion: {
         folioVenta: venta.folio,
-        farmaciaQueDevuelve: this.farmaciaId,
-        idCliente: this.idCliente,
-        productosDevueltos: productosSeleccionados.map((p: any) => {
-          const motivoDescripcion = this.motivosDevolucion[p.motivoIndex];
-          return {
-            producto: p.producto._id,
-            cantidad: p.cantidadDevuelta,
-            motivoIndex: p.motivoIndex,
-            motivo: motivoDescripcion,
-            precioXCantidad: p.cantidadDevuelta * p.precio,
-            productoNombre: p.producto.nombre,
-            precio: p.precio,
-            barrasYNombre: `${p.producto.codigoBarras.slice(-3)} ${p.producto.nombre}`,
-          }
-        }),
-      };
+        fecha: new Date(),
+        productos: productosSeleccionados.map((p: any) => ({
+          productoNombre: p.producto?.nombre,
+          barrasYNombre: `${(p.producto?.codigoBarras || '').slice(-3)} ${p.producto?.nombre || ''}`,
+          cantidad: this.toNum(p.cantidadDevuelta),
+          precio: this.toNum(p.precio),
+          importe: this.round2(this.toNum(p.cantidadDevuelta) * this.toNum(p.precio)),
+          motivo: this.motivosDevolucion[p.motivoIndex],
+        })),
+      },
+      cliente: this.nombreCliente || '—',
+      totalADevolver,
+      totalDevolverEfectivo,
+      totalDevolverVales,
 
-      this.paraImpresion = {
-        devolucion: this.paraGuardar,
-        cliente: this.nombreCliente,
-        totalADevolver: totalADevolver,
-        totalDevolverEfectivo: totalDevolverEfectivo,
-        totalDevolverVales: totalDevolverVales,
-        monederoIngreso,          // + por devolución
-        monederoReverso,          // - reverso de monedero regalado
-        monederoSaldoAntes: saldoAntes,
-        monederoSaldoDespues: saldoDespues,
-        monederoCambioNeto,
-        usuario: this.usuarioNombre,
-        farmacia: {
-          nombre: this.farmaciaNombre,
-          direccion: this.farmaciaDireccion,
-          telefono: this.farmaciaTelefono
-        },
+      // Monedero
+      monederoIngreso,          // + por devolución (vale devuelto)
+      monederoReverso,          // - reverso de monedero regalado
+      monederoSaldoAntes: saldoAntes,
+      monederoSaldoDespues: saldoDespues,
+      monederoCambioNeto,
+
+      usuario: this.usuarioNombre,
+      farmacia: {
+        nombre: this.farmaciaNombre,
+        direccion: this.farmaciaDireccion,
+        telefono: this.farmaciaTelefono
+      },
+    };
+
+    // 9) Mostrar e imprimir
+    this.mostrarTicket = true;
+    setTimeout(() => {
+      if (this.contenedorTicket) {
+        this.imprimirTicketReal();
       }
-      this.mostrarTicket = true;
-
-      setTimeout(() => {
-        if (this.contenedorTicket) {
-          this.imprimirTicketReal();
-        }
-      }, 200);
-
-    }
+    }, 200);
   }
 
   imprimirTicketReal() {

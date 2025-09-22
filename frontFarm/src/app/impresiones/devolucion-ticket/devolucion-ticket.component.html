@@ -77,7 +77,7 @@
   </ng-container>
 
   <!-- Efectivo si aplica -->
-  <div style="text-align: right;" *ngIf="venta.totalDevolverEfectivo > 0">
+  <div style="text-align: right; font-size: larger;" *ngIf="venta.totalDevolverEfectivo > 0">
     Devolución de efectivo:
     <strong>${{ venta.totalDevolverEfectivo | number:'1.2-2' }}</strong>
   </div>

@@ -18,7 +18,7 @@ const DevolucionSchema = new mongoose.Schema({
         "Cantidad errónea entregada",
         "Producto duplicado en la venta",
         "Precio incorrecto en ticket",
-        "Producto caducado", "Producto en mal estado", "Producto no surtible", "Error en producto entregado", // devuelven en efectivo
+        "Producto caducado", "Producto en mal estado", "Producto no surtible", "Error en producto entregado",
       ]
     },
     precioXCantidad: { type: Number, required: true },
