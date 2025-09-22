@@ -3,6 +3,8 @@ import { AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/fo
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
+import { Subject, Subscription, debounceTime, distinctUntilChanged, switchMap, of, map, catchError } from 'rxjs';
+
 import { ProveedorService } from '../../services/proveedor.service';
 import { ProductoService } from '../../services/producto.service';
 import { CompraService } from '../../services/compra.service';
@@ -28,6 +30,12 @@ export class ComprasComponent implements OnInit {
 
   cargandoProducto = false;
   productoEncontrado = false;
+
+  cargando = false;
+  prodInput$ = new Subject<string>();
+  prodOpts: any[] = [];
+  subs: Subscription[] = [];
+  prodSel: any = null;
 
   proveedores: any[] = [];
   productos: any[] = [];
@@ -64,27 +72,36 @@ export class ComprasComponent implements OnInit {
   ngOnInit(): void {
     this.initForms();
 
+    this.itemForm.get('lote')!.valueChanges.subscribe((raw: string) => {
+      const up = (raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (up !== raw) {
+        this.itemForm.patchValue({ lote: up }, { emitEvent: false });
+      }
+    });
+
+    // mmAA -> YYYY-MM-último_día (00-99 => 2000-2099)
     this.itemForm.get('caducidadMMAAAA')!.valueChanges.subscribe((raw: string) => {
       const digits = (raw ?? '').toString().replace(/\D/g, ''); // solo números
       if (digits !== raw) {
-        // normaliza a solo números sin re-disparar valueChanges
         this.itemForm.patchValue({ caducidadMMAAAA: digits }, { emitEvent: false });
       }
 
-      if (digits.length !== 6) {
-        // incompleto o borrado: limpia fechaCaducidad
+      if (digits.length !== 4) {
         this.itemForm.patchValue({ fechaCaducidad: null }, { emitEvent: false });
         return;
       }
 
       const mm = +digits.slice(0, 2);
-      const yyyy = +digits.slice(2);
+      const yy = +digits.slice(2);
       if (mm < 1 || mm > 12) {
         this.itemForm.patchValue({ fechaCaducidad: null }, { emitEvent: false });
         return;
       }
 
-      // Último día del mes: Date(yyyy, mm, 0)
+      // Mapea 00..99 -> 2000..2099 (ajusta si necesitas otra regla)
+      const yyyy = 2000 + yy;
+
+      // último día del mes
       const last = new Date(yyyy, mm, 0);
       const y = String(last.getFullYear());
       const m = String(last.getMonth() + 1).padStart(2, '0');
@@ -95,17 +112,30 @@ export class ComprasComponent implements OnInit {
 
     this.loadProveedores();
     this.loadProductos();
+
+    this.subs.push(
+      this.prodInput$.pipe(
+        map(s => (s || '').trim()),
+        debounceTime(180),
+        distinctUntilChanged(),
+        switchMap(q => q.length < 2 ? of([]) : this.compraService.searchProductos(q))
+      ).subscribe(list => {
+        this.prodOpts = Array.isArray(list) ? list : [];
+      })
+    );
   }
 
-  mmAaaaValidator(control: AbstractControl) {
+  mmYyValidator(control: AbstractControl) {
     const v = (control.value ?? '').toString().replace(/\D/g, '');
-    if (v === '') return null; // permite vacío si aún no capturan
-    if (!/^\d{6}$/.test(v)) return { mmAaaa: 'Debe ser mmaaaa (6 dígitos)' };
+    if (v === '') return null;                    // permite vacío hasta que capturen
+    if (!/^\d{4}$/.test(v)) return { mmYy: true }; // mmAA
     const mm = +v.slice(0, 2);
-    const yyyy = +v.slice(2);
-    if (mm < 1 || mm > 12 || yyyy < 1900 || yyyy > 9999) return { mmAaaa: 'Mes/Año inválidos' };
+    const yy = +v.slice(2);
+    if (mm < 1 || mm > 12) return { mmYy: true };
+    // Si quieres bloquear años muy lejanos, aquí podrías validar yy
     return null;
   }
+
 
   private initForms(): void {
     this.headerForm = this.fb.group({
@@ -118,8 +148,8 @@ export class ComprasComponent implements OnInit {
       nombre: ['', Validators.required],
       codigoBarras: ['', Validators.required],
       cantidad: [1, [Validators.required, Validators.min(1)]],
-      lote: ['', Validators.required],
-      caducidadMMAAAA: ['', [this.mmAaaaValidator]],
+      lote: ['', [Validators.required, Validators.pattern(/^[A-Z0-9]*$/)]],
+      caducidadMMAAAA: ['', [this.mmYyValidator]],
       fechaCaducidad: [null, Validators.required],
       costoUnitario: [0, [Validators.required, Validators.min(0)]],
       precioUnitario: [0, [Validators.required, Validators.min(0)]],
@@ -171,7 +201,7 @@ export class ComprasComponent implements OnInit {
     if (!code) return;
 
     this.cargandoProducto = true;
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(r => setTimeout(r, 50));
 
     const prod = this.productos.find(p => p.codigoBarras === code);
     if (!prod) {
@@ -185,41 +215,7 @@ export class ComprasComponent implements OnInit {
       return;
     }
 
-    this.nombreProducto = prod.nombre;
-    this.codBarras = prod.codigoBarras;
-    this.productoEncontrado = true;
-    this.cargandoProducto = false;
-    this.itemForm.get('codigoBarras')?.disable();
-
-    const tipo = this.detectarTipoPromocion(prod);
-
-    this.itemForm.patchValue({
-      nombre: prod.nombre,
-      codBarras: this.codBarras,
-      cantidad: 1,
-      lote: '',
-      caducidadMes: '',
-      fechaCaducidad: null,
-      costoUnitario: prod.costo,
-      precioUnitario: prod.precio,
-      stockMinimo: prod.stockMinimo,
-      stockMaximo: prod.stockMaximo,
-      promociones: {
-        tipoPromocion: tipo,
-        promoCantidadRequerida: prod.promoCantidadRequerida ?? null,
-        inicioPromoCantidad: this.toDate(prod.inicioPromoCantidad),
-        finPromoCantidad: this.toDate(prod.finPromoCantidad),
-        promoDeTemporada: {
-          porcentaje: prod.promoDeTemporada?.porcentaje ?? null,
-          inicio: this.toDate(prod.promoDeTemporada?.inicio),
-          fin: this.toDate(prod.promoDeTemporada?.fin),
-          monedero: prod.promoDeTemporada?.monedero ?? false
-        },
-        descuentoINAPAM: prod.descuentoINAPAM ?? false,
-        ...this.mapDiasSemana(prod)
-      }
-    });
-
+    this.applyProducto(prod);
   }
 
 
@@ -284,10 +280,13 @@ export class ComprasComponent implements OnInit {
   }
 
   // Editar promos
+  estaEditandoPromos = false;
   toggleEditPromo(i: number): void {
+    this.estaEditandoPromos = true;
     this.calcularTotal();
     if (this.editingPromoIndex === i) {
       this.editingPromoIndex = null;
+      this.estaEditandoPromos = false;
       return;
     }
 
@@ -305,87 +304,87 @@ export class ComprasComponent implements OnInit {
   savePromos(i: number): void {
     this.carrito[i].promociones = JSON.parse(JSON.stringify(this.editPromos));
     this.editingPromoIndex = null;
+    this.estaEditandoPromos = false;
   }
 
   cancelPromos(): void {
     this.editingPromoIndex = null;
+    this.estaEditandoPromos = false;
   }
 
-onRegistrarCompra(): void {
-  if (this.headerForm.invalid || this.carrito.length === 0) {
-    Swal.fire('Datos incompletos', 'Selecciona proveedor y agrega productos.', 'warning');
-    return;
-  }
-
-  // Validar que no se seleccione futuro
-  const fSel = this.headerForm.value.fechaCompra as string | null;
-  if (fSel) {
-    const hoy = new Date(this.hoyISO);
-    const sel = new Date(fSel);
-    if (sel > hoy) {
-      Swal.fire('Fecha inválida', 'La fecha de compra no puede ser futura.', 'warning');
+  onRegistrarCompra(): void {
+    if (this.headerForm.invalid || this.carrito.length === 0) {
+      Swal.fire('Datos incompletos', 'Selecciona proveedor y agrega productos.', 'warning');
       return;
     }
-  }
 
-  const proveedorId = this.headerForm.value.proveedor;
-  const proveedorSeleccionado = this.proveedores.find(p => p._id === proveedorId);
-  const nombreProveedor = proveedorSeleccionado?.nombre || 'Desconocido';
+    // Validar que no se seleccione futuro
+    const fSel = this.headerForm.value.fechaCompra as string | null;
+    if (fSel) {
+      const hoy = new Date(this.hoyISO);
+      const sel = new Date(fSel);
+      if (sel > hoy) {
+        Swal.fire('Fecha inválida', 'La fecha de compra no puede ser futura.', 'warning');
+        return;
+      }
+    }
 
-  // Construye ISO “seguro” (12:00 local) para evitar desfases por zona
-  const fechaCompraIso = fSel ? new Date(`${fSel}T12:00:00`).toISOString() : null;
+    const proveedorId = this.headerForm.value.proveedor;
+    const proveedorSeleccionado = this.proveedores.find(p => p._id === proveedorId);
+    const nombreProveedor = proveedorSeleccionado?.nombre || 'Desconocido';
 
-  const afectarExistencias = !!this.headerForm.value.afectarExistencias;
+    // Construye ISO “seguro” (12:00 local) para evitar desfases por zona
+    const fechaCompraIso = fSel ? new Date(`${fSel}T12:00:00`).toISOString() : null;
 
-  Swal.fire({
-    icon: 'question',
-    title: 'Confirmar compra',
-    html: `
+    const afectarExistencias = !!this.headerForm.value.afectarExistencias;
+
+    Swal.fire({
+      icon: 'question',
+      title: 'Confirmar compra',
+      html: `
       Proveedor: <strong>${nombreProveedor}</strong><hr>
       <div>Fecha compra: <strong>${fSel || this.hoyISO}</strong></div>
       <div>Afectar existencias: <strong>${afectarExistencias ? 'Sí' : 'No'}</strong></div>
       <h2 style="color: blue">Total: <strong>$${this.total.toFixed(2)}</strong></h2>`,
-    showCancelButton: true,
-    confirmButtonText: 'Registrar',
-  }).then(result => {
-    if (!result.isConfirmed) return;
-    Swal.showLoading();
+      showCancelButton: true,
+      confirmButtonText: 'Registrar',
+    }).then(result => {
+      if (!result.isConfirmed) return;
+      Swal.showLoading();
 
-    const payload: any = {
-      proveedor: this.headerForm.value.proveedor,
-      afectarExistencias,                 // ⬅️ NUEVO
-      productos: this.carrito.map(item => ({
-        codigoBarras: item.codigoBarras,
-        cantidad: item.cantidad,
-        lote: item.lote,
-        fechaCaducidad: item.fechaCaducidad,
-        costoUnitario: item.costoUnitario,
-        precioUnitario: item.precioUnitario,
-        stockMinimo: item.stockMinimo,
-        stockMaximo: item.stockMaximo,
-        promociones: item.promociones
-      }))
-    };
+      const payload: any = {
+        proveedor: this.headerForm.value.proveedor,
+        afectarExistencias,                 // ⬅️ NUEVO
+        productos: this.carrito.map(item => ({
+          codigoBarras: item.codigoBarras,
+          cantidad: item.cantidad,
+          lote: item.lote,
+          fechaCaducidad: item.fechaCaducidad,
+          costoUnitario: item.costoUnitario,
+          precioUnitario: item.precioUnitario,
+          stockMinimo: item.stockMinimo,
+          stockMaximo: item.stockMaximo,
+          promociones: item.promociones
+        }))
+      };
 
-    // ⬅️ Enviar la fecha con el nombre que espera el backend
-    if (fechaCompraIso) payload.fechaCompra = fechaCompraIso;
+      // ⬅️ Enviar la fecha con el nombre que espera el backend
+      if (fechaCompraIso) payload.fechaCompra = fechaCompraIso;
 
-    this.compraService.crearCompra(payload).subscribe({
-      next: () => {
-        Swal.hideLoading();
-        Swal.fire('Compra registrada', 'Se guardó correctamente.', 'success');
-        this.resetCompras();
-      },
-      error: err => {
-        Swal.hideLoading();
-        console.error(err);
-        Swal.fire('Error', 'No se pudo registrar la compra.', 'error');
-      }
+      this.compraService.crearCompra(payload).subscribe({
+        next: () => {
+          Swal.hideLoading();
+          Swal.fire('Compra registrada', 'Se guardó correctamente.', 'success');
+          this.resetCompras();
+        },
+        error: err => {
+          Swal.hideLoading();
+          console.error(err);
+          Swal.fire('Error', 'No se pudo registrar la compra.', 'error');
+        }
+      });
     });
-  });
-}
-
-
+  }
 
   resetCompras(): void {
     this.headerForm.reset();
@@ -398,4 +397,78 @@ onRegistrarCompra(): void {
     const f = new Date(fecha);
     return f.toISOString().substring(0, 10);
   }
+
+  onProdInput(q: string) {
+    this.prodInput$.next(q);
+  }
+
+  async selectProd(p: any, prodInput?: HTMLInputElement) {
+    this.prodSel = p;
+    this.prodOpts = [];
+    if (prodInput) { prodInput.value = ''; }
+
+    this.cargandoProducto = true;
+    await new Promise(r => setTimeout(r, 50));
+
+    const produ = this.productos.find(prod => prod.codigoBarras === p.codigoBarras);
+    
+    if (!produ) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'No encontrado',
+        text: `Producto con código ${p.codigoBarras} no existe.`,
+        confirmButtonText: 'Aceptar'
+      });
+      this.limpiarProducto();
+      return;
+    }
+
+    this.applyProducto(produ);
+  }
+
+
+  /** Rellena el formulario/estado con un producto encontrado (por CB o por sugerencia) */
+  private applyProducto(prod: any) {
+    if (!prod) return;
+
+    this.nombreProducto = prod.nombre || '';
+    this.codBarras = prod.codigoBarras || '';
+    this.productoEncontrado = !!this.nombreProducto;
+    this.cargandoProducto = false;
+
+    // Deshabilita el input de CB para evitar cambios accidentales
+    this.itemForm.get('codigoBarras')?.setValue(this.codBarras);
+    this.itemForm.get('codigoBarras')?.disable();
+
+    const tipo = this.detectarTipoPromocion(prod);
+
+    this.itemForm.patchValue({
+      nombre: prod.nombre,
+      codBarras: this.codBarras,
+      cantidad: 1,
+      lote: '',
+      caducidadMMAAAA: '',
+      fechaCaducidad: null,
+      costoUnitario: prod.costo ?? 0,
+      precioUnitario: prod.precio ?? 0,
+      stockMinimo: prod.stockMinimo ?? 1,
+      stockMaximo: prod.stockMaximo ?? 1,
+      promociones: {
+        tipoPromocion: tipo,
+        promoCantidadRequerida: prod.promoCantidadRequerida ?? null,
+        inicioPromoCantidad: this.toDate(prod.inicioPromoCantidad),
+        finPromoCantidad: this.toDate(prod.finPromoCantidad),
+        promoDeTemporada: {
+          porcentaje: prod.promoDeTemporada?.porcentaje ?? null,
+          inicio: this.toDate(prod.promoDeTemporada?.inicio),
+          fin: this.toDate(prod.promoDeTemporada?.fin),
+          monedero: prod.promoDeTemporada?.monedero ?? false
+        },
+        descuentoINAPAM: prod.descuentoINAPAM ?? false,
+        ...this.mapDiasSemana(prod)
+      }
+    });
+  }
+
+
 }

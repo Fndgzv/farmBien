@@ -41,15 +41,42 @@
             <span *ngIf="nombreProducto.length > 0" class="producto-nombre">{{ nombreProducto }}</span>
         </div>
 
+        <div class="buscar" *ngIf="!productoEncontrado">
+            <label>
+                Buscar producto (nombre o código):
+                <div class="suggest-wrap">
+                    <input type="text" [disabled]="cargandoProducto" placeholder="Escribe al menos 2 caracteres"
+                        (input)="onProdInput(($any($event.target).value || '').trim())" />
+
+                    <!-- Panel de sugerencias -->
+                    <div class="suggest-panel" *ngIf="prodOpts.length">
+                        <div class="suggest-grid">
+                            <button type="button" class="suggest-item" *ngFor="let p of prodOpts"
+                                (click)="selectProd(p)">
+                                <div class="suggest-title">{{ p.nombre || '(sin nombre)' }}</div>
+                                <div class="suggest-sub">{{ p.codigoBarras || '—' }}</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </label>
+        </div>
+
+
         <div class="detalles-producto" *ngIf="nombreProducto.length > 0">
             <label style="width: 10%;">Cantidad: <input type="number" formControlName="cantidad" min="1" /></label>
-            <label style="width: 10%;">Lote: <input type="text" formControlName="lote" /></label>
-            <div class="field-stack" style="width: 18rem;">
-                <label style="width: 10%;" for="caducidadMMAAAA">Caducidad:</label>
+            <label style="width: 10%;">Lote:
+                <input type="text" formControlName="lote" placeholder="Solo A-Z y 0-9" />
+            </label>
 
-                <input id="caducidadMMAAAA" type="text" inputmode="numeric" maxlength="6"
-                    formControlName="caducidadMMAAAA" placeholder="mmaaaa" autocomplete="off"
-                    (blur)="itemForm.get('caducidadMMAAAA')?.markAsTouched()" />
+            <div class="field-stack" style="width: 18rem;">
+                <label style="width: 10%;" for="caducidadMMYY">Caducidad:</label>
+
+                <input id="caducidadMMYY" type="text" inputmode="numeric" maxlength="4"
+                    formControlName="caducidadMMAAAA" 
+                placeholder="mmAA"
+                autocomplete="off"
+                (blur)="itemForm.get('caducidadMMAAAA')?.markAsTouched()" />
 
                 <!-- ayuda -->
                 <small class="field-help text-muted" *ngIf="itemForm.value.fechaCaducidad">
@@ -59,7 +86,7 @@
                 <!-- error -->
                 <div class="field-error"
                     *ngIf="itemForm.get('caducidadMMAAAA')?.invalid && itemForm.get('caducidadMMAAAA')?.touched">
-                    Fecha inválida. Escribe mmaaaa.
+                    Fecha inválida. Escribe <strong>mmAA</strong> (p. ej. 0925 → 2025-09-30).
                 </div>
             </div>
 
@@ -319,11 +346,11 @@
 
     <!-- BOTONES DE ACCIÓN -->
     <div class="acciones">
-        <button class="btn-rojo" (click)="carrito = []; total = 0" [disabled]="!carrito.length"
+        <button class="btn-rojo" (click)="carrito = []; total = 0" [disabled]="!carrito.length || estaEditandoPromos"
             matTooltip="Cancelar toda la compra">Cancelar
         </button>
         <button class="btn-gris" (click)="onRegistrarCompra()" matTooltip="Registrar la compra completa"
-            [disabled]="!carrito.length || headerForm.invalid">Registrar Compra
+            [disabled]="!carrito.length || headerForm.invalid || estaEditandoPromos">Registrar Compra
         </button>
     </div>
 
