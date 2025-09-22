@@ -8,7 +8,15 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const escapeRegex = (s='') => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Convierte "12345" -> /1\D*2\D*3\D*4\D*5/i  (permite guiones/espacios entre dígitos)
+function digitsLooseRegex(digits) {
+  const d = String(digits || '').replace(/\D/g, '');
+  if (d.length < 3) return null; // mínimo 3 dígitos para CB
+  const pattern = d.split('').map(ch => escapeRegex(ch)).join('\\D*');
+  return new RegExp(pattern, 'i');
+}
 
 const moment = require('moment');
 
@@ -634,26 +642,37 @@ const validarProducto = (prod) => {
   return { valido: true };
 }
 
+// controllers/productoController.js
 exports.searchProductos = async (req, res) => {
   try {
-    const { q = '', limit = 12 } = req.query;
-    const term = String(q).trim();
-    if (term.length < 2) return res.json([]);
+    const { q = '', limit = 50 } = req.query;
+    const termRaw = String(q || '').trim();
+    if (termRaw.length < 2) return res.json([]);
 
-    const isCode = /^\d[\d\s-]{5,}$/.test(term);
     const or = [];
 
-    if (isCode) or.push({ codigoBarras: term });
-    or.push({ nombre: { $regex: escapeRegex(term), $options: 'i' } });
+    // nombre: subcadena insensible a mayúsculas
+    const nameRx = new RegExp(escapeRegex(termRaw), 'i');
+    or.push({ nombre: { $regex: nameRx } });
+
+    // código de barras: secuencia de dígitos tolerante a separadores
+    const cbRx = digitsLooseRegex(termRaw);
+    if (cbRx) {
+      // Dos variantes: tolerante y directo (por si el CB está “limpio”)
+      or.push({ codigoBarras: { $regex: cbRx } });
+      or.push({ codigoBarras: { $regex: new RegExp(escapeRegex(termRaw.replace(/\D/g, '')), 'i') } });
+    }
 
     const items = await Producto.find({ $or: or })
-      .select('_id codigoBarras nombre')
-      .limit(Number(limit) || 12);
+      .select('_id nombre codigoBarras categoria unidad')
+      .sort({ nombre: 1 })
+      .limit(Number(limit) || 50)
+      .lean();
 
-    res.json(items);
+    return res.json(items);
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, mensaje: 'Error en búsqueda de productos' });
+    console.error('[searchProductos][ERROR]', e);
+    return res.status(500).json({ ok:false, mensaje:'Error en búsqueda de productos' });
   }
 };
 

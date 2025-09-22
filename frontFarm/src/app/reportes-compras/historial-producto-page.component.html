@@ -1,0 +1,181 @@
+<div class="container-fluid">
+    <h4 class="titulo text-center">Historial de compras por producto</h4>
+
+    <!-- Filtros -->
+    <form [formGroup]="filtroForm">
+        <div class="row g-2 align-items-end filtros">
+
+            <div class="col-md-2">
+                <label class="form-label">Fecha inicio</label>
+                <input type="date" class="form-control" formControlName="fechaIni" [disabled]="cargando">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fecha fin</label>
+                <input type="date" class="form-control" formControlName="fechaFin" [disabled]="cargando">
+            </div>
+
+            <!-- Producto con sugerencias -->
+            <div class="col-md-4 position-relative">
+                <label class="form-label">Producto</label>
+                <input #prodInput type="text" class="form-control" placeholder="Nombre o código de barras"
+                    [disabled]="cargando || !!prodSel" (input)="onProdInput($any($event.target).value)">
+                <div class="suggest-panel" *ngIf="prodOpts.length && !prodSel">
+                    <button type="button" class="suggest-item" *ngFor="let p of prodOpts" (click)="selectProd(p)">
+                        <div class="fw-semibold">{{ p.nombre || '(sin nombre)' }}</div>
+                        <small class="text-muted">CB: {{ p.codigoBarras || '—' }}</small>
+                    </button>
+                </div>
+                <div class="mt-1 d-flex align-items-center gap-2 flex-wrap" *ngIf="prodSel">
+                    <span class="badge bg-success-subtle text-success border mb-0">
+                        {{ prodSel.nombre }}
+                        <span *ngIf="prodSel.codigoBarras">· {{ prodSel.codigoBarras }}</span>
+                    </span>
+                    <button class="btn btn-link btn-sm p-0" type="button" (click)="clearProd(prodInput)">Borrar</button>
+                </div>
+                <input type="hidden" formControlName="productoId">
+            </div>
+
+            <!-- Proveedor -->
+            <div class="col-md-3">
+                <label class="form-label">Proveedor</label>
+                <select class="form-select" formControlName="proveedorId" [disabled]="cargando">
+                    <option value="">(Todos)</option>
+                    <option *ngFor="let p of proveedores" [value]="p._id">{{ p.nombre }}</option>
+                </select>
+            </div>
+
+            <!-- Usuario -->
+            <div class="col-md-2">
+                <label class="form-label">Usuario</label>
+                <select class="form-select" formControlName="usuarioId" [disabled]="cargando">
+                    <option value="">(Todos)</option>
+                    <option *ngFor="let u of usuarios" [value]="u._id">{{ u.nombre }}</option>
+                </select>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-2">
+                    <label class="form-label">Lote</label>
+                    <input class="form-control" formControlName="lote" placeholder="Contiene..." [disabled]="cargando">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Caducidad desde</label>
+                    <input type="date" class="form-control" formControlName="cadIni" [disabled]="cargando">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Caducidad hasta</label>
+                    <input type="date" class="form-control" formControlName="cadFin" [disabled]="cargando">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Renglones x Página</label>
+                    <select class="form-select" [(ngModel)]="limit" [ngModelOptions]="{standalone:true}"
+                        [disabled]="cargando" (change)="buscar()">
+                        <option [ngValue]="25">25</option>
+                        <option [ngValue]="50">50</option>
+                        <option [ngValue]="100">100</option>
+                        <option [ngValue]="200">200</option>
+                    </select>
+                </div>
+                <div class="col-auto ms-auto" style="margin-top: 1.3rem;">
+                    <button class="btn-rojo" type="button" (click)="limpiar(prodInput)"><i
+                            class="fas fa-times"></i></button>
+                    <button class="btn-gris" style="margin-left: 8rem;" type="button" (click)="buscar()">Buscar</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="d-flex justify-content-end mb-2 mt-2">
+        <button class="btn-amarillo" (click)="exportCsv()" [disabled]="!rows.length">Exportar CSV</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="tabla w-100">
+            <thead>
+                <tr>
+                    <th *ngFor="let h of headers" (click)="onHeaderClick(h)" [class.sortable]="h.label !== 'CB'"
+                        [attr.aria-sort]="orden===h.key ? (dir==='asc' ? 'ascending' : 'descending') : 'none'">
+                        <div class="d-flex align-items-center gap-1">
+                            <span>{{ h.label }}</span>
+                            <span class="sort-icon" *ngIf="h.label !== 'CB'">
+                                <ng-container *ngIf="orden === h.key">
+                                    <span *ngIf="dir==='asc'">▲</span>
+                                    <span *ngIf="dir==='desc'">▼</span>
+                                </ng-container>
+                                <ng-container *ngIf="orden !== h.key">
+                                    <span class="text-muted">⇅</span>
+                                </ng-container>
+                            </span>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr *ngFor="let r of rows">
+                    <td *ngFor="let h of headers" [class.text-end]="h.right">
+                        {{ formatCell(h, r) }}
+                    </td>
+                </tr>
+
+                <tr *ngIf="!rows.length">
+                    <td class="text-center text-muted" [attr.colspan]="headers.length">Sin datos</td>
+                </tr>
+            </tbody>
+
+            <tfoot *ngIf="resp?.footer as f">
+                <tr class="fw-semibold">
+                    <td class="text-end" colspan="6">Num. de Compras:
+                        {{ (f.compras ?? 0) | number:'1.0-0' }}
+                    </td>
+                    <td class="text-end"> Prom.
+                        {{ (f.costoUnitProm ?? 0) | currency }}
+                    </td>
+                    <td class="text-end">
+                        {{ (f.piezas ?? 0) | number:'1.0-0' }}
+                    </td>
+                    <td class="text-end">
+                        {{ (f.costoTotal ?? 0) | currency }}
+                    </td>
+                    <td class="text-end"> Prom.
+                        {{ (f.precioUnitProm ?? 0) | currency }}
+                    </td>
+                </tr>
+            </tfoot>
+
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    <nav class="mt-2 paginacion" *ngIf="totalPages > 1">
+        <ul class="pagination pagination-sm mb-0 justify-content-center">
+            <li [class.disabled]="!canPrev()">
+                <button (click)="goFirst()" [disabled]="!canPrev()">
+                    <i class="fa fa-angle-double-left"></i>
+                </button>
+            </li>
+            <li [class.disabled]="!canPrev()">
+                <button (click)="goPrev()" [disabled]="!canPrev()">
+                    <i class="fa fa-angle-left"></i>
+                </button>
+            </li>
+            <li style="margin-top: 0.5rem; margin-left: 10px; margin-right: 10px;">
+                <span> Página: {{ page }} de {{ totalPages }}</span>
+            </li>
+            <li [class.disabled]="!canNext()">
+                <button (click)="goNext()" [disabled]="!canNext()">
+                    <i class="fa fa-angle-right"></i>
+                </button>
+            </li>
+            <li [class.disabled]="!canNext()">
+                <button (click)="goLast()" [disabled]="!canNext()">
+                    <i class="fa fa-angle-double-right"></i>
+                </button>
+            </li>
+        </ul>
+    </nav>
+
+</div>

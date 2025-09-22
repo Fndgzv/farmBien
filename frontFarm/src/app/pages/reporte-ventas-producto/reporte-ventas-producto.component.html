@@ -49,13 +49,13 @@
         <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
       </div>
 
-      <div class="col-md-1 d-flex">
+      <div class="col-md-1 d-flex" style="margin-top: -10px;">
         <button type="button" class="btn-rojo compact-btn" (click)="limpiar()" [disabled]="cargando" matTooltip="Borrar filtro">
           <i class="fas fa-times"></i>
         </button>
       </div>
 
-      <div class="col-md-1 d-flex text-end">
+      <div class="col-md-1 d-flex text-end" style="margin-top: -10px;">
         <button class="btn-gris compact-btn" type="submit" [disabled]="cargando">
           {{ cargando ? 'Buscando...' : 'Buscar' }}
         </button>

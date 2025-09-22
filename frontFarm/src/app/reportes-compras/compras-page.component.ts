@@ -296,7 +296,7 @@ export class ComprasPageComponent implements OnInit {
         const isCB = /^\d[\d\s-]{5,}$/.test(query);
         if (!query || (!isCB && query.length < 2)) { this.prodOpts = []; return; }
 
-        this.svc.searchProductos(query, isCB).subscribe(list => {
+        this.svc.searchProductos(query).subscribe(list => {
             this.prodOpts = Array.isArray(list) ? list : [];
         });
     }

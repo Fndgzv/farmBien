@@ -143,6 +143,11 @@
             <span>Compras resumen<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
           </li>
         </ul>
+        <ul *ngIf="expandedSubMenu === 'compras'" class="submenu">
+          <li [routerLink]="'reportes/compras-historial-producto'" routerLinkActive="active" class="submenu-item">
+            <span>Compras x Producto<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
+          </li>
+        </ul>
       </li>
 
       <li *ngIf="userRol === 'admin'" class="has-submenu">

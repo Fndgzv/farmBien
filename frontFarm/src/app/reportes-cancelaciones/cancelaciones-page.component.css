@@ -3,6 +3,10 @@
     padding-bottom: 1rem;
 }
 
+.form-label {
+    margin-bottom: 0;
+}
+
 /* chips */
 .report-chip{
   border:1px solid #d0d7de; border-radius:9999px; padding:.375rem .75rem;

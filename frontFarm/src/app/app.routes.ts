@@ -19,6 +19,7 @@ import { ReporteResumenUtilidadesComponent } from './pages/reporte-resumen-utili
 import { ReportesUtilidadComponent } from './pages/reportes-utilidad/reportes-utilidad.component';
 import { ReporteComprasComponent } from './pages/reporte-compras/reporte-compras.component';
 import { devolucionesCatalogosResolver } from './reportes-devoluciones/devoluciones-catalogos.resolver';
+import { HistorialProductoPageComponent } from './reportes-compras/historial-producto-page.component';
 
 export const routes: Routes = [
   {
@@ -139,6 +140,9 @@ export const routes: Routes = [
         loadComponent: () => import('./reportes-compras/compras-page.component')
           .then(m => m.ComprasPageComponent)
       },
+      { 
+        path: 'reportes/compras-historial-producto',
+          component: HistorialProductoPageComponent },
       {
         path: 'reportes/cancelaciones',
         loadComponent: () => import('./reportes-cancelaciones/cancelaciones-page.component')

@@ -1,3 +1,8 @@
+
+.form-label {
+    margin-bottom: 0 !important;
+}
+
 .text-positivo {
     color: rgb(50, 83, 1);
 }

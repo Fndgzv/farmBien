@@ -1,6 +1,7 @@
 <h2 class="titulo text-center">Reportes de cancelaciones de pedidos</h2>
 <form [formGroup]="filtroForm" class="filtros" (ngSubmit)="buscar()">
     <div class="row g-2 align-items-end">
+        <div class="mb-2 row">
         <!-- Vista chips -->
         <div class="col-md-3">
             <label class="form-label d-block mb-1">Vista</label>
@@ -41,6 +42,7 @@
                     <span class="text-muted" *ngIf="u.rol"> ({{ u.rol }})</span>
                 </option>
             </select>
+        </div>
         </div>
 
         <!-- Cliente con sugerencias -->

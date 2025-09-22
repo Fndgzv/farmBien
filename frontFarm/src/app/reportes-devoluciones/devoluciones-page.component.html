@@ -106,7 +106,7 @@
         <!-- Campo real (oculto) que ya usa tu backend -->
         <input type="hidden" formControlName="productoId" />
 
-        <div class="col-md-1 ms-auto text-start" *ngIf="filtroForm.value.vista ==='resumen'">
+        <div class="col-md-1 ms-auto" *ngIf="filtroForm.value.vista ==='resumen'">
             <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando"
                 matTooltip="Limpiar filtros"><i class="fas fa-times"></i>
             </button>

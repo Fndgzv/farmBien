@@ -47,25 +47,15 @@ export class ReportesComprasService {
     );
   }
 
-// src/app/reportes-compras/reportes-compras.service.ts
-// ...
-searchProductos(q: string, byCB = false) {
-  // Tu endpoint ya soporta q numérico/código de barras. No necesitas ruta aparte
-  const url = `${environment.apiUrl}/productos/search?q=${encodeURIComponent(q)}&limit=10`;
 
-  const qLower = q.toLowerCase();
+searchProductos(q: string) {
+  const url = `${environment.apiUrl}/productos/search?q=${encodeURIComponent(q)}&limit=50`;
   return this.http.get<any>(url, { headers: this.headers() }).pipe(
-    map(resp => resp?.data ?? resp?.rows ?? resp ?? []),
-    // Filtro client-side por si el backend devuelve de más
-    map((arr: any[]) => {
-      if (/^\d[\d\s-]{5,}$/.test(q)) {
-        return arr.filter(p => String(p?.codigoBarras || '').includes(q));
-      }
-      return arr.filter(p => String(p?.nombre || '').toLowerCase().includes(qLower));
-    }),
+    map(r => r?.data ?? r?.rows ?? r ?? []),
     catchError(() => of([]))
   );
 }
+
 
 
 }

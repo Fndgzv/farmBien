@@ -3,6 +3,10 @@
     padding-bottom: 1rem;
 }
 
+.form-label {
+    margin-bottom: 0 !important;
+}
+
 .text-negativo {
     color: red
 }

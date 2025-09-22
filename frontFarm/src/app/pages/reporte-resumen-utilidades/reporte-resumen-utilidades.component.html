@@ -2,8 +2,8 @@
     <h3 class="titulo text-center">Resumen utilidades</h3>
 
     <!-- Filtros -->
-    <form [formGroup]="filtroForm" class="row align-items-end mb-2 filtros">
-        <div class="row g-2 align-items-end mb-3">
+    <form [formGroup]="filtroForm" class="row align-items-end mb-2">
+        <div class="row g-2 align-items-end mb-3 filtros">
             <div class="col-md-3">
                 <label class="form-label">Farmacia</label>
                 <select class="form-select" formControlName="farmaciaId" (change)="buscar()"

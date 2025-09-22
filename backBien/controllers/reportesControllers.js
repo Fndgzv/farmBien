@@ -7,9 +7,6 @@ const Producto = require('../models/Producto');
 const Pedido = require('../models/Pedido');
 const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
-const Cliente     = require('../models/Cliente');
-const Farmacia    = require('../models/Farmacia');
-const Usuario     = require('../models/Usuario');
 const Compra = require('../models/Compra');
 
 const { parseSortTop } = require('../utils/sort');
@@ -53,6 +50,10 @@ const {
 
 function castIdSafe(id) {
   return (id && mongoose.isValidObjectId(id)) ? new Types.ObjectId(id) : null;
+}
+
+function escapeRegex(s = '') {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Helper de comparación numérica con dirección
@@ -1319,7 +1320,7 @@ exports.devolucionesListado = async (req, res) => {
 };
 
 function parseSortCompras(orden = 'importe', dir = 'desc') {
-  const campo = ['importe','piezas','compras','margen','venta'].includes(orden) ? orden : 'importe';
+  const campo = ['importe', 'piezas', 'compras', 'margen', 'venta'].includes(orden) ? orden : 'importe';
   const sentido = (String(dir).toLowerCase() === 'asc') ? 1 : -1;
   // _id para desempate estable
   return { [campo]: sentido, _id: 1 };
@@ -1332,9 +1333,9 @@ function buildMatchesCompras(q) {
   // Match a nivel documento
   const matchDoc = { fecha: { $gte: gte, $lt: lt } };
   if (proveedorId) matchDoc.proveedor = oid(proveedorId);
-  if (usuarioId)   matchDoc.usuario   = oid(usuarioId);
+  if (usuarioId) matchDoc.usuario = oid(usuarioId);
   // Si tu Compra NO tiene farmacia, omite este filtro o agrega el campo (recomendado)
-  if (farmaciaId)  matchDoc.farmacia  = oid(farmaciaId);
+  if (farmaciaId) matchDoc.farmacia = oid(farmaciaId);
 
   // Match a nivel item
   const matchItem = {};
@@ -1348,19 +1349,20 @@ exports.comprasResumen = async (req, res) => {
   try {
     const { matchDoc, matchItem, categoria } = buildMatchesCompras(req.query);
     const orden = String(req.query.orden || 'importe').trim().toLowerCase();
-    const dir   = String(req.query.dir || 'desc').trim().toLowerCase();
-    const topN  = Math.max(1, Math.min(100, parseInt(req.query.topN, 10) || 10));
+    const dir = String(req.query.dir || 'desc').trim().toLowerCase();
+    const topN = Math.max(1, Math.min(100, parseInt(req.query.topN, 10) || 10));
     const sortTop = parseSortCompras(orden, dir);
 
     const now = new Date();
-    const plusDays = (d) => new Date(now.getTime() + d*24*60*60*1000);
+    const plusDays = (d) => new Date(now.getTime() + d * 24 * 60 * 60 * 1000);
 
     // Base items
     const base = [
       { $match: matchDoc },
       { $unwind: '$productos' },
       Object.keys(matchItem).length ? { $match: matchItem } : null,
-      { $addFields: {
+      {
+        $addFields: {
           compraId: '$_id',
           proveedor: '$proveedor',
           usuario: '$usuario',
@@ -1369,29 +1371,34 @@ exports.comprasResumen = async (req, res) => {
           costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
           venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] },
           fechaCad: '$productos.fechaCaducidad'
-      }},
+        }
+      },
     ].filter(Boolean);
 
     const facet = {
       // KPIs a nivel item
       kpisItems: [
         ...base,
-        { $group: {
+        {
+          $group: {
             _id: null,
             piezas: { $sum: '$cantidad' },
             importe: { $sum: '$costo' },
             ventaPotencial: { $sum: '$venta' },
             productosDistintosArr: { $addToSet: '$producto' },
             proveedoresDistintosArr: { $addToSet: '$proveedor' }
-        }},
-        { $project: {
+          }
+        },
+        {
+          $project: {
             _id: 0,
             piezas: 1,
             importe: 1,
             ventaPotencial: 1,
             productosDistintos: { $size: '$productosDistintosArr' },
             proveedoresDistintos: { $size: '$proveedoresDistintosArr' }
-        }}
+          }
+        }
       ],
       // KPIs a nivel documento (para #compras y total reportado)
       kpisDocs: [
@@ -1402,13 +1409,15 @@ exports.comprasResumen = async (req, res) => {
       // Top Proveedores
       topProveedores: [
         ...base,
-        { $group: {
+        {
+          $group: {
             _id: '$proveedor',
             piezas: { $sum: '$cantidad' },
             importe: { $sum: '$costo' },
             venta: { $sum: '$venta' },
             comprasIds: { $addToSet: '$compraId' }
-        }},
+          }
+        },
         { $addFields: { compras: { $size: '$comprasIds' }, margen: { $subtract: ['$venta', '$importe'] } } },
         { $sort: sortTop }, { $limit: topN },
         { $lookup: { from: 'proveedores', localField: '_id', foreignField: '_id', as: 'prov', pipeline: [{ $project: { nombre: 1, telefono: 1 } }] } },
@@ -1418,87 +1427,103 @@ exports.comprasResumen = async (req, res) => {
       // Top Productos
       topProductos: [
         ...base,
-        { $group: {
+        {
+          $group: {
             _id: '$producto',
             piezas: { $sum: '$cantidad' },
             importe: { $sum: '$costo' },
             venta: { $sum: '$venta' }
-        }},
+          }
+        },
         { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
         { $sort: sortTop }, { $limit: topN },
-        { $lookup: {
+        {
+          $lookup: {
             from: 'productos', localField: '_id', foreignField: '_id', as: 'p',
-            pipeline: [{ $project: { nombre:1, codigoBarras:1, unidad:1, categoria:1 } }]
-        }},
+            pipeline: [{ $project: { nombre: 1, codigoBarras: 1, unidad: 1, categoria: 1 } }]
+          }
+        },
         { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
         ...(categoria ? [{ $match: { 'p.categoria': categoria } }] : []),
-        { $project: {
-            _id:0, productoId:'$_id', nombre:'$p.nombre', codigoBarras:'$p.codigoBarras', unidad:'$p.unidad',
-            categoria:'$p.categoria', piezas:1, importe:1, venta:1, margen:1
-        }}
+        {
+          $project: {
+            _id: 0, productoId: '$_id', nombre: '$p.nombre', codigoBarras: '$p.codigoBarras', unidad: '$p.unidad',
+            categoria: '$p.categoria', piezas: 1, importe: 1, venta: 1, margen: 1
+          }
+        }
       ],
       // Top Categorías
       topCategorias: [
         ...base,
-        { $lookup: {
+        {
+          $lookup: {
             from: 'productos', localField: 'producto', foreignField: '_id', as: 'p',
             pipeline: [{ $project: { categoria: 1 } }]
-        }},
+          }
+        },
         { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
         ...(categoria ? [{ $match: { 'p.categoria': categoria } }] : []),
-        { $group: {
+        {
+          $group: {
             _id: '$p.categoria',
             piezas: { $sum: '$cantidad' },
             importe: { $sum: '$costo' },
             venta: { $sum: '$venta' }
-        }},
+          }
+        },
         { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
         { $sort: sortTop }, { $limit: topN },
-        { $project: { _id:0, categoria:'$_id', piezas:1, importe:1, venta:1, margen:1 } }
+        { $project: { _id: 0, categoria: '$_id', piezas: 1, importe: 1, venta: 1, margen: 1 } }
       ],
       // Top Usuarios (quién registró)
       topUsuarios: [
         ...base,
-        { $group: {
+        {
+          $group: {
             _id: '$usuario',
             piezas: { $sum: '$cantidad' },
             importe: { $sum: '$costo' },
             venta: { $sum: '$venta' }
-        }},
+          }
+        },
         { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
         { $sort: sortTop }, { $limit: topN },
         { $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline: [{ $project: { nombre: 1 } }] } },
         { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
-        { $project: { _id:0, usuarioId:'$_id', nombre:'$u.nombre', piezas:1, importe:1, venta:1, margen:1 } }
+        { $project: { _id: 0, usuarioId: '$_id', nombre: '$u.nombre', piezas: 1, importe: 1, venta: 1, margen: 1 } }
       ],
       // Caducidad (30/60/90 días)
       caducidades: [
         ...base,
-        { $addFields: {
+        {
+          $addFields: {
             diasACaducar: {
               $cond: [
                 '$fechaCad',
-                { $divide: [{ $subtract: ['$fechaCad', new Date()] }, 1000*60*60*24] },
+                { $divide: [{ $subtract: ['$fechaCad', new Date()] }, 1000 * 60 * 60 * 24] },
                 null
               ]
             }
-        }},
-        { $group: {
+          }
+        },
+        {
+          $group: {
             _id: null,
             piezas30: { $sum: { $cond: [{ $lte: ['$fechaCad', plusDays(30)] }, '$cantidad', 0] } },
             piezas60: { $sum: { $cond: [{ $lte: ['$fechaCad', plusDays(60)] }, '$cantidad', 0] } },
             piezas90: { $sum: { $cond: [{ $lte: ['$fechaCad', plusDays(90)] }, '$cantidad', 0] } },
             avgDias: { $avg: '$diasACaducar' }
-        }},
-        { $project: { _id:0, piezas30:1, piezas60:1, piezas90:1, avgDias: { $round: ['$avgDias', 1] } } }
+          }
+        },
+        { $project: { _id: 0, piezas30: 1, piezas60: 1, piezas90: 1, avgDias: { $round: ['$avgDias', 1] } } }
       ],
     };
 
     const data = await Compra.aggregate([{ $facet: facet }]);
     const f = data?.[0] || {};
 
-    const kItems = f.kpisItems?.[0] || { piezas:0, importe:0, ventaPotencial:0, productosDistintos:0, proveedoresDistintos:0 };
-    const kDocs  = f.kpisDocs?.[0]  || { numCompras:0, totalDocs:0 };
+    const kItems = f.kpisItems?.[0] || { piezas: 0, importe: 0, ventaPotencial: 0, productosDistintos: 0, proveedoresDistintos: 0 };
+    const kDocs = f.kpisDocs?.[0] || { numCompras: 0, totalDocs: 0 };
     const ticketProm = kDocs.numCompras > 0 ? (kItems.importe / kDocs.numCompras) : 0;
     const cpp = kItems.piezas > 0 ? (kItems.importe / kItems.piezas) : 0;
     const margen = kItems.ventaPotencial - kItems.importe;
@@ -1518,7 +1543,7 @@ exports.comprasResumen = async (req, res) => {
         proveedoresDistintos: kItems.proveedoresDistintos,
         productosDistintos: kItems.productosDistintos,
       },
-      caducidades: f.caducidades?.[0] || { piezas30:0, piezas60:0, piezas90:0, avgDias:null },
+      caducidades: f.caducidades?.[0] || { piezas30: 0, piezas60: 0, piezas90: 0, avgDias: null },
       topProveedores: f.topProveedores || [],
       topProductos: f.topProductos || [],
       topCategorias: f.topCategorias || [],
@@ -1541,24 +1566,28 @@ exports.comprasPorProveedor = async (req, res) => {
       { $match: matchDoc },
       { $unwind: '$productos' },
       Object.keys(matchItem).length ? { $match: matchItem } : null,
-      { $addFields: {
+      {
+        $addFields: {
           proveedor: '$proveedor',
           cantidad: '$productos.cantidad',
           costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
           venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] }
-      }},
-      { $group: {
+        }
+      },
+      {
+        $group: {
           _id: '$proveedor',
           piezas: { $sum: '$cantidad' },
           importe: { $sum: '$costo' },
           venta: { $sum: '$venta' },
           comprasIds: { $addToSet: '$_id' }
-      }},
+        }
+      },
       { $addFields: { compras: { $size: '$comprasIds' }, margen: { $subtract: ['$venta', '$importe'] } } },
       { $sort: sortTop }, { $limit: top },
-      { $lookup: { from: 'proveedores', localField: '_id', foreignField: '_id', as: 'prov', pipeline:[{ $project:{ nombre:1, telefono:1 } }] } },
+      { $lookup: { from: 'proveedores', localField: '_id', foreignField: '_id', as: 'prov', pipeline: [{ $project: { nombre: 1, telefono: 1 } }] } },
       { $unwind: { path: '$prov', preserveNullAndEmptyArrays: true } },
-      { $project: { _id:0, proveedorId:'$_id', nombre:'$prov.nombre', telefono:'$prov.telefono', piezas:1, importe:1, compras:1, venta:1, margen:1 } }
+      { $project: { _id: 0, proveedorId: '$_id', nombre: '$prov.nombre', telefono: '$prov.telefono', piezas: 1, importe: 1, compras: 1, venta: 1, margen: 1 } }
     ].filter(Boolean));
 
     return res.json({ rows });
@@ -1578,19 +1607,21 @@ exports.comprasPorProducto = async (req, res) => {
       { $match: matchDoc },
       { $unwind: '$productos' },
       Object.keys(matchItem).length ? { $match: matchItem } : null,
-      { $addFields: {
+      {
+        $addFields: {
           producto: '$productos.producto',
           cantidad: '$productos.cantidad',
           costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
           venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] }
-      }},
+        }
+      },
       { $group: { _id: '$producto', piezas: { $sum: '$cantidad' }, importe: { $sum: '$costo' }, venta: { $sum: '$venta' } } },
       { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
       { $sort: sortTop }, { $limit: top },
-      { $lookup: { from: 'productos', localField: '_id', foreignField: '_id', as: 'p', pipeline:[{ $project:{ nombre:1, codigoBarras:1, unidad:1, categoria:1 } }] } },
+      { $lookup: { from: 'productos', localField: '_id', foreignField: '_id', as: 'p', pipeline: [{ $project: { nombre: 1, codigoBarras: 1, unidad: 1, categoria: 1 } }] } },
       { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
       ...(categoria ? [{ $match: { 'p.categoria': categoria } }] : []),
-      { $project: { _id:0, productoId:'$_id', nombre:'$p.nombre', codigoBarras:'$p.codigoBarras', unidad:'$p.unidad', categoria:'$p.categoria', piezas:1, importe:1, venta:1, margen:1 } }
+      { $project: { _id: 0, productoId: '$_id', nombre: '$p.nombre', codigoBarras: '$p.codigoBarras', unidad: '$p.unidad', categoria: '$p.categoria', piezas: 1, importe: 1, venta: 1, margen: 1 } }
     ].filter(Boolean));
 
     return res.json({ rows });
@@ -1610,19 +1641,21 @@ exports.comprasPorCategoria = async (req, res) => {
       { $match: matchDoc },
       { $unwind: '$productos' },
       Object.keys(matchItem).length ? { $match: matchItem } : null,
-      { $addFields: {
+      {
+        $addFields: {
           producto: '$productos.producto',
           cantidad: '$productos.cantidad',
           costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
           venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] }
-      }},
-      { $lookup: { from: 'productos', localField: 'producto', foreignField: '_id', as: 'p', pipeline:[{ $project:{ categoria:1 } }] } },
+        }
+      },
+      { $lookup: { from: 'productos', localField: 'producto', foreignField: '_id', as: 'p', pipeline: [{ $project: { categoria: 1 } }] } },
       { $unwind: { path: '$p', preserveNullAndEmptyArrays: true } },
       ...(categoria ? [{ $match: { 'p.categoria': categoria } }] : []),
       { $group: { _id: '$p.categoria', piezas: { $sum: '$cantidad' }, importe: { $sum: '$costo' }, venta: { $sum: '$venta' } } },
       { $addFields: { margen: { $subtract: ['$venta', '$importe'] } } },
       { $sort: sortTop }, { $limit: top },
-      { $project: { _id:0, categoria:'$_id', piezas:1, importe:1, venta:1, margen:1 } }
+      { $project: { _id: 0, categoria: '$_id', piezas: 1, importe: 1, venta: 1, margen: 1 } }
     ].filter(Boolean));
 
     return res.json({ rows });
@@ -1642,18 +1675,20 @@ exports.comprasPorUsuario = async (req, res) => {
       { $match: matchDoc },
       { $unwind: '$productos' },
       Object.keys(matchItem).length ? { $match: matchItem } : null,
-      { $addFields: {
+      {
+        $addFields: {
           usuario: '$usuario',
           cantidad: '$productos.cantidad',
           costo: { $multiply: ['$productos.cantidad', '$productos.costoUnitario'] },
           venta: { $multiply: ['$productos.cantidad', '$productos.precioUnitario'] }
-      }},
+        }
+      },
       { $group: { _id: '$usuario', piezas: { $sum: '$cantidad' }, importe: { $sum: '$costo' }, venta: { $sum: '$venta' }, comprasIds: { $addToSet: '$_id' } } },
       { $addFields: { compras: { $size: '$comprasIds' }, margen: { $subtract: ['$venta', '$importe'] } } },
       { $sort: sortTop }, { $limit: top },
-      { $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline:[{ $project:{ nombre:1 } }] } },
+      { $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline: [{ $project: { nombre: 1 } }] } },
       { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
-      { $project: { _id:0, usuarioId:'$_id', nombre:'$u.nombre', piezas:1, importe:1, compras:1, venta:1, margen:1 } }
+      { $project: { _id: 0, usuarioId: '$_id', nombre: '$u.nombre', piezas: 1, importe: 1, compras: 1, venta: 1, margen: 1 } }
     ].filter(Boolean));
 
     return res.json({ rows });
@@ -1670,7 +1705,7 @@ function buildMatchCancelaciones(q) {
 
   const match = { fechaCancelacion: { $gte: gte, $lt: lt } };
   if (farmaciaId) match.farmacia = oid(farmaciaId);
-  if (usuarioId)  match.usuario  = oid(usuarioId);
+  if (usuarioId) match.usuario = oid(usuarioId);
 
   // clienteId se obtiene vía pedido.cliente → se filtra después del lookup
   const clienteOid = clienteId ? oid(clienteId) : null;
@@ -1682,13 +1717,15 @@ function buildMatchCancelaciones(q) {
 function basePipeline(match, clienteOid) {
   const p = [
     { $match: match },
-    { $lookup: {
+    {
+      $lookup: {
         from: 'pedidos',
         localField: 'pedido',
         foreignField: '_id',
         as: 'ped',
         pipeline: [{ $project: { _id: 1, cliente: 1, fechaPedido: 1, total: 1 } }]
-    }},
+      }
+    },
     { $unwind: { path: '$ped', preserveNullAndEmptyArrays: true } },
   ];
 
@@ -1733,10 +1770,10 @@ exports.cancelacionesResumen = async (req, res) => {
               $group: {
                 _id: null,
                 numCancelaciones: { $sum: 1 },
-                dineroDevuelto:   { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
-                valeDevuelto:     { $sum: { $ifNull: ['$valeDevuelto', 0] } },
-                totalDevuelto:    { $sum: { $ifNull: ['$totalDevuelto', 0] } },
-                avgDias:          { $avg: '$diasACancelar' }
+                dineroDevuelto: { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
+                valeDevuelto: { $sum: { $ifNull: ['$valeDevuelto', 0] } },
+                totalDevuelto: { $sum: { $ifNull: ['$totalDevuelto', 0] } },
+                avgDias: { $avg: '$diasACancelar' }
               }
             },
             {
@@ -1763,8 +1800,8 @@ exports.cancelacionesResumen = async (req, res) => {
               $group: {
                 _id: '$farmacia',
                 importe: { $sum: { $ifNull: ['$totalDevuelto', 0] } },
-                dinero:  { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
-                vale:    { $sum: { $ifNull: ['$valeDevuelto', 0] } },
+                dinero: { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
+                vale: { $sum: { $ifNull: ['$valeDevuelto', 0] } },
                 cancelaciones: { $sum: 1 },
                 avgDias: { $avg: '$diasACancelar' }
               }
@@ -1788,8 +1825,8 @@ exports.cancelacionesResumen = async (req, res) => {
               $group: {
                 _id: '$usuario',
                 importe: { $sum: { $ifNull: ['$totalDevuelto', 0] } },
-                dinero:  { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
-                vale:    { $sum: { $ifNull: ['$valeDevuelto', 0] } },
+                dinero: { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
+                vale: { $sum: { $ifNull: ['$valeDevuelto', 0] } },
                 cancelaciones: { $sum: 1 },
                 avgDias: { $avg: '$diasACancelar' }
               }
@@ -1814,8 +1851,8 @@ exports.cancelacionesResumen = async (req, res) => {
               $group: {
                 _id: '$ped.cliente',
                 importe: { $sum: { $ifNull: ['$totalDevuelto', 0] } },
-                dinero:  { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
-                vale:    { $sum: { $ifNull: ['$valeDevuelto', 0] } },
+                dinero: { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
+                vale: { $sum: { $ifNull: ['$valeDevuelto', 0] } },
                 cancelaciones: { $sum: 1 },
                 avgDias: { $avg: '$diasACancelar' }
               }
@@ -1862,8 +1899,8 @@ exports.cancelacionesResumen = async (req, res) => {
         porcCancelacionesSobrePedidos: porcSobrePedidos
       },
       topFarmacias: facetRow.topFarmacias ?? [],
-      topUsuarios:  facetRow.topUsuarios  ?? [],
-      topClientes:  facetRow.topClientes  ?? [],
+      topUsuarios: facetRow.topUsuarios ?? [],
+      topClientes: facetRow.topClientes ?? [],
     });
   } catch (e) {
     console.error('[cancelaciones-resumen][ERROR]', e);
@@ -1882,8 +1919,8 @@ async function agrupadoBy(field, req, res) {
 
     const groupId = (
       field === 'cliente' ? '$ped.cliente' :
-      field === 'usuario' ? '$usuario'     :
-      field === 'farmacia'? '$farmacia'    : null
+        field === 'usuario' ? '$usuario' :
+          field === 'farmacia' ? '$farmacia' : null
     );
 
     if (!groupId) return res.status(400).json({ ok: false, mensaje: 'Tipo de agrupación inválido' });
@@ -1896,8 +1933,8 @@ async function agrupadoBy(field, req, res) {
         $group: {
           _id: groupId,
           importe: { $sum: { $ifNull: ['$totalDevuelto', 0] } },
-          dinero:  { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
-          vale:    { $sum: { $ifNull: ['$valeDevuelto', 0] } },
+          dinero: { $sum: { $ifNull: ['$dineroDevuelto', 0] } },
+          vale: { $sum: { $ifNull: ['$valeDevuelto', 0] } },
           cancelaciones: { $sum: 1 },
           avgDias: { $avg: '$diasACancelar' }
         }
@@ -1907,18 +1944,30 @@ async function agrupadoBy(field, req, res) {
 
       ...(field === 'cliente'
         ? [{ $lookup: { from: 'clientes', localField: '_id', foreignField: '_id', as: 'c', pipeline: [{ $project: { nombre: 1, telefono: 1 } }] } },
-           { $unwind: { path: '$c', preserveNullAndEmptyArrays: true } },
-           { $project: { _id: 0, clienteId: '$_id', nombre: '$c.nombre', telefono: '$c.telefono',
-                         importe: 1, dinero: 1, vale: 1, cancelaciones: 1, avgDias: { $round: ['$avgDias', 2] } } }]
+        { $unwind: { path: '$c', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 0, clienteId: '$_id', nombre: '$c.nombre', telefono: '$c.telefono',
+            importe: 1, dinero: 1, vale: 1, cancelaciones: 1, avgDias: { $round: ['$avgDias', 2] }
+          }
+        }]
         : field === 'usuario'
-        ? [{ $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline: [{ $project: { nombre: 1 } }] } },
-           { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
-           { $project: { _id: 0, usuarioId: '$_id', nombre: '$u.nombre',
-                         importe: 1, dinero: 1, vale: 1, cancelaciones: 1, avgDias: { $round: ['$avgDias', 2] } } }]
-        : [{ $lookup: { from: 'farmacias', localField: '_id', foreignField: '_id', as: 'f', pipeline: [{ $project: { nombre: 1 } }] } },
-           { $unwind: { path: '$f', preserveNullAndEmptyArrays: true } },
-           { $project: { _id: 0, farmaciaId: '$_id', nombre: '$f.nombre',
-                         importe: 1, dinero: 1, vale: 1, cancelaciones: 1, avgDias: { $round: ['$avgDias', 2] } } }]
+          ? [{ $lookup: { from: 'usuarios', localField: '_id', foreignField: '_id', as: 'u', pipeline: [{ $project: { nombre: 1 } }] } },
+          { $unwind: { path: '$u', preserveNullAndEmptyArrays: true } },
+          {
+            $project: {
+              _id: 0, usuarioId: '$_id', nombre: '$u.nombre',
+              importe: 1, dinero: 1, vale: 1, cancelaciones: 1, avgDias: { $round: ['$avgDias', 2] }
+            }
+          }]
+          : [{ $lookup: { from: 'farmacias', localField: '_id', foreignField: '_id', as: 'f', pipeline: [{ $project: { nombre: 1 } }] } },
+          { $unwind: { path: '$f', preserveNullAndEmptyArrays: true } },
+          {
+            $project: {
+              _id: 0, farmaciaId: '$_id', nombre: '$f.nombre',
+              importe: 1, dinero: 1, vale: 1, cancelaciones: 1, avgDias: { $round: ['$avgDias', 2] }
+            }
+          }]
       )
     ]);
 
@@ -1929,7 +1978,208 @@ async function agrupadoBy(field, req, res) {
   }
 }
 
-exports.cancelacionesPorUsuario  = (req, res) => agrupadoBy('usuario',  req, res);
+// util peque para regex seguro
+function escapeRegex(s = '') {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function castId(id) {
+  return (id && Types.ObjectId.isValid(id)) ? new Types.ObjectId(id) : null;
+}
+
+function parseSortHist(orden = 'fecha', dir = 'desc') {
+  // map nombres de columnas a campos reales proyectados
+  const map = {
+    fecha: 'fecha',
+    proveedor: 'proveedor',          // nombre del proveedor (tras $lookup)
+    producto: 'producto',            // nombre del producto (tras $lookup)
+    lote: 'lote',
+    fechaCaducidad: 'fechaCaducidad',
+    costoUnitario: 'costoUnitario',
+    cantidad: 'cantidad',
+    costoTotal: 'costoTotal',
+    precioUnitario: 'precioUnitario',
+  };
+  const campo = map[orden] || 'fecha';
+  const sentido = (String(dir).toLowerCase() === 'asc') ? 1 : -1;
+  // desempate estable por _id
+  return { [campo]: sentido, _id: 1 };
+}
+
+
+/**
+ * GET /api/reportes/compras-historial-producto
+ * Ver historial (por filas de item) de compras donde aparece el producto
+ */
+exports.comprasHistorialProducto = async (req, res) => {
+  try {
+    const {
+      fechaIni, fechaFin,
+      productoId, q, cb,
+      proveedorId, usuarioId,
+      lote, cadIni, cadFin,
+      orden = 'fecha', dir = 'desc',
+      page = 1, limit = 50
+    } = req.query;
+
+    const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+
+    const mDoc = { fecha: { $gte: gte, $lt: lt } };
+    if (proveedorId) mDoc.proveedor = castId(proveedorId);
+    if (usuarioId) mDoc.usuario = castId(usuarioId);
+
+    // filtro por fecha de caducidad del item (opcional)
+    const cadMatch = {};
+    if (cadIni) cadMatch['productos.fechaCaducidad'] = { ...(cadMatch['productos.fechaCaducidad'] || {}), $gte: new Date(String(cadIni)) };
+    if (cadFin) cadMatch['productos.fechaCaducidad'] = { ...(cadMatch['productos.fechaCaducidad'] || {}), $lte: new Date(String(cadFin)) };
+
+    // filtro por producto:
+    // - si viene productoId → match directo a nivel item
+    // - si viene cb → filtraremos tras lookup de producto por codigoBarras
+    // - si viene q → filtraremos tras lookup por nombre
+    const prodId = castId(productoId);
+
+    // paginación
+    const pg = Math.max(1, parseInt(page, 10) || 1);
+    const lim = Math.max(1, Math.min(200, parseInt(limit, 10) || 50));
+    const skip = (pg - 1) * lim;
+
+    const sort = parseSortHist(orden, dir);
+
+    const pipeline = [
+      { $match: mDoc },
+      { $unwind: { path: '$productos', preserveNullAndEmptyArrays: false } },
+
+      // matches a nivel item
+      ...(prodId ? [{ $match: { 'productos.producto': prodId } }] : []),
+      ...(Object.keys(cadMatch).length ? [{ $match: cadMatch }] : []),
+      ...(lote ? [{ $match: { 'productos.lote': { $regex: escapeRegex(String(lote).trim()), $options: 'i' } } }] : []),
+
+      // lookups para enriquecer
+      {
+        $lookup: {
+          from: 'productos',
+          localField: 'productos.producto',
+          foreignField: '_id',
+          as: 'prod',
+          pipeline: [{ $project: { nombre: 1, codigoBarras: 1 } }]
+        }
+      },
+      { $unwind: { path: '$prod', preserveNullAndEmptyArrays: true } },
+
+      // si vienen q / cb, filtra por los campos del producto
+      ...(cb ? [{ $match: { 'prod.codigoBarras': String(cb).trim() } }] : []),
+      ...(q ? [{ $match: { 'prod.nombre': { $regex: escapeRegex(String(q).trim()), $options: 'i' } } }] : []),
+
+      {
+        $lookup: {
+          from: 'proveedores',
+          localField: 'proveedor',
+          foreignField: '_id',
+          as: 'prov',
+          pipeline: [{ $project: { nombre: 1 } }]
+        }
+      },
+      { $unwind: { path: '$prov', preserveNullAndEmptyArrays: true } },
+
+      // proyección “tabla”
+      {
+        $project: {
+          _id: 1,
+          fecha: 1,
+          proveedorId: '$proveedor',
+          proveedor: { $ifNull: ['$prov.nombre', '(sin proveedor)'] },
+
+          productoId: '$productos.producto',
+          producto: { $ifNull: ['$prod.nombre', '(sin producto)'] },
+          codigoBarras: { $ifNull: ['$prod.codigoBarras', ''] },
+
+          lote: '$productos.lote',
+          fechaCaducidad: '$productos.fechaCaducidad',
+
+          costoUnitario: { $ifNull: ['$productos.costoUnitario', 0] },
+          cantidad: { $ifNull: ['$productos.cantidad', 0] },
+          costoTotal: {
+            $round: [
+              {
+                $multiply: [
+                  { $ifNull: ['$productos.costoUnitario', 0] },
+                  { $ifNull: ['$productos.cantidad', 0] }
+                ]
+              }, 2
+            ]
+          },
+          precioUnitario: { $ifNull: ['$productos.precioUnitario', 0] }
+        }
+      },
+
+      { $sort: sort },
+
+      // facet para total + paginación + sumas
+      {
+        $facet: {
+          total: [{ $count: 'n' }],
+          rows: [{ $skip: skip }, { $limit: lim }],
+          sums: [{
+            $group: {
+              _id: null,
+              compras: { $sum: 1 },
+              piezas: { $sum: '$cantidad' },
+              costoTotal: { $sum: '$costoTotal' },
+              costoUnitSum: { $sum: '$costoUnitario' },
+              precioUnitSum: { $sum: '$precioUnitario' }
+            }
+          }]
+        }
+      }
+    ];
+
+    const agg = await Compra.aggregate(pipeline).collation({ locale: 'es', strength: 1 });
+    const facet = agg?.[0] || {}; const total = facet.total?.[0]?.n || 0;
+    const rows = facet.rows || [];
+    const sums = facet.sums?.[0] || { compras: 0, piezas: 0, costoTotal: 0, costoUnitSum: 0, precioUnitSum: 0 };
+
+    const totalItems = sums.compras || 0; // es el conteo global de renglones (items)
+    const costoUnitProm = totalItems ? (sums.costoUnitSum / totalItems) : 0;
+    const precioUnitProm = totalItems ? (sums.precioUnitSum / totalItems) : 0;
+
+    return res.json({
+      ok: true,
+      rango: { fechaIni: gte, fechaFin: lt },
+      filtros: {
+        productoId: prodId ? String(prodId) : null,
+        q: q || null, cb: cb || null,
+        proveedorId: proveedorId || null,
+        usuarioId: usuarioId || null,
+        lote: lote || null,
+        cadIni: cadIni || null, cadFin: cadFin || null,
+        orden, dir
+      },
+      page: pg,
+      limit: lim,
+      total,
+      pages: Math.ceil(total / lim),
+      columns: [
+        'Fecha', 'Proveedor', 'Producto', 'CB', 'Lote', 'Caducidad',
+        'Costo Unit.', 'Cantidad', 'Costo Total', 'Precio Unit.'
+      ],
+      rows,
+      footer: {
+        compras: sums.compras || 0,
+        piezas: sums.piezas || 0,
+        costoTotal: Math.round((sums.costoTotal || 0) * 100) / 100,
+        costoUnitProm: Math.round(costoUnitProm * 100) / 100,
+        precioUnitProm: Math.round(precioUnitProm * 100) / 100
+      }
+    });
+  } catch (e) {
+    console.error('[comprasHistorialProducto][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al generar historial de compras por producto' });
+  }
+};
+
+
+exports.cancelacionesPorUsuario = (req, res) => agrupadoBy('usuario', req, res);
 exports.cancelacionesPorFarmacia = (req, res) => agrupadoBy('farmacia', req, res);
-exports.cancelacionesPorCliente  = (req, res) => agrupadoBy('cliente',  req, res);
+exports.cancelacionesPorCliente = (req, res) => agrupadoBy('cliente', req, res);
 
