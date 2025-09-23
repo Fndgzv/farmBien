@@ -133,9 +133,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   clienteNombreCtrl = new FormControl<string | any>({ value: '', disabled: false });
   filteredClientes$: Observable<any[]> = of([]);
 
-  private sinAcentos(s: string) {
-    return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  }
 
   // Helpers numéricos
   private toNum(v: any): number {
@@ -584,6 +581,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.aplicaInapam = false;
     this.cliente = '';
     this.captionButtomReanudar = '';
+    this.ventaForm.controls['cliente'].setValue('');
+    this.hayCliente = false;
+
     this.syncClienteCtrlDisabled();
     this.focusBarcode();
   }
@@ -776,8 +776,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.tipoDescuento = "";
     this.cadDesc = '';
     this.ptjeDescuento = 0;
-
-    console.log('Hay cliente>>>', this.hayCliente);
 
     this.productoAplicaMonedero = this.hayCliente;
 

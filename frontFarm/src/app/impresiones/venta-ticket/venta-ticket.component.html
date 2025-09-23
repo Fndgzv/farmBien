@@ -72,10 +72,10 @@
     <div *ngIf="venta.totalDescuento > 0">Usted ahorró:
       <strong>${{ venta.totalDescuento | number:'1.2-2' }}</strong>
     </div>
-    <div *ngIf="venta.totalMonederoCliente > 0">Abonó a su monedero:
+    <div *ngIf="venta.totalMonederoCliente > 0 && venta.cliente">Abonó a su monedero:
       <strong>${{ venta.totalMonederoCliente | number:'1.2-2' }}</strong>
     </div>
-    <div *ngIf="venta.AsiQuedaMonedero > 0">Su monedero ahora cuenta con:
+    <div *ngIf="venta.AsiQuedaMonedero > 0 && venta.cliente">Su monedero ahora cuenta con:
       <strong>${{ venta.AsiQuedaMonedero | number:'1.2-2' }}</strong>
     </div>
   </div>
