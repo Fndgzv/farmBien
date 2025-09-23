@@ -63,5 +63,6 @@ const ClienteSchema = new mongoose.Schema({
 // Índices para optimizar búsquedas
 ClienteSchema.index({ "historialCompras.producto": 1, "historialCompras.fechaCompra": 1 });
 ClienteSchema.index({ nombre: 1 });
+ClienteSchema.index({ totalMonedero: 1 });
 
 module.exports = mongoose.model("Cliente", ClienteSchema);

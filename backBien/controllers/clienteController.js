@@ -177,26 +177,38 @@ const okId = id => mongoose.isValidObjectId(id);
 
 // Listar clientes con paginación y filtro por nombre
 exports.listarClientes = async (req, res) => {
-
   try {
     const {
-      q = "",      // filtro por nombre
-      page = 1,    // página
-      limit = 20   // documentos por página
+      q = "",           // filtro por nombre
+      page = 1,         // página
+      limit = 20,       // documentos por página
+      sortBy = "nombre",// "nombre" | "totalMonedero"
+      sortDir = "asc"   // "asc" | "desc"
     } = req.query;
 
-    const filtro = q
-      ? { nombre: { $regex: q, $options: "i" } } // búsqueda case-insensitive
-      : {};
+    const pageNum  = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
+    const skip     = (pageNum - 1) * limitNum;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Filtro por nombre (case-insensitive)
+    const filtro = q ? { nombre: { $regex: String(q), $options: "i" } } : {};
+
+    // Validación y armado de sort
+    const allowed = new Set(["nombre", "totalMonedero"]);
+    const sortField = allowed.has(String(sortBy)) ? String(sortBy) : "nombre";
+    const dir = String(sortDir).toLowerCase() === "desc" ? -1 : 1;
+
+    // Tiebreaker: si ordenas por totalMonedero, empatados se ordenan por nombre asc
+    const sortObj = { [sortField]: dir, ...(sortField !== "nombre" ? { nombre: 1 } : {}) };
 
     const [rows, total] = await Promise.all([
       Cliente.find(filtro)
-        .sort({ nombre: 1 }) // ordenar alfabéticamente asc
+        .collation({ locale: "es", strength: 1 })   // orden alfabético español para 'nombre'
+        .sort(sortObj)
         .skip(skip)
-        .limit(parseInt(limit))
-        .select("nombre telefono email domicilio totalMonedero"),
+        .limit(limitNum)
+        .select("nombre telefono email domicilio totalMonedero")
+        .lean(),
       Cliente.countDocuments(filtro)
     ]);
 
@@ -204,8 +216,10 @@ exports.listarClientes = async (req, res) => {
       rows,
       paginacion: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit)
+        page: pageNum,
+        limit: limitNum,
+        sortBy: sortField,
+        sortDir: dir === 1 ? "asc" : "desc"
       }
     });
   } catch (error) {
@@ -213,6 +227,7 @@ exports.listarClientes = async (req, res) => {
     res.status(500).json({ mensaje: "Error al listar clientes" });
   }
 };
+
 
 // ===== ALTA RÁPIDA =====
 exports.crearClienteBasico = async (req, res) => {

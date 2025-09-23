@@ -96,11 +96,19 @@ export class ClienteService {
     return this.http.get<Cliente[]>(`${this.apiUrl}`);
   }
 
-  listar(params: any): Observable<any> {
-    const token = localStorage.getItem('auth_token') || '';
-    const headers = token ? new HttpHeaders({ 'x-auth-token': token }) : undefined;
-    return this.http.get(this.apiUrl, { params, headers });
+
+  listar(params: { q?: string; page?: number; limit?: number; sortBy?: string; sortDir?: string }) {
+    let httpParams = new HttpParams()
+      .set('page', String(params.page ?? 1))
+      .set('limit', String(params.limit ?? 20));
+
+    if (params.q) httpParams = httpParams.set('q', params.q);
+    if (params.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
+    if (params.sortDir) httpParams = httpParams.set('sortDir', params.sortDir);
+
+    return this.http.get(this.apiUrl, { params: httpParams });
   }
+
 
   crear(data: any): Observable<any> {
     return this.http.post(this.apiUrl, data);

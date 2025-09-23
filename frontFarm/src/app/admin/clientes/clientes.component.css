@@ -191,3 +191,12 @@
     color: blueviolet;
     line-height: 1.1;
 }
+
+.btn-orden {
+  border: 0;
+  background: transparent;
+  padding: 0 .25rem;
+  cursor: pointer;
+}
+.btn-orden:disabled { opacity: .5; cursor: default; }
+.btn-orden.limpiar { margin-left: .25rem; }

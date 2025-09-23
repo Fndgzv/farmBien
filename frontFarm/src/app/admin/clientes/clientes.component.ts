@@ -180,31 +180,64 @@ export class ClientesComponent implements OnInit {
 
     this.fetchSubtabla(clienteId, tipo as any, key);
   }
-buscar(): void {
-  this.cargando = true;
-  this.clienteSrv.listar({ q: this.filtro, page: this.page, limit: this.limit })
-    .subscribe({
-      next: (resp: any) => {
-        const rows  = resp?.rows ?? [];
-        const total = resp?.paginacion?.total ?? 0;
-        const page  = resp?.paginacion?.page  ?? this.page;
-        const limit = resp?.paginacion?.limit ?? this.limit;
 
-        this.clientes = rows;                            // <— solo array
-        this.paginacion = { total, page, limit };
-        this.totalDocs = total;
+  buscar(): void {
+    this.cargando = true;
 
-        this.cargando = false;
-        this.table?.renderRows?.();
-      },
-      error: _ => {
-        this.clientes = [];
-        this.paginacion = { total: 0, page: 1, limit: this.limit };
-        this.totalDocs = 0;
-        this.cargando = false;
-      }
-    });
-}
+    const baseParams: any = { q: this.filtro, page: this.page, limit: this.limit };
+
+    // Solo mandamos sort si es por totalMonedero; por nombre es el default del back
+    const sortParams = (this.sortBy === 'totalMonedero')
+      ? { sortBy: 'totalMonedero', sortDir: this.sortDir }
+      : {};
+
+    this.clienteSrv.listar({ ...baseParams, ...sortParams })
+      .subscribe({
+        next: (resp: any) => {
+          const rows = resp?.rows ?? [];
+          const total = resp?.paginacion?.total ?? 0;
+          const page = resp?.paginacion?.page ?? this.page;
+          const limit = resp?.paginacion?.limit ?? this.limit;
+
+          this.clientes = rows;
+          this.paginacion = { total, page, limit };
+          this.totalDocs = total;
+
+          this.cargando = false;
+          this.table?.renderRows?.();
+        },
+        error: _ => {
+          this.clientes = [];
+          this.paginacion = { total: 0, page: 1, limit: this.limit };
+          this.totalDocs = 0;
+          this.cargando = false;
+        }
+      });
+  }
+
+  // Estado de orden
+  sortBy: 'nombre' | 'totalMonedero' = 'nombre';
+  sortDir: 'asc' | 'desc' = 'asc';
+
+  // Toggle en la columna Monedero
+  toggleMonederoSort(): void {
+    if (this.sortBy !== 'totalMonedero') {
+      this.sortBy = 'totalMonedero';
+      this.sortDir = 'desc';          // default: más saldo primero
+    } else {
+      this.sortDir = this.sortDir === 'desc' ? 'asc' : 'desc';
+    }
+    this.page = 1;                    // reinicia a la primera página
+    this.buscar();                    // recarga
+  }
+
+  // Quitar el orden por monedero y volver al default (nombre asc)
+  clearSort(): void {
+    this.sortBy = 'nombre';
+    this.sortDir = 'asc';
+    this.page = 1;
+    this.buscar();
+  }
 
   cambioPagina(e: PageEvent): void {
     const sizeChanged = e.pageSize !== this.limit;
@@ -234,27 +267,27 @@ buscar(): void {
   // Campos que el usuario puede editar en línea
   private readonly EDITABLE_KEYS = ['nombre', 'telefono', 'email', 'domicilio'] as const;
 
-cancelarEdicion(c: any): void {
-  // Restaura solo los campos editables desde el backup
-  this.EDITABLE_KEYS.forEach((k) => {
-    if (c._backup && Object.prototype.hasOwnProperty.call(c._backup, k)) {
-      c[k] = c._backup[k];
-    } else {
-      delete c[k];
-    }
-  });
+  cancelarEdicion(c: any): void {
+    // Restaura solo los campos editables desde el backup
+    this.EDITABLE_KEYS.forEach((k) => {
+      if (c._backup && Object.prototype.hasOwnProperty.call(c._backup, k)) {
+        c[k] = c._backup[k];
+      } else {
+        delete c[k];
+      }
+    });
 
-  delete c._backup;
-  this.editandoId = null;
+    delete c._backup;
+    this.editandoId = null;
 
-  // 🔄 Fuerza cambio de referencia para que Angular repinte la fila/tabla
-  this.clientes = [...this.clientes];
-  this.table?.renderRows?.();
+    // 🔄 Fuerza cambio de referencia para que Angular repinte la fila/tabla
+    this.clientes = [...this.clientes];
+    this.table?.renderRows?.();
 
-  // Flash opcional
-  this.flashId = c._id;
-  setTimeout(() => (this.flashId = null), 1200);
-}
+    // Flash opcional
+    this.flashId = c._id;
+    setTimeout(() => (this.flashId = null), 1200);
+  }
 
   guardarEdicion(c: any): void {
     this.clienteSrv.actualizar(c._id, {
