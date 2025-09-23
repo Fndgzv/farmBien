@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -11,15 +11,19 @@ import { CompraService } from '../../services/compra.service';
 import Swal from 'sweetalert2';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatIconModule } from "@angular/material/icon";
+import { FaIconLibrary, FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 
+import { faPlus } from '@fortawesome/free-solid-svg-icons';
 @Component({
   selector: 'app-compras',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatTooltipModule, MatIconModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatTooltipModule, MatIconModule, FontAwesomeModule],
   templateUrl: './compras.component.html',
   styleUrls: ['./compras.component.css']
 })
 export class ComprasComponent implements OnInit {
+  @ViewChild('backdrop') backdrop!: ElementRef<HTMLDivElement>;
+  @ViewChild('firstInput') firstInput!: ElementRef<HTMLInputElement>;
 
   headerForm!: FormGroup;
   itemForm!: FormGroup;
@@ -53,12 +57,20 @@ export class ComprasComponent implements OnInit {
     { name: 'Domingo', prop: 'promoDomingo' }
   ];
 
+  mostrarNuevoProducto = false;
+  guardandoNuevo = false;
+  nuevoProductoForm!: FormGroup;
+
+  faPlus = faPlus;
+
   constructor(
     private fb: FormBuilder,
     private proveedorService: ProveedorService,
     private productoService: ProductoService,
     private compraService: CompraService,
-  ) { }
+    library: FaIconLibrary,
+    private renderer: Renderer2
+  ) { library.addIcons(faPlus); }
 
   // helpers de fecha local -> 'YYYY-MM-DD'
   private toLocalISODate(d: Date): string {
@@ -123,6 +135,23 @@ export class ComprasComponent implements OnInit {
         this.prodOpts = Array.isArray(list) ? list : [];
       })
     );
+
+    // 👇 inicializa form del modal
+    this.nuevoProductoForm = this.fb.group({
+      nombre: ['', [Validators.required, Validators.minLength(3)]],
+      codigoBarras: ['', Validators.required],
+      unidad: ['', Validators.required],
+      precio: [null, [Validators.required, Validators.min(0)]],
+      costo: [null, [Validators.required, Validators.min(0)]],
+      iva: [false],
+      stockMinimo: [50, [Validators.required, Validators.min(0)]],
+      stockMaximo: [100, [Validators.required, Validators.min(0)]],
+      ubicacion: [''],
+      categoria: ['', Validators.required],
+      generico: [false],
+      descuentoINAPAM: [false]
+    });
+
   }
 
   mmYyValidator(control: AbstractControl) {
@@ -411,7 +440,7 @@ export class ComprasComponent implements OnInit {
     await new Promise(r => setTimeout(r, 50));
 
     const produ = this.productos.find(prod => prod.codigoBarras === p.codigoBarras);
-    
+
     if (!produ) {
       await Swal.fire({
         icon: 'warning',
@@ -469,6 +498,93 @@ export class ComprasComponent implements OnInit {
       }
     });
   }
+
+  abrirNuevoProducto() {
+    this.nuevoProductoForm.reset({
+      nombre: '',
+      codigoBarras: '',
+      unidad: 'PZA',
+      precio: null,
+      costo: null,
+      iva: false,
+      stockMinimo: 50,
+      stockMaximo: 100,
+      ubicacion: '',
+      categoria: '',
+      generico: false,
+      descuentoINAPAM: false
+    });
+    this.mostrarNuevoProducto = true;
+    // Bloquear el scroll del body (opcional)
+    this.renderer.addClass(document.body, 'no-scroll');
+
+    // Enfocar overlay y primer input
+    setTimeout(() => {
+      this.backdrop?.nativeElement.focus();
+      this.firstInput?.nativeElement.focus();
+    });
+  }
+
+  cerrarNuevoProducto() {
+    this.mostrarNuevoProducto = false;
+    this.renderer.removeClass(document.body, 'no-scroll');
+  }
+
+  // guardar
+  guardarNuevoProducto() {
+    if (this.nuevoProductoForm.invalid) {
+      this.nuevoProductoForm.markAllAsTouched();
+      return;
+    }
+
+    const payload = this.nuevoProductoForm.value;
+
+    // validación simple: stockMax >= stockMin
+    if (payload.stockMaximo < payload.stockMinimo) {
+      Swal.fire('Validación', 'El stock máximo debe ser mayor o igual al mínimo.', 'warning');
+      return;
+    }
+
+    this.guardandoNuevo = true;
+
+    this.productoService.crearProducto(payload).subscribe({
+      next: (resp) => {
+        this.guardandoNuevo = false;
+        this.mostrarNuevoProducto = false;
+        this.loadProductos();
+        Swal.fire({
+          icon: 'success',
+          title: 'Listo',
+          html: `Producto creado correctamente.<br>
+                  Si deseas agregar promociones<br>
+                  busca el producto en la tabla y editalo`,
+          confirmButtonText: 'Aceptar',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        });
+      },
+      error: (err) => {
+        this.guardandoNuevo = false;
+        console.error(err);
+        Swal.fire('Error', err?.error?.mensaje || 'No se pudo crear el producto.', 'error');
+      }
+    });
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  trapTab(e: KeyboardEvent) {
+    if (!this.mostrarNuevoProducto || e.key !== 'Tab' || !this.backdrop) return;
+    const nodes: NodeListOf<HTMLElement> =
+      this.backdrop.nativeElement.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+    if (!nodes.length) return;
+    const first = nodes[0], last = nodes[nodes.length - 1];
+    const active = document.activeElement as HTMLElement;
+    if (e.shiftKey && active === first) { last.focus(); e.preventDefault(); }
+    else if (!e.shiftKey && active === last) { first.focus(); e.preventDefault(); }
+  }
+
 
 
 }

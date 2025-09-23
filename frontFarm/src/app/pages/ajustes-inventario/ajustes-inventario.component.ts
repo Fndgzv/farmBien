@@ -66,7 +66,7 @@ export class AjustesInventarioComponent implements OnInit {
     private cdr: ChangeDetectorRef,
     private modalService: ModalOverlayService,
     private productoService: ProductoService,
-    private library: FaIconLibrary,
+    library: FaIconLibrary,
     private renderer: Renderer2
   ) { library.addIcons(faPen, faTimes, faPlus); }
 

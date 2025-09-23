@@ -24,6 +24,12 @@
         <small style="margin-top: 0.5rem; color:#f6a80c">
             {{ headerForm.value.afectarExistencias ? 'Sí (actualiza productos)' : 'No (solo registra compra)' }}
         </small>
+
+        <button type="button" class="btn-amarillo-chico d-flex align-items-center" (click)="abrirNuevoProducto()"
+            title="Agregar un nuevo producto">
+            <fa-icon [icon]='faPlus'></fa-icon>
+            <span class="ms-1">Nuevo</span>
+        </button>
     </form>
 
     <!-- FORMULARIO DE INGRESO DE PRODUCTO -->
@@ -73,10 +79,8 @@
                 <label style="width: 10%;" for="caducidadMMYY">Caducidad:</label>
 
                 <input id="caducidadMMYY" type="text" inputmode="numeric" maxlength="4"
-                    formControlName="caducidadMMAAAA" 
-                placeholder="mmAA"
-                autocomplete="off"
-                (blur)="itemForm.get('caducidadMMAAAA')?.markAsTouched()" />
+                    formControlName="caducidadMMAAAA" placeholder="mmAA" autocomplete="off"
+                    (blur)="itemForm.get('caducidadMMAAAA')?.markAsTouched()" />
 
                 <!-- ayuda -->
                 <small class="field-help text-muted" *ngIf="itemForm.value.fechaCaducidad">
@@ -111,6 +115,7 @@
             <tr>
                 <th></th>
                 <th>Producto</th>
+                <th>Codigo barras</th>
                 <th>Cant.</th>
                 <th>Lote</th>
                 <th>Caducidad</th>
@@ -133,6 +138,7 @@
                         </button>
                     </td>
                     <td>{{ it.nombre }}</td>
+                    <td>{{ it.codigoBarras }}</td>
                     <td>{{ it.cantidad }}</td>
                     <td>{{ it.lote }}</td>
                     <td>{{ it.fechaCaducidad | date:'dd/MM/yyyy' }}</td>
@@ -151,7 +157,7 @@
 
                 <!-- EDICIÓN -->
                 <tr *ngIf="editingPromoIndex === i" class="promo-editor">
-                    <td colspan="11">
+                    <td colspan="12">
 
                         <!-- DATOS GENERALES EDITABLES DEL ITEM -->
                         <div class="row mb-3 text-center align-items-center"
@@ -338,7 +344,7 @@
 
         <tfoot>
             <tr>
-                <td colspan="9" class="total-label">Total:</td>
+                <td colspan="10" class="total-label">Total:</td>
                 <td colspan="2" style="text-align: start;">{{ total | currency }}</td>
             </tr>
         </tfoot>
@@ -352,6 +358,85 @@
         <button class="btn-gris" (click)="onRegistrarCompra()" matTooltip="Registrar la compra completa"
             [disabled]="!carrito.length || headerForm.invalid || estaEditandoPromos">Registrar Compra
         </button>
+    </div>
+
+        <!-- Overlay -->
+    <div class="modal-backdrop" *ngIf="mostrarNuevoProducto" #backdrop tabindex="-1"
+        (keydown.escape)="cerrarNuevoProducto()">
+        <!-- Caja del modal -->
+        <div class="modal-dialog" role="dialog" aria-modal="true" (mousedown)="$event.stopPropagation()"
+            (click)="$event.stopPropagation()">
+            <h3 class="titulo text-center mb-3">Nuevo producto</h3>
+
+            <form [formGroup]="nuevoProductoForm" autocomplete="off">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label>Nombre *</label>
+                        <input type="text" formControlName="nombre" #firstInput class="form-control" />
+                    </div>
+
+                    <div class="col-3">
+                        <label>Código de barras *</label>
+                        <input type="text" formControlName="codigoBarras" class="form-control" />
+                    </div>
+                    <div class="col-3">
+                        <label>Categoría *</label>
+                        <input type="text" formControlName="categoria" class="form-control" />
+                    </div>
+                    <div class="col-2">
+                        <label>Unidad *</label>
+                        <input type="text" formControlName="unidad" class="form-control" />
+                    </div>
+                    <div class="col-2">
+                        <label>Precio *</label>
+                        <input type="number" formControlName="precio" class="form-control" />
+                    </div>
+                    <div class="col-2">
+                        <label>Costo *</label>
+                        <input type="number" formControlName="costo" class="form-control" />
+                    </div>
+
+                    <div class="col-2">
+                        <label>Stock Mín *</label>
+                        <input type="number" formControlName="stockMinimo" class="form-control" />
+                    </div>
+
+                    <div class="col-2">
+                        <label>Stock Máx *</label>
+                        <input type="number" formControlName="stockMaximo" class="form-control" />
+                    </div>
+
+                    <div class="col-2 form-check-vertical">
+                        <label for="chkIva" class="form-label">IVA</label>
+                        <input type="checkbox" class="form-check-input" formControlName="iva" id="chkIva" />
+                    </div>
+
+                    <div class="col-2 form-check-vertical">
+                        <label for="chkGen" class="form-label">Genérico</label>
+                        <input type="checkbox" class="form-check-input" formControlName="generico" id="chkGen" />
+                    </div>
+
+                    <div class="col-2 form-check-vertical">
+                        <label for="chkINA" class="form-label">INAPAM</label>
+                        <input type="checkbox" class="form-check-input" formControlName="descuentoINAPAM" id="chkINA" />
+                    </div>
+
+                    <div class="col-2">
+                        <label>Ubicación</label>
+                        <input type="text" formControlName="ubicacion" class="form-control" />
+                    </div>
+
+                </div>
+            </form>
+
+            <div class="modal-actions mt-3">
+                <button type="button" class="btn-rojo-chico w-100" (click)="cerrarNuevoProducto()">Cancelar</button>
+                <button type="button" class="btn-verde-chico w-100"
+                    [disabled]="nuevoProductoForm.invalid || guardandoNuevo" (click)="guardarNuevoProducto()">
+                    {{ guardandoNuevo ? 'Guardando…' : 'Guardar' }}
+                </button>
+            </div>
+        </div>
     </div>
 
 </div>

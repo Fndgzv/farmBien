@@ -2,7 +2,7 @@
   width: 100%;
   /*   max-width: 1000px;*/
   /* padding: 0 1rem; */
-  
+
 }
 
 .header-form {
@@ -77,10 +77,28 @@
   font-size: 16px;
 }
 
-.field-stack { display: inline-block; vertical-align: top; }
-.field-stack .form-label { display: block; margin-bottom: 4px; }
-.field-help { display: block; margin-top: 4px; font-size: .85rem; }
-.field-error { display: block; margin-top: 4px; color: #dc3545; font-size: .85rem; }
+.field-stack {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.field-stack .form-label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.field-help {
+  display: block;
+  margin-top: 4px;
+  font-size: .85rem;
+}
+
+.field-error {
+  display: block;
+  margin-top: 4px;
+  color: #dc3545;
+  font-size: .85rem;
+}
 
 
 @media (max-width: 600px) {
@@ -123,8 +141,8 @@
 }
 
 .fw-bold {
-  font-weight:bold;
-  color:rgb(2, 4, 124);
+  font-weight: bold;
+  color: rgb(2, 4, 124);
 }
 
 /* ——— contenedor del input + dropdown ——— */
@@ -136,16 +154,18 @@
 /* ——— panel ——— */
 .suggest-panel {
   position: absolute;
-  inset-inline: 0;           /* left:0; right:0 en LTR y RTL */
-  top: calc(100% + .25rem);  /* debajo del input */
+  inset-inline: 0;
+  /* left:0; right:0 en LTR y RTL */
+  top: calc(100% + .25rem);
+  /* debajo del input */
   z-index: 40;
 
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: .75rem;
   box-shadow:
-    0 10px 15px -3px rgba(0,0,0,.1),
-    0 4px 6px -4px rgba(0,0,0,.1);
+    0 10px 15px -3px rgba(0, 0, 0, .1),
+    0 4px 6px -4px rgba(0, 0, 0, .1);
 
   padding: .5rem;
   max-height: 24rem;
@@ -171,7 +191,7 @@
   cursor: pointer;
 
   transition: background-color .15s ease, border-color .15s ease,
-              transform .06s ease;
+    transform .06s ease;
 }
 
 .suggest-item:hover {
@@ -200,12 +220,14 @@
 .suggest-panel::-webkit-scrollbar {
   width: 10px;
 }
+
 .suggest-panel::-webkit-scrollbar-thumb {
   background-color: #d1d5db;
   border-radius: 8px;
   border: 3px solid transparent;
   background-clip: content-box;
 }
+
 .suggest-panel::-webkit-scrollbar-thumb:hover {
   background-color: #c0c4cb;
 }
@@ -216,17 +238,109 @@
     background: #0b0f15;
     border-color: #1f2937;
     box-shadow:
-      0 10px 15px -3px rgba(0,0,0,.5),
-      0 4px 6px -4px rgba(0,0,0,.5);
+      0 10px 15px -3px rgba(0, 0, 0, .5),
+      0 4px 6px -4px rgba(0, 0, 0, .5);
   }
+
   .suggest-item {
     background: #0f172a;
     border-color: #1f2937;
   }
+
   .suggest-item:hover {
     background: #111827;
     border-color: #334155;
   }
-  .suggest-title { color: #e5e7eb; }
-  .suggest-sub   { color: #94a3b8; }
+
+  .suggest-title {
+    color: #e5e7eb;
+  }
+
+  .suggest-sub {
+    color: #94a3b8;
+  }
+}
+
+/* Clases de modal de alta de producto nuevo */
+/* Evita que el body se desplace cuando el modal está abierto */
+.no-scroll {
+  overflow: hidden;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+}
+
+
+/* Caja blanca del modal */
+.modal-dialog {
+  background: azure;
+  color: #222;
+  width: min(900px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, .5);
+  pointer-events: auto;
+  /* recibe clics */
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-actions button {
+  flex: 1;
+  /* que ocupen el mismo espacio */
+  max-width: 150px;
+  /* opcional: ancho máximo uniforme */
+}
+
+/* opcional: quitar scroll del body cuando está abierto */
+body.modal-open {
+  overflow: hidden !important;
+}
+
+/* Opcional: estilitos a inputs si usas tema oscuro global */
+.modal-dialog .form-control {
+  background: #fff;
+  color: #222;
+}
+
+/* Columna tipo checkbox con etiqueta arriba */
+.form-check-vertical {
+  display: flex;
+  flex-direction: column;
+  /* label arriba, checkbox abajo */
+  align-items: center;
+}
+
+/* Consistencia visual con el resto de labels/inputs del modal */
+.modal-dialog .form-label {
+  margin-bottom: 0;
+  margin-top: .5rem;
+  font-weight: 600;
+}
+
+.form-check-input {
+  transform: scale(1.05);
+  /* opcional: un pelín más grande */
 }
