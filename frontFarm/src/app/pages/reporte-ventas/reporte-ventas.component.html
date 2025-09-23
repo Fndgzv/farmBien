@@ -12,13 +12,30 @@
                 </select>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-3 position-relative">
                 <label class="form-label">Cliente</label>
-                <select class="form-select" formControlName="clienteId" (change)="buscar(true)"
-                    [disabled]="cargando || !clientesCargados">
-                    <option *ngFor="let c of clientes" [ngValue]="c._id">{{ c.nombre }}</option>
-                </select>
+
+                <!-- Input con referencia -->
+                <input #cliInput type="text" class="form-control" placeholder="Escribe nombre (mín. 2 letras)"
+                    [disabled]="cargando || !!clienteSel" (input)="onClienteInput(cliInput.value)" />
+
+                <!-- Sugerencias -->
+                <div class="suggest-panel" *ngIf="clienteOpts.length && !clienteSel">
+                    <button type="button" class="suggest-item" *ngFor="let c of clienteOpts" (click)="selectCliente(c)">
+                        <div class="fw-semibold">{{ c.nombre || '(sin nombre)' }}</div>
+                    </button>
+                </div>
+
+                <!-- Selección hecha -->
+                <div class="mt-1" *ngIf="clienteSel">
+                    <span class="badge bg-primary-subtle text-primary border">
+                        {{ clienteSel.nombre }}
+                    </span>
+                    <button type="button" class="btn btn-link btn-sm ps-2"
+                        (click)="clearCliente(cliInput)">Borrar</button>
+                </div>
             </div>
+
 
             <div class="col-md-3" style="align-items: end;">
                 <label class="form-label">Vendió:</label>

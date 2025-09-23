@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+
 import Swal from 'sweetalert2';
 import {
   ReportesService,
@@ -17,6 +19,8 @@ import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 type ClienteLite = { _id: string; nombre: string };
+type ClienteIdx = { _id: string; nombre: string; norm: string; words: string[] };
+
 @Component({
   selector: 'app-reporte-ventas',
   standalone: true,
@@ -25,6 +29,10 @@ type ClienteLite = { _id: string; nombre: string };
   styleUrl: './reporte-ventas.component.css'
 })
 export class ReporteVentasComponent implements OnInit {
+
+  clienteSel: ClienteLite | null = null;
+  clienteOpts: ClienteLite[] = [];
+
   filtroForm!: FormGroup;
 
   cargando = false;
@@ -64,6 +72,13 @@ export class ReporteVentasComponent implements OnInit {
     numeric: true,
   });
 
+  // Sugerencias cliente
+  clientesBase: ClienteLite[] = [];
+  clientesIdx: ClienteIdx[] = [];
+  sugerenciasClientes: ClienteLite[] = [];
+  mostrandoSugerencias = false;
+  focoSugerencia = -1;
+
   // ✅ preserva todas las propiedades (incluido _id)
   private sortByNombre<T extends { nombre?: string }>(arr: T[]): T[] {
     return [...(arr || [])].sort((a, b) =>
@@ -85,17 +100,187 @@ export class ReporteVentasComponent implements OnInit {
   ngOnInit(): void {
     const hoy = this.todayYMD();
     this.filtroForm = this.fb.group({
-      farmaciaId: [''],        // '' = TODAS
-      fechaInicial: [hoy],     // Date
-      fechaFinal: [hoy],     // Date
-      clienteId: [''],         // '' = TODOS
-      usuarioId: [''],         // '' = TODOS
+      farmaciaId: [''],
+      fechaInicial: [hoy],
+      fechaFinal: [hoy],
+      clienteId: [''],
+      clienteNombre: [''],
+      usuarioId: [''],
       totalDesde: [''],
       totalHasta: [''],
       limit: [this.limit]
     });
 
+    this.filtroForm.get('clienteNombre')!.valueChanges
+      .pipe(debounceTime(200), distinctUntilChanged())
+      .subscribe(term => this.onClienteNombreChanged(term || ''));
     this.cargarCatalogos();
+  }
+
+  onClienteInput(q: string) {
+    const query = (q || '').trim();
+    if (query.length < 2) { this.clienteOpts = []; return; }
+
+    // usa el método remoto del ClienteService
+    this.clienteSrv.searchClientes(query).subscribe(list => this.clienteOpts = list);
+  }
+
+  selectCliente(c: ClienteLite) {
+    this.clienteSel = c;
+    this.clienteOpts = [];
+    // fija el id en el form (lo usa tu backend)
+    this.filtroForm.patchValue({ clienteId: c._id });
+    // dispara la búsqueda con el filtro aplicado
+    this.buscar(true);
+  }
+
+  clearCliente(input?: HTMLInputElement) {
+    this.clienteSel = null;
+    this.filtroForm.patchValue({ clienteId: null });
+    this.clienteOpts = [];
+
+    if (input) {
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      setTimeout(() => input.focus(), 0);
+    }
+    // quita el filtro y recarga
+    this.buscar(true);
+  }
+
+
+  private normalizeEs(s: string): string {
+    return (s || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private rankNombre(norm: string, words: string[], term: string): { score: number; pos: number } {
+    const tokens = this.normalizeEs(term).split(' ').filter(Boolean);
+    if (!tokens.length) return { score: -1, pos: Infinity };
+
+    let score = 0;
+    let firstPos = Infinity;
+
+    for (const tok of tokens) {
+      const idx = norm.indexOf(tok);
+      if (idx === -1) return { score: -1, pos: Infinity }; // algún token no está
+
+      const starts = words.some(w => w.startsWith(tok));
+      score += starts ? 2 : 1;
+      if (idx < firstPos) firstPos = idx;
+    }
+    return { score, pos: firstPos };
+  }
+
+  private tokenizeTerm(term: string): string[] {
+    return this.normalizeEs(term).split(/\s+/).filter(Boolean);
+  }
+
+  private scoreMatch(nombre: string, term: string): { score: number; pos: number } {
+    const haystack = this.normalizeEs(nombre);              // ej: "francisco diaz perez"
+    const tokens = this.normalizeEs(term).split(' ').filter(Boolean); // ej: ["franc", "di"]
+    if (!tokens.length) return { score: -1, pos: Infinity };
+
+    let score = 0;
+    let firstPos = Infinity;
+
+    for (const tok of tokens) {
+      const idx = haystack.indexOf(tok);
+      if (idx === -1) return { score: -1, pos: Infinity }; // token no está → descarta
+
+      const isWordStart = (idx === 0) || (haystack.charAt(idx - 1) === ' ');
+      score += isWordStart ? 2 : 1;                         // prefijo de palabra suma más
+      firstPos = Math.min(firstPos, idx);
+    }
+    return { score, pos: firstPos };
+  }
+
+  onClienteNombreChanged(term: string) {
+    const raw = (term || '').trim();
+
+    if (!raw) {
+      // Input vacío → limpia y oculta
+      this.sugerenciasClientes = [];
+      this.mostrandoSugerencias = false;
+      this.focoSugerencia = -1;
+      if (this.filtroForm.value.clienteId) {
+        this.filtroForm.patchValue({ clienteId: '' }, { emitEvent: false });
+      }
+      return;
+    }
+
+    // Si el usuario cambió el texto respecto al seleccionado, limpia el id
+    const nombreSel = this.filtroForm.value.clienteNombre || '';
+    const idSel = this.filtroForm.value.clienteId || '';
+    if (idSel && this.normalizeEs(nombreSel) !== this.normalizeEs(raw)) {
+      this.filtroForm.patchValue({ clienteId: '' }, { emitEvent: false });
+    }
+
+    // 🔎 Ranking robusto (substring en cualquier parte + prefijo de palabra preferido)
+    const ranked = this.clientesIdx
+      .map(x => ({ c: { _id: x._id, nombre: x.nombre }, r: this.rankNombre(x.norm, x.words, raw) }))
+      .filter(x => x.r.score >= 0)
+      .sort((a, b) =>
+        (b.r.score - a.r.score)              // más puntos primero (Francisco > Villafranco)
+        || (a.r.pos - b.r.pos)               // aparece antes en el nombre
+        || this.collator.compare(a.c.nombre, b.c.nombre)
+      )
+      .slice(0, 100)                          // muestra hasta 100
+      .map(x => x.c);
+
+    this.sugerenciasClientes = ranked;
+    this.mostrandoSugerencias = true;         // 👈 permanece abierto aunque teclees más
+    this.focoSugerencia = -1;
+  }
+
+
+  seleccionarCliente(c: ClienteLite) {
+    this.filtroForm.patchValue({ clienteId: c._id, clienteNombre: c.nombre }, { emitEvent: false });
+    this.mostrandoSugerencias = false;
+    this.focoSugerencia = -1;
+    this.buscar(true);
+  }
+
+  limpiarCliente() {
+    this.filtroForm.patchValue({ clienteId: '', clienteNombre: '' }, { emitEvent: false });
+    this.sugerenciasClientes = [];
+    this.mostrandoSugerencias = false;
+    this.focoSugerencia = -1;
+    this.buscar(true);
+  }
+
+  onClienteKeyDown(ev: KeyboardEvent) {
+    if (!this.mostrandoSugerencias || !this.sugerenciasClientes.length) return;
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      this.focoSugerencia = Math.min(this.focoSugerencia + 1, this.sugerenciasClientes.length - 1);
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      this.focoSugerencia = Math.max(this.focoSugerencia - 1, 0);
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      const sel = this.sugerenciasClientes[this.focoSugerencia] ?? this.sugerenciasClientes[0];
+      if (sel) this.seleccionarCliente(sel);
+    } else if (ev.key === 'Escape') {
+      this.mostrandoSugerencias = false;
+    }
+  }
+
+  onClienteFocus() {
+    const current = (this.filtroForm.value.clienteNombre || '').trim();
+    if (current) {
+      this.onClienteNombreChanged(current);
+    } else {
+      this.mostrandoSugerencias = false;
+    }
+  }
+
+  onClienteBlur() {
+    setTimeout(() => { this.mostrandoSugerencias = false; }, 150);
   }
 
   private cargarCatalogos() {
@@ -118,21 +303,30 @@ export class ReporteVentasComponent implements OnInit {
     this.clienteSrv.getClientes().subscribe({
       next: (resp: any) => {
         const rows = Array.isArray(resp) ? resp : (resp?.rows ?? []);
-
-        // ✨ TIPADO EXPLÍCITO AQUÍ:
         const base: ClienteLite[] = rows.map((c: any): ClienteLite => ({
           _id: c._id?.toString() || '',
           nombre: c.nombre || ''
         }));
-
-        // ✨ Y/O GENÉRICO EXPLÍCITO AQUÍ:
         const ordenadas = this.sortByNombre<ClienteLite>(base);
 
+        this.clientesBase = ordenadas;
+
+        // 🔹 Índice normalizado para búsquedas rápidas y confiables
+        this.clientesIdx = ordenadas.map(c => {
+          const norm = this.normalizeEs(c.nombre);
+          const words = norm.split(' ').filter(Boolean);
+          return { _id: c._id, nombre: c.nombre, norm, words };
+        });
+
+        // (si en otros lados ocupas this.clientes con 'TODOS', puedes mantenerlo)
         this.clientes = [{ _id: '', nombre: 'TODOS' }, ...ordenadas];
+
         this.clientesCargados = true;
         this.dispararInicialSiListos();
       },
       error: () => {
+        this.clientesBase = [];
+        this.clientesIdx = [];
         this.clientes = [{ _id: '', nombre: 'TODOS' }];
         this.clientesCargados = true;
         this.dispararInicialSiListos();
@@ -156,7 +350,6 @@ export class ReporteVentasComponent implements OnInit {
       }
     });
   }
-
 
   private dispararInicialSiListos() {
     if (this.farmaciasCargadas && this.clientesCargados && this.usuariosCargados) {

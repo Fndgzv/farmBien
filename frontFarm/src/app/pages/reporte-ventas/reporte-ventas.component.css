@@ -11,3 +11,33 @@
     margin-bottom: 0 !important;
 }
 
+.sugerencias .list-group-item.active {
+  background-color: #f0f0f0;
+  color: inherit;
+}
+
+
+.suggest-panel {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: .5rem;
+  margin-top: .25rem;
+  max-height: 320px;
+  overflow: auto;
+  box-shadow: 0 .25rem .75rem rgba(0,0,0,.08);
+}
+
+.suggest-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: .5rem .75rem;
+  border: 0;
+  background: transparent;
+}
+
+.suggest-item:hover { background: #f8fafc; }

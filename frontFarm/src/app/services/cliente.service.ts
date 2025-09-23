@@ -1,9 +1,10 @@
 // services/cliente.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { catchError, map, Observable, of, throwError } from 'rxjs';
 
 import { environment } from '../../environments/environment';
+import { ClienteLite } from '../reportes-devoluciones/types';
 
 export interface Cliente {
   _id?: string;
@@ -17,6 +18,16 @@ export interface Cliente {
 export class ClienteService {
 
   private apiUrl = `${environment.apiUrl}/clientes`;
+
+  private headers() {
+    return new HttpHeaders({ 'x-auth-token': localStorage.getItem('auth_token') || '' });
+  }
+
+  private toClienteLite = (x: any): ClienteLite => ({
+    _id: String(x?._id ?? x?.id ?? ''),
+    nombre: String(x?.nombre ?? ''),
+    telefono: x?.telefono ? String(x.telefono) : undefined,
+  });
 
   private withTz(params: any = {}) {
     return new HttpParams({ fromObject: { ...params, tz: String(new Date().getTimezoneOffset()) } });
@@ -37,6 +48,24 @@ export class ClienteService {
 
     return this.http.get<any[]>(this.apiUrl, { headers });
   }
+
+  searchClientes(q: string, limit = 50): Observable<ClienteLite[]> {
+    const url = `${environment.apiUrl}/clientes/buscar`;
+    const params = new HttpParams().set('q', q).set('limit', String(limit));
+    return this.http.get<any>(url, { params }).pipe(
+      map(r => (r?.data ?? r?.rows ?? r ?? []).map((x: any) => ({
+        _id: String(x._id),
+        nombre: x.nombre || ''
+      }))),
+      // (opcional) filtro/limit local
+      map(list => {
+        const ql = q.toLowerCase();
+        return list.filter((c: { nombre: string; }) => c.nombre.toLowerCase().includes(ql)).slice(0, 10);
+      }),
+      catchError(() => of<ClienteLite[]>([]))
+    );
+  }
+
 
   crearCliente(cliente: any): Observable<any> {
     const token = localStorage.getItem('auth_token');
