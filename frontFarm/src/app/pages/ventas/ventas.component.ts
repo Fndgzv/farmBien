@@ -96,7 +96,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   productosFiltradosPorCodigo: any[] = [];
   productos: any[] = [];
   clientes: any[] = [];
-  private clientes$ = new BehaviorSubject<any[]>([]);
 
   farmaciaId: string = '';
   farmaciaNombre: string = '';
@@ -133,6 +132,23 @@ export class VentasComponent implements OnInit, AfterViewInit {
   clienteNombreCtrl = new FormControl<string | any>({ value: '', disabled: false });
   filteredClientes$: Observable<any[]> = of([]);
 
+  placeholderSrc = 'assets/images/farmBienIcon.png';
+  thumbs: Record<string, string> = {};
+  consultaEncontrado = false;
+  consultaImgUrl: string = this.placeholderSrc;
+
+  private resetConsulta(): void {
+    this.codigoConsulta = '';
+    this.busquedaConsultaCodigo = '';
+    this.busquedaConsultaNombre = '';
+
+    this.productoConsultado = null;
+    this.productosConsultaFiltradosPorCodigo = [];
+    this.productosConsultaFiltradosPorNombre = [];
+
+    this.consultaEncontrado = false;      // <- re-muestra los buscadores
+    this.consultaImgUrl = this.placeholderSrc; // <- limpia preview
+  }
 
   // Helpers numéricos
   private toNum(v: any): number {
@@ -392,72 +408,72 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   registrarNuevoCliente(nuevoCliente: any) {
-  this.clienteService.crearCliente(nuevoCliente).subscribe({
-    next: (resp: any) => {
-      // normalización de formatos comunes
-      const candidato =
-        resp?.cliente ??
-        resp?.data ??
-        resp?.result ??
-        resp; // si ya viene plano
+    this.clienteService.crearCliente(nuevoCliente).subscribe({
+      next: (resp: any) => {
+        // normalización de formatos comunes
+        const candidato =
+          resp?.cliente ??
+          resp?.data ??
+          resp?.result ??
+          resp; // si ya viene plano
 
-      const _id     = candidato?._id ?? resp?.insertedId ?? resp?._id ?? null;
-      const nombre  = candidato?.nombre ?? nuevoCliente?.nombre ?? '';
-      const telefono = candidato?.telefono ?? nuevoCliente?.telefono ?? '';
-      const totalMonedero = Number(candidato?.totalMonedero ?? 0);
+        const _id = candidato?._id ?? resp?.insertedId ?? resp?._id ?? null;
+        const nombre = candidato?.nombre ?? nuevoCliente?.nombre ?? '';
+        const telefono = candidato?.telefono ?? nuevoCliente?.telefono ?? '';
+        const totalMonedero = Number(candidato?.totalMonedero ?? 0);
 
-      if (_id && nombre) {
-        // setea estado de la venta
-        this.nombreCliente = nombre;
-        this.ventaForm.controls['cliente'].setValue(_id);
-        this.hayCliente = true;
-        this.cliente = _id;
-        this.montoMonederoCliente = totalMonedero;
+        if (_id && nombre) {
+          // setea estado de la venta
+          this.nombreCliente = nombre;
+          this.ventaForm.controls['cliente'].setValue(_id);
+          this.hayCliente = true;
+          this.cliente = _id;
+          this.montoMonederoCliente = totalMonedero;
 
-        // opcional: refrescar/inyectar en cache local para el autocomplete
-        try {
-          const yaExiste = (this.clientes || []).some((c: any) => c?._id === _id);
-          if (!yaExiste) {
-            this.clientes = [
-              { _id, nombre, telefono, totalMonedero: totalMonedero },
-              ...(this.clientes || [])
-            ];
-          }
-        } catch {}
+          // opcional: refrescar/inyectar en cache local para el autocomplete
+          try {
+            const yaExiste = (this.clientes || []).some((c: any) => c?._id === _id);
+            if (!yaExiste) {
+              this.clientes = [
+                { _id, nombre, telefono, totalMonedero: totalMonedero },
+                ...(this.clientes || [])
+              ];
+            }
+          } catch { }
 
+          Swal.fire({
+            icon: 'success',
+            title: 'Cliente registrado',
+            text: `El cliente ${nombre} ha sido registrado correctamente.`,
+            timer: 1500,
+            showConfirmButton: false
+          });
+        } else {
+          // No logramos extraer el id/nombre: log y aviso amable
+          console.error('⚠️ Respuesta inesperada del backend:', resp);
+          Swal.fire({
+            icon: 'warning',
+            title: 'Cliente registrado',
+            text: 'Se registró el cliente, pero no pude leer su ID desde la respuesta.',
+            confirmButtonText: 'OK',
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          });
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error al registrar cliente:', error);
         Swal.fire({
-          icon: 'success',
-          title: 'Cliente registrado',
-          text: `El cliente ${nombre} ha sido registrado correctamente.`,
-          timer: 1500,
-          showConfirmButton: false
-        });
-      } else {
-        // No logramos extraer el id/nombre: log y aviso amable
-        console.error('⚠️ Respuesta inesperada del backend:', resp);
-        Swal.fire({
-          icon: 'warning',
-          title: 'Cliente registrado',
-          text: 'Se registró el cliente, pero no pude leer su ID desde la respuesta.',
+          icon: 'error',
+          title: 'Error',
+          text: 'No se pudo registrar el cliente. Inténtelo de nuevo.',
           confirmButtonText: 'OK',
           allowOutsideClick: false,
-          allowEscapeKey: false
+          allowEscapeKey: false,
         });
       }
-    },
-    error: (error) => {
-      console.error('❌ Error al registrar cliente:', error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'No se pudo registrar el cliente. Inténtelo de nuevo.',
-        confirmButtonText: 'OK',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-      });
-    }
-  });
-}
+    });
+  }
 
   limpiarCliente() {
     this.cliente = '';
@@ -471,12 +487,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   limpiarBarras() {
-    this.codigoConsulta = '';
-    this.busquedaConsultaCodigo = '';
-    this.busquedaConsultaNombre = '';
-    this.productoConsultado = null;
-    this.productosConsultaFiltradosPorCodigo = [];
-    this.productosConsultaFiltradosPorNombre = [];
+    this.resetConsulta();
   }
 
   limpiarProducto() {
@@ -611,7 +622,16 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   obtenerProductos() {
     this.productoService.obtenerProductos().subscribe({
-      next: (data) => this.productos = data,
+      next: (data) => {
+        this.productos = data || [];
+        const map: Record<string, string> = {};
+        for (const prod of this.productos) {
+          map[prod._id] = prod?.imagen
+            ? this.productoService.obtenerImagenProductoUrl(prod._id)
+            : this.placeholderSrc;
+        }
+        this.thumbs = map;
+      },
       error: (error) => console.error('Error al obtener productos', error)
     });
   }
@@ -1357,6 +1377,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   cerrarModalConsultaPrecio() {
+    this.resetConsulta();
     this.mostrarModalConsultaPrecio = false;
     this.focusBarcode(50);
   }
@@ -1366,6 +1387,18 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     this.productoService.consultarPrecioPorCodigo(this.farmaciaId, this.codigoConsulta).subscribe({
       next: (data) => {
+        // ¿Se encontró?
+        const ok = !!data && data.nombre !== undefined;
+
+        this.consultaEncontrado = ok;
+
+        if (!ok) {
+          // Puedes mostrar mensaje o dejar null; así NO ocultas los inputs
+          this.productoConsultado = null;
+          this.consultaImgUrl = this.placeholderSrc;
+          return;
+        }
+
         if (!data || data.nombre === undefined) {
           this.productoConsultado = {
             nombre: "Producto no encontrado",
@@ -1395,6 +1428,16 @@ export class VentasComponent implements OnInit, AfterViewInit {
             promoCliente: data.promoCliente
           };
         }
+
+        // Resolver URL de imagen:
+        // 1) si el back devuelve _id úsalo; si no, busca por código de barras localmente
+        const prodId = data._id
+          ?? (this.productos || []).find(pr => pr.codigoBarras === this.codigoConsulta)?._id;
+
+        this.consultaImgUrl = prodId
+          ? this.productoService.obtenerImagenProductoUrl(prodId)
+          : this.placeholderSrc;
+
       },
       error: (error) => {
         console.error("❌ Error al consultar precio:", error);
@@ -1560,6 +1603,37 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (c) this.onClienteSelected(c); // <- tu método existente
   }
 
+  private imageUrlById(id: string): string {
+    const prod = (this.productos || []).find(x => x._id === id);
+    return (prod?.imagen)
+      ? this.productoService.obtenerImagenProductoUrl(id)
+      : this.placeholderSrc;
+  }
 
+  // si la miniatura falla, fuerza placeholder
+  onThumbError(ev: Event, item?: any) {
+    (ev.target as HTMLImageElement).src = this.placeholderSrc;
+    if (item?.producto) this.thumbs[item.producto] = this.placeholderSrc;
+  }
+
+  // Modal con imagen grande (versión 1)
+  openPreviewVenta(item: any) {
+    const prod = (this.productos || []).find(x => x._id === item.producto);
+    const base = prod?.imagen
+      ? this.productoService.obtenerImagenProductoUrl(item.producto)
+      : this.placeholderSrc;
+
+    Swal.fire({
+      width: 'auto',
+      background: '#000',
+      showConfirmButton: false,
+      showCloseButton: true,
+      padding: 0,
+      html: `
+      <div style="max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center;">
+        <img src="${base}" alt="" style="max-width:90vw;max-height:90vh;object-fit:contain"/>
+      </div>`
+    });
+  }
 
 }

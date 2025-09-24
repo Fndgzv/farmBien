@@ -71,5 +71,16 @@ export class ProductoService {
   eliminarProducto(id: string) {
     return this.http.delete<any>(`${this.apiUrl}/${id}`);
   }
+
+  actualizarImagenProducto(id: string, archivo: File) {
+    const fd = new FormData();
+    fd.append('imagen', archivo);
+    return this.http.put<any>(`${this.apiUrl}/${id}/imagen`, fd);
+  }
+
+  obtenerImagenProductoUrl(id: string) {
+    return `${this.apiUrl}/${id}/imagen`;
+  }
+
 }
 

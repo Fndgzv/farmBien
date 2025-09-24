@@ -111,7 +111,7 @@
         </div>
 
         <div class="col-md-2">
-            <label class="me-2 mb-0" style="white-space: nowrap;">Solo CB duplicados</label>
+            <label class="me-2 mb-0 mt-2" style="white-space: nowrap;">Código Barras</label>
             <div class="position-relative">
                 <div class="form-check mt-2">
                     <input type="checkbox" class="form-check-input" id="filtroCBDuplicados"
@@ -268,6 +268,7 @@
                 <th>
                     <input type="checkbox" (change)="seleccionarTodos($event)">
                 </th>
+                <th>Imagen</th>
                 <th (click)="ordenar('nombre')">
                     Nombre
                     <i [ngClass]="{
@@ -314,8 +315,35 @@
             </tr>
         </thead>
         <tbody>
-            <tr *ngFor="let p of productosPagina" [class.fila-modificada]="p['modificado']">
+            <tr *ngFor="let p of productosPagina; trackBy: trackProdBy" [class.fila-modificada]="p['modificado']">
                 <td><input type="checkbox" [(ngModel)]="p.seleccionado"></td>
+                <td>
+                    <div class="img-cell" [class.loading]="subiendoId === p._id">
+
+                        <!-- botón-imagen (abre file) -->
+                        <button type="button" class="img-button" (click)="file.click()"
+                            [disabled]="subiendoId === p._id"
+                            [attr.aria-label]="p.imagen ? 'Cambiar imagen' : 'Agregar imagen'"
+                            title="Cambiar ó Subir imagen">
+                            <img [src]="p._imgSrc" loading="lazy" decoding="async" (error)="onImgError($event, p)"
+                                alt="" />
+                            <span class="overlay" *ngIf="subiendoId !== p._id"><i class="fas fa-upload"></i></span>
+                            <span class="overlay" *ngIf="subiendoId === p._id"><i
+                                    class="fa fa-spinner fa-spin"></i></span>
+                        </button>
+
+                        <!-- 🔍 lupa: abre preview grande (NO dispara el file) -->
+                        <button type="button" class="zoom-btn" (click)="$event.stopPropagation(); openPreview(p)"
+                            [disabled]="subiendoId === p._id" title="Ver imagen">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+
+                        <!-- input file oculto -->
+                        <input #file type="file" accept="image/*" style="display:none"
+                            (change)="onFileChange($event, p)">
+                    </div>
+                </td>
+
                 <td>{{ p.nombre }}</td>
                 <td>{{ p.codigoBarras }}</td>
                 <td>{{ p.categoria }}</td>

@@ -7,6 +7,8 @@ const InventarioFarmacia = require('../models/InventarioFarmacia');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const fsp = require('fs/promises');
+const mime = require('mime-types');
 
 const escapeRegex = (s='') => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -21,17 +23,100 @@ function digitsLooseRegex(digits) {
 const moment = require('moment');
 
 // Configuración de almacenamiento para imágenes
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/'); // Carpeta donde se guardarán las imágenes
-    },
-    filename: function (req, file, cb) {
-        const ext = path.extname(file.originalname) || '.jpg'; // Asignar extensión por defecto si falta
-        cb(null, file.fieldname + '-' + Date.now() + ext);
-    }
-});
+const UPLOADS_DIR = path.resolve(__dirname, '..', 'uploads');
+const TMP_DIR = path.resolve(UPLOADS_DIR, 'tmp');
 
-const upload = multer({ storage: storage });
+// ---------- Multer (subida temporal) ----------
+const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    try {
+      await fsp.mkdir(TMP_DIR, { recursive: true });
+      cb(null, TMP_DIR);
+    } catch (e) { cb(e); }
+  },
+  filename: (req, file, cb) => {
+    const ext = mime.extension(file.mimetype) || 'bin';
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`);
+  }
+});
+const fileFilter = (req, file, cb) => {
+  if (!allowed.has(file.mimetype)) return cb(new Error('Formato no permitido'));
+  cb(null, true);
+};
+exports.uploadImagen = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 3 * 1024 * 1024 } // 3MB
+}).single('imagen');
+
+// ---------- Helpers ----------
+async function fileExists(abs) {
+  try { await fsp.access(abs); return true; } catch { return false; }
+}
+function resolveImageAbs(dbPath) {
+  if (!dbPath) return null;
+  const base = path.basename(String(dbPath)); // evita traversal
+  return path.join(UPLOADS_DIR, base);
+}
+function makeNewName(mimetype) {
+  const ext = mime.extension(mimetype) || 'bin';
+  return `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+}
+
+// ---------- GET /productos/:id/imagen ----------
+exports.obtenerImagenProductoPorId = async (req, res) => {
+  try {
+    const producto = await Producto.findById(req.params.id).lean();
+    if (!producto || !producto.imagen) {
+      return res.status(404).json({ mensaje: 'Imagen no encontrada' });
+    }
+    const abs = resolveImageAbs(producto.imagen);
+    if (!abs || !(await fileExists(abs))) {
+      return res.status(404).json({ mensaje: 'El archivo de la imagen no existe' });
+    }
+    res.setHeader('Content-Type', mime.lookup(abs) || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 día
+    return res.sendFile(abs);
+  } catch (e) {
+    console.error('[GET img] ', e);
+    return res.status(500).json({ mensaje: 'Error al obtener la imagen del producto' });
+  }
+};
+
+// ---------- PUT /productos/:id/imagen (usar uploadImagen antes) ----------
+exports.actualizarImagenProducto = async (req, res) => {
+  try {
+    const producto = await Producto.findById(req.params.id);
+    if (!producto) {
+      if (req.file?.path) { try { await fsp.unlink(req.file.path); } catch {} }
+      return res.status(404).json({ mensaje: 'Producto no encontrado' });
+    }
+    if (!req.file) return res.status(400).json({ mensaje: 'No se recibió archivo' });
+
+    await fsp.mkdir(UPLOADS_DIR, { recursive: true });
+    const newName = makeNewName(req.file.mimetype);
+    const destAbs = path.join(UPLOADS_DIR, newName);
+
+    // mover desde tmp → uploads
+    await fsp.rename(req.file.path, destAbs);
+
+    // borrar imagen anterior (si existe)
+    const oldAbs = resolveImageAbs(producto.imagen);
+
+    // guarda ruta "uploads/archivo.ext" (sin slash inicial)
+    producto.imagen = path.posix.join('uploads', newName);
+    await producto.save();
+
+    if (oldAbs && await fileExists(oldAbs)) { fsp.unlink(oldAbs).catch(() => {}); }
+
+    return res.json({ mensaje: 'Imagen actualizada correctamente', producto });
+  } catch (e) {
+    console.error('[PUT img] ', e);
+    if (req.file?.path) { try { await fsp.unlink(req.file.path); } catch {} }
+    return res.status(500).json({ mensaje: 'Error al actualizar imagen' });
+  }
+};
 
 // Obtener todos los productos
 exports.obtenerProductos = async (req, res) => {
@@ -137,54 +222,6 @@ exports.obtenerProductoPorId = async (req, res) => {
         res.json(producto);
     } catch (error) {
         res.status(500).json({ mensaje: "Error al obtener producto" });
-    }
-};
-
-
-exports.obtenerImagenProductoPorId = async (req, res) => {
-    try {
-        const producto = await Producto.findById(req.params.id);
-        if (!producto || !producto.imagen) {
-            return res.status(404).json({ mensaje: "Imagen no encontrada" });
-        }
-
-        const imagePath = path.join(__dirname, '..', producto.imagen);
-        if (!fs.existsSync(imagePath)) {
-            return res.status(404).json({ mensaje: "El archivo de la imagen no existe" });
-        }
-
-        res.sendFile(imagePath);
-    } catch (error) {
-        res.status(500).json({ mensaje: "Error al obtener la imagen del producto" });
-    }
-};
-
-
-exports.actualizarImagenProducto = async (req, res) => {
-    try {
-        const producto = await Producto.findById(req.params.id);
-        if (!producto) {
-            return res.status(404).json({ mensaje: "Producto no encontrado" });
-        }
-
-        // Eliminar la imagen anterior del sistema de archivos si existe
-        if (producto.imagen) {
-            const imagePath = path.join(__dirname, '..', producto.imagen);
-            if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath);
-            }
-        }
-
-        // Actualizar la imagen con la nueva extensión
-        const ext = path.extname(req.file.originalname);
-        const newFileName = `uploads/${req.file.filename.split('-')[0]}-${Date.now()}${ext}`;
-        fs.renameSync(req.file.path, path.join(__dirname, '..', newFileName));
-
-        producto.imagen = `/${newFileName}`;
-        await producto.save();
-        res.json({ mensaje: "Imagen actualizada correctamente", producto });
-    } catch (error) {
-        res.status(500).json({ mensaje: "Error al actualizar imagen" });
     }
 };
 

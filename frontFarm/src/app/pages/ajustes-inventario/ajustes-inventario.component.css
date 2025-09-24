@@ -146,3 +146,54 @@ body.modal-open {
 .form-check-input{
   transform: scale(1.05);      /* opcional: un pelín más grande */
 }
+
+
+/* imagen */
+.img-cell { display: inline-flex; align-items: center; }
+
+.img-button {
+  position: relative;
+  width: 30px; height: 30px;
+  padding: 0; border: 1px solid #e5e7eb; border-radius: 6px;
+  background: #fbfcf8; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.img-button[disabled] { opacity: .6; cursor: not-allowed; }
+
+.img-button img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  backface-visibility: hidden;        /* evita blink en algunos navegadores */
+  -webkit-font-smoothing: antialiased;
+}
+
+.img-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: #033996; background: #bcf996;
+}
+
+.img-button .overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.35);
+  color: #c4fca6; opacity: 0; transition: opacity .15s;
+   pointer-events: none;
+}
+.img-button:hover .overlay { opacity: 1; }
+
+.img-cell { position: relative; display: inline-flex; align-items: center; }
+.img-button { position: relative; width: 48px; height: 48px; padding: 0; overflow: hidden; }
+.img-button img { width: 100%; height: 100%; object-fit: cover; display: block; backface-visibility: hidden; }
+.img-button .overlay { pointer-events: none; }
+
+.zoom-btn {
+  position: absolute; right: -6px; top: -6px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 0; background: rgba(0,0,0,.6); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; pointer-events: auto;
+}
+.zoom-btn i { font-size: 12px; line-height: 1; }
+.zoom-btn:disabled { opacity: .5; cursor: not-allowed; }

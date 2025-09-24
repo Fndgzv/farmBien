@@ -102,27 +102,33 @@
         </button>
       </div>
 
-      <!-- 🔎 Filtro por CÓDIGO -->
-      <mat-form-field appearance="outline" class="w-100 mb-1 compact-field">
-        <input matInput [(ngModel)]="busquedaConsultaCodigo" [matAutocomplete]="autoConsCodigo"
-          placeholder="Buscar Cód. barras" (input)="filtrarConsultaPorCodigo()" />
-        <mat-autocomplete #autoConsCodigo="matAutocomplete" (optionSelected)="onSelectConsultaCodigo($event)">
-          <mat-option *ngFor="let p of productosConsultaFiltradosPorCodigo" [value]="p.codigoBarras">
-            {{ p.codigoBarras }} — {{ p.nombre }}
-          </mat-option>
-        </mat-autocomplete>
-      </mat-form-field>
+      <div *ngIf="consultaEncontrado" class="consulta-img-wrap">
+        <img [src]="consultaImgUrl" (error)="consultaImgUrl = placeholderSrc" alt="Imagen de producto">
+      </div>
 
-      <!-- 🔎 Filtro por NOMBRE -->
-      <mat-form-field appearance="outline" class="w-100 mb-1 compact-field">
-        <input matInput [(ngModel)]="busquedaConsultaNombre" [matAutocomplete]="autoConsNombre"
-          placeholder="Buscar producto por nombre" (input)="filtrarConsultaPorNombre()" />
-        <mat-autocomplete #autoConsNombre="matAutocomplete" (optionSelected)="onSelectConsultaNombre($event)">
-          <mat-option *ngFor="let p of productosConsultaFiltradosPorNombre" [value]="p.codigoBarras">
-            {{ p.nombre }}
-          </mat-option>
-        </mat-autocomplete>
-      </mat-form-field>
+      <div *ngIf="!consultaEncontrado">
+        <!-- 🔎 Filtro por CÓDIGO -->
+        <mat-form-field appearance="outline" class="w-100 mb-1 compact-field">
+          <input matInput [(ngModel)]="busquedaConsultaCodigo" [matAutocomplete]="autoConsCodigo"
+            placeholder="Buscar Cód. barras" (input)="filtrarConsultaPorCodigo()" />
+          <mat-autocomplete #autoConsCodigo="matAutocomplete" (optionSelected)="onSelectConsultaCodigo($event)">
+            <mat-option *ngFor="let p of productosConsultaFiltradosPorCodigo" [value]="p.codigoBarras">
+              {{ p.codigoBarras }} — {{ p.nombre }}
+            </mat-option>
+          </mat-autocomplete>
+        </mat-form-field>
+
+        <!-- 🔎 Filtro por NOMBRE -->
+        <mat-form-field appearance="outline" class="w-100 mb-1 compact-field">
+          <input matInput [(ngModel)]="busquedaConsultaNombre" [matAutocomplete]="autoConsNombre"
+            placeholder="Buscar producto por nombre" (input)="filtrarConsultaPorNombre()" />
+          <mat-autocomplete #autoConsNombre="matAutocomplete" (optionSelected)="onSelectConsultaNombre($event)">
+            <mat-option *ngFor="let p of productosConsultaFiltradosPorNombre" [value]="p.codigoBarras">
+              {{ p.nombre }}
+            </mat-option>
+          </mat-autocomplete>
+        </mat-form-field>
+      </div>
 
 
       <div *ngIf="productoConsultado">
@@ -178,6 +184,7 @@
         <th></th>
         <th></th>
         <th></th>
+        <th class="col-img">Imagen</th>
         <th>Producto</th>
         <th>Cant.</th>
         <th>P. U.</th>
@@ -208,6 +215,15 @@
             class="btn-icono btn-gris" (click)="decrementarCantidad(i)">
             <i class="fas fa-minus"></i>
           </button>
+        </td>
+        <td class="col-img">
+          <div class="img-cell">
+            <button type="button" class="img-button" (click)="openPreviewVenta(p)" title="Ver imagen">
+              <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt="" loading="lazy"
+                decoding="async" />
+              <span class="zoom-corner"><i class="fas fa-search-plus"></i></span>
+            </button>
+          </div>
         </td>
         <td>{{ p.nombre }}</td>
         <td>{{ p.cantidad }}</td>

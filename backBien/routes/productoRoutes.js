@@ -1,8 +1,6 @@
 // backBien/routes/productoRoutes.js
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
 const authMiddleware = require('../middlewares/authMiddleware');
 const isAdmin = require("../middlewares/isAdmin")
 
@@ -10,6 +8,7 @@ const {
   obtenerProductos,
   crearProducto,
   obtenerProductoPorId,
+  uploadImagen,
   obtenerImagenProductoPorId,
   actualizarImagenProducto,
   verificarExistenciaProducto,
@@ -32,14 +31,14 @@ router.get('/ver-existencia/:id([0-9a-fA-F]{24})', authMiddleware,verificarExist
 router.get('/buscar-por-cb', authMiddleware, buscarPorCodigoBarras);
 
 // --- imagen (con id) ---
-router.get('/:id([0-9a-fA-F]{24})/imagen', authMiddleware,obtenerImagenProductoPorId);
-router.put('/:id([0-9a-fA-F]{24})/imagen', upload.single('imagen'), authMiddleware,actualizarImagenProducto);
+router.get('/:id/imagen', obtenerImagenProductoPorId);
+router.put('/:id/imagen', uploadImagen, actualizarImagenProducto);
 
 // --- CRUD / masivo ---
 router.get('/', authMiddleware,obtenerProductos);
 router.post('/', authMiddleware, isAdmin,crearProducto);
 router.put('/actualizar-masivo', authMiddleware, isAdmin,actualizarProductos);
-router.put('/actualizar-producto/:id([0-9a-fA-F]{24})', authMiddleware, isAdmin,actualizarProducto);
+router.put('/actualizar-producto/:id([0-9a-fA-F]{24})', authMiddleware, isAdmin, actualizarProducto);
 router.delete('/:id', authMiddleware, isAdmin, eliminarProducto);
 
 // --- por ÚLTIMO la genérica por id ---

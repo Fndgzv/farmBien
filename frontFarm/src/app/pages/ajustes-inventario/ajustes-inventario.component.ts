@@ -14,6 +14,15 @@ import { firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
 
 type ColumnaOrden = '' | keyof Producto | 'existencia';
+
+// Ajusta los campos mínimos que ya usas en la vista
+type ProductoUI = Omit<Producto, 'imagen'> & {
+  imagen?: string | boolean | null; // ahora puede usar true/false
+  _imgSrc?: string;                 // miniatura estable
+  seleccionado?: boolean;
+  modificado?: boolean;
+};
+
 @Component({
   selector: 'app-ajuste-inventario',
   standalone: true,
@@ -26,8 +35,8 @@ export class AjustesInventarioComponent implements OnInit {
   @ViewChild('firstInput') firstInput!: ElementRef<HTMLInputElement>;
 
   columnaOrden: ColumnaOrden = '';
-  productos: Producto[] = [];
-  productosFiltrados: Producto[] = [];
+  productos: ProductoUI[] = [];
+  productosFiltrados: ProductoUI[] = [];
   formularioMasivo!: FormGroup;
 
   filtrando = false;
@@ -65,6 +74,8 @@ export class AjustesInventarioComponent implements OnInit {
   nuevoProductoForm!: FormGroup;
 
   eliminandoId: string | null = null;
+
+  placeholderSrc = 'assets/images/farmBienIcon.png';
 
   constructor(
     private fb: FormBuilder,
@@ -128,9 +139,11 @@ export class AjustesInventarioComponent implements OnInit {
   cargarProductos(borrarFiltros: boolean) {
     this.productoService.obtenerProductos().subscribe({
       next: (productos) => {
-        this.productos = productos;
+        this.productos = (productos || []).map((p: any): ProductoUI => ({
+          ...p,
+          _imgSrc: p?.imagen ? this.productoService.obtenerImagenProductoUrl(p._id) : this.placeholderSrc
+        }));
 
-        // 🔹 calcula duplicados de CB al cargar
         this.recomputarCBDuplicados();
 
         if (borrarFiltros) {
@@ -141,8 +154,8 @@ export class AjustesInventarioComponent implements OnInit {
             descuentoINAPAM: null,
             generico: null,
             bajoStock: false,
-            duplicadosCB: false,        // ← NUEVO
-          } as any;
+            duplicadosCB: false,
+          };
         }
         this.aplicarFiltros();
       },
@@ -150,60 +163,52 @@ export class AjustesInventarioComponent implements OnInit {
     });
   }
 
+  aplicarFiltros() {
+    if (this.filtrando || this.iniciando) return;
+    this.filtrando = true;
+    this.cdr.detectChanges();
 
-aplicarFiltros() {
-  if (this.filtrando || this.iniciando) return;
-  this.filtrando = true;
-  this.cdr.detectChanges();
+    setTimeout(() => {
+      const f = this.filtros;
+      this.productosFiltrados = (this.productos || []).filter(p => {
+        const coincideNombre = f.nombre
+          ? (p.nombre || '').toLowerCase().includes(f.nombre.toLowerCase())
+          : true;
+        const coincideCodigo = f.codigoBarras
+          ? (p.codigoBarras || '').toLowerCase().includes(f.codigoBarras.toLowerCase())
+          : true;
+        const coincideCategoria = f.categoria
+          ? (p.categoria || '').toLowerCase().includes(f.categoria.toLowerCase())
+          : true;
+        const coincideINAPAM = f.descuentoINAPAM === null
+          ? true
+          : p.descuentoINAPAM === f.descuentoINAPAM;
+        const coincideGenerico = f.generico === null
+          ? true
+          : p.generico === f.generico;
+        const coincideBajoStock = f.bajoStock
+          ? this.getExistencia(p) < (p.stockMinimo ?? 0)
+          : true;
+        // 🔹 SOLO productos cuyo CB está repetido en la carga
+        const coincideDuplicadosCB = f.duplicadosCB
+          ? this.cbDuplicados.has(this.normCB(p?.codigoBarras))
+          : true;
 
-  setTimeout(() => {
-    const f = this.filtros;
-    this.productosFiltrados = (this.productos || []).filter(p => {
-      const coincideNombre = f.nombre
-        ? (p.nombre || '').toLowerCase().includes(f.nombre.toLowerCase())
-        : true;
+        return (
+          coincideNombre &&
+          coincideCodigo &&
+          coincideCategoria &&
+          coincideINAPAM &&
+          coincideGenerico &&
+          coincideBajoStock &&
+          coincideDuplicadosCB
+        );
+      });
 
-      const coincideCodigo = f.codigoBarras
-        ? (p.codigoBarras || '').toLowerCase().includes(f.codigoBarras.toLowerCase())
-        : true;
-
-      const coincideCategoria = f.categoria
-        ? (p.categoria || '').toLowerCase().includes(f.categoria.toLowerCase())
-        : true;
-
-      const coincideINAPAM = f.descuentoINAPAM === null
-        ? true
-        : p.descuentoINAPAM === f.descuentoINAPAM;
-
-      const coincideGenerico = f.generico === null
-        ? true
-        : p.generico === f.generico;
-
-      const coincideBajoStock = f.bajoStock
-        ? this.getExistencia(p) < (p.stockMinimo ?? 0)
-        : true;
-
-      // 🔹 SOLO productos cuyo CB está repetido en la carga
-      const coincideDuplicadosCB = f.duplicadosCB
-        ? this.cbDuplicados.has(this.normCB(p?.codigoBarras))
-        : true;
-
-      return (
-        coincideNombre &&
-        coincideCodigo &&
-        coincideCategoria &&
-        coincideINAPAM &&
-        coincideGenerico &&
-        coincideBajoStock &&
-        coincideDuplicadosCB
-      );
-    });
-
-    this.paginaActual = 1;
-    this.filtrando = false;
-  }, 0);
-}
-
+      this.paginaActual = 1;
+      this.filtrando = false;
+    }, 0);
+  }
 
   private cbDuplicados = new Set<string>();
 
@@ -239,10 +244,9 @@ aplicarFiltros() {
     return Math.ceil(this.productosFiltrados.length / this.tamanioPagina);
   }
 
-  get productosPagina(): Producto[] {
-    const inicio = (this.paginaActual - 1) * this.tamanioPagina;
-    const fin = inicio + this.tamanioPagina;
-    return this.productosFiltrados.slice(inicio, fin);
+  get productosPagina(): ProductoUI[] {
+    const i = (this.paginaActual - 1) * this.tamanioPagina;
+    return this.productosFiltrados.slice(i, i + this.tamanioPagina);
   }
 
   limpiarCamposCambioMasivo() {
@@ -411,14 +415,14 @@ aplicarFiltros() {
     this.productosFiltrados.forEach(p => p.seleccionado = checked);
   }
 
-  editarProducto(prod: Producto) {
+  editarProducto(prod: ProductoUI) {
     const productoClonado = JSON.parse(JSON.stringify(prod));
     this.modalService.abrirModal(productoClonado, (productoEditado: Producto) => {
       this.guardarProductoEditado(productoEditado);
     });
   }
 
-  guardarProductoEditado(productoActualizado: Producto) {
+  guardarProductoEditado(productoActualizado: ProductoUI) {
     // 1) separa id y crea payload sin _id
     const id = (productoActualizado as any)._id;
     const payload: any = { ...productoActualizado };
@@ -459,7 +463,7 @@ aplicarFiltros() {
 
   grabarCambios() {
     try {
-      const productosModificados = this.productos.filter(p => p.seleccionado);
+      const productosModificados: ProductoUI[] = this.productos.filter(p => p.seleccionado);
 
       if (!productosModificados || productosModificados.length === 0) {
         Swal.fire({
@@ -495,7 +499,7 @@ aplicarFiltros() {
         });
 
         // ⚠️ IMPORTANTE: el backend espera { productos: [...] }
-        this.productoService.actualizarProductos({ productos: productosModificados }).subscribe({
+        this.productoService.actualizarProductos({ productos: productosModificados as unknown as Producto[] }).subscribe({
           next: () => {
             Swal.close(); // cierra el loading
             Swal.fire({
@@ -567,7 +571,7 @@ aplicarFiltros() {
   }
 
 
-  getExistencia(p: Producto): number {
+  getExistencia(p: ProductoUI): number {
     return Array.isArray(p?.lotes) ? p.lotes.reduce((sum, l) => sum + (Number(l?.cantidad) || 0), 0) : 0;
   }
 
@@ -697,5 +701,92 @@ aplicarFiltros() {
       this.eliminandoId = null;
     }
   }
+
+
+  subiendoId: string | null = null;
+  imgCacheBuster: Record<string, number> = {}; // para bustear cache por producto
+
+  imageUrl(p: any): string {
+    if (!p?._id) return '';
+    const base = this.productoService.obtenerImagenProductoUrl(p._id);
+    const t = this.imgCacheBuster[p._id] || 0;
+    return t ? `${base}?t=${t}` : base;
+  }
+
+  onImgError(ev: Event, p?: ProductoUI) {
+    (ev.target as HTMLImageElement).src = this.placeholderSrc;
+    if (p) p.imagen = false;
+  }
+
+  onFileChange(ev: Event, p: any) {
+    const input = ev.target as HTMLInputElement;
+    const file = input.files && input.files[0];
+    // Limpia el valor para permitir elegir el mismo archivo otra vez
+    input.value = '';
+    if (!file) return;
+    this.onPickImage(file, p);
+  }
+
+  async onPickImage(file: File, p: ProductoUI) {
+    if (!file || !p?._id) return;
+
+    // Preview y confirmación
+    const dataURL = await new Promise<string>((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result));
+      fr.onerror = rej;
+      fr.readAsDataURL(file);
+    });
+
+    const { isConfirmed } = await Swal.fire({
+      title: p.imagen ? '¿Reemplazar imagen?' : '¿Subir imagen?',
+      html: `<img src="${dataURL}" style="max-width:100%;max-height:240px;border-radius:8px;">`,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!isConfirmed) return;
+
+    try {
+      this.subiendoId = p._id;
+      await firstValueFrom(this.productoService.actualizarImagenProducto(p._id, file));
+      // cache-buster: cambia UNA VEZ el src de esa fila
+      const base = this.productoService.obtenerImagenProductoUrl(p._id);
+      p._imgSrc = `${base}?t=${Date.now()}`;
+      p.imagen = true;
+      Swal.fire('Listo', 'Imagen guardada', 'success');
+    } catch (e: any) {
+      const msg = e?.error?.mensaje || 'No se pudo subir la imagen';
+      Swal.fire('Error', msg, 'error');
+    } finally {
+      this.subiendoId = null;
+    }
+  }
+
+  trackProdBy = (_: number, p: ProductoUI) => p?._id ?? p?.codigoBarras ?? _;
+
+  openPreview(p: ProductoUI) {
+    // si tiene imagen usamos la URL del back, si no, el placeholder
+    const base = p?.imagen
+      ? this.productoService.obtenerImagenProductoUrl(p._id)
+      : this.placeholderSrc;
+
+    // opcional: cache-buster si la cambiaste hace nada
+    const url = p?.imagen ? `${base}?t=${Date.now()}` : base;
+
+    Swal.fire({
+      width: 'auto',
+      showConfirmButton: false,
+      showCloseButton: true,
+      background: '#000',
+      padding: 0,
+      html: `
+      <div style="max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center">
+        <img src="${url}" alt="" style="max-width:90vw;max-height:90vh;object-fit:contain" />
+      </div>`
+    });
+  }
+
+
 }
 
