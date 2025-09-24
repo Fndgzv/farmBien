@@ -10,6 +10,7 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 
+import { firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
 
 type ColumnaOrden = '' | keyof Producto | 'existencia';
@@ -39,14 +40,17 @@ export class AjustesInventarioComponent implements OnInit {
     descuentoINAPAM: boolean | null;
     generico: boolean | null;
     bajoStock: boolean | null;
+    duplicadosCB: boolean | null;
   } = {
       nombre: '',
       codigoBarras: '',
       categoria: '',
       descuentoINAPAM: null,
       generico: null,
-      bajoStock: false
+      bajoStock: false,
+      duplicadosCB: false,
     };
+
   paginaActual = 1;
   tamanioPagina = 15;
   //columnaOrden: keyof Producto | '' = '';
@@ -60,6 +64,7 @@ export class AjustesInventarioComponent implements OnInit {
   guardandoNuevo = false;
   nuevoProductoForm!: FormGroup;
 
+  eliminandoId: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -124,8 +129,20 @@ export class AjustesInventarioComponent implements OnInit {
     this.productoService.obtenerProductos().subscribe({
       next: (productos) => {
         this.productos = productos;
+
+        // 🔹 calcula duplicados de CB al cargar
+        this.recomputarCBDuplicados();
+
         if (borrarFiltros) {
-          this.filtros = { nombre: '', codigoBarras: '', categoria: '', descuentoINAPAM: null, generico: null, bajoStock: null };
+          this.filtros = {
+            nombre: '',
+            codigoBarras: '',
+            categoria: '',
+            descuentoINAPAM: null,
+            generico: null,
+            bajoStock: false,
+            duplicadosCB: false,        // ← NUEVO
+          } as any;
         }
         this.aplicarFiltros();
       },
@@ -133,41 +150,85 @@ export class AjustesInventarioComponent implements OnInit {
     });
   }
 
-  aplicarFiltros() {
-    if (this.filtrando || this.iniciando) return;
-    this.filtrando = true;
-    this.cdr.detectChanges();
-    setTimeout(() => {
-      const f = this.filtros;
-      const toLc = (s?: string) => (s ?? '').toLowerCase();
-      this.productosFiltrados = this.productos.filter(p => {
-        const coincideNombre = this.filtros.nombre ? p.nombre.toLowerCase().includes(this.filtros.nombre.toLowerCase()) : true;
-        const coincideCodigo = this.filtros.codigoBarras ? p.codigoBarras?.toLowerCase().includes(this.filtros.codigoBarras.toLowerCase()) : true;
-        const coincideCategoria = this.filtros.categoria ? p.categoria?.toLowerCase().includes(this.filtros.categoria.toLowerCase()) : true;
-        const coincideINAPAM = this.filtros.descuentoINAPAM === null
-          ? true
-          : p.descuentoINAPAM === this.filtros.descuentoINAPAM;
 
-        const coincideGenerico = this.filtros.generico === null
-          ? true
-          : p.generico === this.filtros.generico;
+aplicarFiltros() {
+  if (this.filtrando || this.iniciando) return;
+  this.filtrando = true;
+  this.cdr.detectChanges();
 
-        const coincideBajoStock = this.filtros.bajoStock
-          ? this.getExistencia(p) < (p.stockMinimo ?? 0)
-          : true;
+  setTimeout(() => {
+    const f = this.filtros;
+    this.productosFiltrados = (this.productos || []).filter(p => {
+      const coincideNombre = f.nombre
+        ? (p.nombre || '').toLowerCase().includes(f.nombre.toLowerCase())
+        : true;
 
-        this.filtrando = false;
-        return coincideNombre && coincideCodigo && coincideCategoria && coincideINAPAM && coincideGenerico && coincideBajoStock;
-      });
-      this.paginaActual = 1;
-      this.filtrando = false;
-    }, 0);
+      const coincideCodigo = f.codigoBarras
+        ? (p.codigoBarras || '').toLowerCase().includes(f.codigoBarras.toLowerCase())
+        : true;
+
+      const coincideCategoria = f.categoria
+        ? (p.categoria || '').toLowerCase().includes(f.categoria.toLowerCase())
+        : true;
+
+      const coincideINAPAM = f.descuentoINAPAM === null
+        ? true
+        : p.descuentoINAPAM === f.descuentoINAPAM;
+
+      const coincideGenerico = f.generico === null
+        ? true
+        : p.generico === f.generico;
+
+      const coincideBajoStock = f.bajoStock
+        ? this.getExistencia(p) < (p.stockMinimo ?? 0)
+        : true;
+
+      // 🔹 SOLO productos cuyo CB está repetido en la carga
+      const coincideDuplicadosCB = f.duplicadosCB
+        ? this.cbDuplicados.has(this.normCB(p?.codigoBarras))
+        : true;
+
+      return (
+        coincideNombre &&
+        coincideCodigo &&
+        coincideCategoria &&
+        coincideINAPAM &&
+        coincideGenerico &&
+        coincideBajoStock &&
+        coincideDuplicadosCB
+      );
+    });
+
+    this.paginaActual = 1;
+    this.filtrando = false;
+  }, 0);
+}
+
+
+  private cbDuplicados = new Set<string>();
+
+  private normCB(v: any): string {
+    return String(v ?? '').trim().toLowerCase();
+  }
+
+  // NUEVO: recalcula el set de duplicados a partir de this.productos
+  private recomputarCBDuplicados(): void {
+    const conteo = new Map<string, number>();
+    for (const p of (this.productos || [])) {
+      const cb = this.normCB(p?.codigoBarras);
+      if (!cb) continue; // ignorar vacíos
+      conteo.set(cb, (conteo.get(cb) || 0) + 1);
+    }
+    this.cbDuplicados = new Set(
+      [...conteo.entries()].filter(([, n]) => n > 1).map(([cb]) => cb)
+    );
   }
 
   limpiarFiltro(campo: keyof typeof this.filtros) {
     if (campo === 'descuentoINAPAM') this.filtros[campo] = null;
     if (campo === 'generico') this.filtros[campo] = null;
     if (campo === 'bajoStock') { this.filtros.bajoStock = false }
+    if (campo === 'duplicadosCB') (this.filtros as any).duplicadosCB = false;
     if (campo === 'nombre' || campo === 'categoria' || campo === 'codigoBarras') this.filtros[campo] = '';
 
     this.aplicarFiltros();
@@ -350,50 +411,50 @@ export class AjustesInventarioComponent implements OnInit {
     this.productosFiltrados.forEach(p => p.seleccionado = checked);
   }
 
-editarProducto(prod: Producto) {
-  const productoClonado = JSON.parse(JSON.stringify(prod));
-  this.modalService.abrirModal(productoClonado, (productoEditado: Producto) => {
-    this.guardarProductoEditado(productoEditado);
-  });
-}
+  editarProducto(prod: Producto) {
+    const productoClonado = JSON.parse(JSON.stringify(prod));
+    this.modalService.abrirModal(productoClonado, (productoEditado: Producto) => {
+      this.guardarProductoEditado(productoEditado);
+    });
+  }
 
-guardarProductoEditado(productoActualizado: Producto) {
-  // 1) separa id y crea payload sin _id
-  const id = (productoActualizado as any)._id;
-  const payload: any = { ...productoActualizado };
-  delete payload._id;
-  delete payload.__v;
-  delete payload.createdAt;
-  delete payload.updatedAt;
+  guardarProductoEditado(productoActualizado: Producto) {
+    // 1) separa id y crea payload sin _id
+    const id = (productoActualizado as any)._id;
+    const payload: any = { ...productoActualizado };
+    delete payload._id;
+    delete payload.__v;
+    delete payload.createdAt;
+    delete payload.updatedAt;
 
-  // 2) normaliza numéricos (ajusta las llaves a tu modelo real)
-  ['precioVenta','costo','existencia','iva','minimo','maximo'].forEach(k => {
-    if (payload[k] !== undefined && payload[k] !== null) {
-      payload[k] = Number(payload[k]) || 0;
-    }
-  });
+    // 2) normaliza numéricos (ajusta las llaves a tu modelo real)
+    ['precioVenta', 'costo', 'existencia', 'iva', 'minimo', 'maximo'].forEach(k => {
+      if (payload[k] !== undefined && payload[k] !== null) {
+        payload[k] = Number(payload[k]) || 0;
+      }
+    });
 
-  // 3) llama el servicio con id en la URL y body sin _id
-  this.productoService.actualizarProductoIndividual(id, payload).subscribe({
-    next: () => {
-      Swal.fire({
-        icon: 'success',
-        title: 'Éxito',
-        text: 'Producto actualizado correctamente',
-        timer: 1600,
-        timerProgressBar: true,
-        allowOutsideClick: false,
-        allowEscapeKey: false
-      });
-      this.cargarProductos(false);
-    },
-    error: (err) => {
-      const msg = err?.error?.mensaje || err?.error?.message || err?.message || 'No se pudo actualizar el producto';
-      Swal.fire('Error', msg, 'error');
-      console.error('[actualizarProducto][ERROR]', err);
-    }
-  });
-}
+    // 3) llama el servicio con id en la URL y body sin _id
+    this.productoService.actualizarProductoIndividual(id, payload).subscribe({
+      next: () => {
+        Swal.fire({
+          icon: 'success',
+          title: 'Éxito',
+          text: 'Producto actualizado correctamente',
+          timer: 1600,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false
+        });
+        this.cargarProductos(false);
+      },
+      error: (err) => {
+        const msg = err?.error?.mensaje || err?.error?.message || err?.message || 'No se pudo actualizar el producto';
+        Swal.fire('Error', msg, 'error');
+        console.error('[actualizarProducto][ERROR]', err);
+      }
+    });
+  }
 
 
   grabarCambios() {
@@ -597,6 +658,44 @@ guardarProductoEditado(productoActualizado: Producto) {
     else if (!e.shiftKey && active === last) { first.focus(); e.preventDefault(); }
   }
 
+  async confirmarEliminar(p: any) {
+    const { isConfirmed } = await Swal.fire({
+      icon: 'warning',
+      title: 'Eliminar producto',
+      html: `
+        <p>Se eliminará <strong>${p?.nombre || ''}</strong>.</p>
+        <p class="text-danger">También se eliminará de <strong>todas las farmacias</strong>.</p>
+        <p>Esta acción no se puede deshacer.</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      focusCancel: true,
+    });
 
+    if (!isConfirmed) return;
 
+    try {
+      this.eliminandoId = p._id;
+      const resp = await firstValueFrom(this.productoService.eliminarProducto(p._id));
+
+      // Quita el producto de las colecciones locales
+      this.productos = (this.productos || []).filter((x: any) => x._id !== p._id);
+
+      // Si tienes “duplicados de CB”, recalcula el set antes de filtrar
+      if (typeof (this as any).recomputarCBDuplicados === 'function') {
+        (this as any).recomputarCBDuplicados();
+      }
+
+      this.aplicarFiltros(); // repinta página actual
+      Swal.fire('Eliminado', resp?.mensaje || 'Producto eliminado correctamente', 'success');
+    } catch (err: any) {
+      const msg = err?.error?.mensaje || err?.message || 'No se pudo eliminar el producto';
+      Swal.fire('Error', msg, 'error');
+    } finally {
+      this.eliminandoId = null;
+    }
+  }
 }
+

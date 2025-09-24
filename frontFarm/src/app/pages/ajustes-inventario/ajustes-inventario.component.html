@@ -109,6 +109,26 @@
                 {{ filtrando ? 'Filtrando…' : (iniciando ? 'Iniciando…' : 'Buscar') }}
             </button>
         </div>
+
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Solo CB duplicados</label>
+            <div class="position-relative">
+                <div class="form-check mt-2">
+                    <input type="checkbox" class="form-check-input" id="filtroCBDuplicados"
+                        [(ngModel)]="filtros.duplicadosCB" name="duplicadosCB" (change)="aplicarFiltros()" />
+                    <label class="form-check-label" for="filtroCBDuplicados">
+                        Mostrar duplicados
+                    </label>
+                </div>
+
+                <button *ngIf="filtros.duplicadosCB" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('duplicadosCB')" title="Quitar filtro de duplicados">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
     </div>
 
     <!-- Cambios Masivos -->
@@ -290,7 +310,7 @@
                 <th>INAPAM</th>
                 <th>Costo</th>
                 <th>Precio</th>
-                <th></th>
+                <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
@@ -317,6 +337,11 @@
                     <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)"
                         matTooltip="Editar producto">
                         <fa-icon [icon]="'pen'"></fa-icon>
+                    </button>
+                    <button class="btn-icon-chico btn-rojo-chico" (click)="confirmarEliminar(p)"
+                        [disabled]="eliminandoId === p._id" matTooltip="Eliminar producto en TODAS las farmacias">
+                        <i *ngIf="eliminandoId !== p._id" class="fas fa-trash"></i>
+                        <i *ngIf="eliminandoId === p._id" class="fa fa-spinner fa-spin"></i>
                     </button>
                 </td>
 

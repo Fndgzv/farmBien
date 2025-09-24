@@ -642,7 +642,6 @@ const validarProducto = (prod) => {
   return { valido: true };
 }
 
-// controllers/productoController.js
 exports.searchProductos = async (req, res) => {
   try {
     const { q = '', limit = 50 } = req.query;
@@ -739,6 +738,91 @@ actualiza el precio en todas las farmacias*/
   } catch (error) {
     console.error(error);
     res.status(500).json({ mensaje: "Error al actualizar el producto", error });
+  }
+};
+
+exports.eliminarProducto = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ mensaje: 'ID inválido' });
+    }
+
+    // Abrimos sesión para intentar transacción
+    const session = await mongoose.startSession();
+    let inventariosEliminados = 0;
+    let transaccionOk = false;
+
+    try {
+      await session.withTransaction(async () => {
+        const prod = await Producto.findById(id).session(session);
+        if (!prod) {
+          // Lanzamos error controlado para abortar la transacción y responder 404
+          const err = new Error('NOT_FOUND');
+          err.code = 'NOT_FOUND';
+          throw err;
+        }
+
+        const invRes = await InventarioFarmacia
+          .deleteMany({ producto: id })
+          .session(session);
+
+        inventariosEliminados = invRes?.deletedCount || 0;
+
+        await Producto.deleteOne({ _id: id }).session(session);
+      });
+
+      transaccionOk = true;
+      session.endSession();
+
+      return res.json({
+        mensaje: 'Producto eliminado correctamente',
+        inventariosEliminados,
+      });
+
+    } catch (txErr) {
+      session.endSession();
+
+      // Si no existe el producto
+      if (txErr?.code === 'NOT_FOUND') {
+        return res.status(404).json({ mensaje: 'Producto no encontrado' });
+      }
+
+      // Si tu Mongo no soporta transacciones (no es réplica), hacemos fallback
+      const msg = String(txErr && txErr.message || '');
+      const noReplica =
+        msg.includes('Transaction numbers are only allowed') ||
+        msg.toLowerCase().includes('replica set');
+
+      if (!transaccionOk && noReplica) {
+        // Fallback sin transacción
+        const prod = await Producto.findById(id);
+        if (!prod) return res.status(404).json({ mensaje: 'Producto no encontrado' });
+
+        const invRes = await InventarioFarmacia.deleteMany({ producto: id });
+        inventariosEliminados = invRes?.deletedCount || 0;
+
+        await Producto.deleteOne({ _id: id });
+
+        return res.json({
+          mensaje: 'Producto eliminado correctamente (sin transacción)',
+          inventariosEliminados,
+        });
+      }
+
+      console.error('[eliminarProducto][Tx ERROR]', txErr);
+      return res.status(500).json({
+        mensaje: 'Error al eliminar producto',
+        error: txErr.message,
+      });
+    }
+  } catch (error) {
+    console.error('[eliminarProducto][ERROR]', error);
+    return res.status(500).json({
+      mensaje: 'Error al eliminar producto',
+      error: error.message,
+    });
   }
 };
 

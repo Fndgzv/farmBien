@@ -18,7 +18,8 @@ const {
   actualizarProductos,
   actualizarProducto,
   searchProductos,
-  buscarPorCodigoBarras
+  buscarPorCodigoBarras,
+  eliminarProducto
 } = require('../controllers/productoController');
 
 // ⚠️ Rutas específicas SIEMPRE antes que las genéricas con :id
@@ -39,7 +40,7 @@ router.get('/', authMiddleware,obtenerProductos);
 router.post('/', authMiddleware, isAdmin,crearProducto);
 router.put('/actualizar-masivo', authMiddleware, isAdmin,actualizarProductos);
 router.put('/actualizar-producto/:id([0-9a-fA-F]{24})', authMiddleware, isAdmin,actualizarProducto);
-
+router.delete('/:id', authMiddleware, isAdmin, eliminarProducto);
 
 // --- por ÚLTIMO la genérica por id ---
 router.get('/:id([0-9a-fA-F]{24})', authMiddleware,obtenerProductoPorId);

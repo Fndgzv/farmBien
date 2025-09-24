@@ -67,4 +67,9 @@ export class ProductoService {
     return this.http.get<ProductoLite[]>(`${this.apiUrl}/search`, { params });
   }
 
+
+  eliminarProducto(id: string) {
+    return this.http.delete<any>(`${this.apiUrl}/${id}`);
+  }
 }
+

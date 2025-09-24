@@ -8,4 +8,6 @@ const InventarioFarmaciaSchema = new mongoose.Schema({
     precioVenta: { type: Number, required: true }
 }, { timestamps: true });
 
+InventarioFarmaciaSchema.index({ producto: 1 });
+
 module.exports = mongoose.model('InventarioFarmacia', InventarioFarmaciaSchema);
