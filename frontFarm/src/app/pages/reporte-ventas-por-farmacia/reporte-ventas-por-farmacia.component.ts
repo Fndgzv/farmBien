@@ -254,6 +254,8 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
       { key: 'importeVendido', label: 'Importe' },
       { key: 'utilidad', label: 'Utilidad', map: (r: any) => Number(r.utilidad ?? 0).toFixed(2) },
       { key: 'margenPct', label: 'margenPct', map: (r: any) => Number(r.margenPct ?? 0).toFixed(2) },
+      { key: 'stockMin', label: 'Stock Mín.' },
+      { key: 'stockMax', label: 'Stock Máx.' },
       { key: 'existencia', label: 'Existencia' },
 
     ];
