@@ -9,5 +9,7 @@ const InventarioFarmaciaSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 InventarioFarmaciaSchema.index({ producto: 1 });
+InventarioFarmaciaSchema.index({ farmacia: 1, existencia: 1 });
+InventarioFarmaciaSchema.index({ farmacia: 1, producto: 1 });
 
 module.exports = mongoose.model('InventarioFarmacia', InventarioFarmaciaSchema);

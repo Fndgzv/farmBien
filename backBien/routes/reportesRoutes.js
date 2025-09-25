@@ -4,6 +4,8 @@ const router = express.Router();
 const authMiddleware = require("../middlewares/authMiddleware");
 const isAdmin = require("../middlewares/isAdmin")
 
+const { reporteComprasConVentas } = require('../controllers/reportesComprasVentas.controller');
+
 const {
   resumenProductosVendidos,
   ventasProductoDetalle,
@@ -62,6 +64,7 @@ router.get('/compras-producto', authMiddleware, isAdmin, comprasPorProducto);
 router.get('/compras-categoria', authMiddleware, isAdmin, comprasPorCategoria);
 router.get('/compras-usuario', authMiddleware, isAdmin, comprasPorUsuario);
 router.get('/compras-historial-producto', authMiddleware, isAdmin, comprasHistorialProducto);
+router.get('/compras-con-ventas', authMiddleware, isAdmin, reporteComprasConVentas);
 
 router.get('/cancelaciones-resumen',  authMiddleware, isAdmin, cancelacionesResumen);
 router.get('/cancelaciones-usuario',  authMiddleware, isAdmin, cancelacionesPorUsuario);

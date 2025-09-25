@@ -712,6 +712,36 @@ exports.searchProductos = async (req, res) => {
   }
 };
 
+// Buscar productos por nombre o código de barras (autocomplete)
+const escapeRegExp = (s = '') => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+exports.buscarProductos = async (req, res) => {
+  try {
+    const { q = '', limit = 50 } = req.query;
+    const lim = Math.min(parseInt(limit) || 50, 100);
+
+    const filtro = q
+      ? {
+          $or: [
+            { nombre: { $regex: escapeRegExp(q), $options: 'i' } },
+            { codigoBarras: { $regex: escapeRegExp(q), $options: 'i' } },
+          ],
+        }
+      : {};
+
+    const rows = await Producto.find(filtro)
+      .select('_id nombre codigoBarras categoria imagen')
+      .sort({ nombre: 1 })
+      .limit(lim);
+
+    res.json({ rows });
+  } catch (err) {
+    console.error('[buscarProductos][ERROR]', err);
+    res.status(500).json({ mensaje: 'Error al buscar productos' });
+  }
+};
+
+
 exports.actualizarProducto = async (req, res) => {
 /* Actualiza un producto en Almacen y de ser el caso 
 actualiza el precio en todas las farmacias*/

@@ -1,0 +1,235 @@
+<div class="filtros">
+  <h4 class="titulo text-center">Compras contra Ventas por producto</h4>
+  <form [formGroup]="form" class="row align-items-end">
+    <div class="col-sm-3">
+      <label class="form-label">Fecha inicial</label>
+      <input class="form-control" type="date" formControlName="fechaIni" />
+    </div>
+    <div class="col-sm-3">
+      <label class="form-label">Fecha final</label>
+      <input class="form-control" type="date" formControlName="fechaFin" />
+    </div>
+
+    <!-- Producto con sugerencias -->
+    <div class="col-sm-4 position-relative">
+      <label class="form-label">Producto</label>
+      <input #prodInput type="text" class="form-control" placeholder="Nombre o código (mín. 2 letras)"
+        [disabled]="!!productoSel" (input)="onProductoInput(prodInput.value)" [value]="productoSel?.nombre || ''" />
+      <div class="suggest" *ngIf="prodOpts.length && !productoSel">
+        <button type="button" class="suggest-item" *ngFor="let p of prodOpts" (click)="selectProducto(p)">
+          <div class="fw-semibold">{{ p.nombre || '(sin nombre)' }}</div>
+          <small class="text-muted">{{ p.codigoBarras || '—' }}</small>
+        </button>
+      </div>
+      <div class="mt-1" *ngIf="productoSel">
+        <span class="badge bg-primary-subtle text-primary border">
+          {{ productoSel.nombre }}
+          <span *ngIf="productoSel.codigoBarras"> · {{ productoSel.codigoBarras }}</span>
+        </span>
+        <button type="button" class="btn btn-link btn-sm ps-2" (click)="clearProducto()">Borrar</button>
+      </div>
+    </div>
+
+    <!-- Proveedor select -->
+    <div class="col-sm-2">
+      <label class="form-label">Proveedor</label>
+      <select class="form-select" formControlName="proveedorId">
+        <option value="">TODOS</option>
+        <option *ngFor="let pr of proveedores" [value]="pr._id">{{ pr.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="row align-items-end mt-3 mb-2">
+      <div class="col-sm-2">
+        <label class="form-label">Lote</label>
+        <input class="form-control" type="text" formControlName="lote" placeholder="contiene…" />
+      </div>
+
+      <div class="col-sm-2">
+        <label class="form-label">CB</label>
+        <input class="form-control" type="text" formControlName="codigoBarras" placeholder="contiene…" />
+      </div>
+
+      <div class="col-sm-2">
+        <label class="form-label"># por página</label>
+        <input class="form-control" type="number" formControlName="limit" min="1" max="200"
+          (change)="limit = form.value.limit || 20; onChangeLimit()">
+      </div>
+
+      <div class="col-sm-2 mt-4">
+        <button type="button" class="btn-rojo" (click)="limpiar()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="col-sm-3 mt-4">
+        <button type="button" class="btn-gris" [disabled]="cargando" (click)="buscar(true)">
+          {{ cargando ? 'Buscando…' : 'Buscar' }}
+        </button>
+      </div>
+
+    </div>
+  </form>
+
+  <div class="nota" *ngIf="nota">
+    <small>{{ nota }}</small>
+  </div>
+</div>
+
+<div class="tabla-wrapper">
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th class="th-sort" (click)="clickSort('fecCompra')" [class.sorted]="isSorted('fecCompra')"
+          [attr.aria-sort]="isSorted('fecCompra') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          Fec. compra
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('fecCompra') && isAsc(),
+           'bi-caret-down-fill':  isSorted('fecCompra') && !isAsc(),
+           'bi-caret-up':         !isSorted('fecCompra')
+         }"></i>
+        </th>
+
+        <th class="th-sort" (click)="clickSort('proveedor')" [class.sorted]="isSorted('proveedor')"
+          [attr.aria-sort]="isSorted('proveedor') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          Proveedor
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('proveedor') && isAsc(),
+           'bi-caret-down-fill':  isSorted('proveedor') && !isAsc(),
+           'bi-caret-up':         !isSorted('proveedor')
+         }"></i>
+        </th>
+
+        <th class="th-sort" (click)="clickSort('producto')" [class.sorted]="isSorted('producto')"
+          [attr.aria-sort]="isSorted('producto') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          Producto
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('producto') && isAsc(),
+           'bi-caret-down-fill':  isSorted('producto') && !isAsc(),
+           'bi-caret-up':         !isSorted('producto')
+         }"></i>
+        </th>
+
+        <th class="th-sort" (click)="clickSort('cb')" [class.sorted]="isSorted('cb')"
+          [attr.aria-sort]="isSorted('cb') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          CB
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('cb') && isAsc(),
+           'bi-caret-down-fill':  isSorted('cb') && !isAsc(),
+           'bi-caret-up':         !isSorted('cb')
+         }"></i>
+        </th>
+
+        <th class="th-sort" (click)="clickSort('lote')" [class.sorted]="isSorted('lote')"
+          [attr.aria-sort]="isSorted('lote') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          Lote
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('lote') && isAsc(),
+           'bi-caret-down-fill':  isSorted('lote') && !isAsc(),
+           'bi-caret-up':         !isSorted('lote')
+         }"></i>
+        </th>
+
+        <th class="th-sort text-end" (click)="clickSort('costo')" [class.sorted]="isSorted('costo')"
+          [attr.aria-sort]="isSorted('costo') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          Costo
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('costo') && isAsc(),
+           'bi-caret-down-fill':  isSorted('costo') && !isAsc(),
+           'bi-caret-up':         !isSorted('costo')
+         }"></i>
+        </th>
+
+        <th class="th-sort text-end" (click)="clickSort('cantidad')" [class.sorted]="isSorted('cantidad')"
+          [attr.aria-sort]="isSorted('cantidad') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          Comprados
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('cantidad') && isAsc(),
+           'bi-caret-down-fill':  isSorted('cantidad') && !isAsc(),
+           'bi-caret-up':         !isSorted('cantidad')
+         }"></i>
+        </th>
+
+        <th class="th-sort" (click)="clickSort('caducidad')" [class.sorted]="isSorted('caducidad')"
+          [attr.aria-sort]="isSorted('caducidad') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          Caducidad
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('caducidad') && isAsc(),
+           'bi-caret-down-fill':  isSorted('caducidad') && !isAsc(),
+           'bi-caret-up':         !isSorted('caducidad')
+         }"></i>
+        </th>
+
+        <th class="th-sort text-end" (click)="clickSort('existencia')" [class.sorted]="isSorted('existencia')"
+          [attr.aria-sort]="isSorted('existencia') ? (isAsc() ? 'ascending' : 'descending') : 'none'">
+          Almacén
+          <i class="bi" [ngClass]="{
+           'bi-caret-up-fill':    isSorted('existencia') && isAsc(),
+           'bi-caret-down-fill':  isSorted('existencia') && !isAsc(),
+           'bi-caret-up':         !isSorted('existencia')
+         }"></i>
+        </th>
+
+        <!-- Estas dos no son ordenables -->
+        <th>Farmacia</th>
+        <th class="text-end">Vendidos</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr *ngFor="let r of rows">
+        <td>{{ r.fecCompra | date:'dd/MM/yyyy' }}</td>
+        <td>{{ r.proveedor || '—' }}</td>
+        <td>{{ r.producto }}</td>
+        <td>{{ r.cb }}</td>
+        <td>{{ r.lote }}</td>
+        <td class="text-end">{{ r.costo | currency }}</td>
+        <td class="text-end colortxt-c">{{ r.cantidad | number }}</td>
+        <td>{{ r.caducidad ? (r.caducidad | date:'dd/MM/yyyy') : '—' }}</td>
+        <td class="text-end">{{ r.existencia | number }}</td>
+
+        <!-- columnas “divididas” por farmacia -->
+        <td class="multiline">
+          <div *ngIf="(r.ventasPorFarmacia?.length||0) === 0">—</div>
+          <div *ngFor="let v of r.ventasPorFarmacia">{{ v.farmacia || '—' }}</div>
+        </td>
+        <td class="multiline text-end colortxt-v">
+          <div *ngIf="(r.ventasPorFarmacia?.length||0) === 0">—</div>
+          <div *ngFor="let v of r.ventasPorFarmacia">{{ v.vendidos | number }}</div>
+        </td>
+      </tr>
+      <tr *ngIf="!cargando && rows.length === 0">
+        <td colspan="12" class="text-center text-muted p-2">Sin resultados</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="6" class="text-end">∑ Comprados:</th>
+        <th class="text-end colortxt-c">{{ sumCantidad | number }}</th>
+        <th class="text-end">∑ Almacén:</th>
+        <th class="text-end">{{ sumExistencia | number }}</th>
+        <th class="text-end">Prom. Vend.:</th>
+        <th class="text-end colortxt-v">{{ avgVendidosFarmacia | number:'1.0-2' }}</th>
+      </tr>
+    </tfoot>
+
+  </table>
+</div>
+
+<!-- paginación -->
+<div class="d-flex align-items-center justify-content-center my-2 paginacion">
+  <button (click)="goToFirstPage()" [disabled]="page <= 1" aria-label="Primera página">
+    <i class="fa fa-angle-double-left"></i>
+  </button>
+  <button (click)="goToPrevPage()" [disabled]="page <= 1" aria-label="Página anterior">
+    <i class="fa fa-angle-left"></i>
+  </button>
+
+  <span class="px-2">Página {{ page }} de {{ totalPaginas }}</span>
+
+  <button (click)="goToNextPage()" [disabled]="page >= totalPaginas" aria-label="Página siguiente">
+    <i class="fa fa-angle-right"></i>
+  </button>
+  <button (click)="goToLastPage()" [disabled]="page >= totalPaginas" aria-label="Última página">
+    <i class="fa fa-angle-double-right"></i>
+  </button>
+</div>

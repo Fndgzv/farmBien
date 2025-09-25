@@ -10,18 +10,21 @@ export class InventarioFarmaciaService {
 
   private baseUrl = `${environment.apiUrl}/inventario-farmacia`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   buscarInventarioFarmacia(filtros: any): Observable<any[]> {
     let params = new HttpParams();
 
-    if (filtros.farmacia)        params = params.set('farmacia', filtros.farmacia);
-    if (filtros.nombre)          params = params.set('nombre', filtros.nombre);
-    if (filtros.codigoBarras)    params = params.set('codigoBarras', filtros.codigoBarras);
-    if (filtros.categoria)       params = params.set('categoria', filtros.categoria);
-    if (filtros.inapam !== '')   params = params.set('inapam', filtros.inapam);
-    if (filtros.generico !== '')   params = params.set('generico', filtros.generico);
+    if (filtros.farmacia) params = params.set('farmacia', filtros.farmacia);
+    if (filtros.nombre) params = params.set('nombre', filtros.nombre);
+    if (filtros.codigoBarras) params = params.set('codigoBarras', filtros.codigoBarras);
+    if (filtros.categoria) params = params.set('categoria', filtros.categoria);
+    if (filtros.inapam !== '') params = params.set('inapam', filtros.inapam);
+    if (filtros.generico !== '') params = params.set('generico', filtros.generico);
 
+    if (filtros.sortBy) params = params.set('sortBy', filtros.sortBy);
+    if (filtros.sortDir) params = params.set('sortDir', filtros.sortDir);
+    
     return this.http.get<any[]>(`${this.baseUrl}/`, { params });
   }
 

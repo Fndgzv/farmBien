@@ -48,28 +48,56 @@ function construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, gene
 }
 
 // Obtener inventario con filtros en farmacia
+// backBien/controllers/ajusteInventarioController.js
 exports.obtenerInventarioFarmacia = async (req, res) => {
-    const { farmacia, nombre, codigoBarras, categoria, inapam, generico } = req.query;
+  const {
+    farmacia,
+    nombre, codigoBarras, categoria, inapam, generico,
+    sortBy = 'existencia',            // opcional: por si luego agregas más columnas
+    sortDir = 'asc'                   // 'asc' | 'desc'
+  } = req.query;
 
-    if (!farmacia) {
-        return res.status(400).json({ mensaje: "Debe especificar una farmacia." });
+  if (!farmacia) {
+    return res.status(400).json({ mensaje: "Debe especificar una farmacia." });
+  }
+
+  try {
+    // 1) Filtrado de productos por criterios de Producto
+    const filtrosProducto = construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, generico });
+    const productos = await Producto.find(filtrosProducto).select('_id').lean();
+    const productosIds = productos.map(p => p._id);
+
+    if (productosIds.length === 0) {
+      return res.json([]); // nada que listar
     }
 
-    try {
-        const filtrosProducto = construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, generico });
-        const productos = await Producto.find(filtrosProducto).select('_id');
-        const productosIds = productos.map(p => p._id);
+    // 2) Dirección de orden
+    const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
 
-        const inventario = await InventarioFarmacia.find({
-            farmacia,
-            producto: { $in: productosIds }
-        }).populate('producto');
+    // 3) Sort (solo existencia por ahora)
+    const sortStage = (String(sortBy) === 'existencia')
+      ? { existencia: dir, _id: 1 }        // _id como tie-breaker estable
+      : { _id: 1 };                        // fallback
 
-        res.json(inventario);
-    } catch (error) {
-        res.status(500).json({ mensaje: "Error al obtener inventario", error });
-    }
+    // 4) Consulta
+    const inventario = await InventarioFarmacia.find({
+      farmacia,
+      producto: { $in: productosIds }
+    })
+      .sort(sortStage)
+      .populate({
+        path: 'producto',
+        select: 'nombre codigoBarras categoria generico descuentoINAPAM stockMinimo stockMaximo'
+      })
+      .lean();
+
+    res.json(inventario);
+  } catch (error) {
+    console.error('[obtenerInventarioFarmacia][ERROR]', error);
+    res.status(500).json({ mensaje: "Error al obtener inventario" });
+  }
 };
+
 
 
 // Actualización masiva en farmacia (existencia, stockMax y stockMin)

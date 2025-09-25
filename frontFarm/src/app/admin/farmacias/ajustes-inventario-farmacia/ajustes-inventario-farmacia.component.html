@@ -126,7 +126,15 @@
                     <th>Categoria</th>
                     <th>Genérico</th>
                     <th>INAPAM</th>
-                    <th>Existencia</th>
+                    <th (click)="clickSortExistencia()" class="th-sort text-center" title="Ordenar por existencia">
+                        Existencia
+                        <i class="bi" [ngClass]="{
+                            'bi-caret-up-fill':   sortBy === 'existencia' && sortDir === 'asc',
+                            'bi-caret-down-fill': sortBy === 'existencia' && sortDir === 'desc',
+                            'bi-caret-up':        sortBy !== 'existencia'
+                            }" style="margin-left:.25rem;">
+                        </i>
+                    </th>
                     <th>Stock Máx</th>
                     <th>Stock Mín</th>
                     <th>Precio Venta</th>

@@ -49,6 +49,9 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   cargando = false;
   aplicandoCambiosMasivos = false;
 
+  sortBy: 'existencia' | '' = 'existencia';
+  sortDir: 'asc' | 'desc' = 'asc';
+
   constructor(
     private fb: FormBuilder,
     private inventarioService: InventarioFarmaciaService,
@@ -100,27 +103,32 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       return;
     }
     this.cargando = true;
-    this.inventarioService.buscarInventarioFarmacia(filtros).subscribe({
+
+    const params = {
+      ...filtros,
+      sortBy: this.sortBy,
+      sortDir: this.sortDir
+    };
+
+    this.inventarioService.buscarInventarioFarmacia(params).subscribe({
       next: (resp) => {
         this.estadoEdicion = {};
-        this.inventario = resp.map((item: any) => {
-          return {
-            _id: item._id,
-            farmacia: item.farmacia,
-            producto: item.producto,
+        this.inventario = resp.map((item: any) => ({
+          _id: item._id,
+          farmacia: item.farmacia,
+          producto: item.producto,
+          existencia: item.existencia,
+          stockMax: item.stockMax,
+          stockMin: item.stockMin,
+          precioVenta: item.precioVenta,
+          seleccionado: false,
+          copiaOriginal: {
             existencia: item.existencia,
             stockMax: item.stockMax,
             stockMin: item.stockMin,
-            precioVenta: item.precioVenta,
-            seleccionado: false,
-            copiaOriginal: {
-              existencia: item.existencia,
-              stockMax: item.stockMax,
-              stockMin: item.stockMin,
-              precioVenta: item.precioVenta
-            }
+            precioVenta: item.precioVenta
           }
-        });
+        }));
         this.paginaActual = 1;
         this.cargando = false;
       },
@@ -130,7 +138,12 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
         this.cargando = false;
       }
     });
+  }
 
+  clickSortExistencia() {
+    this.sortBy = 'existencia';
+    this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    this.buscar();
   }
 
   seleccionarTodos(event: any) {
