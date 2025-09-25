@@ -8,13 +8,18 @@ export interface VentaProductoResumen {
   productoId: string;
   codigoBarras?: string;
   nombre: string;
+  farmacia: string;
   unidad?: string;
   categoria?: string;
   cantidadVendida: number;
   importeVendido: number;
   costoTotal?: number;
   utilidad?: number;
-  margenPct?: number | null; // (0–100 o null)
+  existencia?: number;
+  stockMax?: number;
+  stockMin?: number;
+  margenPct?: number | null;
+
 }
 
 export interface ResumenVentasResponse {

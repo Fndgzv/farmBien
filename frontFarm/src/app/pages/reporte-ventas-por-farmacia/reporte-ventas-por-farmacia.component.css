@@ -8,3 +8,66 @@
 }
 
 .sortable { cursor: pointer; user-select: none; }
+
+
+/* hace el mat-form-field más bajito */
+.compact-field .mdc-text-field--outlined .mdc-notched-outline__notch {
+  padding: 0 !important;
+}
+.compact-field .mat-mdc-form-field-infix {
+  padding-top: .35rem;
+  padding-bottom: .35rem;
+}
+.wide-field { width: 100%; }
+
+
+/* Compactar el mat-form-field para que iguale la altura del input de Bootstrap (~40px) */
+:host ::ng-deep .compact-field .mat-mdc-form-field-subscript-wrapper {
+  display: none; /* quita espacio de hints/errores */
+}
+:host ::ng-deep .compact-field .mat-mdc-form-field-infix {
+  padding: 8px 0; /* reduce alto interno */
+}
+:host ::ng-deep .compact-field .mdc-text-field--outlined {
+  height: 40px; /* igual que form-control */
+}
+:host ::ng-deep .compact-field .mat-mdc-form-field-flex {
+  align-items: center;
+}
+
+/* Quita márgenes extra por si hay */
+.compact-field.mb-0 {
+  margin-bottom: 0;
+}
+
+
+/* centra verticalmente el slot del sufijo */
+.suffix-center{
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-right: .35rem;   /* “aire” a la derecha */
+}
+
+/* tamaño cómodo y centrado del botón */
+.clear-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px; /* si tu btn-rojo-chico no lo trae */
+  line-height: 1;
+}
+
+/* (opcional) asegura que el contenido del form-field quede centrado verticalmente */
+.compact-field .mat-form-field-flex{
+  align-items: center;
+}
+
+
+.sem { font-weight: 600; }
+.sem-green  { color: #0f9d58; }   /* verde */
+.sem-yellow { color: #b8860b; }   /* amarillo oscuro para contraste */
+.sem-red    { color: #dc3545; }   /* rojo */
+.sem-muted  { color: #6c757d; }   /* gris cuando no hay umbrales */

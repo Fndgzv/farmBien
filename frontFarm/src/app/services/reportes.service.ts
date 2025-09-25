@@ -66,6 +66,7 @@ export class ReportesService {
 
   getVentasPorFarmacia(params: {
     farmaciaId?: string;
+    productoId?: string;
     fechaIni?: string | Date;
     fechaFin?: string | Date;
   }): Observable<ResumenVentasResponse> {

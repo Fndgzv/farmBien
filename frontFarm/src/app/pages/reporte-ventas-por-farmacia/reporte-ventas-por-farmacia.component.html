@@ -1,10 +1,10 @@
 <div class="p-1">
   <div class="titulo-container">
-    <h2 class="mb-3 titulo">Productos vendidos</h2>
+    <h2 class="mb-3 titulo">Productos: Ventas - Existencia</h2>
   </div>
 
   <!-- Filtros -->
-  <form (ngSubmit)="buscar()" class="row align-items-end filtros ">
+  <form (ngSubmit)="buscar()" class="row filtros align-items-end">
     <div class="col-md-2">
       <label class="form-label">Farmacia</label>
       <select class="form-select" [(ngModel)]="farmaciaId" name="farmaciaId">
@@ -23,18 +23,48 @@
       <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
     </div>
 
-    <div class="col-md-2 d-flex gap-2">
-      <button type="button" class="btn-rojo" (click)="limpiarFiltros()" [disabled]="cargando" matTooltip="Limpiar filtro">
-        <i class="fas fa-times"></i>
-      </button>
+    <!-- Producto -->
+    <div class="col-md-4 d-flex flex-column">
+      <label class="form-label">Producto</label>
+      <div class="d-flex align-items-end">
+        <mat-form-field appearance="outline" class="compact-field w-100 mb-0">
+          <input matInput [formControl]="productCtrl" [matAutocomplete]="auto"
+            placeholder="Escribe código de barras o nombre" />
+
+          <!-- limpiar selección -->
+          <span matSuffix class="suffix-center">
+            <button matSuffix type="button" class="btn-rojo-chico" (click)="clearProducto()" *ngIf="productCtrl.value"
+              aria-label="Limpiar producto">
+              <i class="fas fa-times"></i>
+            </button>
+          </span>
+
+          <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayProducto"
+            (optionSelected)="onOptionSelected($event.option.value)">
+            <mat-option *ngFor="let p of opcionesProductos" [value]="p">
+              <div class="d-flex justify-content-between w-100">
+                <span>{{ p.nombre }}</span>
+                <small class="text-muted ms-2">{{ p.codigoBarras || '—' }}</small>
+              </div>
+            </mat-option>
+          </mat-autocomplete>
+        </mat-form-field>
+      </div>
     </div>
 
-    <div class="col-auto ms-auto">
-      <button class="btn-gris float-end" type="submit" [disabled]="cargando">
+    <!-- Botones -->
+    <div class="col-md-2 d-flex gap-2 justify-content-end align-items-end">
+      <button type="button" class="btn-rojo" (click)="limpiarFiltros()" [disabled]="cargando"
+        matTooltip="Limpiar filtro">
+        <i class="fas fa-times"></i>
+      </button>
+
+      <button class="btn-gris" type="submit" [disabled]="cargando">
         {{ cargando ? 'Buscando...' : 'Buscar' }}
       </button>
     </div>
   </form>
+
 
   <div class="col-12 mt-2">
     <button class="btn-verde" type="button" (click)="exportarCSV()" [disabled]="cargando || !rows.length">
@@ -47,22 +77,28 @@
     <table class="align-middle tabla">
       <thead>
         <tr>
-          <th style="white-space:nowrap;">Cód. barras</th>
-          <th>Producto</th>
-          <th>Categoría</th>
-          <th class="text-end sortable" (click)="setSort('cantidad')">
-            Cantidad
-            <mat-icon class="ms-1" inline>{{ sortIcon('cantidad') }}</mat-icon>
+          <th>Farmacia</th>
+
+          <th class="sortable" (click)="setSort('producto')">
+            Producto
+            <mat-icon class="ms-1" inline>{{ sortIcon('producto') }}</mat-icon>
           </th>
 
-          <th class="text-end sortable" (click)="setSort('importe')">
-            Importe
-            <mat-icon class="ms-1" inline>{{ sortIcon('importe') }}</mat-icon>
+          <th style="white-space:nowrap;">Cód. barras</th>
+
+          <th class="text-end sortable" (click)="setSort('cantidad')">
+            Vendidos
+            <mat-icon class="ms-1" inline>{{ sortIcon('cantidad') }}</mat-icon>
           </th>
 
           <th class="text-end sortable" (click)="setSort('costo')">
             Costo total
             <mat-icon class="ms-1" inline>{{ sortIcon('costo') }}</mat-icon>
+          </th>
+
+          <th class="text-end sortable" (click)="setSort('importe')">
+            Importe
+            <mat-icon class="ms-1" inline>{{ sortIcon('importe') }}</mat-icon>
           </th>
 
           <th class="text-end sortable" (click)="setSort('utilidad')">
@@ -75,21 +111,36 @@
             <mat-icon class="ms-1" inline>{{ sortIcon('margen') }}</mat-icon>
           </th>
 
+          <th>Stock Mín.</th>
+          <th>Stock Máx.</th>
+
+          <th class="text-end sortable" (click)="setSort('existencia')">
+            Existencia
+            <mat-icon class="ms-1" inline>{{ sortIcon('existencia') }}</mat-icon>
+          </th>
+
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let r of pagedRows">
-          <td>{{ r.codigoBarras || '—' }}</td>
+          <td>{{ r.farmacia }}</td>
           <td>{{ r.nombre }}</td>
-          <td>{{ r.categoria || '—' }}</td>
-          <td class="text-end">{{ r.cantidadVendida }}</td>
-          <td class="text-end">{{ r.importeVendido | currency }}</td>
+          <td>{{ r.codigoBarras || '—' }}</td>
+          <td class="text-end">{{ r.cantidadVendida | number}}</td>
           <td class="text-end">{{ r.costoTotal | currency }}</td>
+          <td class="text-end">{{ r.importeVendido | currency }}</td>
           <td class="text-end" [ngClass]="{ 'text-danger': (r.utilidad || 0) < 0 }">
             {{ r.utilidad | currency }}
           </td>
           <td class="text-end">
             {{ r.margenPct == null ? '—' : (r.margenPct | number:'1.0-2') + '%' }}
+          </td>
+          <td class="text-end">{{ r.stockMin | number}}</td>
+          <td class="text-end">{{ r.stockMax | number}}</td>
+          <td class="text-end">
+            <span class="sem" [ngClass]="semaforoClass(r)">
+              {{ r.existencia | number }}
+            </span>
           </td>
         </tr>
 
@@ -101,13 +152,14 @@
       <tfoot *ngIf="rows.length">
         <tr class="fw-bold">
           <td colspan="3" class="text-end">Totales:</td>
-          <td class="text-end">{{ totalCantidad }}</td>
-          <td class="text-end">{{ totalImporte | currency }}</td>
+          <td class="text-end">{{ totalCantidad | number}}</td>
           <td class="text-end">{{ totalCosto | currency }}</td>
+          <td class="text-end">{{ totalImporte | currency }}</td>
           <td class="text-end">{{ totalUtilidad | currency }}</td>
           <td class="text-end">
             {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
           </td>
+          <td colspan="3" class="text-end">{{ totalExistencia | number}}</td>
         </tr>
       </tfoot>
     </table>

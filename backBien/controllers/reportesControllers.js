@@ -13,6 +13,8 @@ const { parseSortTop } = require('../utils/sort');
 
 const oid = (s) => (s && mongoose.isValidObjectId(s)) ? new Types.ObjectId(s) : undefined;
 
+const toId = v => (v && Types.ObjectId.isValid(v) ? new Types.ObjectId(String(v)) : null);
+
 const {
   dayRangeUtc,
   dayRangeUtcOrMTD,
@@ -127,29 +129,145 @@ exports.ventasProductoDetalle = async (req, res) => {
 };
 
 exports.resumenProductosVendidos = async (req, res) => {
-  // conteo de ventas de todos los producto
   try {
-    const { farmaciaId, fechaIni, fechaFin } = req.query;
+    const {
+      farmaciaId,
+      productoId,
+      fechaIni,
+      fechaFin,
+      sortBy = 'producto',     // 'existencia' | 'producto'
+      sortDir = 'asc'          // 'asc' | 'desc'
+    } = req.query;
 
     const { gte, lt } = dayRangeUtc(fechaIni, fechaFin);
 
-    if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
-      return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
+    // match por encabezado de venta (rango y farmacia)
+    const match = { fecha: { $gte: gte, $lt: lt } };
+    const fId = toId(farmaciaId);
+    if (fId) match.farmacia = fId;
+
+    const pipe = [
+      { $match: match },
+      { $unwind: '$productos' },
+    ];
+
+    // filtro opcional por producto
+    const pId = toId(productoId);
+    if (pId) pipe.push({ $match: { 'productos.producto': pId } });
+
+    pipe.push(
+      // Agrupa por (farmacia, producto)
+      {
+        $group: {
+          _id: { farmacia: '$farmacia', producto: '$productos.producto' },
+          cantidadVendida: { $sum: '$productos.cantidad' },
+          importeVendido: { $sum: '$productos.totalRen' },
+          // costoTotal = costoUnitario * cantidad
+          costoTotal: { $sum: { $multiply: ['$productos.costo', '$productos.cantidad'] } },
+        },
+      },
+
+      // Producto
+      {
+        $lookup: {
+          from: 'productos',
+          localField: '_id.producto',
+          foreignField: '_id',
+          as: 'prod',
+        },
+      },
+      { $unwind: { path: '$prod', preserveNullAndEmptyArrays: true } },
+
+      // Farmacia
+      {
+        $lookup: {
+          from: 'farmacias',
+          localField: '_id.farmacia',
+          foreignField: '_id',
+          as: 'farm',
+        },
+      },
+      { $unwind: { path: '$farm', preserveNullAndEmptyArrays: true } },
+
+      // Inventario por (farmacia, producto): existencia, stockMax, stockMin
+      {
+        $lookup: {
+          from: 'inventariofarmacias', // nombre de la colección
+          let: { fId: '$_id.farmacia', pId: '$_id.producto' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $and: [ { $eq: ['$farmacia', '$$fId'] }, { $eq: ['$producto', '$$pId'] } ] },
+              },
+            },
+            { $project: { _id: 0, existencia: 1, stockMax: 1, stockMin: 1 } },
+          ],
+          as: 'inv',
+        },
+      },
+
+      // Cálculos y “flatten” de inventario
+      {
+        $addFields: {
+          existencia: { $ifNull: [{ $arrayElemAt: ['$inv.existencia', 0] }, 0] },
+          stockMax  : { $ifNull: [{ $arrayElemAt: ['$inv.stockMax', 0] }, 0] },
+          stockMin  : { $ifNull: [{ $arrayElemAt: ['$inv.stockMin', 0] }, 0] },
+          utilidad  : { $subtract: ['$importeVendido', '$costoTotal'] },
+          margenPct : {
+            $cond: [
+              { $gt: ['$importeVendido', 0] },
+              {
+                $multiply: [
+                  { $divide: [ { $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido' ] },
+                  100,
+                ],
+              },
+              null,
+            ],
+          },
+        },
+      },
+
+      // Proyección final
+      {
+        $project: {
+          _id: 0,
+          farmaciaId: '$_id.farmacia',
+          farmacia: '$farm.nombre',
+          productoId: '$_id.producto',
+          codigoBarras: '$prod.codigoBarras',
+          nombre: '$prod.nombre',
+          categoria: '$prod.categoria',
+          cantidadVendida: 1,
+          importeVendido: 1,
+          costoTotal: 1,
+          utilidad: 1,
+          margenPct: 1,
+          existencia: 1,
+          stockMax: 1,
+          stockMin: 1,
+        },
+      }
+    );
+
+    // Orden
+    const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
+    if (String(sortBy) === 'existencia') {
+      pipe.push({ $sort: { existencia: dir, farmacia: 1, nombre: 1 } });
+    } else if (String(sortBy) === 'producto') {
+      pipe.push({ $sort: { nombre: dir, farmacia: 1 } });
+    } else {
+      pipe.push({ $sort: { farmacia: 1, nombre: 1 } });
     }
 
-    const pipeline = pipelineVentasPorFarmacia({
-      farmaciaId: farmaciaId || null,
-      fechaIni: gte,   // UTC
-      fechaFin: lt     // UTC (EXCLUSIVO)
-    });
-
-    const data = await Venta.aggregate(pipeline);
+    const data = await Venta.aggregate(pipe).allowDiskUse(true);
     return res.json({ ok: true, rango: { fechaIni: gte, fechaFin: lt }, data });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ ok: false, mensaje: 'Error al obtener resumen de ventas' });
   }
 };
+
 
 exports.resumenUtilidades = async (req, res) => {
   try {
