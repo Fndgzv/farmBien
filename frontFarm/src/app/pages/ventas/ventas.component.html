@@ -39,7 +39,7 @@
       <input type="text" [(ngModel)]="telefonoCliente" (input)="buscarCliente()" [disabled]="carrito.length > 0"
         class="form-control pe-5" />
       <button *ngIf="telefonoCliente" type="button" [disabled]="carrito.length > 0" (click)="limpiarCliente()"
-        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+        matTooltip="Limpiar cliente" class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
         <fa-icon [icon]="faTimes"></fa-icon>
       </button>
     </div>
@@ -84,7 +84,7 @@
       </mat-autocomplete>
     </mat-form-field>
 
-    <button (click)="limpiarProducto()" class="btn-rojo-tache">
+    <button (click)="limpiarProducto()" class="btn-rojo-tache" matTooltip="Limpiar producto">
       <i class="fas fa-times"></i>
     </button>
   </div>
@@ -96,7 +96,7 @@
       <div class="input-container position-relative">
         <input type="text" [(ngModel)]="codigoConsulta" (keyup.enter)="consultarPrecio()" placeholder="Código de barras"
           class="input-field">
-        <button (click)="limpiarBarras()"
+        <button (click)="limpiarBarras()" matTooltip="Limpiar cód. barras"
           class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
           <fa-icon [icon]="faTimes"></fa-icon>
         </button>
@@ -174,7 +174,7 @@
 
       </div>
 
-      <button (click)="cerrarModalConsultaPrecio()" class="btn-rojo-tache">Cerrar</button>
+      <button (click)="cerrarModalConsultaPrecio()" class="btn-rojo-tache" matTooltip="Salir de consultar precio">Cerrar</button>
     </div>
   </div>
 
@@ -199,26 +199,26 @@
     <tbody>
       <tr *ngFor="let p of carrito; let i = index">
         <td>
-          <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" title="Eliminar renglón"
+          <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Eliminar renglón"
             class="btn-icono btn-rojo-tache" (click)="eliminarProducto(i)">
             <i class="fas fa-times"></i>
           </button>
         </td>
         <td>
-          <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" title="Aumentar uno"
+          <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Aumentar uno"
             class="btn-icono btn-verde" (click)="incrementarCantidad(i)">
             <i class="fas fa-plus"></i>
           </button>
         </td>
         <td>
-          <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" title="Quitar uno"
+          <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Quitar uno"
             class="btn-icono btn-gris" (click)="decrementarCantidad(i)">
             <i class="fas fa-minus"></i>
           </button>
         </td>
         <td class="col-img">
           <div class="img-cell">
-            <button type="button" class="img-button" (click)="openPreviewVenta(p)" title="Ver imagen">
+            <button type="button" class="img-button" (click)="openPreviewVenta(p)" matTooltip="Ver imagen">
               <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt="" loading="lazy"
                 decoding="async" />
               <span class="zoom-corner"><i class="fas fa-search-plus"></i></span>

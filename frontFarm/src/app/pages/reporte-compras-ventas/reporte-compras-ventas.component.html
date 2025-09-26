@@ -57,7 +57,7 @@
       </div>
 
       <div class="col-sm-2 mt-4">
-        <button type="button" class="btn-rojo" (click)="limpiar()">
+        <button type="button" class="btn-rojo" (click)="limpiar()" matTooltip="Limpiar filtros">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -217,19 +217,19 @@
 
 <!-- paginación -->
 <div class="d-flex align-items-center justify-content-center my-2 paginacion">
-  <button (click)="goToFirstPage()" [disabled]="page <= 1" aria-label="Primera página">
+  <button (click)="goToFirstPage()" [disabled]="page <= 1" aria-label="Primera página" matTooltip="Inicio">
     <i class="fa fa-angle-double-left"></i>
   </button>
-  <button (click)="goToPrevPage()" [disabled]="page <= 1" aria-label="Página anterior">
+  <button (click)="goToPrevPage()" [disabled]="page <= 1" aria-label="Página anterior" matTooltip="Anterior">
     <i class="fa fa-angle-left"></i>
   </button>
 
   <span class="px-2">Página {{ page }} de {{ totalPaginas }}</span>
 
-  <button (click)="goToNextPage()" [disabled]="page >= totalPaginas" aria-label="Página siguiente">
+  <button (click)="goToNextPage()" [disabled]="page >= totalPaginas" aria-label="Página siguiente" matTooltip="Siguiente">
     <i class="fa fa-angle-right"></i>
   </button>
-  <button (click)="goToLastPage()" [disabled]="page >= totalPaginas" aria-label="Última página">
+  <button (click)="goToLastPage()" [disabled]="page >= totalPaginas" aria-label="Última página" matTooltip="Fin">
     <i class="fa fa-angle-double-right"></i>
   </button>
 </div>

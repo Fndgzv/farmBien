@@ -3,7 +3,7 @@
         <h1 class="titulo">Ajuste de Inventario en Almacen</h1>
 
         <button type="button" class="btn-amarillo-chico d-flex align-items-center" (click)="abrirNuevoProducto()"
-            title="Agregar un nuevo producto">
+            matTooltip="Agregar un nuevo producto">
             <fa-icon [icon]='faPlus'></fa-icon>
             <span class="ms-1">Nuevo</span>
         </button>
@@ -16,7 +16,7 @@
             <label class="me-2 mb-0" style="white-space: nowrap;">Nombre</label>
             <div class="position-relative">
                 <input type="text" [(ngModel)]="filtros.nombre" name="nombre" class="form-control pe-4 flex-grow-1">
-                <button *ngIf="filtros.nombre" type="button"
+                <button *ngIf="filtros.nombre" type="button" matTooltip="Limpiar nombre"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('nombre')">
                     <fa-icon [icon]="faTimes"></fa-icon>
@@ -29,7 +29,7 @@
             <div class="position-relative">
                 <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras"
                     class="form-control pe-4 flex-grow-1">
-                <button *ngIf="filtros.codigoBarras" type="button"
+                <button *ngIf="filtros.codigoBarras" type="button" matTooltip="Limpiar cód. barras"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('codigoBarras')">
                     <fa-icon [icon]="faTimes"></fa-icon>
@@ -42,7 +42,7 @@
             <div class="position-relative">
                 <input type="text" [(ngModel)]="filtros.categoria" name="categoria"
                     class="form-control pe-4 flex-grow-1">
-                <button *ngIf="filtros.categoria" type="button"
+                <button *ngIf="filtros.categoria" type="button" matTooltip="Limpiar categoría"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('categoria')">
                     <fa-icon [icon]="faTimes"></fa-icon>
@@ -59,7 +59,7 @@
                     <option [ngValue]="true">Sí</option>
                     <option [ngValue]="false">No</option>
                 </select>
-                <button *ngIf="filtros.descuentoINAPAM !== null" type="button"
+                <button *ngIf="filtros.descuentoINAPAM !== null" type="button" matTooltip="Limpiar INAPAM"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('descuentoINAPAM')">
                     <fa-icon [icon]="faTimes"></fa-icon>
@@ -74,7 +74,7 @@
                     <option [ngValue]="true">Sí</option>
                     <option [ngValue]="false">No</option>
                 </select>
-                <button *ngIf="filtros.generico !== null" type="button"
+                <button *ngIf="filtros.generico !== null" type="button" matTooltip="Limpiar genérico"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('generico')">
                     <fa-icon [icon]="faTimes"></fa-icon>
@@ -96,7 +96,7 @@
                 <!-- Botón limpiar (opcional, útil si quieres apagar de un clic el flag) -->
                 <button *ngIf="filtros.bajoStock" type="button"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                    (click)="limpiarFiltro('bajoStock')" title="Quitar filtro bajo stock">
+                    (click)="limpiarFiltro('bajoStock')" matTooltip="Quitar filtro bajo stock">
                     <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
@@ -104,7 +104,7 @@
 
         <div class="col-md-1 text-end mt-3">
             <button class="btn-gris" [disabled]="filtrando || iniciando" [attr.aria-busy]="filtrando || iniciando"
-                (click)="aplicarFiltros()">
+                matTooltip="Filtrar información solicitada" (click)="aplicarFiltros()">
                 <i class="fa fa-spinner fa-spin me-1" *ngIf="filtrando || iniciando"></i>
                 {{ filtrando ? 'Filtrando…' : (iniciando ? 'Iniciando…' : 'Buscar') }}
             </button>
@@ -123,7 +123,7 @@
 
                 <button *ngIf="filtros.duplicadosCB" type="button"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                    (click)="limpiarFiltro('duplicadosCB')" title="Quitar filtro de duplicados">
+                    (click)="limpiarFiltro('duplicadosCB')" matTooltip="Quitar filtro de duplicados">
                     <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
@@ -253,10 +253,10 @@
         <!-- Botones -->
         <div class="modal-actions mt-3">
             <button class="btn-rojo-chico" style="margin-left: 4rem;" type="button"
-                (click)="limpiarCamposCambioMasivo()">Cancelar
+                matTooltip="Borrar parámetros del cambio masivo" (click)="limpiarCamposCambioMasivo()">Cancelar
             </button>
             <button class="btn-verde-chico" style="margin-right: 4rem;" type="button"
-                [disabled]="!cambiosMasivosValidos" (click)="aplicarCambiosMasivos()">
+                matTooltip="Aplica cambios a los productos seleccionados en la tabla" [disabled]="!cambiosMasivosValidos" (click)="aplicarCambiosMasivos()">
                 Aplicar Cambios
             </button>
         </div>
@@ -324,7 +324,7 @@
                         <button type="button" class="img-button" (click)="file.click()"
                             [disabled]="subiendoId === p._id"
                             [attr.aria-label]="p.imagen ? 'Cambiar imagen' : 'Agregar imagen'"
-                            title="Cambiar ó Subir imagen">
+                            matTooltip="Cambiar ó Subir imagen">
                             <img [src]="p._imgSrc" loading="lazy" decoding="async" (error)="onImgError($event, p)"
                                 alt="" />
                             <span class="overlay" *ngIf="subiendoId !== p._id"><i class="fas fa-upload"></i></span>
@@ -334,7 +334,7 @@
 
                         <!-- 🔍 lupa: abre preview grande (NO dispara el file) -->
                         <button type="button" class="zoom-btn" (click)="$event.stopPropagation(); openPreview(p)"
-                            [disabled]="subiendoId === p._id" title="Ver imagen">
+                            [disabled]="subiendoId === p._id" matTooltip="Ver imagen">
                             <i class="fas fa-search-plus"></i>
                         </button>
 
@@ -377,22 +377,22 @@
         </tbody>
     </table>
     <div class="paginacion">
-        <button (click)="paginaActual = 1" [disabled]="paginaActual === 1" title="Primera página">
+        <button (click)="paginaActual = 1" [disabled]="paginaActual === 1" matTooltip="Primera página">
             <i class="fa fa-angle-double-left"></i>
         </button>
 
-        <button (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1" title="Anterior">
+        <button (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1" matTooltip="Anterior">
             <i class="fa fa-angle-left"></i>
         </button>
 
         Página {{ paginaActual }} de {{ totalPaginas }}
         <span class="total-registros">({{ productosFiltrados.length }} productos)</span>
 
-        <button (click)="paginaActual = paginaActual + 1" [disabled]="paginaActual === totalPaginas" title="Siguiente">
+        <button (click)="paginaActual = paginaActual + 1" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
             <i class="fa fa-angle-right"></i>
         </button>
 
-        <button (click)="paginaActual = totalPaginas" [disabled]="paginaActual === totalPaginas" title="Última página">
+        <button (click)="paginaActual = totalPaginas" [disabled]="paginaActual === totalPaginas" matTooltip="Última página">
             <i class="fa fa-angle-double-right"></i>
         </button>
     </div>

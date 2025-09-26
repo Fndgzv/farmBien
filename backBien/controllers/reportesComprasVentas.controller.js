@@ -191,8 +191,8 @@ exports.reporteComprasConVentas = async (req, res) => {
 
     res.json({
       nota:
-        '#prod. vendidos corresponde a la SUMA vendida por farmacia del PRODUCTO dentro del rango seleccionado. ' +
-        'No se asume asignación al lote mostrado en el renglón.',
+        'Columna Vendidos es la cantidad productos vendidos en la farmacia en el rango de fechas seleccionado. ' +
+        'No corresponde al lote mostrado en el renglón.',
       filtros: { fechaIni, fechaFin, productoId, proveedorId, codigoBarras, lote },
       paginacion: { page: _page, limit: _limit, total: out?.total ?? 0 },
       resumen: {

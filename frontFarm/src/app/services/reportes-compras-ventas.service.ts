@@ -55,19 +55,13 @@ export class ReportesComprasVentasService {
     Object.entries(params || {}).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') hp = hp.set(k, String(v));
     });
+
     return this.http
       .get<ReporteResponse>(`${this.api}/reportes/compras-con-ventas`, { headers: this.headers(), params: hp })
       .pipe(
-        map((r: any) => ({
-          paginacion: r?.paginacion ?? { page: 1, limit: 20, total: 0 },
-          rows: r?.rows ?? [],
-          resumen: {
-            sumCantidad: r?.resumen?.sumCantidad ?? 0,
-            sumExistencia: r?.resumen?.sumExistencia ?? 0,
-            avgVendidosFarmacia: r?.resumen?.avgVendidosFarmacia ?? 0,
-          }
-        })),
         catchError(() => of({
+          nota: '',
+          filtros: undefined,
           paginacion: { page: 1, limit: 20, total: 0 },
           rows: [],
           resumen: { sumCantidad: 0, sumExistencia: 0, avgVendidosFarmacia: 0 }

@@ -13,7 +13,8 @@
         </option>
       </select>
     </label>
-    <button type="submit" class="btn-gris" [disabled]="form.invalid || cargando || pendientes.length > 0">
+    <button type="submit" class="btn-gris" [disabled]="form.invalid || cargando || pendientes.length > 0"
+        matTooltip="Buscar productos que requieren surtirse">
       {{ cargando ? 'Cargando…' : 'Aceptar' }}
     </button>
   </form>
@@ -44,26 +45,26 @@
   </table>
 
   <div class="paginacion" *ngIf="totalItems > 0">
-    <button (click)="goFirst()" [disabled]="page === 1" title="Inicio">
+    <button (click)="goFirst()" [disabled]="page === 1" matTooltip="Inicio">
       <i class="fa fa-angle-double-left"></i>
     </button>
-    <button (click)="goPrev()" [disabled]="page === 1" title="Anterior">
+    <button (click)="goPrev()" [disabled]="page === 1" matTooltip="Anterior">
       <i class="fa fa-angle-left"></i>
     </button>
 
     Página {{ page }} de {{ totalPages }} — {{ totalItems }} registros
 
-    <button (click)="goNext()" [disabled]="page === totalPages" title="Siguiente">
+    <button (click)="goNext()" [disabled]="page === totalPages" matTooltip="Siguiente">
       <i class="fa fa-angle-right"></i>
     </button>
-    <button (click)="goLast()" [disabled]="page === totalPages" title="Fin">
+    <button (click)="goLast()" [disabled]="page === totalPages" matTooltip="Fin">
       <i class="fa fa-angle-double-right"></i>
     </button>
   </div>
 
 
   <div *ngIf="pendientes.length" class="botones-accion">
-    <button (click)="onCancelar()" class="btn-rojo">Cancelar</button>
-    <button (click)="onSurtir()" class="btn-verde a-la-derecha">Surtir</button>
+    <button (click)="onCancelar()" class="btn-rojo" matTooltip="Quitar lista sin surtir">Cancelar</button>
+    <button (click)="onSurtir()" class="btn-verde a-la-derecha" matTooltip="Surtir los productos de la lista">Surtir</button>
   </div>
 </div>

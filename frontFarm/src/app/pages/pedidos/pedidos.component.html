@@ -11,7 +11,7 @@
             <input type="text" id="filtroFolio" [(ngModel)]="filtroFolio" (ngModelChange)="obtenerPedido($event)"
                 class="form-control pe-5" placeholder="Últimos 6 caracteres" maxlength="6"
                 pattern="[A-Za-z0-9]{6}" />
-            <button *ngIf="filtroFolio" (click)="limpiarFiltroCompleto()"
+            <button *ngIf="filtroFolio" (click)="limpiarFiltroCompleto()" matTooltip="Limpiar folio del pedido"
                 class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
                 <i class="fas fa-times"></i>
             </button>
@@ -64,9 +64,9 @@
             <ng-container *ngFor="let pedido of pedidos">
                 <tr>
                     <td>
-                        <button class="btn-verde btn-icono" title="Detalle"
+                        <button class="btn-verde btn-icono"
                             (click)="pedidoDetalleAbiertoId === pedido._id ? cerrarDetallePedido(pedido) : abrirDetallePedido(pedido)"
-                            matTooltip="Mostrar detalle del pedido">
+                            [matTooltip]="pedidoDetalleAbiertoId === pedido._id ? 'Ocultar detalle' : 'Ver detalle'">
                             <fa-icon [icon]="pedidoDetalleAbiertoId === pedido._id ? 'minus' : 'plus'"
                                 [ngClass]="pedidoDetalleAbiertoId === pedido._id ? 'icono-rotado' : 'icono-normal'">
                             </fa-icon>

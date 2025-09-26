@@ -98,9 +98,8 @@
             <ng-container *ngFor="let pedido of pedidos">
                 <tr>
                     <td>
-                        <button class="btn-verde btn-icono" matTooltip="Detalle"
-                            (click)="pedidoDetalleAbiertoId === pedido._id ? cerrarDetallePedido(pedido) : abrirDetallePedido(pedido)"
-                            title="Detalles">
+                        <button class="btn-verde btn-icono" [matTooltip]="pedidoDetalleAbiertoId === pedido._id ? 'Cerrar detalle' : 'Ver detalle'"
+                            (click)="pedidoDetalleAbiertoId === pedido._id ? cerrarDetallePedido(pedido) : abrirDetallePedido(pedido)">
                             <fa-icon [icon]="pedidoDetalleAbiertoId === pedido._id ? 'minus' : 'plus'"
                                 [ngClass]="pedidoDetalleAbiertoId === pedido._id ? 'icono-rotado' : 'icono-normal'">
                             </fa-icon>

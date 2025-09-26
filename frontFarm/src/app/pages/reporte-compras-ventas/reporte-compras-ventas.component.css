@@ -8,6 +8,8 @@
     margin-bottom: 0;
 }
 
+.nota { margin-top: .5rem; color: rgb(0, 0, 145); text-align: center; }
+
 .colortxt-c{
   color: #0453b3;
   font-weight:600;
@@ -36,7 +38,6 @@
 .text-end { text-align: right; }
 .multiline div { line-height: 1.35; }
 
-.nota { margin-top: .5rem; color: rgb(0, 0, 145); text-align: center; }
 .pager { display:flex; align-items:center; gap:.5rem; margin-top: .75rem; }
 
 

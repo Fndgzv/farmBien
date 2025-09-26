@@ -80,8 +80,10 @@
                     </select>
                 </div>
                 <div class="col-auto ms-auto" style="margin-top: 1.3rem;">
-                    <button class="btn-rojo" type="button" (click)="limpiar(prodInput)"><i
-                            class="fas fa-times"></i></button>
+                    <button class="btn-rojo" type="button" (click)="limpiar(prodInput)"
+                        matTooltip="Limpiar filtros">
+                        <i class="fas fa-times"></i>
+                    </button>
                     <button class="btn-gris" style="margin-left: 8rem;" type="button" (click)="buscar()">Buscar</button>
                 </div>
             </div>
@@ -153,12 +155,12 @@
     <nav class="mt-2 paginacion" *ngIf="totalPages > 1">
         <ul class="pagination pagination-sm mb-0 justify-content-center">
             <li [class.disabled]="!canPrev()">
-                <button (click)="goFirst()" [disabled]="!canPrev()">
+                <button (click)="goFirst()" [disabled]="!canPrev()" matTooltip="Inicio">
                     <i class="fa fa-angle-double-left"></i>
                 </button>
             </li>
             <li [class.disabled]="!canPrev()">
-                <button (click)="goPrev()" [disabled]="!canPrev()">
+                <button (click)="goPrev()" [disabled]="!canPrev()" matTooltip="Anterior">
                     <i class="fa fa-angle-left"></i>
                 </button>
             </li>
@@ -166,12 +168,12 @@
                 <span> Página: {{ page }} de {{ totalPages }}</span>
             </li>
             <li [class.disabled]="!canNext()">
-                <button (click)="goNext()" [disabled]="!canNext()">
+                <button (click)="goNext()" [disabled]="!canNext()" matTooltip="Siguiente">
                     <i class="fa fa-angle-right"></i>
                 </button>
             </li>
             <li [class.disabled]="!canNext()">
-                <button (click)="goLast()" [disabled]="!canNext()">
+                <button (click)="goLast()" [disabled]="!canNext()" matTooltip="Fin">
                     <i class="fa fa-angle-double-right"></i>
                 </button>
             </li>

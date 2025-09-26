@@ -1,7 +1,7 @@
 <div class="container">
     <h2 class="titulo" style="text-align: center;">Mantenimiento de Proveedores</h2>
 
-    <button class="btn-verde" (click)="abrirModalAgregar()">
+    <button class="btn-verde" (click)="abrirModalAgregar()" matTooltip="Dar de alta un nuevo proveedor">
         <fa-icon [icon]="'plus'"></fa-icon> Agregar Proveedor
     </button>
 
@@ -25,7 +25,7 @@
                 <td>{{ p.telefono || '-' }}</td>
                 <td>{{ p.domicilio || '-' }}</td>
                 <td>
-                    <button class="btn-icon-chico btn-gris-chico" (click)="editar(p)">
+                    <button class="btn-icon-chico btn-gris-chico" (click)="editar(p)" matTooltip="Modificar datos del proveedor">
                         <fa-icon [icon]="'pen'"></fa-icon>
                     </button>
                 </td>
@@ -36,13 +36,13 @@
     <nav *ngIf="totalPaginas > 1" class="d-flex justify-content-center mt-3">
         <ul class="pagination">
             <li class="page-item" [class.disabled]="paginaActual === 1">
-                <button class="page-link" (click)="paginaActual = 1" [disabled]="paginaActual === 1" title="Página inicial">
+                <button class="page-link" (click)="paginaActual = 1" [disabled]="paginaActual === 1" matTooltip="Página inicial">
                      <i class="fa fa-angle-double-left"></i>
                 </button>
             </li>
 
             <li class="page-item" [class.disabled]="paginaActual === 1">
-                <button class="page-link" (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1" title="Página anterior">
+                <button class="page-link" (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1" matTooltip="Página anterior">
                      <i class="fa fa-angle-left"></i>
                 </button>
             </li>
@@ -55,14 +55,14 @@
 
             <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
                 <button class="page-link" (click)="paginaActual = paginaActual + 1"
-                    [disabled]="paginaActual === totalPaginas" title="Página siguiente">
+                    [disabled]="paginaActual === totalPaginas" matTooltip="Página siguiente">
                     <i class="fa fa-angle-right"></i>
                 </button>
             </li>
 
             <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
                 <button class="page-link" (click)="paginaActual = totalPaginas"
-                    [disabled]="paginaActual === totalPaginas" title="Página final">
+                    [disabled]="paginaActual === totalPaginas" matTooltip="Página final">
                     <i class="fa fa-angle-double-right"></i>
                 </button>
             </li>

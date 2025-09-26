@@ -1,18 +1,16 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
 import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap } from 'rxjs/operators';
-import { BehaviorSubject, of, Observable } from 'rxjs';
+import { of, Observable } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
 import { VentasService } from '../../services/ventas.service';
 import { ProductoService } from '../../services/producto.service';
 import { ClienteService } from '../../services/cliente.service';
-import { TicketService } from '../../services/ticket.service';
 import { VentaTicketComponent } from '../../impresiones/venta-ticket/venta-ticket.component';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
 
 import { MatAutocompleteModule, MatAutocompleteTrigger } from '@angular/material/autocomplete';
@@ -21,6 +19,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 
 import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
+import { MatTooltip } from '@angular/material/tooltip';
+
 @Component({
   selector: 'app-ventas',
   standalone: true,
@@ -32,7 +32,8 @@ import { VentaService } from '../../services/venta.service';
     VentaTicketComponent,
     MatAutocompleteModule,
     MatInputModule,
-    MatFormFieldModule
+    MatFormFieldModule,
+    MatTooltip
   ],
   templateUrl: './ventas.component.html',
   styleUrl: './ventas.component.css'

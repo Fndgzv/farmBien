@@ -16,12 +16,12 @@ import { ClienteService } from '../../services/cliente.service';
 import { FarmaciaService } from '../../services/farmacia.service';
 import { DevolucionService } from '../../services/devolucion.service';
 import { DevolucionTicketComponent } from '../../impresiones/devolucion-ticket/devolucion-ticket.component';
-
+import { MatTooltip } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-devoluciones',
   standalone: true,
-  imports: [CommonModule, FormsModule, FontAwesomeModule, DevolucionTicketComponent],
+  imports: [CommonModule, FormsModule, FontAwesomeModule, DevolucionTicketComponent, MatTooltip],
   animations: [
     trigger('expandCollapse', [
       state('true', style({ height: '*', opacity: 1, padding: '*', overflow: 'hidden' })),

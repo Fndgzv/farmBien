@@ -11,6 +11,7 @@
         <input id="filtroFolio" [(ngModel)]="filtroFolio" (ngModelChange)="onFolioChange($event)"
           class="form-control pr-4" placeholder="Últimos 6 caracteres" maxlength="6" pattern="[A-Za-z0-9]{6}" />
         <button *ngIf="filtroFolio.length > 0" (click)="limpiarFolio()"
+          matTooltip="Limpiar folio de la venta"
           class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
           <fa-icon [icon]="faTimes"></fa-icon>
         </button>
@@ -36,7 +37,7 @@
       <ng-container *ngFor="let venta of ventas">
         <tr>
           <td>
-            <button class="btn-gris btn-icono"
+            <button class="btn-gris btn-icono" [matTooltip]="ventaDetalleAbiertoId === venta._id ? 'Ocultar detalle' : 'Ver detalle'"
               (click)="ventaDetalleAbiertoId === venta._id ? cerrarDetalleVenta(venta) : abrirDetalleVenta(venta)">
               <fa-icon [icon]="ventaDetalleAbiertoId === venta._id ? 'minus' : 'plus'"
                 [ngClass]="ventaDetalleAbiertoId === venta._id ? 'icono-rotado' : 'icono-normal'">

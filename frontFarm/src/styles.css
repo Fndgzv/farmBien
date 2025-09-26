@@ -535,3 +535,22 @@ body {
   .mat-mdc-option.mdc-list-item:active {
   background-color: #dfeaff;
 }
+
+
+/* mattooltips */
+
+/* ✅ Angular Material v15+ (MDC) */
+.mat-mdc-tooltip .mdc-tooltip__surface,
+.mat-mdc-tooltip .mat-mdc-tooltip-surface {
+  background: #ab2cfa;         /* fondo */
+  color: yellow;              /* texto */
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  max-width: 360px;
+  white-space: pre-line;    /* permite saltos de línea \n */
+}
+
+/* (opcional) Subir el z-index si se queda detrás de modales */
+.cdk-overlay-container .mat-mdc-tooltip { z-index: 10000; }

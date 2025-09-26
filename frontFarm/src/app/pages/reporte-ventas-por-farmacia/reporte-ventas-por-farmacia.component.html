@@ -1,6 +1,6 @@
 <div class="p-1">
   <div class="titulo-container">
-    <h2 class="mb-3 titulo">Productos: Ventas - Existencia</h2>
+    <h2 class="mb-3 titulo">Productos:&nbsp; Ventas - Existencia</h2>
   </div>
 
   <!-- Filtros -->
@@ -34,7 +34,7 @@
           <!-- limpiar selección -->
           <span matSuffix class="suffix-center">
             <button matSuffix type="button" class="btn-rojo-chico" (click)="clearProducto()" *ngIf="productCtrl.value"
-              aria-label="Limpiar producto">
+              matTooltip="Limpiar producto" aria-label="Limpiar producto">
               <i class="fas fa-times"></i>
             </button>
           </span>
@@ -145,7 +145,7 @@
         </tr>
 
         <tr *ngIf="rows.length === 0">
-          <td colspan="8" class="text-center text-muted">Sin resultados</td>
+          <td colspan="11" class="text-center text-muted">Sin resultados</td>
         </tr>
       </tbody>
 
@@ -165,19 +165,19 @@
     </table>
 
     <div class="paginacion" *ngIf="totalItems > 0">
-      <button (click)="goFirst()" [disabled]="page === 1" title="Inicio">
+      <button (click)="goFirst()" [disabled]="page === 1" matTooltip="Inicio">
         <i class="fa fa-angle-double-left"></i>
       </button>
-      <button (click)="goPrev()" [disabled]="page === 1" title="Anterior">
+      <button (click)="goPrev()" [disabled]="page === 1" matTooltip="Anterior">
         <i class="fa fa-angle-left"></i>
       </button>
 
       Página {{ page }} de {{ totalPages }} — {{ totalItems }} registros
 
-      <button (click)="goNext()" [disabled]="page === totalPages" title="Siguiente">
+      <button (click)="goNext()" [disabled]="page === totalPages" matTooltip="Siguiente">
         <i class="fa fa-angle-right"></i>
       </button>
-      <button (click)="goLast()" [disabled]="page === totalPages" title="Fin">
+      <button (click)="goLast()" [disabled]="page === totalPages" matTooltip="Fin">
         <i class="fa fa-angle-double-right"></i>
       </button>
     </div>

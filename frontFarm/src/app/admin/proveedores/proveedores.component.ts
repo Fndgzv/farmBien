@@ -6,11 +6,12 @@ import Swal from 'sweetalert2';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faPen, faPlus, faSortAlphaDown, faSortAlphaUp } from '@fortawesome/free-solid-svg-icons';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 declare const bootstrap: any;
 @Component({
   selector: 'app-proveedores',
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, FontAwesomeModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, FontAwesomeModule, MatTooltipModule],
   templateUrl: './proveedores.component.html',
   styleUrl: './proveedores.component.css'
 })

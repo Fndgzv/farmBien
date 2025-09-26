@@ -13,7 +13,7 @@ import Swal from 'sweetalert2';
 
 import { FarmaciaService } from '../../services/farmacia.service';
 import { SurtidoFarmaciaService } from '../../services/surtido-farmacia.service';
-
+import { MatTooltipModule } from '@angular/material/tooltip';
 interface Pendiente {
   producto: string;
   nombre: string;
@@ -30,8 +30,9 @@ interface Pendiente {
   imports: [
     CommonModule,
     FormsModule,
-    ReactiveFormsModule
-  ],
+    ReactiveFormsModule,
+    MatTooltipModule
+],
   templateUrl: './surtir-farmacia.component.html',
   styleUrl: './surtir-farmacia.component.css'
 })

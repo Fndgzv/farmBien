@@ -10,7 +10,7 @@
 
                 <input type="date" formControlName="fechaInicioDesde" class="form-control pe-5 flex-grow-1" />
 
-                <button *ngIf="filtroForm.get('fechaInicioDesde')?.value" type="button"
+                <button *ngIf="filtroForm.get('fechaInicioDesde')?.value" type="button" matTooltip="Limpiar fecha desde"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     style="z-index: 2; margin-right: 6px;" (click)="filtroForm.get('fechaInicioDesde')?.setValue('')">
                     <fa-icon [icon]="faTimes"></fa-icon>
@@ -24,7 +24,7 @@
 
                 <input type="date" formControlName="fechaInicioHasta" class="form-control pe-5 flex-grow-1" />
 
-                <button *ngIf="filtroForm.get('fechaInicioHasta')?.value" type="button"
+                <button *ngIf="filtroForm.get('fechaInicioHasta')?.value" type="button" matTooltip="Limpiar fecha hasta"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     style="z-index: 2; margin-right: 6px;" (click)="filtroForm.get('fechaInicioHasta')?.setValue('')">
                     <fa-icon [icon]="faTimes"></fa-icon>
@@ -38,7 +38,7 @@
 
                 <input type="text" formControlName="nombreUsuario" class="form-control pe-4 flex-grow-1" />
 
-                <button *ngIf="filtroForm.get('nombreUsuario')?.value" type="button"
+                <button *ngIf="filtroForm.get('nombreUsuario')?.value" type="button" matTooltip="Limpiar usuario"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="filtroForm.get('nombreUsuario')?.setValue('')">
                     <fa-icon [icon]="faTimes"></fa-icon>

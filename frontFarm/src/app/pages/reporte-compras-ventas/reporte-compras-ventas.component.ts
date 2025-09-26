@@ -5,13 +5,10 @@ import { ReportesComprasVentasService, ReporteRow, ProductoLite } from '../../se
 import { MatTooltipModule } from '@angular/material/tooltip';
 import Swal from 'sweetalert2';
 
-type SortBy =
-    'fecCompra' | 'proveedor' | 'producto' | 'cb' | 'lote' | 'existencia' | 'caducidad' | 'costo' | 'cantidad' | 'costoTotal';
 
 type SortCol =
     | 'caducidad' | 'fecCompra' | 'proveedor' | 'producto'
     | 'cb' | 'lote' | 'existencia' | 'costo' | 'cantidad' | 'costoTotal';
-
 
 @Component({
     selector: 'app-reporte-compras-ventas',
@@ -32,7 +29,7 @@ export class ReporteComprasVentasComponent implements OnInit {
     // tabla
     rows: ReporteRow[] = [];
     cargando = false;
-    nota = '';
+    nota: string = '';
     total = 0; page = 1; limit = 20;
 
     get totalPaginas(): number { return Math.max(1, Math.ceil((this.total || 0) / (this.limit || 1))); }
@@ -112,14 +109,19 @@ export class ReporteComprasVentasComponent implements OnInit {
                 this.total = resp?.paginacion?.total ?? 0;
                 this.page = resp?.paginacion?.page ?? this.page;
                 this.limit = resp?.paginacion?.limit ?? this.limit;
+                this.nota = resp?.nota ?? '';
                 this.sumCantidad = resp?.resumen?.sumCantidad ?? 0;
                 this.sumExistencia = resp?.resumen?.sumExistencia ?? 0;
                 this.avgVendidosFarmacia = resp?.resumen?.avgVendidosFarmacia ?? 0;
                 this.cargando = false;
+
+                console.log('respuesta', resp);
+                
             },
             error: _ => {
                 this.rows = [];
                 this.total = 0;
+                this.nota = '';
                 this.sumCantidad = 0;
                 this.sumExistencia = 0;
                 this.avgVendidosFarmacia = 0;

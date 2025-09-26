@@ -216,22 +216,22 @@
     </div>
 
     <div class="paginacion">
-        <button (click)="irAPrimera()" [disabled]="paginaActual === 1" title="Primera página">
+        <button (click)="irAPrimera()" [disabled]="paginaActual === 1" matTooltip="Primera página">
             <i class="fa fa-angle-double-left"></i>
         </button>
 
-        <button (click)="paginaAnterior()" [disabled]="paginaActual === 1" title="Anterior">
+        <button (click)="paginaAnterior()" [disabled]="paginaActual === 1" matTooltip="Anterior">
             <i class="fa fa-angle-left"></i>
         </button>
 
         Página {{ paginaActual }} de {{ totalPaginas }}
         <span class="total-registros">({{ inventario.length }} productos)</span>
 
-        <button (click)="paginaSiguiente()" [disabled]="paginaActual === totalPaginas" title="Siguiente">
+        <button (click)="paginaSiguiente()" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
             <i class="fa fa-angle-right"></i>
         </button>
 
-        <button (click)="irAUltima()" [disabled]="paginaActual === totalPaginas" title="Última página">
+        <button (click)="irAUltima()" [disabled]="paginaActual === totalPaginas" matTooltip="Última página">
             <i class="fa fa-angle-double-right"></i>
         </button>
     </div>
