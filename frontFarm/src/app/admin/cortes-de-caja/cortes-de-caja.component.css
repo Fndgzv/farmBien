@@ -2,3 +2,32 @@
   border-bottom: 2px solid #0453b3;
   padding-bottom: 1rem;
 }
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+th.sortable .sort-icon {
+  margin-left: .35rem;
+  opacity: .6;
+  transition: opacity .15s, transform .15s;
+}
+
+th.sortable:hover .sort-icon {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+th[aria-sort="ascending"],
+th[aria-sort="descending"] {
+  color: #0d6efd;
+}
+
+table.tabla tfoot tr {
+  background: #f8f9fa;
+}
+table.tabla tfoot td {
+  border-top: 2px solid #dee2e6;
+}

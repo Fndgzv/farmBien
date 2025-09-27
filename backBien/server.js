@@ -89,6 +89,7 @@ const Cancelacion = require('./models/Cancelacion');
 const Cliente = require('./models/Cliente')
 const Compra = require('./models/Compra');
 const InventarioFarmacia = require('./models/InventarioFarmacia');
+const CorteCaja = require('./models/CorteCaja');
 mongoose.connection.once('open', async () => {
   try {
     // Si quieres, sincroniza más colecciones aquí (agrega otros modelos al Promise.all)
@@ -101,8 +102,9 @@ mongoose.connection.once('open', async () => {
       Cliente.syncIndexes(),
       Compra.syncIndexes(),
       InventarioFarmacia.syncIndexes(),
+      CorteCaja.syncIndexes(),
     ]);
-    console.log('✅ Índices sincronizados: Venta, Producto, InventarioFarmacia, Pedido, Devolución, Cancelación, Cliente y Compra');
+    console.log('✅ Índices sincronizados: Venta, Producto, InventarioFarmacia, Pedido, Devolución, Cancelación, Cliente, CorteCaja y Compra');
   } catch (e) {
     console.error('❌ Error al sincronizar índices:', e?.message || e);
   }

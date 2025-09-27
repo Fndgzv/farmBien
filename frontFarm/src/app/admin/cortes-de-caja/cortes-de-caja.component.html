@@ -4,12 +4,20 @@
     </div>
 
     <form [formGroup]="filtroForm" class="row mb-2 filter-container">
-        <div class="col-md-3">
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Farmacia:</label>
+            <div class="d-flex align-items-center w-100">    
+                <select formControlName="farmacia" class="form-select">
+                    <option value="">-- Todas --</option>
+                    <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Desde:</label>
             <div class="d-flex align-items-center position-relative w-100">
-                <label class="me-2 mb-0" style="white-space: nowrap;">Desde:</label>
-
                 <input type="date" formControlName="fechaInicioDesde" class="form-control pe-5 flex-grow-1" />
-
                 <button *ngIf="filtroForm.get('fechaInicioDesde')?.value" type="button" matTooltip="Limpiar fecha desde"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     style="z-index: 2; margin-right: 6px;" (click)="filtroForm.get('fechaInicioDesde')?.setValue('')">
@@ -18,12 +26,10 @@
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="d-flex align-items-center position-relative w-100">
-                <label class="me-2 mb-0" style="white-space: nowrap;">Hasta:</label>
-
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Hasta:</label>
+            <div class="d-flex align-items-center position-relative w-100">    
                 <input type="date" formControlName="fechaInicioHasta" class="form-control pe-5 flex-grow-1" />
-
                 <button *ngIf="filtroForm.get('fechaInicioHasta')?.value" type="button" matTooltip="Limpiar fecha hasta"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     style="z-index: 2; margin-right: 6px;" (click)="filtroForm.get('fechaInicioHasta')?.setValue('')">
@@ -32,12 +38,10 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Usuario:</label>
             <div class="d-flex align-items-center position-relative w-100">
-                <label class="me-2 mb-0" style="white-space: nowrap;">Usuario:</label>
-
                 <input type="text" formControlName="nombreUsuario" class="form-control pe-4 flex-grow-1" />
-
                 <button *ngIf="filtroForm.get('nombreUsuario')?.value" type="button" matTooltip="Limpiar usuario"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="filtroForm.get('nombreUsuario')?.setValue('')">
@@ -46,7 +50,7 @@
             </div>
         </div>
 
-        <div class="col-md-2">
+        <div class="col-md-2 text-end mt-3">
             <button (click)="buscarCortes()" class="btn-gris">Buscar</button>
         </div>
     </form>
@@ -55,27 +59,92 @@
         <table class="tabla mx-auto">
             <thead>
                 <tr>
-                    <th>Usuario</th>
-                    <th>Efec. inicial</th>
-                    <th>Efectivo</th>
-                    <th>Tarjeta</th>
-                    <th>Transferencia</th>
-                    <th>Monedero</th>
-                    <th>Abonos Monedero</th>
-                    <th>Fecha Inicio</th>
-                    <th>Fecha Fin</th>
+                    <th class="sortable" (click)="ordenarPor('farmaciaNombre')"
+                        [attr.aria-sort]="ariaSortFor('farmaciaNombre')" role="button"
+                        matTooltip="Ordenar por farmacia">
+                        Farmacia
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='farmaciaNombre' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('usuarioNombre')"
+                        [attr.aria-sort]="ariaSortFor('usuarioNombre')" role="button" matTooltip="Ordenar por usuario">
+                        Usuario
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='usuarioNombre' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('efectivoInicial')"
+                        [attr.aria-sort]="ariaSortFor('efectivoInicial')" role="button">Efec. inicial
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='efectivoInicial' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('totalEfectivoEnCaja')"
+                        [attr.aria-sort]="ariaSortFor('totalEfectivoEnCaja')" role="button">Efec. final
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='totalEfectivoEnCaja' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('ingresoEfectivo')"
+                        [attr.aria-sort]="ariaSortFor('ingresoEfectivo')" role="button">Ingr. Efec.
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='ingresoEfectivo' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('totalTarjeta')"
+                        [attr.aria-sort]="ariaSortFor('totalTarjeta')" role="button">Ingr. Tarj.
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='totalTarjeta' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('totalTransferencia')"
+                        [attr.aria-sort]="ariaSortFor('totalTransferencia')" role="button">Ingr. Trans.
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='totalTransferencia' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('totalVale')" [attr.aria-sort]="ariaSortFor('totalVale')"
+                        role="button">Monedero
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='totalVale' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('ingresoTotal')"
+                        [attr.aria-sort]="ariaSortFor('ingresoTotal')" role="button">Ingr. total
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='ingresoTotal' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('abonosMonederos')"
+                        [attr.aria-sort]="ariaSortFor('abonosMonederos')" role="button">Abon. Mon.
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='abonosMonederos' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th class="sortable" (click)="ordenarPor('fechaInicio')"
+                        [attr.aria-sort]="ariaSortFor('fechaInicio')" role="button">Fecha inicio
+                        <fa-icon class="sort-icon"
+                            [icon]="sortBy==='fechaInicio' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                    </th>
+
+                    <th>Fecha fin</th>
                     <th></th>
                 </tr>
             </thead>
+
             <tbody>
                 <tr *ngFor="let corte of cortes">
+                    <td>{{ ($any(corte.farmacia)?.nombre) || 'N/A' }}</td>
                     <td>{{ ($any(corte.usuario)?.nombre) || 'N/A' }}</td>
-                    <td>{{ corte.efectivoInicial | currency }}</td>
-                    <td>{{ corte.totalEfectivoEnCaja | currency }}</td>
-                    <td>{{ corte.totalTarjeta | currency }}</td>
-                    <td>{{ corte.totalTransferencia | currency }}</td>
-                    <td>{{ corte.totalVale | currency }}</td>
-                    <td>{{ corte.abonosMonederos | currency }}</td>
+                    <td class="text-end">{{ corte.efectivoInicial | currency }}</td>
+                    <td class="text-end">{{ corte.totalEfectivoEnCaja | currency }}</td>
+                    <td class="text-end">{{ corte.ingresoEfectivo | currency }}</td>
+                    <td class="text-end">{{ corte.totalTarjeta | currency }}</td>
+                    <td class="text-end">{{ corte.totalTransferencia | currency }}</td>
+                    <td class="text-end">{{ corte.totalVale | currency }}</td>
+                    <td class="text-end">{{ corte.ingresoTotal | currency }}</td>
+                    <td class="text-end">{{ corte.abonosMonederos | currency }}</td>
                     <td>{{ corte.fechaInicio | date:'dd/MM/yyyy HH:mm' }}</td>
                     <td>{{ corte.fechaFin ? (corte.fechaFin | date:'dd/MM/yyyy HH:mm') : 'abierto' }}</td>
                     <td>
@@ -91,7 +160,62 @@
                     </td>
                 </tr>
             </tbody>
+
+            <tfoot>
+                <tr>
+                    <!-- Texto "Totales" ocupa las columnas no numéricas -->
+                    <td colspan="2" class="text-end fw-bold">Totales:</td>
+
+                    <!-- Columnas numéricas en el mismo orden que el thead -->
+                    <td class="text-end fw-bold">{{ (totales?.efectivoInicial || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales?.totalEfectivoEnCaja || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales?.ingresoEfectivo || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales?.totalTarjeta || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales?.totalTransferencia || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales?.totalVale || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales?.ingresoTotal || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales?.abonosMonederos || 0) | currency }}</td>
+
+                    <!-- Fechas + acciones no aplican (vacías) -->
+                    <td colspan="3" class="text-muted">Cortes de caja: {{ totales?.conteo || 0 }}</td>
+                </tr>
+            </tfoot>
+
         </table>
+
+    </div>
+    <div class="paginacion my-2"
+        *ngIf="paginacion?.pages">
+        <button (click)="cambiarPagina(1)" [disabled]="paginacion.page <= 1"
+            matTooltip="Inicio">
+            <i class="fa fa-angle-double-left"></i>
+        </button>
+
+        <button (click)="cambiarPagina(paginacion.page - 1)"
+            [disabled]="!paginacion.hasPrev" matTooltip="Anterior">
+            <i class="fa fa-angle-left"></i>
+        </button>
+
+        <span style="margin-left: 5px; margin-right: 5px;">Página {{ paginacion.page }} de {{ paginacion.pages }} ({{ paginacion.total }} cortes)</span>
+
+        <button (click)="cambiarPagina(paginacion.page + 1)"
+            [disabled]="!paginacion.hasNext" matTooltip="Siguiente">
+            <i class="fa fa-angle-right"></i>
+        </button>
+
+        <button (click)="cambiarPagina(paginacion.pages)"
+            [disabled]="paginacion.page >= paginacion.pages" matTooltip="Fin">
+            <i class="fa fa-angle-double-right"></i>
+        </button>
+
+        <span class="ms-3">Filas pág.:</span>
+        <select class="form-select form-select-sm d-inline-block w-auto ms-2" [(ngModel)]="limit"
+            (ngModelChange)="page=1; buscarCortes();">
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+            <option [ngValue]="100">100</option>
+        </select>
     </div>
 
     <ng-template #sinResultados>

@@ -8,7 +8,7 @@
             <label for="filtroFarmaciaId" class="form-label mb-0 lbl-pedido">Farmacia:</label>
         </div>
         <div class="col-auto">
-            <select id="filtroFarmaciaId" [(ngModel)]="filtroFarmaciaId" class="form-select" style="width: 200px;">
+            <select id="filtroFarmaciaId" [(ngModel)]="filtroFarmaciaId" class="form-select" >
                 <option [ngValue]="null">-- Selecciona --</option>
                 <option *ngFor="let f of farmacias" [ngValue]="f._id">
                     {{ f.nombre }}
@@ -17,7 +17,7 @@
         </div>
 
         <!-- NUEVOS: filtro por nombre de cliente -->
-        <div class="col-auto">
+        <div class="col-auto" style="margin-left: 3rem;">
             <label for="filtroClienteNombre" class="form-label mb-0 lbl-pedido">Cliente:</label>
         </div>
         <div class="col-auto">
@@ -26,7 +26,7 @@
         </div>
 
         <!-- Check para incluir pedidos sin cliente -->
-        <div class="col-auto form-check">
+        <div class="col-auto form-check" style="margin-left: 3rem;">
             <input class="form-check-input" type="checkbox" id="incluirClienteNull" [(ngModel)]="incluirClienteNull" />
             <label class="form-check-label" for="incluirClienteNull">
                 Incluir “sin cliente”

@@ -10,6 +10,8 @@ const { DateTime } = require('luxon');
 const Usuario = require('../models/Usuario');
 const mongoose = require('mongoose');
 
+const { Types } = require('mongoose');
+
 const ZONE = process.env.APP_TZ || 'America/Mexico_City';
 
 const crearCorte = async (req, res) => {
@@ -213,10 +215,30 @@ const obtenerCorteActivo = async (req, res) => {
 
 const obtenerCortesFiltrados = async (req, res) => {
   try {
-    const { fechaInicioDesde, fechaInicioHasta, nombreUsuario } = req.query;
+    const {
+      // filtros
+      fechaInicioDesde,
+      fechaInicioHasta,
+      nombreUsuario,
+      farmacia,              // id de farmacia
+
+      // paginación + sort
+      page = 1,
+      limit = 20,
+      sortBy = 'fechaInicio',
+      sortDir = 'desc',
+    } = req.query;
+
+    // ---------- paginación ----------
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitCap = 200;
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), limitCap);
+    const skip = (pageNum - 1) * limitNum;
+
+    // ---------- filtro base ----------
     const filtro = {};
 
-    // 🕒 Rango de fechas por día local -> UTC [start, nextStart)
+    // Rango de fechas local -> UTC [start, nextStart)
     if (fechaInicioDesde || fechaInicioHasta) {
       const dStr = (fechaInicioDesde || fechaInicioHasta).slice(0, 10); // 'YYYY-MM-DD'
       const hStr = (fechaInicioHasta || fechaInicioDesde).slice(0, 10);
@@ -224,7 +246,6 @@ const obtenerCortesFiltrados = async (req, res) => {
       let startLocal = DateTime.fromISO(dStr, { zone: ZONE }).startOf('day');
       let endLocalExclusive = DateTime.fromISO(hStr, { zone: ZONE }).plus({ days: 1 }).startOf('day');
 
-      // si vienen invertidas, corrige
       if (endLocalExclusive < startLocal) {
         const tmp = startLocal;
         startLocal = endLocalExclusive.minus({ days: 1 });
@@ -233,33 +254,214 @@ const obtenerCortesFiltrados = async (req, res) => {
 
       filtro.fechaInicio = {
         $gte: startLocal.toUTC().toJSDate(),
-        $lt: endLocalExclusive.toUTC().toJSDate(), // half-open
+        $lt: endLocalExclusive.toUTC().toJSDate(),
       };
     }
 
-    // 🔹 Filtro por nombre de usuario
+    // filtro por usuario (regex por nombre -> ids)
     if (nombreUsuario) {
       const usuarios = await Usuario.find({
-        nombre: { $regex: new RegExp(nombreUsuario, 'i') },
+        nombre: { $regex: new RegExp(String(nombreUsuario), 'i') },
       }).select('_id');
+
       const ids = usuarios.map(u => u._id);
-      if (ids.length === 0) {
-        return res.json({ cortes: [] }); // corta rápido
+      if (!ids.length) {
+        return res.status(200).json({
+          paginacion: { page: 0, limit: 0, total: 0, pages: 0, hasPrev: false, hasNext: false },
+          cortes: [],
+          totales: totalesVacios(),
+        });
       }
       filtro.usuario = { $in: ids };
     }
 
-    const cortes = await CorteCaja.find(filtro)
-      .populate('usuario', 'nombre')
-      .populate('farmacia', 'nombre')
-      .sort({ fechaInicio: -1 });
+    // filtro por farmacia (id)
+    if (farmacia && Types.ObjectId.isValid(farmacia)) {
+      filtro.farmacia = new Types.ObjectId(farmacia);
+    }
 
-    res.json({ cortes });
+    // ---------- sort ----------
+    const sortMap = {
+      fechaInicio: 'fechaInicio',
+      ingresoTotal: 'ingresoTotal',             // calculado
+      ingresoEfectivo: 'ingresoEfectivo',       // calculado
+      efectivoInicial: 'efectivoInicial',
+      totalEfectivoEnCaja: 'totalEfectivoEnCaja',
+      totalTarjeta: 'totalTarjeta',
+      totalTransferencia: 'totalTransferencia',
+      totalVale: 'totalVale',
+      abonosMonederos: 'abonosMonederos',       // <-- NUEVO
+      farmacia: 'farmaciaInfo.nombre',          // por nombre
+      usuario: 'usuarioInfo.nombre',            // por nombre
+    };
+    const dir = String(sortDir).toLowerCase() === 'asc' ? 1 : -1;
+    const sortField = sortMap[sortBy] || 'fechaInicio';
+
+    // ---------- pipeline ----------
+    const pipeline = [
+      { $match: filtro },
+
+      // join usuario
+      {
+        $lookup: {
+          from: 'usuarios',
+          localField: 'usuario',
+          foreignField: '_id',
+          pipeline: [{ $project: { nombre: 1 } }],
+          as: 'usuarioInfo',
+        },
+      },
+      { $addFields: { usuarioInfo: { $arrayElemAt: ['$usuarioInfo', 0] } } },
+
+      // join farmacia
+      {
+        $lookup: {
+          from: 'farmacias',
+          localField: 'farmacia',
+          foreignField: '_id',
+          pipeline: [{ $project: { nombre: 1 } }],
+          as: 'farmaciaInfo',
+        },
+      },
+      { $addFields: { farmaciaInfo: { $arrayElemAt: ['$farmaciaInfo', 0] } } },
+
+      {
+        $addFields: {
+          totalEfectivoEnCaja: {
+            $cond: [
+              { $eq: [{ $ifNull: ['$totalEfectivoEnCaja', 0] }, 0] },
+              { $ifNull: ['$efectivoInicial', 0] },
+              { $ifNull: ['$totalEfectivoEnCaja', 0] }
+            ]
+          },
+          _efectivoInicial: { $toDouble: { $ifNull: ['$efectivoInicial', 0] } },
+          _efectivoCaja: { $toDouble: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
+          _totalTarjeta: { $toDouble: { $ifNull: ['$totalTarjeta', 0] } },
+          _totalTransferencia: { $toDouble: { $ifNull: ['$totalTransferencia', 0] } },
+        }
+      },
+
+      {
+        $addFields: {
+          ingresoEfectivo: {
+            $let: {
+              vars: { diff: { $subtract: ['$_efectivoCaja', '$_efectivoInicial'] } },
+              in: { $cond: [{ $lt: ['$$diff', 0] }, 0, '$$diff'] } // nunca negativo
+            }
+          },
+          ingresoTotal: {
+            $add: [
+              { $ifNull: ['$ingresoEfectivo', 0] }, // 👈 evita null
+              '$_totalTarjeta',
+              '$_totalTransferencia'
+            ]
+          }
+        }
+      },
+
+      // orden
+      { $sort: { [sortField]: dir, _id: 1 } },
+
+      // facet: filas + conteo + totales globales
+      {
+        $facet: {
+          rows: [
+            { $skip: skip },
+            { $limit: limitNum },
+            {
+              $project: {
+                _id: 1,
+                fechaInicio: 1,
+                fechaFin: 1,
+                efectivoInicial: 1,
+                totalEfectivoEnCaja: 1,
+                totalTarjeta: 1,
+                totalTransferencia: 1,
+                totalVale: 1,
+                abonosMonederos: 1,
+                ingresoEfectivo: 1,
+                ingresoTotal: 1,
+                usuario: {
+                  $cond: [
+                    { $ifNull: ['$usuario', false] },
+                    { _id: '$usuario', nombre: '$usuarioInfo.nombre' },
+                    null,
+                  ],
+                },
+                farmacia: {
+                  $cond: [
+                    { $ifNull: ['$farmacia', false] },
+                    { _id: '$farmacia', nombre: '$farmaciaInfo.nombre' },
+                    null,
+                  ],
+                },
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            },
+          ],
+          totalCount: [{ $count: 'count' }],
+          totales: [
+            {
+              $group: {
+                _id: null,
+                conteo: { $sum: 1 },
+                efectivoInicial: { $sum: { $ifNull: ['$efectivoInicial', 0] } },
+                totalEfectivoEnCaja: { $sum: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
+                totalTarjeta: { $sum: { $ifNull: ['$totalTarjeta', 0] } },
+                totalTransferencia: { $sum: { $ifNull: ['$totalTransferencia', 0] } },
+                totalVale: { $sum: { $ifNull: ['$totalVale', 0] } },
+                abonosMonederos: { $sum: { $ifNull: ['$abonosMonederos', 0] } },
+                ingresoEfectivo: { $sum: '$ingresoEfectivo' },
+                ingresoTotal: { $sum: '$ingresoTotal' },
+              },
+            },
+            { $project: { _id: 0 } },
+          ],
+        },
+      },
+    ];
+
+    // collation para ordenar por texto en español (insensible a mayúsculas/acentos)
+    const agg = await CorteCaja.aggregate(pipeline).collation({ locale: 'es', strength: 1 });
+    const facet = agg?.[0] || { rows: [], totalCount: [], totales: [] };
+
+    const total = facet.totalCount?.[0]?.count || 0;
+    const pages = total ? Math.ceil(total / limitNum) : 0;
+
+    return res.status(200).json({
+      paginacion: {
+        page: pages ? pageNum : 0,
+        limit: pages ? limitNum : 0,
+        total,
+        pages,
+        hasPrev: pageNum > 1 && pageNum <= pages,
+        hasNext: pageNum < pages,
+      },
+      cortes: facet.rows || [],
+      totales: facet.totales?.[0] || totalesVacios(),
+    });
   } catch (err) {
     console.error('Error al filtrar cortes:', err);
     res.status(500).json({ mensaje: 'Error al filtrar cortes de caja' });
   }
 };
+
+function totalesVacios() {
+  return {
+    conteo: 0,
+    efectivoInicial: 0,
+    totalEfectivoEnCaja: 0,
+    totalTarjeta: 0,
+    totalTransferencia: 0,
+    totalVale: 0,
+    abonosMonederos: 0,   // <-- NUEVO
+    ingresoEfectivo: 0,
+    ingresoTotal: 0,
+  };
+}
+
+
 
 const eliminarCorte = async (req, res) => {
   const { corteId } = req.params;

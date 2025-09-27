@@ -5,14 +5,17 @@ import { CommonModule } from '@angular/common';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+
 import Swal from 'sweetalert2';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faUserCheck, faEye, faFileInvoice, faTimes, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
 
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { environment } from '../../../environments/environment';
 
 import { CorteDetalleDialogComponent } from '../corte-detalle-dialog/corte-detalle-dialog.component';
+import { Farmacia, FarmaciaService } from '../../services/farmacia.service';
 
 type UsuarioRef = string | { _id: string; nombre?: string };
 interface CorteCaja {
@@ -51,17 +54,66 @@ interface CorteCaja {
   totalTransferencia: number;
   totalVale: number;
   totalRecargas: number;
+  ingresoEfectivo: number;
+  ingresoTotal: number;
 
   // total de abonos al monedero los clientes 
   abonosMonederos: number;
 }
 
+// ===== TIPOS =====
+type SortField =
+  | 'fechaInicio'
+  | 'ingresoTotal'
+  | 'ingresoEfectivo'
+  | 'efectivoInicial'
+  | 'totalEfectivoEnCaja'
+  | 'totalTarjeta'
+  | 'totalTransferencia'
+  | 'totalVale'
+  | 'abonosMonederos'
+  | 'farmacia'        // por _id
+  | 'usuario'         // por _id
+  | 'farmaciaNombre'  // por nombre (si prefieres)
+  | 'usuarioNombre';  // por nombre (si prefieres)
+
+interface Paginacion {
+  page: number; limit: number; total: number; pages: number;
+  hasPrev: boolean; hasNext: boolean;
+}
+interface Totales {
+  conteo: number;
+  efectivoInicial: number;
+  totalEfectivoEnCaja: number;
+  totalTarjeta: number;
+  totalTransferencia: number;
+  totalVale: number;
+  abonosMonederos: number;
+  ingresoEfectivo: number;
+  ingresoTotal: number;
+}
+
+function defaultTotales(): Totales {
+  return {
+    conteo: 0,
+    efectivoInicial: 0,
+    totalEfectivoEnCaja: 0,
+    totalTarjeta: 0,
+    totalTransferencia: 0,
+    totalVale: 0,
+    abonosMonederos: 0,
+    ingresoEfectivo: 0,
+    ingresoTotal: 0,
+  };
+}
 @Component({
   selector: 'app-cortes-de-caja',
   imports: [CommonModule, FormsModule, ReactiveFormsModule, FontAwesomeModule, MatTooltipModule, MatDialogModule],
   templateUrl: './cortes-de-caja.component.html',
   styleUrl: './cortes-de-caja.component.css'
 })
+
+
 export class CortesDeCajaComponent implements OnInit {
 
   fechaInicioDesde: string = '';
@@ -75,12 +127,28 @@ export class CortesDeCajaComponent implements OnInit {
   farmaciaId!: string;
   usuario!: { id: string, rol: string, nombre: string };
 
+  farmacias: Farmacia[] = [];
+
   cortes: CorteCaja[] = [];
+  paginacion: Paginacion = { page: 0, limit: 20, total: 0, pages: 0, hasPrev: false, hasNext: false };
+  totales: Totales = defaultTotales();
+
+  // --- Paginación + sort (defaults) ---
+  page = 1;
+  limit = 20;
+  sortBy: SortField = 'fechaInicio';
+  sortDir: 'asc' | 'desc' = 'desc';
+
+  // íconos sort
+  faSort = faSort;
+  faSortUp = faSortUp;
+  faSortDown = faSortDown;
 
   constructor(
     private http: HttpClient,
     private fb: FormBuilder,
     private dialog: MatDialog,
+    private farmacia: FarmaciaService,
     library: FaIconLibrary
   ) {
     const toYMD = (d: Date) => {
@@ -91,22 +159,43 @@ export class CortesDeCajaComponent implements OnInit {
     };
 
     const hoy = new Date();
-    /* const ayer = new Date(hoy); ayer.setDate(hoy.getDate() - 1);
-    const manana = new Date(hoy); manana.setDate(hoy.getDate() + 1); */
 
     this.filtroForm = this.fb.group({
-      // fechaInicioDesde: [toYMD(ayer)],   // un día antes
-      // fechaInicioHasta: [toYMD(manana)], // un día después
-      fechaInicioDesde: [toYMD(hoy)],   // un día antes
-      fechaInicioHasta: [toYMD(hoy)], // un día después
-      nombreUsuario: ['']
+      fechaInicioDesde: [toYMD(hoy)],
+      fechaInicioHasta: [toYMD(hoy)],
+      nombreUsuario: [''],
+      farmacia: ['']
     });
 
-
-    library.addIcons(faUserCheck, faEye, faFileInvoice, faTimes, faTrash);
+    library.addIcons(faUserCheck, faEye, faFileInvoice, faTimes, faTrash, faSort, faSortUp, faSortDown);
   }
 
   ngOnInit(): void {
+    this.cargarFarmacias();
+    this.buscarCortes();
+  }
+
+  cargarFarmacias() {
+    this.farmacia.obtenerFarmacias().subscribe({
+      next: (resp) => { this.farmacias = resp || []; },
+      error: () => { this.farmacias = []; }
+    });
+  }
+
+  ordenarPor(campo: SortField) {
+    if (this.sortBy === campo) {
+      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortBy = campo;
+      this.sortDir = 'asc';
+    }
+    this.page = 1;
+    this.buscarCortes();
+  }
+
+  cambiarPagina(nueva: number) {
+    const pages = this.paginacion?.pages || 1;
+    this.page = Math.min(Math.max(1, nueva), pages);
     this.buscarCortes();
   }
 
@@ -114,37 +203,56 @@ export class CortesDeCajaComponent implements OnInit {
     const token = localStorage.getItem('auth_token') || '';
     const headers = new HttpHeaders({ 'x-auth-token': token });
 
-    const { fechaInicioDesde, fechaInicioHasta, nombreUsuario } = this.filtroForm.value;
+    const { fechaInicioDesde, fechaInicioHasta, nombreUsuario, farmacia } = this.filtroForm.value;
 
-    const toDateOnly = (v: any) => {
-      if (!v) return undefined;
-      const d = new Date(v);
-      // Siempre 'YYYY-MM-DD' (independiente de la zona del navegador)
-      return d.toISOString().slice(0, 10);
-    };
-
+    const toDateOnly = (v: any) => v ? new Date(v).toISOString().slice(0, 10) : undefined;
 
     const params: any = {
       fechaInicioDesde: toDateOnly(fechaInicioDesde),
       fechaInicioHasta: toDateOnly(fechaInicioHasta),
+      page: this.page,
+      limit: this.limit,
+      sortBy: this.sortBy,
+      sortDir: this.sortDir
     };
 
     if (nombreUsuario && nombreUsuario.trim().length > 2) {
       params.nombreUsuario = nombreUsuario.trim();
     }
 
+    if (farmacia) {
+      params.farmacia = farmacia;
+    }
+
     this.cargando = true;
     this.http.get(`${environment.apiUrl}/cortes/filtrados`, { headers, params }).subscribe({
       next: (resp: any) => {
-        this.cortes = resp.cortes;
+
+        console.log('Cortes de caja', resp);
+
+        this.cortes = resp?.cortes || [];
+        this.paginacion = resp?.paginacion || { page: 0, limit: this.limit, total: 0, pages: 0, hasPrev: false, hasNext: false };
+        this.totales = resp?.totales || defaultTotales();
+
+        // sincroniza limit si el backend lo normalizó
+        if (this.paginacion?.limit && this.paginacion.limit !== this.limit) {
+          this.limit = this.paginacion.limit;
+        }
         this.cargando = false;
       },
       error: (err) => {
         console.error('Error al buscar cortes:', err);
         Swal.fire('Error', 'No se pudieron cargar los cortes de caja.', 'error');
         this.cargando = false;
+        this.cortes = [];
+        this.paginacion = { page: 0, limit: this.limit, total: 0, pages: 0, hasPrev: false, hasNext: false };
+        this.totales = defaultTotales();
       }
     });
+  }
+
+  ariaSortFor(field: SortField): 'ascending' | 'descending' | 'none' {
+    return this.sortBy === field ? (this.sortDir === 'asc' ? 'ascending' : 'descending') : 'none';
   }
 
   esFechaDeHoy(fecha: string | Date | null | undefined): boolean {

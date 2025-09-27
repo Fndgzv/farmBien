@@ -48,4 +48,8 @@ const CorteCajaSchema = new mongoose.Schema({
   collection: 'cortesDeCaja'
 });
 
+CorteCajaSchema.index({ fechaInicio: -1 });
+CorteCajaSchema.index({ usuario: 1, fechaInicio: -1 });
+CorteCajaSchema.index({ farmacia: 1, fechaInicio: -1 });
+
 module.exports = mongoose.model("CorteCaja", CorteCajaSchema);
