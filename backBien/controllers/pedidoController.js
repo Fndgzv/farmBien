@@ -2,6 +2,7 @@ const { DateTime } = require('luxon');
 const Cliente = require("../models/Cliente");
 const Pedido = require("../models/Pedido");
 const Cancelacion = require("../models/Cancelacion");
+const { Types } = require('mongoose');
 
 const ZONE = process.env.APP_TZ || 'America/Mexico_City';
 
@@ -271,7 +272,6 @@ const cancelarPedido = async (req, res) => {
   }
 };
 
-
 const obtenerPedidos = async (req, res) => {
   try {
     const {
@@ -281,60 +281,378 @@ const obtenerPedidos = async (req, res) => {
       folio,
       estado,
       descripcion,
-      descripcionMinima
+      descripcionMinima,
+      page = 1,
+      limit = 20,
+      sortBy,
+      sortDir,
+      clienteNombre,
+      clienteNull, // 'true' para solo nulos, ó combinado con clienteNombre (OR)
     } = req.query;
 
-    // 1) Búsqueda por folio exacto (6 chars al final), ignora fechas
+    // --- Normaliza paginación ---
+    const pageNum  = Math.max(parseInt(page, 10) || 1, 1);
+    const limitCap = 100;
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), limitCap);
+    const skip     = (pageNum - 1) * limitNum;
+
+    // --- Búsqueda por folio (6 chars al final), ignora fechas ---
     if (folio && /^[A-Za-z0-9]{6}$/.test(folio)) {
       const regex = new RegExp(`${folio}$`);
       const filtroFolio = {
         ...(farmaciaId ? { farmacia: farmaciaId } : {}),
         ...(estado ? { estado } : {}),
-        folio: { $regex: regex }
+        folio: { $regex: regex },
       };
 
       const pedido = await Pedido.findOne(filtroFolio)
         .populate('cliente', 'nombre totalMonedero telefono')
         .populate('usuarioPidio', 'nombre')
         .populate('usuarioSurtio', 'nombre')
-        .populate('usuarioCancelo', 'nombre');
+        .populate('usuarioCancelo', 'nombre')
+        .lean();
 
-      return res.json({ pedidos: pedido ? [pedido] : [] });
+      const total = pedido ? 1 : 0;
+      const pages = total ? 1 : 0;
+
+      // Resumen local (1 registro)
+      const resumen = calcularResumenLocal(pedido ? [pedido] : []);
+      return res.status(200).json({
+        paginacion: {
+          page: total ? 1 : 0,
+          limit: total ? 1 : 0,
+          total,
+          pages,
+          hasPrev: false,
+          hasNext: false,
+        },
+        pedidos: pedido ? [pedido] : [],
+        resumen,
+      });
     }
 
-    // 2) Validación de descripción mínima si así lo exiges
+    // --- Validación de descripción mínima (si aplica) ---
     if (descripcion && descripcionMinima === 'true' && String(descripcion).length < 5) {
       return res.status(407).json({ mensaje: 'La descripción al menos debe tener 5 caracteres' });
     }
 
-    // 3) Filtro general
-    const filtro = {};
-    if (estado) filtro.estado = estado;
-    if (farmaciaId) filtro.farmacia = farmaciaId;
+    // --- Filtro base (campos directos del pedido) ---
+    const baseMatch = {};
+    if (estado) baseMatch.estado = estado;
+    if (farmaciaId && Types.ObjectId.isValid(farmaciaId)) baseMatch.farmacia = new Types.ObjectId(farmaciaId);
 
-    // Rango de fechas robusto sobre fechaPedido
     const r = dayRangeUtc(fechaInicio, fechaFin);
-    if (r) {
-      filtro.fechaPedido = { $gte: r.gte, $lt: r.lt };
-    }
+    if (r) baseMatch.fechaPedido = { $gte: r.gte, $lt: r.lt };
 
     if (descripcion) {
-      filtro.descripcion = { $regex: new RegExp(String(descripcion), 'i') };
+      baseMatch.descripcion = { $regex: new RegExp(String(descripcion), 'i') };
+    }
+    // Si SOLO pide cliente null (sin nombre), lo podemos aplicar aquí
+    if (clienteNull === 'true' && !clienteNombre) {
+      baseMatch.cliente = null;
     }
 
-    const pedidos = await Pedido.find(filtro)
-      .populate('cliente', 'nombre totalMonedero telefono')
-      .populate('usuarioPidio', 'nombre')
-      .populate('usuarioSurtio', 'nombre')
-      .populate('usuarioCancelo', 'nombre')
-      .sort({ fechaPedido: -1, createdAt: -1 });
+    // --- Mapeo de sort ---
+    const sortMap = {
+      'cliente.nombre': 'clienteInfo.nombre',
+      'clienteNombre':  'clienteInfo.nombre', // alias
+      'descripcion':    'descripcion',
+      'estado':         'estado',
+      'fechaPedido':    'fechaPedido',
+      'costo':          'costo',
+      'total':          'total',
+      'aCuenta':        'aCuenta',
+      'resta':          'resta',
+    };
+    const dir = (String(sortDir).toLowerCase() === 'asc') ? 1 : -1;
+    const sortField = sortMap[sortBy] || null;
 
-    return res.status(200).json({ pedidos });
+    // --- Pipeline con $lookup para cliente y usuarios (soporta filtro por nombre y sort) ---
+    const pipeline = [
+      { $match: baseMatch },
+
+      // Cliente (para filtrar por nombre y proyectar datos)
+      {
+        $lookup: {
+          from: 'clientes',
+          let: { cliId: '$cliente' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$_id', '$$cliId'] } } },
+            { $project: { nombre: 1, totalMonedero: 1, telefono: 1 } },
+          ],
+          as: 'clienteInfo',
+        },
+      },
+      { $addFields: { clienteInfo: { $arrayElemAt: ['$clienteInfo', 0] } } },
+
+      // Si combina clienteNombre + clienteNull=true => OR entre nombre y null
+      ...(clienteNombre || clienteNull === 'true'
+        ? [{
+            $match: (clienteNombre && clienteNull === 'true')
+              ? {
+                  $or: [
+                    { cliente: null },
+                    { 'clienteInfo.nombre': { $regex: new RegExp(String(clienteNombre), 'i') } },
+                  ],
+                }
+              : (clienteNombre
+                  ? { 'clienteInfo.nombre': { $regex: new RegExp(String(clienteNombre), 'i') } }
+                  : { cliente: null } // (ya se aplicó arriba si no hay nombre; repetir aquí es inocuo)
+                ),
+          }]
+        : []),
+
+      // Usuarios (mantener misma forma que populate para .nombre)
+      {
+        $lookup: {
+          from: 'usuarios',
+          localField: 'usuarioPidio',
+          foreignField: '_id',
+          pipeline: [{ $project: { nombre: 1 } }],
+          as: 'usuarioPidioInfo',
+        },
+      },
+      { $addFields: { usuarioPidioInfo: { $arrayElemAt: ['$usuarioPidioInfo', 0] } } },
+
+      {
+        $lookup: {
+          from: 'usuarios',
+          localField: 'usuarioSurtio',
+          foreignField: '_id',
+          pipeline: [{ $project: { nombre: 1 } }],
+          as: 'usuarioSurtioInfo',
+        },
+      },
+      { $addFields: { usuarioSurtioInfo: { $arrayElemAt: ['$usuarioSurtioInfo', 0] } } },
+
+      {
+        $lookup: {
+          from: 'usuarios',
+          localField: 'usuarioCancelo',
+          foreignField: '_id',
+          pipeline: [{ $project: { nombre: 1 } }],
+          as: 'usuarioCanceloInfo',
+        },
+      },
+      { $addFields: { usuarioCanceloInfo: { $arrayElemAt: ['$usuarioCanceloInfo', 0] } } },
+
+      // Campos calculados para sort y resumen
+      {
+        $addFields: {
+          resta: { $ifNull: ['$resta', 0] },
+          efectivo: { $ifNull: ['$pagoACuenta.efectivo', 0] },
+          tarjeta: { $ifNull: ['$pagoACuenta.tarjeta', 0] },
+          transferencia: { $ifNull: ['$pagoACuenta.transferencia', 0] },
+          vale:          { $ifNull: ['$pagoACuenta.vale', 0] },
+
+          efectivoResta:      { $ifNull: ['$pagoResta.efectivo', 0] },
+          tarjetaResta:       { $ifNull: ['$pagoResta.tarjeta', 0] },
+          transferenciaResta: { $ifNull: ['$pagoResta.transferencia', 0] },
+          valeResta:          { $ifNull: ['$pagoResta.vale', 0] },
+        },
+      },
+
+      // Ordenamiento
+      ...(sortField
+        ? [{ $sort: { [sortField]: dir, _id: 1 } }] // _id como tie-breaker estable
+        : [{ $sort: { fechaPedido: -1, createdAt: -1 } }]),
+      
+      // Facetas: rows paginadas, conteo y resumen
+      {
+        $facet: {
+          rows: [
+            { $skip: skip },
+            { $limit: limitNum },
+            {
+              $project: {
+                folio: 1,
+                estado: 1,
+                descripcion: 1,
+                fechaPedido: 1,
+                costo: 1,
+                total: 1,
+                aCuenta: 1,
+                resta: 1,
+                pagoACuenta: 1,
+                pagoResta: 1,
+                farmacia: 1,
+                // cliente (forma similar a populate)
+                cliente: {
+                  $cond: [
+                    { $ifNull: ['$cliente', false] },
+                    {
+                      _id: '$cliente',
+                      nombre: '$clienteInfo.nombre',
+                      totalMonedero: '$clienteInfo.totalMonedero',
+                      telefono: '$clienteInfo.telefono',
+                    },
+                    null,
+                  ],
+                },
+                usuarioPidio: {
+                  $cond: [
+                    { $ifNull: ['$usuarioPidio', false] },
+                    { _id: '$usuarioPidio', nombre: '$usuarioPidioInfo.nombre' },
+                    null,
+                  ],
+                },
+                usuarioSurtio: {
+                  $cond: [
+                    { $ifNull: ['$usuarioSurtio', false] },
+                    { _id: '$usuarioSurtio', nombre: '$usuarioSurtioInfo.nombre' },
+                    null,
+                  ],
+                },
+                usuarioCancelo: {
+                  $cond: [
+                    { $ifNull: ['$usuarioCancelo', false] },
+                    { _id: '$usuarioCancelo', nombre: '$usuarioCanceloInfo.nombre' },
+                    null,
+                  ],
+                },
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            },
+          ],
+          totalCount: [{ $count: 'count' }],
+          porEstado: [
+            {
+              $group: {
+                _id: '$estado',
+                conteo: { $sum: 1 },
+                total: { $sum: { $ifNull: ['$total', 0] } },
+                aCuenta: { $sum: { $ifNull: ['$aCuenta', 0] } },
+                saldo: { $sum: '$resta' },
+              },
+            },
+            { $project: { _id: 0, estado: '$_id', conteo: 1, total: 1, aCuenta: 1, saldo: 1 } },
+            { $sort: { total: -1 } },
+          ],
+          generales: [
+            {
+              $group: {
+                _id: null,
+                conteo: { $sum: 1 },
+                total: { $sum: { $ifNull: ['$total', 0] } },
+                aCuenta: { $sum: { $ifNull: ['$aCuenta', 0] } },
+                resta:         { $sum: '$resta' },
+                saldo: { $sum: '$resta' },
+                efectivo: { $sum: '$efectivo' },
+                tarjeta: { $sum: '$tarjeta' },
+                transferencia: { $sum: '$transferencia' },
+                vale:          { $sum: '$vale' },
+
+                efectivoResta:      { $sum: '$efectivoResta' },
+                tarjetaResta:       { $sum: '$tarjetaResta' },
+                transferenciaResta: { $sum: '$transferenciaResta' },
+                valeResta:          { $sum: '$valeResta' },
+
+                costo:         { $sum: { $ifNull: ['$costo', 0] } },
+              },
+            },
+            { $project: { _id: 0 } },
+          ],
+        },
+      },
+    ];
+
+    // Collation para sort de strings (español, case/accents-insensitive)
+    const agg = await Pedido.aggregate(pipeline).collation({ locale: 'es', strength: 1 });
+    const facet = agg?.[0] || { rows: [], totalCount: [], porEstado: [], generales: [] };
+
+    const total = facet.totalCount?.[0]?.count || 0;
+    const pages = total ? Math.ceil(total / limitNum) : 0;
+
+    return res.status(200).json({
+      paginacion: {
+        page: pages ? pageNum : 0,
+        limit: pages ? limitNum : 0,
+        total,
+        pages,
+        hasPrev: pageNum > 1 && pageNum <= pages,
+        hasNext: pageNum < pages,
+      },
+      pedidos: facet.rows || [],
+      resumen: {
+        generales: facet.generales?.[0] || resumenVacio().generales,  // 👈 usa tu helper
+        porEstado: facet.porEstado || [],
+      },
+    });
   } catch (error) {
     console.error('Error al obtener pedidos', error);
     return res.status(500).json({ mensaje: 'Error al consultar pedidos' });
   }
 };
+
+function resumenVacio() {
+  return {
+    generales: {
+      conteo: 0,
+      total: 0,
+      aCuenta: 0,
+      resta: 0,
+      saldo: 0,
+      efectivo: 0,
+      tarjeta: 0,
+      transferencia: 0,
+      vale: 0,
+      efectivoResta: 0, tarjetaResta: 0, transferenciaResta: 0, valeResta: 0,
+      costo: 0,
+    },
+    porEstado: [],
+  };
+}
+
+function calcularResumenLocal(pedidos = []) {
+  if (!pedidos.length) return resumenVacio();
+
+  let g = {
+    conteo: 0, total: 0, aCuenta: 0, resta: 0, saldo: 0,
+    efectivo: 0, tarjeta: 0, transferencia: 0, vale: 0,
+    efectivoResta: 0, tarjetaResta: 0, transferenciaResta: 0, valeResta: 0,
+    costo: 0,
+  };
+
+    const porEstadoMap = new Map();
+
+  for (const p of pedidos) {
+    const total = +(p.total ?? 0);
+    const aCuenta = +(p.aCuenta ?? 0);
+    const saldo = total - aCuenta;
+    const resta = +(p.resta ?? (total - aCuenta));
+    const ac = p.pagoACuenta || {};
+    const re = p.pagoResta || {};
+
+    g.conteo++;
+    g.total += total;
+    g.aCuenta += aCuenta;
+    g.resta += resta;  // alias
+    g.saldo += resta;  // compat
+    // anticipo
+    g.efectivo      += +(ac.efectivo ?? 0);
+    g.tarjeta       += +(ac.tarjeta ?? 0);
+    g.transferencia += +(ac.transferencia ?? 0);
+    g.vale          += +(ac.vale ?? 0);
+    // resta
+    g.efectivoResta      += +(re.efectivo ?? 0);
+    g.tarjetaResta       += +(re.tarjeta ?? 0);
+    g.transferenciaResta += +(re.transferencia ?? 0);
+    g.valeResta          += +(re.vale ?? 0);
+    // otros
+    g.costo += +(p.costo ?? 0);
+
+    const est = p.estado || 'SIN_ESTADO';
+    const cur = porEstadoMap.get(est) || { estado: est, conteo: 0, total: 0, aCuenta: 0, saldo: 0 };
+    cur.conteo++; cur.total += total; cur.aCuenta += aCuenta; cur.saldo += saldo;
+    porEstadoMap.set(est, cur);
+  }
+
+  return {
+    generales: g,
+    porEstado: Array.from(porEstadoMap.values()).sort((a, b) => b.total - a.total),
+  };
+}
 
 const actualizarCostoPedido = async (req, res) => {
   try {
@@ -361,7 +679,6 @@ const actualizarCostoPedido = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al actualizar costo.' });
   }
 };
-
 
 
 module.exports = {

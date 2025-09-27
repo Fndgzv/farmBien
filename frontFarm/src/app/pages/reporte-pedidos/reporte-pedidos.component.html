@@ -3,7 +3,7 @@
         <h1 class="titulo">Reporte de Pedidos</h1>
     </div>
 
-    <div class="row g-2 align-items-center" style="margin-bottom: 1rem;">
+    <div class="row g-2 align-items-center mb-3">
         <div class="col-auto">
             <label for="filtroFarmaciaId" class="form-label mb-0 lbl-pedido">Farmacia:</label>
         </div>
@@ -14,6 +14,23 @@
                     {{ f.nombre }}
                 </option>
             </select>
+        </div>
+
+        <!-- NUEVOS: filtro por nombre de cliente -->
+        <div class="col-auto">
+            <label for="filtroClienteNombre" class="form-label mb-0 lbl-pedido">Cliente:</label>
+        </div>
+        <div class="col-auto">
+            <input id="filtroClienteNombre" [(ngModel)]="filtroClienteNombre" type="text" class="form-control"
+                placeholder="Nombre del cliente" style="width: 220px;" />
+        </div>
+
+        <!-- Check para incluir pedidos sin cliente -->
+        <div class="col-auto form-check">
+            <input class="form-check-input" type="checkbox" id="incluirClienteNull" [(ngModel)]="incluirClienteNull" />
+            <label class="form-check-label" for="incluirClienteNull">
+                Incluir “sin cliente”
+            </label>
         </div>
     </div>
 
@@ -81,24 +98,102 @@
             <tr>
                 <th></th>
                 <th>Folio</th>
-                <th>F. pedido</th>
-                <th>Cliente</th>
-                <th>Descripción</th>
-                <th>Estado</th>
-                <th>Costo</th>
-                <th>Precio</th>
-                <th>A cuenta</th>
-                <th>Resta</th>
+
+                <th class="sortable"
+                    (click)="ordenarPor('fechaPedido')"
+                    [attr.aria-sort]="ariaSortFor('fechaPedido')"
+                    role="button"
+                    matTooltip="Ordenar por fecha de pedido">
+                F. pedido
+                <fa-icon class="sort-icon"
+                        [icon]="sortBy==='fechaPedido' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"
+                        aria-hidden="true"></fa-icon>
+                </th>
+
+                <th class="sortable"
+                    (click)="ordenarPor('cliente.nombre')"
+                    [attr.aria-sort]="ariaSortFor('cliente.nombre')"
+                    role="button"
+                    matTooltip="Ordenar por cliente">
+                Cliente
+                <fa-icon class="sort-icon"
+                        [icon]="sortBy==='cliente.nombre' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"
+                        aria-hidden="true"></fa-icon>
+                </th>
+
+                <th class="sortable"
+                    (click)="ordenarPor('descripcion')"
+                    [attr.aria-sort]="ariaSortFor('descripcion')"
+                    role="button"
+                    matTooltip="Ordenar por descripción">
+                Descripción
+                <fa-icon class="sort-icon"
+                        [icon]="sortBy==='descripcion' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                </th>
+
+                <th class="sortable"
+                    (click)="ordenarPor('estado')"
+                    [attr.aria-sort]="ariaSortFor('estado')"
+                    role="button"
+                    matTooltip="Ordenar por estado">
+                Estado
+                <fa-icon class="sort-icon"
+                        [icon]="sortBy==='estado' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                </th>
+
+                <th class="sortable"
+                    (click)="ordenarPor('costo')"
+                    [attr.aria-sort]="ariaSortFor('costo')"
+                    role="button"
+                    matTooltip="Ordenar por costo">
+                Costo
+                <fa-icon class="sort-icon"
+                        [icon]="sortBy==='costo' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                </th>
+
+                <th class="sortable"
+                    (click)="ordenarPor('total')"
+                    [attr.aria-sort]="ariaSortFor('total')"
+                    role="button"
+                    matTooltip="Ordenar por precio">
+                Precio
+                <fa-icon class="sort-icon"
+                        [icon]="sortBy==='total' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                </th>
+
+                <th class="sortable"
+                    (click)="ordenarPor('aCuenta')"
+                    [attr.aria-sort]="ariaSortFor('aCuenta')"
+                    role="button"
+                    matTooltip="Ordenar por anticipo">
+                A cuenta
+                <fa-icon class="sort-icon"
+                        [icon]="sortBy==='aCuenta' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                </th>
+
+                <th class="sortable"
+                    (click)="ordenarPor('resta')"
+                    [attr.aria-sort]="ariaSortFor('resta')"
+                    role="button"
+                    matTooltip="Ordenar por resto">
+                Resta
+                <fa-icon class="sort-icon"
+                        [icon]="sortBy==='resta' ? (sortDir==='asc'? faSortUp : faSortDown) : faSort"></fa-icon>
+                </th>
+
                 <th>Tot. Ingreso</th>
                 <th>Utilidad</th>
+                <th>% Gan</th>
                 <th>Acciones</th>
             </tr>
         </thead>
+
         <tbody>
             <ng-container *ngFor="let pedido of pedidos">
                 <tr>
                     <td>
-                        <button class="btn-verde btn-icono" [matTooltip]="pedidoDetalleAbiertoId === pedido._id ? 'Cerrar detalle' : 'Ver detalle'"
+                        <button class="btn-verde btn-icono"
+                            [matTooltip]="pedidoDetalleAbiertoId === pedido._id ? 'Cerrar detalle' : 'Ver detalle'"
                             (click)="pedidoDetalleAbiertoId === pedido._id ? cerrarDetallePedido(pedido) : abrirDetallePedido(pedido)">
                             <fa-icon [icon]="pedidoDetalleAbiertoId === pedido._id ? 'minus' : 'plus'"
                                 [ngClass]="pedidoDetalleAbiertoId === pedido._id ? 'icono-rotado' : 'icono-normal'">
@@ -127,8 +222,15 @@
                     <td>{{ pedido.total | currency }}</td>
                     <td>{{ pedido.aCuenta | currency }}</td>
                     <td>{{ pedido.resta | currency }}</td>
-                    <td>{{ pedido.total - pedido.resta | currency }}</td>
-                    <td>{{ pedido.total - pedido.resta - pedido.costo | currency }}</td>
+                    <td>{{ ((pedido.total || 0) - (pedido.resta || 0)) | currency }}</td>
+                    <td>{{ ((pedido.total || 0) - (pedido.resta || 0) - (pedido.costo || 0)) | currency }}</td>
+                    <td>
+                        {{
+                            (pedido.costo > 0
+                            ? (((pedido.total || 0) - (pedido.resta || 0) - (pedido.costo || 0)) / pedido.costo) * 100
+                            : 0) | number:'1.1-2'
+                        }}%
+                    </td>
 
                     <td class="d-flex gap-1 align-items-center">
                         <div class="d-flex justify-content-center">
@@ -162,58 +264,61 @@
                                 <thead>
                                     <tr>
                                         <th colspan="2">Estado: {{ pedido.estado }}</th>
-                                        <th colspan="1">Costo: {{ pedido.costo | currency }}</th>
-                                        <th colspan="1">Precio: {{ pedido.total | currency }}</th>
+                                        <th colspan="1">Costo: {{ (pedido.costo) || 0 | currency }}</th>
+                                        <th colspan="1">Precio: {{ (pedido.total) || 0 | currency }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td colspan="2" class="sub-title-tabla">Anticipo: {{ pedido.aCuenta | currency}}</td>
+                                        <td colspan="2" class="sub-title-tabla">Anticipo: {{ pedido.aCuenta | currency}}
+                                        </td>
                                         <td colspan="2" class="sub-title-tabla">Resta: {{ pedido.resta | currency}}</td>
                                     </tr>
                                     <tr>
                                         <td>Efectivo:</td>
-                                        <td>{{ pedido.pagoACuenta.efectivo | currency }}</td>
+                                        <td>{{ (pedido.pagoACuenta.efectivo || 0) | currency }}</td>
                                         <td>Efectivo:</td>
-                                        <td>{{ pedido.pagoResta.efectivo | currency }}</td>
+                                        <td>{{ (pedido.pagoResta.efectivo || 0) | currency }}</td>
                                     </tr>
                                     <tr>
                                         <td>Tarjeta:</td>
-                                        <td>{{ pedido.pagoACuenta.tarjeta | currency }}</td>
+                                        <td>{{ (pedido.pagoACuenta.tarjeta || 0) | currency }}</td>
                                         <td>Tarjeta:</td>
-                                        <td>{{ pedido.pagoResta.tarjeta | currency }}</td>
+                                        <td>{{ (pedido.pagoResta.tarjeta || 0) | currency }}</td>
                                     </tr>
                                     <tr>
                                         <td>Transferencia:</td>
-                                        <td>{{ pedido.pagoACuenta.transferencia | currency }}</td>
+                                        <td>{{ (pedido.pagoACuenta.transferencia || 0) | currency }}</td>
                                         <td>Transferencia:</td>
-                                        <td>{{ pedido.pagoResta.transferencia | currency }}</td>
+                                        <td>{{ (pedido.pagoResta.transferencia || 0) | currency }}</td>
                                     </tr>
                                     <tr>
                                         <td>Monedero:</td>
-                                        <td>{{ pedido.pagoACuenta.vale | currency }}</td>
+                                        <td>{{ (pedido.pagoACuenta.vale || 0) | currency }}</td>
                                         <td>Monedero</td>
-                                        <td>{{ pedido.pagoResta.vale | currency }}</td>
+                                        <td>{{ (pedido.pagoResta.vale || 0) | currency }}</td>
                                     </tr>
                                     <tr *ngIf="esAdmin">
                                         <td colspan="1">Levantó:</td>
-                                        <td colspan="2">{{ pedido.usuarioPidio.nombre }}</td>
-                                        <td colspan="1">{{ pedido.fechaPedido | date: 'dd/MM/yyyy':'America/Mexico_City'
-                                            }} </td>
+                                        <td colspan="2">{{ pedido.usuarioPidio.nombre || '—'}}</td>
+                                        <td colspan="1">
+                                            {{ pedido.fechaPedido ? (pedido.fechaPedido | date:'dd/MM/yyyy':'America/Mexico_City') : '—' }}
+                                        </td>
                                     </tr>
                                     <tr *ngIf="pedido.estado === 'entregado' && esAdmin">
                                         <td colspan="1">Surtió:</td>
-                                        <td colspan="2">{{ pedido.usuarioSurtio.nombre }}</td>
-                                        <td colspan="1">{{ pedido.fechaEntrega | date:
-                                            'dd/MM/yyyy':'America/Mexico_City' }} </td>
+                                        <td colspan="2">{{ pedido.usuarioSurtio?.nombre || '—' }}</td>
+                                        <td colspan="1">
+                                            {{ pedido.fechaEntrega ? (pedido.fechaEntrega | date:'dd/MM/yyyy':'America/Mexico_City') : '—' }} 
+                                        </td>
                                     </tr>
                                     <tr *ngIf="pedido.estado === 'cancelado' && esAdmin">
                                         <td colspan="1">Canceló:</td>
-                                        <td colspan="2">{{ pedido.usuarioCancelo.nombre }}</td>
-                                        <td colspan="1">{{ pedido.fechaCancelacion | date:
-                                            'dd/MM/yyyy':'America/Mexico_City' }} </td>
+                                        <td colspan="2">{{ pedido.usuarioCancelo?.nombre || '—' }}</td>
+                                        <td colspan="1">
+                                            {{ pedido.fechaCancelacion ? (pedido.fechaCancelacion | date:'dd/MM/yyyy':'America/Mexico_City') : '—' }}
+                                        </td>
                                     </tr>
-
                                 </tbody>
                             </table>
                         </div>
@@ -225,15 +330,47 @@
 
         <tfoot>
             <tr>
-                <td colspan="10" class="text-end fw-bold">Totales:</td>
+                <td colspan="6" class="text-end fw-bold">Totales:</td>
+                <td class="fw-bold">{{ totalCosto | currency }}</td>
+                <td class="fw-bold">{{ totalPrecio | currency }}</td>
+                <td class="fw-bold">{{ totalAcuenta | currency }}</td>
+                <td class="fw-bold">{{ totalResta | currency }}</td>
                 <td class="fw-bold">{{ totalIngreso | currency }}</td>
                 <td class="fw-bold">{{ utilidadTotal | currency }}</td>
                 <td class="fw-bold">{{ porcentajeUtilidad | number:'1.1-2' }}%</td>
+                <td></td>
             </tr>
         </tfoot>
-
-
     </table>
+
+    <div class="paginacion" *ngIf="paginacion?.pages">
+        <button (click)="cambiarPagina(1)" [disabled]="paginacion.page <= 1" matTooltip="Inicio">
+            <i class="fa fa-angle-double-left"></i>
+        </button>
+        <button (click)="cambiarPagina(paginacion.page - 1)" [disabled]="!paginacion.hasPrev" matTooltip="Anterior">
+            <i class="fa fa-angle-left"></i>
+        </button>
+
+        <span> Página {{ paginacion.page }} de {{ paginacion.pages }} ({{ paginacion.total }} registros) </span>
+
+        <button (click)="cambiarPagina(paginacion.page + 1)" [disabled]="!paginacion.hasNext" matTooltip="Siguiente">
+            <i class="fa fa-angle-right"></i>
+        </button>
+        <button (click)="cambiarPagina(paginacion.pages)" [disabled]="paginacion.page >= paginacion.pages" matTooltip="Fin">
+            <i class="fa fa-angle-double-right"></i>
+        </button>
+
+        <span class="ms-3">Filas pág.:</span>
+        <select
+            class="form-select form-select-sm d-inline-block w-auto ms-2"
+            [(ngModel)]="limit"
+            (ngModelChange)="page=1; buscarSinFolio();">
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+            <option [ngValue]="100">100</option>
+        </select>
+    </div>
 
     <p *ngIf="filtroFolio.length === 6 && pedidos.length === 0" class="no-found-error">
         El folio del pedido no existe ó ya no está pendiente de entrega.

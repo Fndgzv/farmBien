@@ -2,7 +2,7 @@
 const mongoose = require("mongoose");
 
 const PedidoSchema = new mongoose.Schema({
-  folio: { type: String, required: true, unique: true },
+  folio: { type: String, required: true },
   farmacia: { type: mongoose.Schema.Types.ObjectId, ref: "Farmacia", required: true },
   cliente: { type: mongoose.Schema.Types.ObjectId, ref: "Cliente" },
   usuarioPidio: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario", required: true },
@@ -37,7 +37,11 @@ PedidoSchema.pre('save', function (next) {
   next();
 });
 
-PedidoSchema.index({ fechaPedido: 1, farmacia: 1 });
 PedidoSchema.index({ fechaPedido: 1, farmacia: 1, usuarioPidio: 1, estado: 1 });
+PedidoSchema.index({ folio: 1 });
+PedidoSchema.index({ fechaPedido: -1, farmacia: 1, estado: 1 }); // filtro + sort
+PedidoSchema.index({ estado: 1 });
+PedidoSchema.index({ farmacia: 1 });
+PedidoSchema.index({ descripcion: 'text' })
 
 module.exports = mongoose.model("Pedido", PedidoSchema);

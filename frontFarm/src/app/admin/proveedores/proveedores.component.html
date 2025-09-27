@@ -36,13 +36,13 @@
     <nav *ngIf="totalPaginas > 1" class="d-flex justify-content-center mt-3">
         <ul class="pagination">
             <li class="page-item" [class.disabled]="paginaActual === 1">
-                <button class="page-link" (click)="paginaActual = 1" [disabled]="paginaActual === 1" matTooltip="Página inicial">
+                <button class="page-link" (click)="paginaActual = 1" [disabled]="paginaActual === 1" matTooltip="Inicio">
                      <i class="fa fa-angle-double-left"></i>
                 </button>
             </li>
 
             <li class="page-item" [class.disabled]="paginaActual === 1">
-                <button class="page-link" (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1" matTooltip="Página anterior">
+                <button class="page-link" (click)="paginaActual = paginaActual - 1" [disabled]="paginaActual === 1" matTooltip="Anterior">
                      <i class="fa fa-angle-left"></i>
                 </button>
             </li>
@@ -55,14 +55,14 @@
 
             <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
                 <button class="page-link" (click)="paginaActual = paginaActual + 1"
-                    [disabled]="paginaActual === totalPaginas" matTooltip="Página siguiente">
+                    [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
                     <i class="fa fa-angle-right"></i>
                 </button>
             </li>
 
             <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
                 <button class="page-link" (click)="paginaActual = totalPaginas"
-                    [disabled]="paginaActual === totalPaginas" matTooltip="Página final">
+                    [disabled]="paginaActual === totalPaginas" matTooltip="Fin">
                     <i class="fa fa-angle-double-right"></i>
                 </button>
             </li>

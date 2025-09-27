@@ -22,8 +22,8 @@ export function paginatorEs(): MatPaginatorIntl {
   p.itemsPerPageLabel = 'Clientes por página:';
   p.nextPageLabel = 'Siguiente';
   p.previousPageLabel = 'Anterior';
-  p.firstPageLabel = 'Primera página';
-  p.lastPageLabel = 'Última página';
+  p.firstPageLabel = 'Inicio';
+  p.lastPageLabel = 'Fin';
   p.getRangeLabel = (page, pageSize, length) => {
     if (length === 0 || pageSize === 0) return `0 de ${length}`;
     const start = page * pageSize + 1;

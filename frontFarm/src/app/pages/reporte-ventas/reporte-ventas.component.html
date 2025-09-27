@@ -229,19 +229,19 @@
         </table>
 
         <div class="paginacion">
-            <button (click)="primera()" [disabled]="cargando || page === 1" matTooltip="Primera página">
+            <button (click)="primera()" [disabled]="cargando || page === 1" matTooltip="Inicio">
                 <i class="fa fa-angle-double-left"></i>
             </button>
-            <button (click)="anterior()" [disabled]="cargando || page === 1" matTooltip="Página anterior">
+            <button (click)="anterior()" [disabled]="cargando || page === 1" matTooltip="Anterior">
                 <i class="fa fa-angle-left"></i>
             </button>
             Ventas: {{ totalRegistros }}
             &nbsp; | &nbsp; Página: {{ page }} / {{ totalPaginas || 1 }}
 
-            <button (click)="siguiente()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0" matTooltip="Página siguiente">
+            <button (click)="siguiente()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0" matTooltip="Siguiente">
                 <i class="fa fa-angle-right"></i>
             </button>
-            <button (click)="ultima()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0" matTooltip="Última página">
+            <button (click)="ultima()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0" matTooltip="Fin">
                 <i class="fa fa-angle-double-right"></i>
             </button>
         </div>

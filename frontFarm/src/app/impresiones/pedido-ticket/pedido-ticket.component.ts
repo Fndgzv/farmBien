@@ -22,10 +22,10 @@ export class PedidoTicketComponent {
   };
     fechaActual = new Date();
 
-    ngOnChanges(changes: SimpleChanges): void {
+/*     ngOnChanges(changes: SimpleChanges): void {
   if (changes['pedido']) {
     console.log('🟢 Pedido recibido en ticket:', this.pedido);
   }
-}
+} */
 
 }
