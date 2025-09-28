@@ -263,32 +263,73 @@
   margin-right: 15px;
 }
 
-.col-img { width: 56px; text-align: center; }
 
-.img-cell { position: relative; display: inline-flex; }
-.img-button {
-  position: relative; width: 48px; height: 48px;
-  padding: 0; border: 0; background: transparent; overflow: hidden;
+/* ====== Escala de la miniatura ====== */
+:root{
+  --thumb-col-base: 56px; 
+  --thumb-scale: 2;        /* cámbialo a 3 si quieres el triple */
 }
-.img-button img {
-  width: 100%; height: 100%; object-fit: cover; display: block;
-  backface-visibility: hidden;
+
+/* 1) Que la tabla respete los anchos definidos y no se deforme por el contenido */
+.tabla { table-layout: fixed; }  /* si tu tabla se llama distinto, aplica a ese selector */
+
+/* 2) Fijamos el ancho de la columna e impedimos que el contenido la ensanche */
+.col-img{
+  width: calc(var(--thumb-col-base) * var(--thumb-scale));
+  min-width: calc(var(--thumb-col-base) * var(--thumb-scale));
+  text-align: center;
 }
-.zoom-corner {
-  position: absolute; right: -6px; top: -6px;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(41, 86, 248, 0.6); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  pointer-events: none;  /* decorativo: click lo recibe el botón */
+
+/* 3) El contenedor y el botón definen el “marco” exacto de la miniatura */
+.img-cell{
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
-.zoom-corner i { font-size: 12px; line-height: 1; }
+.img-button{
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  position: relative;
+  line-height: 0;
+  display: inline-block;
+  width: calc(var(--thumb-col-base) * var(--thumb-scale));
+}
+
+/* 4) La imagen ocupa 100% del marco (y no más). ¡Importante! */
+.img-button img{
+  display: block;
+  width: 100% !important;      /* evita que reglas globales la hagan crecer */
+  height: auto !important;     /* mantiene proporción */
+  max-width: 100% !important;  /* cinturón + tirantes */
+  object-fit: contain;
+}
+
+/* Iconito de zoom intacto */
+.img-button .zoom-corner{
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+/* Por si tenías altura fija en filas */
+table tr{ height: auto; }
+td, th{ vertical-align: middle; }
 
 
+
+/* zoom imagen */
 .consulta-img-wrap {
   display: flex;
   justify-content: center;
   margin: 8px 0 6px;
 }
+
 .consulta-img-wrap img {
   max-width: 70%;
   max-height: 220px;
@@ -296,3 +337,60 @@
   border-radius: 6px;
   box-shadow: 0 2px 10px rgba(0,0,0,.25);
 }
+
+
+/* Asegura que se respeten los anchos de <colgroup> */
+.tabla { table-layout: fixed; width: 100%; }
+/* Columna compacta para las acciones */
+.col-acciones{
+  width: 48px;            /* ajusta a tu gusto (44–56px) */
+  min-width: 48px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Botonera vertical apilada */
+.acciones-group{
+  display: flex;
+  flex-direction: column; /* apila en vertical */
+  align-items: center;
+  justify-content: center;
+  gap: 6px;               /* espacio entre botones */
+}
+
+
+
+/* (Opcional) En pantallas muy chicas, podrías ponerlos en fila: */
+@media (max-width: 600px){
+  .acciones-group{ flex-direction: row; gap: 8px; }
+}
+
+/* Columnas */
+.col-img           { width: calc(var(--thumb-col-base) * var(--thumb-scale));
+                     min-width: calc(var(--thumb-col-base) * var(--thumb-scale)); }
+.col-cant          { width: 70px;  }
+.col-precio        { width: 100px; }
+.col-imp-normal    { width: 120px; }
+.col-promo         { width: 150px; }
+.col-desc-porc     { width: 80px;  }
+.col-monedero      { width: 80px; }
+.col-desc          { width: 100px; }
+.col-precio-final  { width: 120px; }
+
+/* Producto: sin width => se lleva TODO el espacio sobrante */
+.col-producto { width: auto; }
+
+/* Que el texto del producto envuelva bien y no se amontone */
+.tabla th:nth-child(3),
+.tabla td:nth-child(3) {
+  white-space: normal;
+  overflow-wrap: anywhere;   /* rompe palabras largas si hace falta */
+  line-height: 1.3;
+}
+
+/* (Opcional) números a la derecha para columnas $ */
+.tabla td.col-precio,
+.tabla td.col-imp-normal,
+.tabla td.col-monedero,
+.tabla td.col-desc,
+.tabla td.col-precio-final { text-align: right; }

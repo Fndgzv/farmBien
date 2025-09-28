@@ -671,6 +671,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async agregarProductoAlCarrito(producto: any) {
+    console.log('producto listo pal carrito', producto);
+    
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
     if (existente) {
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
@@ -1604,12 +1606,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (c) this.onClienteSelected(c); // <- tu método existente
   }
 
-  private imageUrlById(id: string): string {
-    const prod = (this.productos || []).find(x => x._id === id);
-    return (prod?.imagen)
-      ? this.productoService.obtenerImagenProductoUrl(id)
-      : this.placeholderSrc;
-  }
 
   // si la miniatura falla, fuerza placeholder
   onThumbError(ev: Event, item?: any) {
