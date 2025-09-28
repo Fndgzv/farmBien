@@ -1617,12 +1617,34 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (item?.producto) this.thumbs[item.producto] = this.placeholderSrc;
   }
 
-  // Modal con imagen grande (versión 1)
-  openPreviewVenta(item: any) {
-    const prod = (this.productos || []).find(x => x._id === item.producto);
-    const base = prod?.imagen
-      ? this.productoService.obtenerImagenProductoUrl(item.producto)
-      : this.placeholderSrc;
+  // Modal con imagen grande
+openPreviewVenta(item: any) {
+  const prod = (this.productos || []).find(x => x._id === item.producto);
+  const base = prod?.imagen
+    ? this.productoService.obtenerImagenProductoUrl(item.producto)
+    : this.placeholderSrc;
+
+  const img = new Image();
+  img.src = base;
+
+  img.onload = () => {
+    // tamaño original
+    const ow = img.naturalWidth || 0;
+    const oh = img.naturalHeight || 0;
+
+    // objetivo: 3x
+    const targetW = ow * 3;
+    const targetH = oh * 3;
+
+    // límite visual (90% viewport)
+    const maxW = Math.floor(window.innerWidth * 0.9);
+    const maxH = Math.floor(window.innerHeight * 0.9);
+
+    // factor para que quepa (si cabe a 3x, queda en 3x; si no, se reduce manteniendo proporción)
+    const fit = Math.min(maxW / targetW, maxH / targetH, 1);
+
+    const finalW = Math.max(1, Math.round(targetW * fit));
+    const finalH = Math.max(1, Math.round(targetH * fit));
 
     Swal.fire({
       width: 'auto',
@@ -1631,10 +1653,21 @@ export class VentasComponent implements OnInit, AfterViewInit {
       showCloseButton: true,
       padding: 0,
       html: `
-      <div style="max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center;">
-        <img src="${base}" alt="" style="max-width:90vw;max-height:90vh;object-fit:contain"/>
-      </div>`
+        <div style="max-width:${maxW}px;max-height:${maxH}px;display:flex;align-items:center;justify-content:center;">
+          <img src="${base}" alt=""
+               style="width:${finalW}px;height:${finalH}px;object-fit:contain;display:block;"/>
+        </div>`
     });
-  }
+  };
+
+  img.onerror = () => {
+    // fallback simple si falla la carga
+    Swal.fire({
+      icon: 'error',
+      title: 'No se pudo cargar la imagen',
+      text: 'Inténtalo de nuevo.',
+    });
+  };
+}
 
 }
