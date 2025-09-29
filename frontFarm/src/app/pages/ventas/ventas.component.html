@@ -1,6 +1,16 @@
 <div class="ventas-container">
-  <div class="titulo-container">
-    <h1 class="titulo">Ventas</h1>
+  <div class="row align-items-center titulo-row">
+    <div class="col-6 text-end">
+      <h1 class="titulo mb-0">Ventas</h1>
+    </div>
+
+    <div class="col-6 d-flex justify-content-center">
+      <label class="me-2 mb-0">Tamaño imagen:</label>
+      <select class="form-select form-select-sm scale-select" [(ngModel)]="thumbScale"
+        (ngModelChange)="onScaleChange($event)">
+        <option *ngFor="let s of scales" [ngValue]="s">{{ s }}×</option>
+      </select>
+    </div>
   </div>
 
   <div class="row align-items-center mb-1">
@@ -180,78 +190,80 @@
     </div>
   </div>
 
-  <table class="tabla">
-    <colgroup>
-      <col class="col-acciones">
-      <col class="col-img">
-      <col class="col-producto"><!-- se expande -->
-      <col class="col-cant">
-      <col class="col-precio">
-      <col class="col-imp-normal">
-      <col class="col-promo">
-      <col class="col-desc-porc">
-      <col class="col-monedero">
-      <col class="col-desc">
-      <col class="col-precio-final">
-    </colgroup>
+  <div class="ventas-container" [style.--thumb-scale]="thumbScale">
+    <table class="tabla">
+      <colgroup>
+        <col class="col-acciones">
+        <col class="col-img">
+        <col class="col-producto"><!-- se expande -->
+        <col class="col-cant">
+        <col class="col-precio">
+        <col class="col-imp-normal">
+        <col class="col-promo">
+        <col class="col-desc-porc">
+        <col class="col-monedero">
+        <col class="col-desc">
+        <col class="col-precio-final">
+      </colgroup>
 
-    <thead>
-      <tr>
-        <th class="col-acciones">Acc.</th>
-        <th class="col-img">Imagen</th>
-        <th>Producto</th>
-        <th>Cant.</th>
-        <th>P. U.</th>
-        <th>Imp. normal</th>
-        <th>Promo</th>
-        <th>% desc.</th>
-        <th>Moned.</th>
-        <th>Desc.</th>
-        <th>Precio Final</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let p of carrito; let i = index">
-        <td class="col-acciones">
-          <div class="acciones-group" role="group" aria-label="Acciones">
-            <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Eliminar renglón"
-              class="btn-icono btn-rojo-tache" (click)="eliminarProducto(i)">
-              <i class="fas fa-times"></i>
-            </button>
+      <thead>
+        <tr>
+          <th class="col-acciones">Acc.</th>
+          <th class="col-img">Imagen</th>
+          <th>Producto</th>
+          <th>Cant.</th>
+          <th>P. U.</th>
+          <th>Imp. normal</th>
+          <th>Promo</th>
+          <th>% desc.</th>
+          <th>Moned.</th>
+          <th>Desc.</th>
+          <th>Precio Final</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let p of carrito; let i = index">
+          <td class="col-acciones">
+            <div class="acciones-group" role="group" aria-label="Acciones">
+              <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Eliminar renglón"
+                class="btn-icono btn-rojo-tache" (click)="eliminarProducto(i)">
+                <i class="fas fa-times"></i>
+              </button>
 
-            <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Aumentar uno"
-              class="btn-icono btn-verde" (click)="incrementarCantidad(i)">
-              <i class="fas fa-plus"></i>
-            </button>
+              <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Aumentar uno"
+                class="btn-icono btn-verde" (click)="incrementarCantidad(i)">
+                <i class="fas fa-plus"></i>
+              </button>
 
-            <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Quitar uno"
-              class="btn-icono btn-gris" (click)="decrementarCantidad(i)">
-              <i class="fas fa-minus"></i>
-            </button>
-          </div>
-        </td>
-        <td class="col-img">
-          <div class="img-cell">
-            <button type="button" class="img-button" (click)="openPreviewVenta(p)" title="Ver imagen">
-              <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt="" loading="lazy"
-                decoding="async" />
-              <span class="zoom-corner"><i class="fas fa-search-plus"></i></span>
-            </button>
-          </div>
-        </td>
-        <td>{{ p.nombre }}</td>
-        <td>{{ p.cantidad }}</td>
-        <td>{{ p.precioOriginal | currency }}</td> <!-- precio unitario -->
-        <td>{{ (p.precioOriginal * p.cantidad) | currency }}</td> <!-- importe sin descuento -->
-        <td>{{ p.tipoDescuento !== 'Ninguno' ? p.tipoDescuento : '-' }}</td>
-        <!-- muestra cadena de promociones aplicadas -->
-        <td>{{ p.cadDesc }}</td> <!-- muestra cadena de porcentajes -->
-        <td>{{ p.alMonedero * p.cantidad | currency }}</td>
-        <td>{{ (p.descuentoUnitario * p.cantidad) | currency }}</td>
-        <td>{{ (p.precioFinal * p.cantidad) | currency }}</td>
-      </tr>
-    </tbody>
-  </table>
+              <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Quitar uno"
+                class="btn-icono btn-gris" (click)="decrementarCantidad(i)">
+                <i class="fas fa-minus"></i>
+              </button>
+            </div>
+          </td>
+          <td class="col-img">
+            <div class="img-cell">
+              <button type="button" class="img-button" (click)="openPreviewVenta(p)" title="Ver imagen">
+                <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt=""
+                  loading="lazy" decoding="async" />
+                <span class="zoom-corner"><i class="fas fa-search-plus"></i></span>
+              </button>
+            </div>
+          </td>
+          <td>{{ p.nombre }}</td>
+          <td>{{ p.cantidad }}</td>
+          <td>{{ p.precioOriginal | currency }}</td> <!-- precio unitario -->
+          <td>{{ (p.precioOriginal * p.cantidad) | currency }}</td> <!-- importe sin descuento -->
+          <td>{{ p.tipoDescuento !== 'Ninguno' ? p.tipoDescuento : '-' }}</td>
+          <!-- muestra cadena de promociones aplicadas -->
+          <td>{{ p.cadDesc }}</td> <!-- muestra cadena de porcentajes -->
+          <td>{{ p.alMonedero * p.cantidad | currency }}</td>
+          <td>{{ (p.descuentoUnitario * p.cantidad) | currency }}</td>
+          <td>{{ (p.precioFinal * p.cantidad) | currency }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
   <div class="total-container">
     <div class="left">Total de artículos: {{ totalArticulos }}</div>

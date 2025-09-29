@@ -38,7 +38,7 @@
 }
 
 /* Asegura que todos los hijos se centren verticalmente */
-.productos-container > * {
+.productos-container>* {
   align-self: center;
 }
 
@@ -71,6 +71,7 @@
 .mr-field {
   margin-right: 5rem;
 }
+
 /* Hacer los mat-form-field más “bajitos” para que empaten con 40px del input normal */
 /* Si usas encapsulación por defecto, añade :host ::ng-deep delante de los selectores */
 :host ::ng-deep .compact-field .mat-mdc-form-field-infix {
@@ -90,8 +91,9 @@
   /* centra el texto verticalmente */
 }
 
-:host ::ng-deep .compact-field { 
-  transform: translateY(10px);  /* alinea los inputs de los filtros */
+:host ::ng-deep .compact-field {
+  transform: translateY(10px);
+  /* alinea los inputs de los filtros */
 }
 
 /* 📌 Contenedor del Total */
@@ -264,53 +266,171 @@
 }
 
 
-/* ====== Escala de la miniatura ====== */
-:root{
-  --thumb-col-base: 56px; 
-  --thumb-scale: 2;        /* cámbialo a 3 si quieres el triple */
+/* =============================
+   CONFIGURACIÓN DE THUMBS / COLUMNAS
+   ============================= */
+
+/* Defaults (si no llega el binding desde TS) */
+.ventas-container {
+  /* Base (el tamaño ORIGINAL de tu placeholder). Ajusta una vez y olvídate */
+  --thumb-w-base: 56px;
+  --thumb-h-base: 72px;
+
+  /* Escala (unitless). TS la sobreescribe: [style.--thumb-scale]="thumbScale" */
+  --thumb-scale: 3;
+
+  /* Derivadas */
+  --thumb-w: calc(var(--thumb-w-base) * var(--thumb-scale));
+  --thumb-h: calc(var(--thumb-h-base) * var(--thumb-scale));
 }
 
-/* 1) Que la tabla respete los anchos definidos y no se deforme por el contenido */
-.tabla { table-layout: fixed; }  /* si tu tabla se llama distinto, aplica a ese selector */
+/* La tabla respeta anchos del <colgroup> y ocupa 100% */
+.tabla {
+  table-layout: fixed;
+  width: 100%;
+}
 
-/* 2) Fijamos el ancho de la columna e impedimos que el contenido la ensanche */
-.col-img{
-  width: calc(var(--thumb-col-base) * var(--thumb-scale));
-  min-width: calc(var(--thumb-col-base) * var(--thumb-scale));
+/* ===== Anchos de columnas (fijas) ===== */
+col.col-acciones {
+  width: 48px;
+}
+
+col.col-img {
+  width: var(--thumb-w);
+}
+
+col.col-cant {
+  width: 70px;
+}
+
+col.col-precio {
+  width: 100px;
+}
+
+col.col-imp-normal {
+  width: 120px;
+}
+
+col.col-promo {
+  width: 150px;
+}
+
+col.col-desc-porc {
+  width: 80px;
+}
+
+col.col-monedero {
+  width: 100px;
+}
+
+col.col-desc {
+  width: 110px;
+}
+
+col.col-precio-final {
+  width: 120px;
+}
+
+/* Producto se lleva el resto del espacio */
+col.col-producto {
+  width: auto;
+}
+
+/* Alineaciones útiles */
+td,
+th {
+  vertical-align: middle;
+}
+
+.tabla td.col-precio,
+.tabla td.col-imp-normal,
+.tabla td.col-monedero,
+.tabla td.col-desc,
+.tabla td.col-precio-final {
+  text-align: right;
+}
+
+/* ===== Miniatura: marco fijo y misma talla para TODAS ===== */
+.col-img {
   text-align: center;
 }
 
-/* 3) El contenedor y el botón definen el “marco” exacto de la miniatura */
-.img-cell{
+.img-cell {
   display: flex;
   justify-content: center;
   align-items: center;
 }
-.img-button{
+
+.img-button {
   background: transparent;
   border: 0;
   padding: 4px;
   position: relative;
   line-height: 0;
   display: inline-block;
-  width: calc(var(--thumb-col-base) * var(--thumb-scale));
+
+  /* Marco fijo controlado por variables */
+  width: var(--thumb-w) !important;
+  height: var(--thumb-h) !important;
+  overflow: hidden;
 }
 
-/* 4) La imagen ocupa 100% del marco (y no más). ¡Importante! */
-.img-button img{
+/* La imagen SIEMPRE se ajusta al marco, sin deformarse */
+.img-button img {
   display: block;
-  width: 100% !important;      /* evita que reglas globales la hagan crecer */
-  height: auto !important;     /* mantiene proporción */
-  max-width: 100% !important;  /* cinturón + tirantes */
-  object-fit: contain;
+  width: 100% !important;
+  height: 100% !important;
+  /* <- clave para uniformidad */
+  object-fit: contain !important;
+  max-width: 100%;
 }
 
-/* Iconito de zoom intacto */
-.img-button .zoom-corner{
+/* Icono de zoom en la esquina */
+.img-button .zoom-corner {
   position: absolute;
   right: 6px;
   bottom: 6px;
-  background: rgba(0,0,0,.55);
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+/* El texto del producto puede envolver bien */
+.tabla th:nth-child(3),
+.tabla td:nth-child(3) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
+/* Botonera de acciones compacta (si ya la tienes, puedes omitir) */
+.col-acciones {
+  text-align: center;
+}
+
+.acciones-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 600px) {
+  .acciones-group {
+    flex-direction: row;
+  }
+}
+
+
+/* Icono de zoom */
+.img-button .zoom-corner {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  background: rgba(0, 0, 0, .55);
   color: #fff;
   border-radius: 4px;
   padding: 2px 4px;
@@ -318,10 +438,8 @@
 }
 
 /* Por si tenías altura fija en filas */
-table tr{ height: auto; }
-td, th{ vertical-align: middle; }
-
-
+/* table tr{ height: auto; }
+td, th{ vertical-align: middle; } */
 
 /* zoom imagen */
 .consulta-img-wrap {
@@ -335,56 +453,89 @@ td, th{ vertical-align: middle; }
   max-height: 220px;
   object-fit: contain;
   border-radius: 6px;
-  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
 }
 
 
-/* Asegura que se respeten los anchos de <colgroup> */
-.tabla { table-layout: fixed; width: 100%; }
 /* Columna compacta para las acciones */
-.col-acciones{
-  width: 48px;            /* ajusta a tu gusto (44–56px) */
+.col-acciones {
+  width: 48px;
+  /* ajusta a tu gusto (44–56px) */
   min-width: 48px;
   text-align: center;
   vertical-align: middle;
 }
 
 /* Botonera vertical apilada */
-.acciones-group{
+.acciones-group {
   display: flex;
-  flex-direction: column; /* apila en vertical */
+  flex-direction: column;
+  /* apila en vertical */
   align-items: center;
   justify-content: center;
-  gap: 6px;               /* espacio entre botones */
+  gap: 6px;
+  /* espacio entre botones */
 }
 
 
 
 /* (Opcional) En pantallas muy chicas, podrías ponerlos en fila: */
-@media (max-width: 600px){
-  .acciones-group{ flex-direction: row; gap: 8px; }
+@media (max-width: 600px) {
+  .acciones-group {
+    flex-direction: row;
+    gap: 8px;
+  }
 }
 
 /* Columnas */
-.col-img           { width: calc(var(--thumb-col-base) * var(--thumb-scale));
-                     min-width: calc(var(--thumb-col-base) * var(--thumb-scale)); }
-.col-cant          { width: 70px;  }
-.col-precio        { width: 100px; }
-.col-imp-normal    { width: 120px; }
-.col-promo         { width: 150px; }
-.col-desc-porc     { width: 80px;  }
-.col-monedero      { width: 80px; }
-.col-desc          { width: 100px; }
-.col-precio-final  { width: 120px; }
+.col-img {
+  width: calc(var(--thumb-col-base) * var(--thumb-scale));
+  min-width: calc(var(--thumb-col-base) * var(--thumb-scale));
+}
+
+.col-cant {
+  width: 70px;
+}
+
+.col-precio {
+  width: 100px;
+}
+
+.col-imp-normal {
+  width: 120px;
+}
+
+.col-promo {
+  width: 150px;
+}
+
+.col-desc-porc {
+  width: 80px;
+}
+
+.col-monedero {
+  width: 80px;
+}
+
+.col-desc {
+  width: 100px;
+}
+
+.col-precio-final {
+  width: 120px;
+}
 
 /* Producto: sin width => se lleva TODO el espacio sobrante */
-.col-producto { width: auto; }
+.col-producto {
+  width: auto;
+}
 
 /* Que el texto del producto envuelva bien y no se amontone */
 .tabla th:nth-child(3),
 .tabla td:nth-child(3) {
   white-space: normal;
-  overflow-wrap: anywhere;   /* rompe palabras largas si hace falta */
+  overflow-wrap: anywhere;
+  /* rompe palabras largas si hace falta */
   line-height: 1.3;
 }
 
@@ -393,4 +544,23 @@ td, th{ vertical-align: middle; }
 .tabla td.col-imp-normal,
 .tabla td.col-monedero,
 .tabla td.col-desc,
-.tabla td.col-precio-final { text-align: right; }
+.tabla td.col-precio-final {
+  text-align: right;
+}
+
+
+/* Título y select de imagen */
+.titulo-row {
+  margin-bottom: 6px;
+}
+
+.scale-select {
+  width: 120px;
+}
+
+/* compacta un poco el label en pantallas chicas */
+@media (max-width: 576px) {
+  .scale-select {
+    width: 100px;
+  }
+}

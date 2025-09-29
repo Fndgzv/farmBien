@@ -138,6 +138,20 @@ export class VentasComponent implements OnInit, AfterViewInit {
   consultaEncontrado = false;
   consultaImgUrl: string = this.placeholderSrc;
 
+  /* Configuración de la escala de la imagen en los renglones de la tabla */
+  thumbScale = 3; scales = [1, 1.5, 2, 2.5, 3, 3.5];
+  private leerEscalaGuardada(): number | null {
+    const raw = localStorage.getItem('thumbScale');
+    const n = raw != null ? Number(raw) : NaN;
+    return Number.isFinite(n) ? n : null;
+  }
+  /* Fin configuracion de la escala de imágenes */
+
+  onScaleChange(v: number) {
+    this.thumbScale = v;
+    localStorage.setItem('thumbScale', String(v));
+  }
+
   private resetConsulta(): void {
     this.codigoConsulta = '';
     this.busquedaConsultaCodigo = '';
@@ -672,7 +686,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   async agregarProductoAlCarrito(producto: any) {
     console.log('producto listo pal carrito', producto);
-    
+
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
     if (existente) {
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
@@ -1614,56 +1628,56 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   // Modal con imagen grande
-openPreviewVenta(item: any) {
-  const prod = (this.productos || []).find(x => x._id === item.producto);
-  const base = prod?.imagen
-    ? this.productoService.obtenerImagenProductoUrl(item.producto)
-    : this.placeholderSrc;
+  openPreviewVenta(item: any) {
+    const prod = (this.productos || []).find(x => x._id === item.producto);
+    const base = prod?.imagen
+      ? this.productoService.obtenerImagenProductoUrl(item.producto)
+      : this.placeholderSrc;
 
-  const img = new Image();
-  img.src = base;
+    const img = new Image();
+    img.src = base;
 
-  img.onload = () => {
-    // tamaño original
-    const ow = img.naturalWidth || 0;
-    const oh = img.naturalHeight || 0;
+    img.onload = () => {
+      // tamaño original
+      const ow = img.naturalWidth || 0;
+      const oh = img.naturalHeight || 0;
 
-    // objetivo: 3x
-    const targetW = ow * 3;
-    const targetH = oh * 3;
+      // objetivo: 3x
+      const targetW = ow * 3;
+      const targetH = oh * 3;
 
-    // límite visual (90% viewport)
-    const maxW = Math.floor(window.innerWidth * 0.9);
-    const maxH = Math.floor(window.innerHeight * 0.9);
+      // límite visual (90% viewport)
+      const maxW = Math.floor(window.innerWidth * 0.9);
+      const maxH = Math.floor(window.innerHeight * 0.9);
 
-    // factor para que quepa (si cabe a 3x, queda en 3x; si no, se reduce manteniendo proporción)
-    const fit = Math.min(maxW / targetW, maxH / targetH, 1);
+      // factor para que quepa (si cabe a 3x, queda en 3x; si no, se reduce manteniendo proporción)
+      const fit = Math.min(maxW / targetW, maxH / targetH, 1);
 
-    const finalW = Math.max(1, Math.round(targetW * fit));
-    const finalH = Math.max(1, Math.round(targetH * fit));
+      const finalW = Math.max(1, Math.round(targetW * fit));
+      const finalH = Math.max(1, Math.round(targetH * fit));
 
-    Swal.fire({
-      width: 'auto',
-      background: '#000',
-      showConfirmButton: false,
-      showCloseButton: true,
-      padding: 0,
-      html: `
+      Swal.fire({
+        width: 'auto',
+        background: '#000',
+        showConfirmButton: false,
+        showCloseButton: true,
+        padding: 0,
+        html: `
         <div style="max-width:${maxW}px;max-height:${maxH}px;display:flex;align-items:center;justify-content:center;">
           <img src="${base}" alt=""
                style="width:${finalW}px;height:${finalH}px;object-fit:contain;display:block;"/>
         </div>`
-    });
-  };
+      });
+    };
 
-  img.onerror = () => {
-    // fallback simple si falla la carga
-    Swal.fire({
-      icon: 'error',
-      title: 'No se pudo cargar la imagen',
-      text: 'Inténtalo de nuevo.',
-    });
-  };
-}
+    img.onerror = () => {
+      // fallback simple si falla la carga
+      Swal.fire({
+        icon: 'error',
+        title: 'No se pudo cargar la imagen',
+        text: 'Inténtalo de nuevo.',
+      });
+    };
+  }
 
 }
