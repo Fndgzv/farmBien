@@ -139,7 +139,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   consultaImgUrl: string = this.placeholderSrc;
 
   /* Configuración de la escala de la imagen en los renglones de la tabla */
-  thumbScale = 3; scales = [1, 1.5, 2, 2.5, 3, 3.5];
+  thumbScale = 3; scales = [1, 1.5, 2, 2.5, 3, 3.5, 4];
   private leerEscalaGuardada(): number | null {
     const raw = localStorage.getItem('thumbScale');
     const n = raw != null ? Number(raw) : NaN;
