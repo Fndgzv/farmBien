@@ -26,7 +26,8 @@ ngOnInit(): void {
   this.formulario = this.fb.group({
     nombre: [this.producto.nombre, [Validators.required]],
     codigoBarras: [this.producto.codigoBarras, [Validators.required]],
-    categoria: [this.producto.categoria, [Validators.required]],
+    ubicacion: [this.producto.ubicacion],
+    categoria: [this.producto.categoria],
     precio: [this.producto.precio, [Validators.required, Validators.min(0)]],
     costo: [this.producto.costo, [Validators.required, Validators.min(0)]],
     iva: [this.producto.iva],
@@ -116,6 +117,8 @@ crearLoteForm(lote: Lote): FormGroup {
         fechaCaducidad: new Date(l.fechaCaducidad)
       }))
     };
+    console.log('producrto actualizado', productoActualizado);
+    
     this.guardar.emit(productoActualizado);
   }
 

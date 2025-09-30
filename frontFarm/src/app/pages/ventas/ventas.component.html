@@ -113,8 +113,16 @@
         </button>
       </div>
 
-      <div *ngIf="consultaEncontrado" class="consulta-img-wrap">
-        <img [src]="consultaImgUrl" (error)="consultaImgUrl = placeholderSrc" alt="Imagen de producto">
+      <div *ngIf="consultaEncontrado" class="row">
+        <div class="consulta-img-wrap col-sm-7 text-center">
+          <img [src]="consultaImgUrl" (error)="consultaImgUrl = placeholderSrc" alt="Imagen de producto">
+        </div>
+        <div *ngIf="productoConsultado" class="col-sm-5 text-center mt-4">
+            <strong>Ubicación:</strong>
+            <div>
+              {{ productoConsultado.ubicacionEnFarmacia }}
+          </div>
+        </div>
       </div>
 
       <div *ngIf="!consultaEncontrado">
@@ -195,7 +203,7 @@
       <colgroup>
         <col class="col-acciones">
         <col class="col-img">
-        <col class="col-producto"><!-- se expande -->
+        <col class="col-producto">
         <col class="col-cant">
         <col class="col-precio">
         <col class="col-imp-normal">
@@ -210,7 +218,7 @@
         <tr>
           <th class="col-acciones">Acc.</th>
           <th class="col-img">Imagen</th>
-          <th>Producto</th>
+          <th>Producto / ubic.</th>
           <th>Cant.</th>
           <th>P. U.</th>
           <th>Imp. normal</th>
@@ -246,11 +254,15 @@
               <button type="button" class="img-button" (click)="openPreviewVenta(p)" title="Ver imagen">
                 <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt=""
                   loading="lazy" decoding="async" />
-                <span class="zoom-corner"><i class="fas fa-search-plus"></i></span>
               </button>
             </div>
           </td>
-          <td>{{ p.nombre }}</td>
+          
+          <td class="col-producto">
+              <div class="prod-nombre">{{ p.nombre }}</div>
+              <small class="prod-ubicacion">{{ p.ubicacionEnFarmacia }}</small>
+          </td>
+         
           <td>{{ p.cantidad }}</td>
           <td>{{ p.precioOriginal | currency }}</td> <!-- precio unitario -->
           <td>{{ (p.precioOriginal * p.cantidad) | currency }}</td> <!-- importe sin descuento -->

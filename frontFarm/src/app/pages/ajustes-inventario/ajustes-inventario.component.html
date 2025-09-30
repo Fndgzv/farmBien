@@ -270,7 +270,7 @@
                 </th>
                 <th>Imagen</th>
                 <th (click)="ordenar('nombre')">
-                    Nombre
+                    Nombre / Ubic.
                     <i [ngClass]="{
                         'bi': true,
                         'bi-caret-up-fill': columnaOrden === 'nombre' && direccionOrden === 'asc',
@@ -344,7 +344,10 @@
                     </div>
                 </td>
 
-                <td>{{ p.nombre }}</td>
+                <td class="col-producto">
+                    <div class="prod-nombre">{{ p.nombre }}</div>
+                    <small class="prod-ubicacion" *ngIf="p.ubicacion">{{ p.ubicacion }}</small>
+                </td>
                 <td>{{ p.codigoBarras }}</td>
                 <td>{{ p.categoria }}</td>
                 <td style="text-align: center;">

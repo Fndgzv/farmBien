@@ -8,6 +8,19 @@
   width: 100%;
 }
 
+.col-producto .prod-nombre {
+  line-height: 1.2;
+}
+
+.col-producto .prod-ubicacion {
+  display: block;          /* asegura salto de línea */
+  margin-top: 2px;
+  font-size: 12px;         /* letra pequeña */
+  color:red;
+  line-height: 1.1;
+  overflow-wrap: anywhere; /* por si es larga */
+}
+
 .masivos {
   font-size: small;
   width: 100%;

@@ -110,6 +110,8 @@
 
 .left {
   text-align: left;
+  font-size:xx-large;
+  color: blueviolet;
 }
 
 .center {
@@ -118,6 +120,8 @@
 
 .right {
   text-align: right;
+  font-size:xx-large;
+  color: blueviolet;
 }
 
 /* 📌 Botones de Venta */
@@ -353,6 +357,7 @@ th {
 /* ===== Miniatura: marco fijo y misma talla para TODAS ===== */
 .col-img {
   text-align: center;
+  padding: 0px;
 }
 
 .img-cell {
@@ -438,8 +443,8 @@ th {
 }
 
 /* Por si tenías altura fija en filas */
-/* table tr{ height: auto; }
-td, th{ vertical-align: middle; } */
+table tr{ height: auto; }
+td, th{ vertical-align: middle; }
 
 /* zoom imagen */
 .consulta-img-wrap {
@@ -528,6 +533,19 @@ td, th{ vertical-align: middle; } */
 /* Producto: sin width => se lleva TODO el espacio sobrante */
 .col-producto {
   width: auto;
+}
+
+.col-producto .prod-nombre {
+  line-height: 1.2;
+}
+
+.col-producto .prod-ubicacion {
+  display: block;          /* asegura salto de línea */
+  margin-top: 2px;
+  font-size: 12px;         /* letra pequeña */
+  color:red;
+  line-height: 1.1;
+  overflow-wrap: anywhere; /* por si es larga */
 }
 
 /* Que el texto del producto envuelva bien y no se amontone */

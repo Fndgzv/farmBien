@@ -21,6 +21,7 @@ function digitsLooseRegex(digits) {
 }
 
 const moment = require('moment');
+const { log } = require('console');
 
 // Configuración de almacenamiento para imágenes
 const UPLOADS_DIR = path.resolve(__dirname, '..', 'uploads');
@@ -268,11 +269,12 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
         let domingoMasInapam = 0;
         let promoCliente = '2% adicional al monedero del cliente';
         let conINAPAM = producto.descuentoINAPAM;
-
+        
         // inicia armado de la respuesta
         const base = {
             nombre: producto.nombre,
             precioNormal: productoEnFarmacia.precioVenta,
+            ubicacionEnFarmacia: productoEnFarmacia?.ubicacionEnFarmacia ?? null,
         }
 
         // 🔹 Si el producto tiene día de descuento y esta vigente, mostrar la promo y calcular el precio con descuento
@@ -281,7 +283,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                 producto.promoLunes.inicio <= ahora &&
                 producto.promoLunes.fin >= ahora) {
                 base.promo1 = `${producto.promoLunes.porcentaje}% de descuento el lunes: `;
-                promo = base.promo1;
+                promo = '';
                 precioLunes = (productoEnFarmacia.precioVenta * ((100 - producto.promoLunes.porcentaje) / 100)).toFixed(2);
                 base.precioLunes = `$${precioLunes}`;
                 if (producto.promoLunes.porcentaje < 25 && producto.descuentoINAPAM) {
@@ -290,7 +292,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                     conINAPAM = true;
                 }
                 if (producto.promoLunes.porcentaje >= 25) conINAPAM = false;
-                if (producto.promoLunes.monedero !== undefined || !producto.promoLunes.monedero) promoCliente = 'No aplica monedero';
+                /* if (producto.promoLunes.monedero !== undefined || !producto.promoLunes.monedero) promoCliente = 'No aplica monedero'; */
             }
         }
 
@@ -299,7 +301,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                 producto.promoMartes.inicio <= ahora &&
                 producto.promoMartes.fin >= ahora) {
                 base.promo2 = `${producto.promoMartes.porcentaje}% de descuento el Martes: `;
-                promo = base.promo2;
+                promo = '';
                 precioMartes = (productoEnFarmacia.precioVenta * ((100 - producto.promoMartes.porcentaje) / 100)).toFixed(2);
                 base.precioMartes = `$${precioMartes}`;
                 if (producto.promoMartes.porcentaje < 25 && producto.descuentoINAPAM) {
@@ -308,7 +310,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                     conINAPAM = true;
                 }
                 if (producto.promoMartes.porcentaje >= 25) conINAPAM = false;
-                if (producto.promoMartes.monedero !== undefined && !producto.promoMartes.monedero) promoCliente = 'No aplica monedero';
+                /* if (producto.promoMartes.monedero !== undefined && !producto.promoMartes.monedero) promoCliente = 'No aplica monedero'; */
             }
         }
 
@@ -317,7 +319,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                 producto.promoMiercoles.inicio <= ahora &&
                 producto.promoMiercoles.fin >= ahora) {
                 base.promo3 = `${producto.promoMiercoles.porcentaje}% de descuento el Miércoles: `;
-                promo = base.promo3;
+                promo = '';
                 precioMiercoles = (productoEnFarmacia.precioVenta * ((100 - producto.promoMiercoles.porcentaje) / 100)).toFixed(2);
                 base.precioMiercoles = `$${precioMiercoles}`;
                 if (producto.promoMiercoles.porcentaje < 25 && producto.descuentoINAPAM) {
@@ -326,7 +328,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                     conINAPAM = true;
                 }
                 if (producto.promoMiercoles.porcentaje >= 25) conINAPAM = false;
-                if (producto.promoMiercoles.monedero !== undefined && !producto.promoMiercoles.monedero) promoCliente = 'No aplica monedero';
+                /* if (producto.promoMiercoles.monedero !== undefined && !producto.promoMiercoles.monedero) promoCliente = 'No aplica monedero'; */
             }
         }
 
@@ -335,7 +337,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                 producto.promoJueves.inicio <= ahora &&
                 producto.promoJueves.fin >= ahora) {
                 base.promo4 = `${producto.promoJueves.porcentaje}% de descuento el Jueves: `;
-                promo = base.promo4;
+                promo = '';
                 precioJueves = (productoEnFarmacia.precioVenta * ((100 - producto.promoJueves.porcentaje) / 100)).toFixed(2);
                 base.precioJueves = `$${precioJueves}`;
                 if (producto.promoJueves.porcentaje < 25 && producto.descuentoINAPAM) {
@@ -344,7 +346,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                     conINAPAM = true;
                 }
                 if (producto.promoJueves.porcentaje >= 25) conINAPAM = false;
-                if (producto.promoJueves.monedero !== undefined && !producto.promoJueves.monedero) promoCliente = 'No aplica monedero';
+                /* if (producto.promoJueves.monedero !== undefined && !producto.promoJueves.monedero) promoCliente = 'No aplica monedero'; */
             }
         }
 
@@ -353,7 +355,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                 producto.promoViernes.inicio <= ahora &&
                 producto.promoViernes.fin >= ahora) {
                 base.promo5 = `${producto.promoViernes.porcentaje}% de descuento el Viernes: `;
-                promo = base.promo5;
+                promo = '';
                 precioViernes = (productoEnFarmacia.precioVenta * ((100 - producto.promoViernes.porcentaje) / 100)).toFixed(2);
                 base.precioViernes = `$${precioViernes}`;
                 if (producto.promoViernes.porcentaje < 25 && producto.descuentoINAPAM) {
@@ -362,7 +364,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                     conINAPAM = true;
                 }
                 if (producto.promoViernes.porcentaje >= 25) conINAPAM = false;
-                if (producto.promoViernes.monedero !== undefined && !producto.promoViernes.monedero) promoCliente = 'No aplica monedero';
+                /* if (producto.promoViernes.monedero !== undefined && !producto.promoViernes.monedero) promoCliente = 'No aplica monedero'; */
             }
         }
 
@@ -371,7 +373,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                 producto.promoSabado.inicio <= ahora &&
                 producto.promoSabado.fin >= ahora) {
                 base.promo6 = `${producto.promoSabado.porcentaje}% de descuento el Sábado: `;
-                promo = base.promo6;
+                promo = '';
                 precioSabado = (productoEnFarmacia.precioVenta * ((100 - producto.promoSabado.porcentaje) / 100)).toFixed(2);
                 base.precioSabado = `$${precioSabado}`;
                 if (producto.promoSabado.porcentaje < 25 && producto.descuentoINAPAM) {
@@ -380,7 +382,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                     conINAPAM = true;
                 }
                 if (producto.promoSabado.porcentaje >= 25) conINAPAM = false;
-                if (producto.promoSabado.monedero !== undefined && !producto.promoSabado.monedero) promoCliente = 'No aplica monedero';
+                /* if (producto.promoSabado.monedero !== undefined && !producto.promoSabado.monedero) promoCliente = 'No aplica monedero'; */
             }
         }
 
@@ -389,7 +391,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                 producto.promoDomingo.inicio <= ahora &&
                 producto.promoDomingo.fin >= ahora) {
                 base.promo0 = `${producto.promoDomingo.porcentaje}% de descuento el Domingo: `;
-                promo = base.promo0;
+                promo = '';
                 precioDomingo = (productoEnFarmacia.precioVenta * ((100 - producto.promoDomingo.porcentaje) / 100)).toFixed(2);
                 base.precioDomingo = `$${precioDomingo}`;
                 if (producto.promoDomingo.porcentaje < 25 && producto.descuentoINAPAM) {
@@ -398,7 +400,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                     conINAPAM = true;
                 }
                 if (producto.promoDomingo.porcentaje >= 25) conINAPAM = false;
-                if (producto.promoDomingo.monedero !== undefined && !producto.promoDomingo.monedero) promoCliente = 'No aplica monedero';
+                /* if (producto.promoDomingo.monedero !== undefined && !producto.promoDomingo.monedero) promoCliente = 'No aplica monedero'; */
             }
         }
 
@@ -408,6 +410,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
             producto.finPromoCantidad >= ahora) {
             promof = `${producto.promoCantidadRequerida}x${producto.promoCantidadRequerida - 1} válido hasta el ${moment(producto.finPromoCantidad).format('DD/MM/YYYY')}`;
             promo = promof;
+            promoCliente = 'No aplica monedero';
         }
 
         // promo de temporada si esta vigente
@@ -425,21 +428,20 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
                 conINAPAM = true;
             }
             if (producto.promoDeTemporada.porcentaje >= 25) conINAPAM = false;
-            if (producto.promoDeTemporada.monedero !== undefined && !producto.promoDeTemporada.monedero) promoCliente = 'No aplica monedero';
+            /* if (producto.promoDeTemporada.monedero !== undefined && !producto.promoDeTemporada.monedero) promoCliente = 'No aplica monedero'; */
 
         }
 
         if (producto.descuentoINAPAM && conINAPAM) {
             precioINAPAM = (productoEnFarmacia.precioVenta * 0.95).toFixed(2);
             base.precioInapam = `$${precioINAPAM}`;
-            promo = `INAPAM 5%`;
             if (promo !== 'Ninguno') {
                 promo = `${promof} INAPAM 5%`;
                 if (precioConDescuento > 0) {
                     precioDescuentoMasInapam = (precioConDescuento * 0.95).toFixed(2);
                     base.precioDescuentoMasInapam = `$${precioDescuentoMasInapam}`;
                 }
-            }
+            } else { promo = `INAPAM 5%`;}
         }
 
         base.promoCliente = promoCliente;
@@ -498,7 +500,7 @@ exports.verificarExistenciaProducto = async (req, res) => {
 
 
 exports.obtenerExistenciaEnFarmacia = async (req, res) => {
-    // Verificar existencia y precio de un producto en una farmacia
+    // Verificar ubicación, existencia y precio de un producto en una farmacia
     const { farmaciaId, productoId } = req.params;
     const Producto = require('../models/Producto');
     try {
@@ -521,14 +523,16 @@ exports.obtenerExistenciaEnFarmacia = async (req, res) => {
                 producto: nombreProducto,
                 farmacia: nombreFarmacia,
                 existencia: 0,
-                precioVenta: null
+                precioVenta: null,
+                ubicacionEnFarmacia: null
             });
         }
         return res.json({
             producto: nombreProducto,
             farmacia: nombreFarmacia,
             existencia: inv.existencia,
-            precioVenta: inv.precioVenta
+            precioVenta: inv.precioVenta,
+            ubicacionEnFarmacia: inv.ubicacionEnFarmacia
         });
     } catch (err) {
         console.error('Error al obtener existencia:', err);
@@ -766,6 +770,7 @@ actualiza el precio en todas las farmacias*/
     productoActual.nombre = prod.nombre;
     productoActual.codigoBarras = prod.codigoBarras;
     productoActual.categoria = prod.categoria;
+    productoActual.ubicacion = prod.ubicacion;
     if (typeof prod.precio === 'number') productoActual.precio = prod.precio;
     if (typeof prod.costo === 'number') productoActual.costo = prod.costo;
     if (typeof prod.iva !== 'undefined') productoActual.iva = prod.iva;

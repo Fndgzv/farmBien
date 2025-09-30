@@ -1,4 +1,4 @@
-<div class="container">
+<!-- <div class="container"> -->
 
     <div class="titulo-container">
         <h1 class="titulo">Ajustes de Inventario en {{ nombreFarmaciaSeleccionada }}</h1>
@@ -100,6 +100,7 @@
                     <th></th>
                     <th></th>
                     <th></th>
+                    <th></th>
                     <th>
                         <input [(ngModel)]="ajusteMasivo.existencia" class="form-control form-control-sm" type="number">
                     </th>
@@ -123,6 +124,7 @@
                     </th>
                     <th>Nombre</th>
                     <th>Código barras</th>
+                    <th>Ubicación</th>
                     <th>Categoria</th>
                     <th>Genérico</th>
                     <th>INAPAM</th>
@@ -150,6 +152,11 @@
                     <td>{{ i.producto?.nombre }}</td>
 
                     <td>{{ i.producto?.codigoBarras }}</td>
+                    
+                    <td>
+                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.ubicacionEnFarmacia" type="text"
+                            class="form-control form-control-sm">
+                    </td>
 
                     <td>{{ i.producto?.categoria }}</td>
 
@@ -236,4 +243,4 @@
         </button>
     </div>
 
-</div>
+<!-- </div> -->

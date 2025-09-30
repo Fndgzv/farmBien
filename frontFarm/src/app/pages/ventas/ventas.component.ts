@@ -61,6 +61,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   ventaForm: FormGroup;
   carrito: any[] = [];
   precioEnFarmacia = 0;
+  ubicacionEnFarmacia = '';
   total: number = 0;
   totalArticulos: number = 0;
   totalDescuento: number = 0;
@@ -139,7 +140,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   consultaImgUrl: string = this.placeholderSrc;
 
   /* Configuración de la escala de la imagen en los renglones de la tabla */
-  thumbScale = 3; scales = [1, 1.5, 2, 2.5, 3, 3.5, 4];
+  thumbScale = 2; scales = [1, 1.5, 2, 2.5, 3, 3.5, 4];
   private leerEscalaGuardada(): number | null {
     const raw = localStorage.getItem('thumbScale');
     const n = raw != null ? Number(raw) : NaN;
@@ -669,6 +670,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         }).then(() => this.focusBarcode(60)); // vuelve el foco al lector si quieres
 
       } else {
+
         this.existenciaProducto(this.farmaciaId, producto._id, 1).then(() => {
           if (!this.hayProducto) {
             this.codigoBarras = '';
@@ -685,8 +687,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async agregarProductoAlCarrito(producto: any) {
-    console.log('producto listo pal carrito', producto);
-
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
     if (existente) {
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
@@ -736,6 +736,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         cantidad: 1,
         precioFinal,
         precioOriginal: this.precioEnFarmacia,
+        ubicacionEnFarmacia: this.ubicacionEnFarmacia,
         tipoDescuento: this.tipoDescuento,
         cadDesc: this.cadDesc,
         alMonedero: this.alMonedero,
@@ -1428,9 +1429,14 @@ export class VentasComponent implements OnInit, AfterViewInit {
             promo6: null, precioSabado: null, sabadoMasInapam: null,
             promo0: null, precioDomingo: null, domingoMasInapam: null,
             promo: null, precioConDescuento: null, precioInapam: null, precioDescuentoMasInapam: null,
-            promoCliente: null
+            promoCliente: null,
+            ubicacionEnFarmacia: null,
           };
         } else {
+
+          console.log('Producto para buscarle precio', data);
+          
+
           this.productoConsultado = {
             nombre: data.nombre,
             precioNormal: data.precioNormal,
@@ -1442,7 +1448,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
             promo6: data.promo6, precioSabado: data.precioSabado, sabadoMasInapam: data.sabadoMasInapam,
             promo0: data.promo0, precioDomingo: data.precioDomingo, domingoMasInapam: data.domingoMasInapam,
             promo: data.promo, precioConDescuento: data.precioConDescuento, precioInapam: data.precioInapam, precioDescuentoMasInapam: data.precioDescuentoMasInapam,
-            promoCliente: data.promoCliente
+            promoCliente: data.promoCliente,
+            ubicacionEnFarmacia: data.ubicacionEnFarmacia
           };
         }
 
@@ -1515,6 +1522,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
       this.productoService.existenciaPorFarmaciaYProducto(idFarmacia, idProducto).subscribe({
         next: (data) => {
           this.precioEnFarmacia = data.precioVenta;
+          this.ubicacionEnFarmacia = data.ubicacionEnFarmacia;
+          
           if (data.existencia >= cantRequerida) {
             this.hayProducto = true;
             resolve();
