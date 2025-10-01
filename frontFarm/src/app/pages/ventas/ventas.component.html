@@ -235,7 +235,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let p of carrito; let i = index">
+        <tr *ngFor="let p of carrito; let i = index; trackBy: trackByProducto">
           <td class="col-acciones">
             <div class="acciones-group" role="group" aria-label="Acciones">
               <button [disabled]="p.esGratis" [class.deshabilitado]="p.esGratis" matTooltip="Eliminar renglón"

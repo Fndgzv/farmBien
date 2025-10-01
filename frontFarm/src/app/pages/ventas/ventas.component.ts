@@ -180,6 +180,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   get pagoVale1() { return this.toNum(this.montoVale); }
   get totalPagado() { return this.round2(this.pagoEfectivo + this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1); }
 
+  trackByProducto = (_: number, p: any) => p.producto;
+
   constructor(
     private fb: FormBuilder,
     private ventasService: VentasService,
@@ -343,7 +345,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async VerSiPreguntaINAPAM() {
-    if (this.aplicaInapam ) {
+    if (this.aplicaInapam) {
       const result = await Swal.fire({
         icon: 'question',
         title: 'Credencial INAPAM vigente',
@@ -796,7 +798,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
       if (this.captionButtomReanudar === '') this.captionButtomReanudar = producto.nombre;
 
-      this.carrito.push({
+      const nuevo = {
         producto: producto._id,
         codBarras: producto.codigoBarras,
         nombre: producto.nombre,
@@ -811,9 +813,12 @@ export class VentasComponent implements OnInit, AfterViewInit {
         iva: producto.iva ? precioFinal * 0.16 : 0,
         cantidadPagada: 1,
         farmacia: this.farmaciaId,
-        promoCantidadRequerida: producto.promoCantidadRequerida
-      });
+        promoCantidadRequerida: producto.promoCantidadRequerida,       
+      };
+      this.carrito = [nuevo, ...this.carrito];
     }
+
+    
 
     if (this.aplicaGratis) this.validarProductoGratis(producto._id);
 
