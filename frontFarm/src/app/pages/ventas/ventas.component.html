@@ -1,4 +1,4 @@
-<div class="ventas-container">
+<div>
   <div class="row align-items-center titulo-row">
     <div class="col-6 text-end">
       <h1 class="titulo mb-0">Ventas</h1>
@@ -14,12 +14,12 @@
   </div>
 
   <div class="row align-items-center mb-1">
-    <div class="col-md-1">
+    <!-- <div class="col-md-1">
       <h2 class="subtitulo">Cliente:</h2>
-    </div>
-    <div class="col-md-3">
-      <mat-form-field class="compact-field wide-client" appearance="outline">
-        <mat-label>Buscar cliente por nombre</mat-label>
+    </div> -->
+    <div class="col-md-2">
+      <mat-form-field class="compact-field" appearance="outline">
+        <mat-label>Busca cliente, nombre</mat-label>
         <input type="text" matInput [formControl]="clienteNombreCtrl" [matAutocomplete]="autoClientes" />
 
         <mat-autocomplete #autoClientes="matAutocomplete" [displayWith]="displayCliente"
@@ -28,7 +28,8 @@
             {{ c.nombre }}
             <small *ngIf="c.telefono"> — {{ c.telefono }}</small>
           </mat-option>
-          <mat-option *ngIf="(filteredClientes$ | async)?.length === 0" disabled>
+          <!-- <mat-option *ngIf="(filteredClientes$ | async)?.length === 0" disabled> -->
+          <mat-option *ngIf="(filteredClientes$ | async)?.length === 0">
             Sin coincidencias
           </mat-option>
         </mat-autocomplete>
@@ -42,14 +43,12 @@
     </div>
 
     <div class="col-md-1 text-end">
-      <label class="cliente-tel">Teléfono:</label>
+      <label class="cliente-tel">Tel.:</label>
     </div>
 
     <div class="col-md-2 position-relative">
-      <input type="text" [(ngModel)]="telefonoCliente" (input)="buscarCliente()" [disabled]="carrito.length > 0"
-        class="form-control pe-5" />
-      <button *ngIf="telefonoCliente" type="button" [disabled]="carrito.length > 0" (click)="limpiarCliente()"
-        matTooltip="Limpiar cliente"
+      <input type="text" [(ngModel)]="telefonoCliente" (input)="buscarCliente()" class="form-control pe-5" />
+      <button *ngIf="telefonoCliente" type="button" (click)="limpiarCliente()" matTooltip="Limpiar cliente"
         class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
         <fa-icon [icon]="faTimes"></fa-icon>
       </button>
@@ -57,6 +56,12 @@
 
     <div class="col-md-3">
       <span *ngIf="nombreCliente" class="cliente-nombre">{{ nombreCliente }}</span>
+    </div>
+
+    <div *ngIf="carrito.length > 0" class="col-md-2">
+      <input type="checkbox" id="aplicaInapam" name="aplicaInapam" [(ngModel)]="aplicaInapam"
+        (ngModelChange)="yaPreguntoInapam = true; VerSiPreguntaINAPAM()" />
+      <label for="aplicaInapam">Presenta cred. INAPAM</label>
     </div>
 
     <div class="col-md-2 text-end">
@@ -118,9 +123,9 @@
           <img [src]="consultaImgUrl" (error)="consultaImgUrl = placeholderSrc" alt="Imagen de producto">
         </div>
         <div *ngIf="productoConsultado" class="col-sm-5 text-center mt-4">
-            <strong>Ubicación:</strong>
-            <div>
-              {{ productoConsultado.ubicacionEnFarmacia }}
+          <strong>Ubicación:</strong>
+          <div>
+            {{ productoConsultado.ubicacionEnFarmacia }}
           </div>
         </div>
       </div>
@@ -251,18 +256,20 @@
           </td>
           <td class="col-img">
             <div class="img-cell">
-              <button type="button" class="img-button" (click)="openPreviewVenta(p)" title="Ver imagen">
+              <button type="button" class="img-button" (click)="openPreviewVenta(p)">
                 <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt=""
-                  loading="lazy" decoding="async" />
+                  loading="lazy" decoding="async" matTooltip="Ver imagen" matTooltipPosition="right"
+                matTooltipClass="tip-tight"
+                />
               </button>
             </div>
           </td>
-          
+
           <td class="col-producto">
-              <div class="prod-nombre">{{ p.nombre }}</div>
-              <small class="prod-ubicacion">{{ p.ubicacionEnFarmacia }}</small>
+            <div class="prod-nombre">{{ p.nombre }}</div>
+            <small class="prod-ubicacion">{{ p.ubicacionEnFarmacia }}</small>
           </td>
-         
+
           <td>{{ p.cantidad }}</td>
           <td>{{ p.precioOriginal | currency }}</td> <!-- precio unitario -->
           <td>{{ (p.precioOriginal * p.cantidad) | currency }}</td> <!-- importe sin descuento -->

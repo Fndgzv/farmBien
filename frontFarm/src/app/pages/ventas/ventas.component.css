@@ -278,10 +278,7 @@
 .ventas-container {
   /* Base (el tamaño ORIGINAL de tu placeholder). Ajusta una vez y olvídate */
   --thumb-w-base: 56px;
-  --thumb-h-base: 72px;
-
-  /* Escala (unitless). TS la sobreescribe: [style.--thumb-scale]="thumbScale" */
-  --thumb-scale: 3;
+  --thumb-h-base: 56px;
 
   /* Derivadas */
   --thumb-w: calc(var(--thumb-w-base) * var(--thumb-scale));

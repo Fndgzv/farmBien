@@ -273,18 +273,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   }
 
-  private syncClienteCtrlDisabled(): void {
-    const debeDeshabilitar = (this.carrito?.length ?? 0) > 0;
-    const ctrl = this.clienteNombreCtrl;
-
-    if (debeDeshabilitar && ctrl.enabled) {
-      ctrl.disable({ emitEvent: false });
-      this.cliTrigger?.closePanel(); // cerrar panel si estaba abierto
-    } else if (!debeDeshabilitar && ctrl.disabled) {
-      ctrl.enable({ emitEvent: false });
-    }
-  }
-
   onClienteInput() {
     const v = this.clienteNombreCtrl.value;
     if (typeof v === 'string' && v.trim()) {
@@ -300,6 +288,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.nombreCliente = c.nombre || '';
     this.telefonoCliente = c.telefono || '';
     this.montoMonederoCliente = Number(c.totalMonedero || 0);
+    this.recalcularRenglones();
     this.hayCliente = true;
     this.focusBarcode(60);
   }
@@ -353,6 +342,78 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
   }
 
+  async VerSiPreguntaINAPAM() {
+    if (this.aplicaInapam ) {
+      const result = await Swal.fire({
+        icon: 'question',
+        title: 'Credencial INAPAM vigente',
+        html: `<h4>Me puede mostrar su credencial de INAPAM por favor?</h4>
+                <p style="color: green;">Revisa que su credencial de INAPAM:</p>
+                <p style="color: green;"> * Pertenezca al cliente</p>
+                <p style="color: green;"> * No este vencida</p>`,
+        showCancelButton: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        confirmButtonText: 'Sí cumple',
+        cancelButtonText: 'No cumple',
+        focusCancel: true,
+      });
+      this.aplicaInapam = result.isConfirmed;
+    }
+    this.recalcularRenglones();
+  }
+
+  async recalcularRenglones() {
+
+    if (this.carrito.length > 0) {
+
+      for (let i = 0; i < this.carrito.length; i++) {
+        // buscar caracteristicas del producto en almacen
+        const productoE = this.productos.find(pe => pe._id === this.carrito[i].producto);
+
+        if (this.descuentoMenorA25(this.carrito[i].producto)) await this.preguntaINAPAM(productoE);
+
+        if (productoE.categoria === 'Recargas' || productoE.categoria === 'Servicio Médico') {
+          this.ptjeDescuento = 0;
+          this.productoAplicaMonedero = false;
+          this.cadDesc = '';
+          this.tipoDescuento = '';
+          this.alMonedero = 0;
+        } else this.descuentoYpromo(productoE);
+
+        let precioFinal = this.carrito[i].precioOriginal;
+
+        precioFinal *= (100 - this.ptjeDescuento) / 100;
+
+        if (this.productoAplicaMonedero) {
+          this.alMonedero = precioFinal * 0.02;
+          if (this.tipoDescuento === '') {
+            this.tipoDescuento = 'Cliente';
+            this.cadDesc = '2% Moned.';
+          } else {
+            this.tipoDescuento = `${this.tipoDescuento}-Cliente`;
+            this.cadDesc = `${this.cadDesc} + 2% Moned.`;
+          }
+        }
+
+        this.tipoDescuento = this.limpiarPromocion(this.tipoDescuento);
+
+        if (this.captionButtomReanudar === '') this.captionButtomReanudar = productoE.nombre;
+
+        this.carrito[i].precioFinal = precioFinal;
+        this.carrito[i].tipoDescuento = this.tipoDescuento;
+        this.carrito[i].cadDesc = this.cadDesc;
+        this.carrito[i].alMonedero = this.alMonedero
+        this.carrito[i].descuentoUnitario = this.carrito[i].precioOriginal - precioFinal;
+        this.carrito[i].iva = productoE.iva ? precioFinal * 0.16 : 0;
+
+        if (this.aplicaGratis) this.validarProductoGratis(productoE._id);
+
+      };
+      this.calcularTotal();
+    }
+  }
+
   buscarCliente() {
     if (this.telefonoCliente.length === 10) {
       this.clienteService.buscarClientePorTelefono(this.telefonoCliente).subscribe({
@@ -363,6 +424,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
             this.cliente = cliente._id;
             this.montoMonederoCliente = cliente.totalMonedero;
             this.hayCliente = true;
+
+            this.recalcularRenglones();
+
             this.focusBarcode();
           } else {
             this.mostrarModalCrearCliente();
@@ -457,6 +521,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
             }
           } catch { }
 
+          this.recalcularRenglones();
+
           Swal.fire({
             icon: 'success',
             title: 'Cliente registrado',
@@ -499,6 +565,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.hayCliente = false;
     this.ventaForm.controls['cliente'].setValue('');
     this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
+    this.recalcularRenglones();
     this.focusBarcode(60);
   }
 
@@ -611,7 +678,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.ventaForm.controls['cliente'].setValue('');
     this.hayCliente = false;
 
-    this.syncClienteCtrlDisabled();
+    // this.syncClienteCtrlDisabled();
     this.focusBarcode();
   }
 
@@ -632,7 +699,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.captionButtomReanudar = venta.captionButtomReanudar;
     this.ventasPausadas.splice(index, 1);
     this.ventaService.setVentasPausadas(this.ventasPausadas);
-    this.syncClienteCtrlDisabled();
+    //this.syncClienteCtrlDisabled();
     this.focusBarcode(0);
   }
 
@@ -751,7 +818,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (this.aplicaGratis) this.validarProductoGratis(producto._id);
 
     this.calcularTotal();
-    this.syncClienteCtrlDisabled();
+    //this.syncClienteCtrlDisabled();
   }
 
   limpiarPromocion(promo: string) {
@@ -910,7 +977,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.carrito.splice(indexGratis, 1);
       }
     }
-    this.syncClienteCtrlDisabled();
+    //this.syncClienteCtrlDisabled();
     this.calcularTotal();
   }
 
@@ -928,7 +995,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         console.error('Error en existenciaProducto: ', error);
       });
     }
-    this.syncClienteCtrlDisabled();
+    //this.syncClienteCtrlDisabled();
     this.calcularTotal();
   }
 
@@ -944,7 +1011,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       producto.cantidad--;
       this.eliminarProducto(index);
     }
-    this.syncClienteCtrlDisabled();
+    //this.syncClienteCtrlDisabled();
   }
 
   esPromocionPorCantidad(tipoDescuento: string): boolean {
@@ -1025,7 +1092,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.efectivoRecibido = 0;
     this.cambio = 0;
     this.hayCliente = false;
-    this.syncClienteCtrlDisabled();
+    //this.syncClienteCtrlDisabled();
   }
 
   abrirModalPago() {
@@ -1177,7 +1244,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.montoVale = 0;
     this.cambio = 0;
     this.mostrarModalPago = false;
-    this.syncClienteCtrlDisabled();
+    //this.syncClienteCtrlDisabled();
     this.focusBarcode(50);
   }
 
@@ -1243,6 +1310,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
       fecha: new Date().toISOString(),
       usuario: this.nombreUs
     };
+
+    console.log('Datos enviados al ticket: ', this.ventaParaImpresion);
+
 
     // Mostrar ticket y cerrar el modal ANTES de imprimir
     this.mostrarTicket = true;
@@ -1367,7 +1437,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
           allowOutsideClick: false,
           allowEscapeKey: false,
           didClose: () => {
-            this.syncClienteCtrlDisabled();
+            //this.syncClienteCtrlDisabled();
             this.focusBarcode(50);
           }
         });
@@ -1378,7 +1448,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         const esErrorDeVale = mensaje.includes('**');
         if (!esErrorDeVale) {
           this.mostrarModalPago = false;
-          this.limpiarVenta(); this.syncClienteCtrlDisabled();
+          this.limpiarVenta(); //this.syncClienteCtrlDisabled();
           setTimeout(() => this.focusBarcode(50), 0);
         }
       }
@@ -1433,9 +1503,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
             ubicacionEnFarmacia: null,
           };
         } else {
-
-          console.log('Producto para buscarle precio', data);
-          
 
           this.productoConsultado = {
             nombre: data.nombre,
@@ -1523,7 +1590,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         next: (data) => {
           this.precioEnFarmacia = data.precioVenta;
           this.ubicacionEnFarmacia = data.ubicacionEnFarmacia;
-          
+
           if (data.existencia >= cantRequerida) {
             this.hayProducto = true;
             resolve();
