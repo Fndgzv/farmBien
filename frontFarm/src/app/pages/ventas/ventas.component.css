@@ -301,35 +301,35 @@ col.col-img {
 }
 
 col.col-cant {
-  width: 70px;
+  width: 65px;
 }
 
 col.col-precio {
-  width: 100px;
-}
-
-col.col-imp-normal {
-  width: 120px;
-}
-
-col.col-promo {
-  width: 150px;
-}
-
-col.col-desc-porc {
   width: 80px;
 }
 
-col.col-monedero {
-  width: 100px;
-}
-
-col.col-desc {
+col.col-imp-normal {
   width: 110px;
 }
 
+col.col-promo {
+  width: 160px;
+}
+
+col.col-desc-porc {
+  width: 165px;
+}
+
+col.col-monedero {
+  width: 75px;
+}
+
+col.col-desc {
+  width: 80px;
+}
+
 col.col-precio-final {
-  width: 120px;
+  width: 115px;
 }
 
 /* Producto se lleva el resto del espacio */
