@@ -19,6 +19,8 @@ const ProductoSchema = new mongoose.Schema({
     ubicacion: { type: String },
     categoria: { type: String, required: true },
     generico: { type: Boolean, default: false },
+    renglon1: { type: String },
+    renglon2: { type: String },
 
     promoLunes: {
         porcentaje: { type: Number, min: 0, max: 100 },

@@ -21,13 +21,15 @@ import { ReporteComprasComponent } from './pages/reporte-compras/reporte-compras
 import { devolucionesCatalogosResolver } from './reportes-devoluciones/devoluciones-catalogos.resolver';
 import { HistorialProductoPageComponent } from './reportes-compras/historial-producto-page.component';
 import { ReporteComprasVentasComponent } from './pages/reporte-compras-ventas/reporte-compras-ventas.component';
+import { LabelDesignerComponent } from './pages/etiquetas/label-designer/label-designer.component';
+import { EtiquetasPrintComponent } from './pages/etiquetas/etiquetas-print/etiquetas-print.component';
 
 export const routes: Routes = [
   {
     path: '',
     component: MainLayoutComponent,
     children: [
-      { path: '', redirectTo: 'home', pathMatch: 'full' },
+      { path: '', redirectTo: 'home', pathMatch: 'full' }, 
       { path: 'home', component: HomeComponent },
       {
         path: 'ventas',
@@ -152,6 +154,15 @@ export const routes: Routes = [
       {
         path: 'reportes/compras-ventas',
           component: ReporteComprasVentasComponent
+      },
+      {
+        path: 'etiquetas/print',
+          component: EtiquetasPrintComponent
+      }
+      ,
+      {
+        path: 'etiquetas/design',
+          component: LabelDesignerComponent
       }
 
 

@@ -172,6 +172,23 @@
         </ul>
 
       </li>
+
+      <li *ngIf="userRol === 'admin'" class="has-submenu">
+        <span (click)="toggleSubMenu('etiquetas')">
+          Etiquetas<fa-icon [icon]="'scale-balanced'" class="menu-icon"></fa-icon>
+          {{ expandedSubMenu === 'etiquetas' ? '▲' : '▶' }}
+        </span>
+        <ul *ngIf="expandedSubMenu === 'etiquetas'" class="submenu">
+          <li [routerLink]="'etiquetas/print'" routerLinkActive="active" class="submenu-item">
+            <span>Impresión<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
+          </li>
+        </ul>
+        <ul *ngIf="expandedSubMenu === 'etiquetas'" class="submenu">
+          <li [routerLink]="'etiquetas/design'" routerLinkActive="active" class="submenu-item">
+            <span>Diseño<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
+          </li>
+        </ul>
+      </li>
     </ul>
 
   </ul>
