@@ -1,0 +1,114 @@
+<!-- label-designer.component.html -->
+<div class="designer">
+  <div class="sidebar">
+    <h3>Diseño</h3>
+    <label>Nombre</label>
+    <input [(ngModel)]="design.nombre" />
+
+    <h4>Tamaño etiqueta (mm)</h4>
+    <div class="grid">
+      <label>Ancho</label><input type="number" [(ngModel)]="design.size.widthMm">
+      <label>Alto</label><input type="number" [(ngModel)]="design.size.heightMm">
+      <label>Margen</label><input type="number" [(ngModel)]="design.size.marginMm">
+    </div>
+
+    <h4>Hoja (mm)</h4>
+    <div class="grid">
+      <label>Page W</label><input type="number" [(ngModel)]="design.layout.pageWidthMm">
+      <label>Page H</label><input type="number" [(ngModel)]="design.layout.pageHeightMm">
+      <label>Cols</label><input type="number" [(ngModel)]="design.layout.columns">
+      <label>Rows</label><input type="number" [(ngModel)]="design.layout.rows">
+      <label>Gap X</label><input type="number" [(ngModel)]="design.layout.gapXmm">
+      <label>Gap Y</label><input type="number" [(ngModel)]="design.layout.gapYmm">
+    </div>
+
+    <h4>Agregar elemento</h4>
+    <button (click)="addText('nombre')">Nombre</button>
+    <button (click)="addText('renglon1')">Renglón 1</button>
+    <button (click)="addText('renglon2')">Renglón 2</button>
+    <button (click)="addPrice()">Precio</button>
+    <button (click)="addBarcode()">Código de barras</button>
+
+    <div *ngIf="selected">
+      <h4>Propiedades</h4>
+      <div>Tipo: {{selected.type}}</div>
+      <div *ngIf="selected.type!=='barcode'">
+        <label>Fuente (pt)</label><input type="number" [(ngModel)]="selected.fontSize">
+        <label><input type="checkbox" [(ngModel)]="selected.bold"> Negritas</label>
+        <label>Alineación</label>
+        <select [(ngModel)]="selected.align">
+          <option>left</option><option>center</option><option>right</option>
+        </select>
+        <label>Prefix</label><input [(ngModel)]="selected.prefix">
+        <label>Suffix</label><input [(ngModel)]="selected.suffix">
+        <label><input type="checkbox" [(ngModel)]="selected.uppercase"> MAYÚSCULAS</label>
+      </div>
+      <div *ngIf="selected.type==='barcode'">
+        <label>Símbolo</label>
+        <select [(ngModel)]="selected.barcode!.symbology">
+          <option>CODE128</option>
+          <option>EAN13</option>
+          <option>EAN8</option>
+          <option>QR</option>
+        </select>
+        <label>Width(px)</label><input type="number" [(ngModel)]="selected.barcode!.width">
+        <label>Height(px)</label><input type="number" [(ngModel)]="selected.barcode!.height">
+        <label><input type="checkbox" [(ngModel)]="selected.barcode!.displayValue"> Mostrar texto</label>
+      </div>
+      <button (click)="deleteSelected()">Eliminar elemento</button>
+    </div>
+
+    <div class="acciones">
+      <button (click)="save()">Guardar diseño</button>
+      <button (click)="nuevo()">Nuevo</button>
+    </div>
+  </div>
+
+  <!-- Área de etiqueta (preview) -->
+  <div class="canvas-wrap">
+    <div class="label-canvas"
+         [style.width.mm]="design.size.widthMm"
+         [style.height.mm]="design.size.heightMm"
+         (click)="selected=null">
+
+      <div class="label-inner" [style.padding.mm]="design.size.marginMm">
+        <div *ngFor="let el of design.elements"
+             class="el"
+             [class.selected]="el===selected"
+             [style.left.%]="el.x"
+             [style.top.%]="el.y"
+             [style.width.%]="el.w"
+             [style.height.%]="el.h"
+             (click)="$event.stopPropagation(); selected=el"
+             cdkDrag
+             (cdkDragEnded)="onDragEnd($event, el)">
+
+          <ng-container [ngSwitch]="el.type">
+            <div *ngSwitchCase="'text'" [ngStyle]="textStyle(el)">
+              {{ sampleValue(el) }}
+            </div>
+
+            <div *ngSwitchCase="'price'" [ngStyle]="textStyle(el)">
+              {{ formatPrice(123.45, el) }}
+            </div>
+
+            <div *ngSwitchCase="'barcode'">
+              <svg #barcodeSvg></svg>
+              <!-- En el TS, al renderizar, usamos JsBarcode sobre ese SVG con un valor de muestra -->
+            </div>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+
+    <div class="design-list">
+      <h4>Mis diseños guardados</h4>
+      <ul>
+        <li *ngFor="let d of disenos" (click)="load(d)" [class.active]="d._id===design._id">
+          {{ d.nombre }}
+          <button class="mini" (click)="remove(d, $event)">Borrar</button>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>

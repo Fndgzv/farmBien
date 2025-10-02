@@ -45,7 +45,8 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/clientes', clientesRoutes);
 app.use('/api', require('./routes/api')); // Rutas de: ventas, devoluciones, pedidos, clientes
-
+app.use('/api/label-designs', require('./routes/labelDesigns.routes'));
+app.use('/api/labels', require('./routes/labels.products.routes'));
 
 // ---------- Archivos estáticos (uploads) ----------
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

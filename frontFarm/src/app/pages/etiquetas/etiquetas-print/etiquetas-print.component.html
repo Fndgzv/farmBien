@@ -1,0 +1,74 @@
+<!-- etiquetas-print.component.html -->
+<div class="etiquetas">
+  <div class="barra">
+    <label>Diseño</label>
+    <select [(ngModel)]="designId" (change)="loadDesign()">
+      <option *ngFor="let d of disenos" [value]="d._id">{{ d.nombre }}</option>
+    </select>
+
+    <input placeholder="Filtrar por nombre" [(ngModel)]="fNombre" (keyup.enter)="buscar()">
+    <input placeholder="Categoría" [(ngModel)]="fCategoria" (keyup.enter)="buscar()">
+    <button (click)="buscar()">Buscar</button>
+    <button [disabled]="seleccionados.length===0 || !design" (click)="previsualizar()">Previsualizar / Imprimir</button>
+  </div>
+
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th><input type="checkbox" [checked]="allChecked" (change)="toggleAll($event)"></th>
+        <th>Nombre</th>
+        <th>Categoría</th>
+        <th>Código barras</th>
+        <th>Precio</th>
+        <th>Exist.</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let p of productos">
+        <td><input type="checkbox" [(ngModel)]="p._checked" (ngModelChange)="updateChecked()"></td>
+        <td>{{p.nombre}}</td>
+        <td>{{p.categoria}}</td>
+        <td>{{p.codigoBarras}}</td>
+        <td>{{p.precioVenta | currency}}</td>
+        <td>{{p.existencia}}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Contenedor oculto que se muestra sólo al imprimir -->
+<div class="etiquetas-impresion" *ngIf="mostrarPrint">
+  <div class="page"
+       [style.width.mm]="design!.layout.pageWidthMm"
+       [style.height.mm]="design!.layout.pageHeightMm">
+
+    <div class="labels-grid"
+         [style.gap]="design!.layout.gapYmm + 'mm ' + design!.layout.gapXmm + 'mm'"
+         [style.gridTemplateColumns]="'repeat(' + design!.layout.columns + ', ' + design!.size.widthMm + 'mm)'"
+         [style.gridTemplateRows]="'repeat(' + design!.layout.rows + ', ' + design!.size.heightMm + 'mm)'">
+
+      <ng-container *ngFor="let item of itemsParaImprimir">
+        <div class="label-box" [style.width.mm]="design!.size.widthMm" [style.height.mm]="design!.size.heightMm">
+          <div class="label-inner" [style.padding.mm]="design!.size.marginMm">
+            <!-- Renderizamos cada elemento del diseño con los datos del producto -->
+            <ng-container *ngFor="let el of design!.elements">
+              <div class="el"
+                   [style.left.%]="el.x" [style.top.%]="el.y"
+                   [style.width.%]="el.w" [style.height.%]="el.h"
+                   [ngStyle]="styleTexto(el)">
+                <ng-container [ngSwitch]="el.type">
+                  <div *ngSwitchCase="'text'">{{ valorCampo(item, el) }}</div>
+                  <div *ngSwitchCase="'price'">{{ valorPrecio(item, el) }}</div>
+                  <div *ngSwitchCase="'barcode'">
+                    <svg class="barcode" #printBarcode></svg>
+                  </div>
+                </ng-container>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+      </ng-container>
+
+    </div>
+  </div>
+</div>
