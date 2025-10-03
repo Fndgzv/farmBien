@@ -47,6 +47,7 @@
           </li>
         </ul>
       </li>
+      
       <li [routerLink]="'/usuarios'" routerLinkActive="active">Usuarios <fa-icon [icon]="'user'"
           class="menu-icon"></fa-icon>
       </li>
@@ -111,7 +112,7 @@
             <span>Ventas<fa-icon [icon]="'cash-register'" class="menu-icon"></fa-icon></span>
           </li>
           <li [routerLink]="'/reporte/ventas-por-farmacia'" routerLinkActive="active" class="submenu-item">
-            <span>Productos Ventas - Exist  <fa-icon [icon]="icons.reporteVentas" class="menu-icon"></fa-icon></span>
+            <span>Productos Ventas - Exist <fa-icon [icon]="icons.reporteVentas" class="menu-icon"></fa-icon></span>
           </li>
           <li [routerLink]="'reporte/ventas-producto'" routerLinkActive="active" class="submenu-item">
             <span>Un sólo producto<fa-icon [icon]="icons.faReceipt" class="menu-icon"></fa-icon></span>
@@ -137,13 +138,11 @@
           <li [routerLink]="'reporte/compras'" routerLinkActive="active" class="submenu-item">
             <span>Compras general<fa-icon [icon]="'shopping-cart'" class="menu-icon"></fa-icon></span>
           </li>
-        </ul>
-        <ul *ngIf="expandedSubMenu === 'compras'" class="submenu">
+
           <li [routerLink]="'reportes-compras'" routerLinkActive="active" class="submenu-item">
             <span>Compras resumen<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
           </li>
-        </ul>
-        <ul *ngIf="expandedSubMenu === 'compras'" class="submenu">
+
           <li [routerLink]="'reportes/compras-historial-producto'" routerLinkActive="active" class="submenu-item">
             <span>Compras x Producto<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
           </li>
@@ -159,13 +158,12 @@
           <li [routerLink]="'reporte/resumen-utilidades'" routerLinkActive="active" class="submenu-item">
             <span>Resumen utilidades<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
           </li>
-        </ul>
-        <ul *ngIf="expandedSubMenu === 'balance'" class="submenu">
+        
+        
           <li [routerLink]="'reporte/utilidades'" routerLinkActive="active" class="submenu-item">
             <span>TOP utilidades<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
           </li>
-        </ul>
-        <ul *ngIf="expandedSubMenu === 'balance'" class="submenu">
+
           <li [routerLink]="'reportes/compras-ventas'" routerLinkActive="active" class="submenu-item">
             <span>Compras vs Ventas<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
           </li>
@@ -175,20 +173,21 @@
 
       <li *ngIf="userRol === 'admin'" class="has-submenu">
         <span (click)="toggleSubMenu('etiquetas')">
-          Etiquetas<fa-icon [icon]="'scale-balanced'" class="menu-icon"></fa-icon>
+          Etiquetas
+          <fa-icon [icon]="faTags" class="menu-icon"></fa-icon>
           {{ expandedSubMenu === 'etiquetas' ? '▲' : '▶' }}
         </span>
+
         <ul *ngIf="expandedSubMenu === 'etiquetas'" class="submenu">
           <li [routerLink]="'etiquetas/print'" routerLinkActive="active" class="submenu-item">
-            <span>Impresión<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
+            <span>Impresión <fa-icon [icon]="faPrint" class="menu-icon"></fa-icon></span>
           </li>
-        </ul>
-        <ul *ngIf="expandedSubMenu === 'etiquetas'" class="submenu">
           <li [routerLink]="'etiquetas/design'" routerLinkActive="active" class="submenu-item">
-            <span>Diseño<fa-icon [icon]="'sack-dollar'" class="menu-icon"></fa-icon></span>
+            <span>Diseño <fa-icon [icon]="faPenRuler" class="menu-icon"></fa-icon></span>
           </li>
         </ul>
       </li>
+
     </ul>
 
   </ul>

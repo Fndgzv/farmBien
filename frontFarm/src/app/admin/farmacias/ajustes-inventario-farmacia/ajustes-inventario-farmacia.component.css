@@ -4,3 +4,28 @@
 }
 
 .th-sort { cursor: pointer; user-select: none; }
+
+/* Nombre + código en dos líneas compactas */
+.nombre-cell .nombre-text {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.nombre-cell .codigo-mini {
+  display: block;
+  font-size: 11px;
+  color: #6c757d; /* gris suave */
+  margin-top: 2px;
+}
+
+/* Columna de Ubicación más ancha y flexible */
+th.col-ubicacion,
+td.col-ubicacion {
+  min-width: 220px;     /* ajusta a gusto (200–300px) */
+  width: 260px;
+}
+
+/* Asegurar que el input use el ancho disponible */
+.col-ubicacion .form-control {
+  width: 100%;
+}

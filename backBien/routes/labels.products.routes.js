@@ -9,6 +9,7 @@ const isAdmin = require('../middlewares/isAdmin');
 
 // GET /api/labels/products?farmaciaId=...&nombre=...&categoria=...&limit=50&page=1
 router.get('/products', authMiddleware, isAdmin, async (req, res) => {
+  
   const {
     farmaciaId,
     nombre = '',

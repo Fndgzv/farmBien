@@ -7,12 +7,15 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 
+import { Farmacia, FarmaciaService } from '../../../services/farmacia.service'
+import Swal from 'sweetalert2';
+
 @Component({
   selector: 'app-etiquetas-print',
   templateUrl: './etiquetas-print.component.html',
   styleUrls: ['./etiquetas-print.component.css'],
   standalone: true,
-  imports: [ FormsModule, CommonModule, DragDropModule ]
+  imports: [FormsModule, CommonModule, DragDropModule]
 })
 export class EtiquetasPrintComponent {
   disenos: LabelDesign[] = [];
@@ -26,19 +29,39 @@ export class EtiquetasPrintComponent {
 
   mostrarPrint = false;
   itemsParaImprimir: any[] = []; // productos seleccionados (se puede multiplicar si quieres varias copias)
+  farmacias: Farmacia[] = [];
+  farmaciaId: string = '';
 
   @ViewChildren('printBarcode') printBarcodes!: QueryList<ElementRef<SVGElement>>;
 
   constructor(
     private designsSvc: LabelDesignsService,
-    private prodSvc: LabelsProductsService
-  ) {}
+    private prodSvc: LabelsProductsService,
+    private farmacia: FarmaciaService,
+  ) { }
 
   ngOnInit() {
     this.designsSvc.list().subscribe(d => {
       this.disenos = d;
       if (d.length) { this.designId = d[0]._id!; this.loadDesign(); }
     });
+
+    const last = localStorage.getItem('farmaciaId_print') || '';
+    this.farmaciaId = last;
+    this.cargarFarmacias();
+
+  }
+
+  cargarFarmacias() {
+    this.farmacia.obtenerFarmacias().subscribe({
+      next: (resp) => { this.farmacias = resp || []; },
+      error: () => { this.farmacias = []; }
+    });
+  }
+
+  onFarmaciaChange() {
+    // persistir el idFarmacia para esta pantalla
+    localStorage.setItem('farmaciaId_print', this.farmaciaId);
   }
 
   loadDesign() {
@@ -47,9 +70,22 @@ export class EtiquetasPrintComponent {
   }
 
   buscar() {
-    const farmaciaId = localStorage.getItem('farmaciaId') || ''; // según tu flujo
-    this.prodSvc.search({ farmaciaId, nombre: this.fNombre, categoria: this.fCategoria, limit: 200 })
-      .subscribe(r => { this.productos = r.rows.map(x => ({...x, _checked:false})); this.allChecked=false; });
+
+    const fid = this.farmaciaId?.trim();
+    if (!fid) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Aviso',
+        text: 'Debes de seleccionar una farmacia.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+      return;
+    }
+    this.prodSvc.search({ farmaciaId: fid, nombre: this.fNombre, categoria: this.fCategoria, limit: 200 })
+      .subscribe(r => { this.productos = r.rows.map(x => ({ ...x, _checked: false })); this.allChecked = false; });
   }
 
   toggleAll(ev: any) {
@@ -65,7 +101,7 @@ export class EtiquetasPrintComponent {
   previsualizar() {
     this.itemsParaImprimir = [...this.seleccionados]; // aquí podrías replicar por n-copias
     this.mostrarPrint = true;
-    setTimeout(()=>{ this.renderBarcodes(); window.print(); this.mostrarPrint=false; }, 50);
+    setTimeout(() => { this.renderBarcodes(); window.print(); this.mostrarPrint = false; }, 50);
   }
 
   styleTexto(el: LabelElement) {
@@ -77,7 +113,7 @@ export class EtiquetasPrintComponent {
       overflow: 'hidden',
       display: 'flex',
       'align-items': 'center',
-      'justify-content': el.align==='center'?'center':(el.align==='right'?'flex-end':'flex-start')
+      'justify-content': el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start')
     };
   }
 
@@ -89,14 +125,14 @@ export class EtiquetasPrintComponent {
       codigoBarras: item.codigoBarras,
       precioVenta: item.precioVenta
     };
-    let v = el.field==='custom' ? (el.text || '') : (map[el.field||'nombre'] ?? '');
+    let v = el.field === 'custom' ? (el.text || '') : (map[el.field || 'nombre'] ?? '');
     if (el.uppercase && typeof v === 'string') v = v.toUpperCase();
-    return `${el.prefix||''}${v}${el.suffix||''}`;
+    return `${el.prefix || ''}${v}${el.suffix || ''}`;
   }
 
-  valorPrecio(item:any, el: LabelElement) {
+  valorPrecio(item: any, el: LabelElement) {
     const val = item.precioVenta ?? 0;
-    const txt = (el.prefix || '$') + Number(val).toFixed(2) + (el.suffix||'');
+    const txt = (el.prefix || '$') + Number(val).toFixed(2) + (el.suffix || '');
     return el.uppercase ? txt.toUpperCase() : txt;
   }
 
@@ -109,7 +145,7 @@ export class EtiquetasPrintComponent {
         const svg = this.printBarcodes.get(idxSvg++)?.nativeElement;
         if (!svg) return;
         const value = String(item.codigoBarras || '');
-        if (!value) { svg.innerHTML=''; return; }
+        if (!value) { svg.innerHTML = ''; return; }
         if (el.barcode?.symbology === 'QR') {
           // (opcional) Implementar QR con otra librería
           svg.innerHTML = ''; return;

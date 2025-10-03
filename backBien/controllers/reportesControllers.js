@@ -135,13 +135,14 @@ exports.resumenProductosVendidos = async (req, res) => {
       productoId,
       fechaIni,
       fechaFin,
-      sortBy = 'producto',     // 'existencia' | 'producto'
-      sortDir = 'asc'          // 'asc' | 'desc'
+      sortBy = 'producto',
+      sortDir = 'asc',
+      productoQ = '',
+      categoriaQ = ''     // 🔹 nuevo
     } = req.query;
 
     const { gte, lt } = dayRangeUtc(fechaIni, fechaFin);
 
-    // match por encabezado de venta (rango y farmacia)
     const match = { fecha: { $gte: gte, $lt: lt } };
     const fId = toId(farmaciaId);
     if (fId) match.farmacia = fId;
@@ -151,23 +152,18 @@ exports.resumenProductosVendidos = async (req, res) => {
       { $unwind: '$productos' },
     ];
 
-    // filtro opcional por producto
     const pId = toId(productoId);
     if (pId) pipe.push({ $match: { 'productos.producto': pId } });
 
     pipe.push(
-      // Agrupa por (farmacia, producto)
       {
         $group: {
           _id: { farmacia: '$farmacia', producto: '$productos.producto' },
           cantidadVendida: { $sum: '$productos.cantidad' },
           importeVendido: { $sum: '$productos.totalRen' },
-          // costoTotal = costoUnitario * cantidad
           costoTotal: { $sum: { $multiply: ['$productos.costo', '$productos.cantidad'] } },
         },
       },
-
-      // Producto
       {
         $lookup: {
           from: 'productos',
@@ -177,8 +173,30 @@ exports.resumenProductosVendidos = async (req, res) => {
         },
       },
       { $unwind: { path: '$prod', preserveNullAndEmptyArrays: true } },
+    );
 
-      // Farmacia
+    // 🔹 Filtro por texto de producto (nombre/código)
+    const q = String(productoQ || '').trim();
+    if (q) {
+      pipe.push({
+        $match: {
+          $or: [
+            { 'prod.nombre':       { $regex: q, $options: 'i' } },
+            { 'prod.codigoBarras': { $regex: q, $options: 'i' } },
+          ]
+        }
+      });
+    }
+
+    // 🔹 Filtro por categoría (parcial)
+    const cq = String(categoriaQ || '').trim();
+    if (cq) {
+      pipe.push({
+        $match: { 'prod.categoria': { $regex: cq, $options: 'i' } }
+      });
+    }
+
+    pipe.push(
       {
         $lookup: {
           from: 'farmacias',
@@ -188,25 +206,17 @@ exports.resumenProductosVendidos = async (req, res) => {
         },
       },
       { $unwind: { path: '$farm', preserveNullAndEmptyArrays: true } },
-
-      // Inventario por (farmacia, producto): existencia, stockMax, stockMin
       {
         $lookup: {
-          from: 'inventariofarmacias', // nombre de la colección
+          from: 'inventariofarmacias',
           let: { fId: '$_id.farmacia', pId: '$_id.producto' },
           pipeline: [
-            {
-              $match: {
-                $expr: { $and: [ { $eq: ['$farmacia', '$$fId'] }, { $eq: ['$producto', '$$pId'] } ] },
-              },
-            },
+            { $match: { $expr: { $and: [ { $eq: ['$farmacia', '$$fId'] }, { $eq: ['$producto', '$$pId'] } ] } } },
             { $project: { _id: 0, existencia: 1, stockMax: 1, stockMin: 1 } },
           ],
           as: 'inv',
         },
       },
-
-      // Cálculos y “flatten” de inventario
       {
         $addFields: {
           existencia: { $ifNull: [{ $arrayElemAt: ['$inv.existencia', 0] }, 0] },
@@ -216,19 +226,12 @@ exports.resumenProductosVendidos = async (req, res) => {
           margenPct : {
             $cond: [
               { $gt: ['$importeVendido', 0] },
-              {
-                $multiply: [
-                  { $divide: [ { $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido' ] },
-                  100,
-                ],
-              },
-              null,
-            ],
-          },
-        },
+              { $multiply: [ { $divide: [ { $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido' ] }, 100 ] },
+              null
+            ]
+          }
+        }
       },
-
-      // Proyección final
       {
         $project: {
           _id: 0,
@@ -246,11 +249,10 @@ exports.resumenProductosVendidos = async (req, res) => {
           existencia: 1,
           stockMax: 1,
           stockMin: 1,
-        },
+        }
       }
     );
 
-    // Orden
     const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
     if (String(sortBy) === 'existencia') {
       pipe.push({ $sort: { existencia: dir, farmacia: 1, nombre: 1 } });

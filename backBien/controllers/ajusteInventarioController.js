@@ -1,6 +1,8 @@
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 const Producto = require('../models/Producto');
-
+const mongoose = require('mongoose');
+const { Types } = mongoose;
+const ObjectId = Types.ObjectId;
 
 function construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, generico }) {
     const filtros = { $and: [] };
@@ -48,13 +50,12 @@ function construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, gene
 }
 
 // Obtener inventario con filtros en farmacia
-// backBien/controllers/ajusteInventarioController.js
 exports.obtenerInventarioFarmacia = async (req, res) => {
   const {
     farmacia,
     nombre, codigoBarras, categoria, inapam, generico,
-    sortBy = 'existencia',            // opcional: por si luego agregas más columnas
-    sortDir = 'asc'                   // 'asc' | 'desc'
+    sortBy = 'existencia',          // 'existencia' | 'nombre'
+    sortDir = 'asc'                 // 'asc' | 'desc'
   } = req.query;
 
   if (!farmacia) {
@@ -62,7 +63,7 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
   }
 
   try {
-    // 1) Filtrado de productos por criterios de Producto
+    // 1) Filtrado de productos (obtenemos IDs válidos)
     const filtrosProducto = construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, generico });
     const productos = await Producto.find(filtrosProducto).select('_id').lean();
     const productosIds = productos.map(p => p._id);
@@ -74,30 +75,53 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
     // 2) Dirección de orden
     const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
 
-    // 3) Sort (solo existencia por ahora)
-    const sortStage = (String(sortBy) === 'existencia')
-      ? { existencia: dir, _id: 1 }        // _id como tie-breaker estable
-      : { _id: 1 };                        // fallback
+    // 3) Pipeline: match inventario -> lookup producto -> sort -> project
+    const pipe = [
+      { $match: { farmacia: new ObjectId(farmacia), producto: { $in: productosIds } } },
+      {
+        $lookup: {
+          from: 'productos',
+          localField: 'producto',
+          foreignField: '_id',
+          as: 'prod'
+        }
+      },
+      { $unwind: { path: '$prod', preserveNullAndEmptyArrays: true } },
+      // Orden dinámico
+      (String(sortBy) === 'nombre')
+        ? { $sort: { 'prod.nombre': dir, _id: 1 } }
+        : { $sort: { existencia: dir, _id: 1 } },
+      // Proyección con la forma que espera el front
+      {
+        $project: {
+          _id: 1,
+          farmacia: 1,
+          producto: {
+            _id: '$prod._id',
+            nombre: '$prod.nombre',
+            codigoBarras: '$prod.codigoBarras',
+            categoria: '$prod.categoria',
+            generico: '$prod.generico',
+            descuentoINAPAM: '$prod.descuentoINAPAM',
+            stockMinimo: '$prod.stockMinimo',
+            stockMaximo: '$prod.stockMaximo'
+          },
+          ubicacionEnFarmacia: 1,
+          existencia: 1,
+          stockMax: 1,
+          stockMin: 1,
+          precioVenta: 1
+        }
+      }
+    ];
 
-    // 4) Consulta
-    const inventario = await InventarioFarmacia.find({
-      farmacia,
-      producto: { $in: productosIds }
-    })
-      .sort(sortStage)
-      .populate({
-        path: 'producto',
-        select: 'nombre codigoBarras categoria generico descuentoINAPAM stockMinimo stockMaximo'
-      })
-      .lean();
-
-    res.json(inventario);
+    const inventario = await InventarioFarmacia.aggregate(pipe).allowDiskUse(true);
+    return res.json(inventario);
   } catch (error) {
     console.error('[obtenerInventarioFarmacia][ERROR]', error);
-    res.status(500).json({ mensaje: "Error al obtener inventario" });
+    return res.status(500).json({ mensaje: "Error al obtener inventario" });
   }
 };
-
 
 
 // Actualización masiva en farmacia (existencia, stockMax y stockMin)

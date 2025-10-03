@@ -65,16 +65,8 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
   farmaciaId: string | '' = '';
   fechaIni = this.defaultIni();
   fechaFin = this.defaultFin();
-
-  // ====== Autocomplete de producto ======
-  productCtrl = new FormControl<string | ProductoLite>('');
-  opcionesProductos: ProductoLite[] = [];
-  productoSel: ProductoLite | null = null; // <- selección real
-
-  // accesos rápidos a campos de la selección (por si los necesitas)
-  get productoId(): string | null { return this.productoSel?._id ?? null; }
-  get codigoBarras(): string { return this.productoSel?.codigoBarras ?? ''; }
-  get nombreProd(): string { return this.productoSel?.nombre ?? ''; }
+  productoQ = '';
+  categoriaQ = '';
 
   // ====== Estado y datos ======
   cargando = false;
@@ -111,28 +103,6 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
   ngOnInit(): void {
     this.cargarFarmacias();
 
-    // ÚNICO flujo de autocompletar (limpio)
-    this.productCtrl.valueChanges
-      .pipe(
-        debounceTime(250),
-        distinctUntilChanged(),
-        switchMap(val => {
-          // si es objeto (ya seleccionado), no busques
-          if (val && typeof val !== 'string') return of<ProductoLite[]>([]);
-          const q = (val || '').trim();
-          if (q.length < 2) {
-            this.opcionesProductos = [];
-            return of<ProductoLite[]>([]);
-          }
-          return this.productosSrv.buscar(q);
-        })
-      )
-      .subscribe({
-        next: (list) => this.opcionesProductos = list || [],
-        error: (err) => { console.error('Error /productos/search:', err); this.opcionesProductos = []; }
-      });
-
-    // consulta inicial
     this.buscar();
   }
 
@@ -143,78 +113,52 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
     });
   }
 
-  // cómo mostrar en el input lo seleccionado
-  displayProducto = (p?: ProductoLite | string) =>
-    typeof p === 'string'
-      ? p
-      : p
-        ? (p.codigoBarras ? `${p.codigoBarras} — ${p.nombre}` : p.nombre)
-        : '';
-
-  // cuando el usuario elige una opción del panel
-  onOptionSelected(p: ProductoLite) {
-    this.productoSel = p || null;
-    // fija el texto “bonito” en el input sin disparar nueva búsqueda
-    this.productCtrl.setValue(this.displayProducto(p), { emitEvent: false });
-  }
-
-  // limpiar sólo el control de producto
-  clearProducto() {
-    this.productoSel = null;
-    this.opcionesProductos = [];
-    this.productCtrl.setValue('', { emitEvent: false });
-  }
 
   buscar(): void {
     const toDateOnly = (v: any) => v ? new Date(v).toISOString().slice(0, 10) : undefined;
-
     this.cargando = true;
 
     this.reportes.getVentasPorFarmacia({
       farmaciaId: this.farmaciaId || undefined,
       fechaIni: toDateOnly(this.fechaIni),
       fechaFin: toDateOnly(this.fechaFin),
-      // ⬇️ ahora sí filtramos por producto
-      productoId: this.productoId || undefined,
+      // 🔹 enviamos la query de texto (nombre o código)
+      productoQ: this.productoQ?.trim() || undefined,
+      categoriaQ: this.categoriaQ?.trim() || undefined
     })
-      .subscribe({
-        next: (resp: ResumenVentasResponse) => {
-          const rows = resp?.data || [];
-          const toNum = (v: any) => {
-            const n = Number(v);
-            return Number.isFinite(n) ? n : 0;
-          };
+    .subscribe({
+      next: (resp: ResumenVentasResponse) => {
+        const rows = resp?.data || [];
+        const toNum = (v: any) => Number.isFinite(Number(v)) ? Number(v) : 0;
 
+        this.rows = rows;
+        this.totalImporte   = rows.reduce((a, r: any) => a + toNum(r.importeVendido), 0);
+        this.totalCantidad  = rows.reduce((a, r: any) => a + toNum(r.cantidadVendida), 0);
+        this.totalCosto     = rows.reduce((a, r: any) => a + toNum(r.costoTotal), 0);
+        this.totalUtilidad  = rows.reduce((a, r: any) => a + toNum(r.utilidad), 0);
+        this.totalExistencia= rows.reduce((a, r: any) => a + toNum(r.existencia), 0);
 
-          console.log('Data recibida', resp);
+        this.totalMargenPct = this.totalImporte > 0 ? (this.totalUtilidad / this.totalImporte) * 100 : null;
 
-          this.rows = rows;
+        this.resetPagination?.();
+        this.cargando = false;
 
-          this.totalImporte = rows.reduce((a, r: any) => a + toNum(r.importeVendido), 0);
-          this.totalCantidad = rows.reduce((a, r: any) => a + toNum(r.cantidadVendida), 0);
-          this.totalCosto = rows.reduce((a, r: any) => a + toNum(r.costoTotal), 0);
-          this.totalUtilidad = rows.reduce((a, r: any) => a + toNum(r.utilidad), 0);
-          this.totalExistencia = rows.reduce((a, r: any) => a + toNum(r.existencia), 0);
+        console.log('productos filtrados =====>', resp);
+        
+      },
+      error: (err) => {
+        console.error('Error reporte ventas:', err);
+        this.rows = [];
+        this.totalImporte = this.totalCantidad = this.totalExistencia = this.totalCosto = this.totalUtilidad = 0;
+        this.totalMargenPct = null;
+        this.cargando = false;
+      },
+    });
+  }
 
-          this.totalMargenPct = this.totalImporte > 0
-            ? (this.totalUtilidad / this.totalImporte) * 100
-            : null;
-
-          this.resetPagination();
-          this.cargando = false;
-        },
-        error: (err) => {
-          console.error('Error reporte ventas:', err);
-          this.rows = [];
-          this.totalImporte = 0;
-          this.totalCantidad = 0;
-          this.totalExistencia = 0;
-          this.totalCosto = 0;
-          this.totalUtilidad = 0;
-          this.totalMargenPct = null;
-          this.cargando = false;
-        },
-      });
+  // 🔹 limpiar solo el filtro de texto
+  clearProducto() {
+    this.productoQ = '';
   }
 
   limpiarFiltros(): void {

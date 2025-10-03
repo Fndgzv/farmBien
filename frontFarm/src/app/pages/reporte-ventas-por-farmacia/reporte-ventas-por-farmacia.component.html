@@ -23,32 +23,26 @@
       <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
     </div>
 
-    <!-- Producto -->
-    <div class="col-md-4 d-flex flex-column">
+    <!-- Producto (texto libre) -->
+    <div class="col-md-2">
       <label class="form-label">Producto</label>
-      <div class="d-flex align-items-end">
-        <mat-form-field appearance="outline" class="compact-field w-100 mb-0">
-          <input matInput [formControl]="productCtrl" [matAutocomplete]="auto"
-            placeholder="Escribe código de barras o nombre" />
+      <div class="d-flex gap-2">
+        <input type="text" class="form-control" [(ngModel)]="productoQ" name="productoQ"
+          placeholder="7501234, ibuprof..." (keyup.enter)="buscar()" />
+        <button type="button" class="btn-rojo-chico" (click)="clearProducto()" [disabled]="!productoQ">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
 
-          <!-- limpiar selección -->
-          <span matSuffix class="suffix-center">
-            <button matSuffix type="button" class="btn-rojo-chico" (click)="clearProducto()" *ngIf="productCtrl.value"
-              matTooltip="Limpiar producto" aria-label="Limpiar producto">
-              <i class="fas fa-times"></i>
-            </button>
-          </span>
-
-          <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayProducto"
-            (optionSelected)="onOptionSelected($event.option.value)">
-            <mat-option *ngFor="let p of opcionesProductos" [value]="p">
-              <div class="d-flex justify-content-between w-100">
-                <span>{{ p.nombre }}</span>
-                <small class="text-muted ms-2">{{ p.codigoBarras || '—' }}</small>
-              </div>
-            </mat-option>
-          </mat-autocomplete>
-        </mat-form-field>
+    <div class="col-md-2">
+      <label class="form-label">Categ.</label>
+      <div class="d-flex gap-2">
+        <input type="text" class="form-control" [(ngModel)]="categoriaQ" name="categoriaQ"
+          (keyup.enter)="buscar()" />
+        <button type="button" class="btn-rojo-chico" (click)="categoriaQ=''" [disabled]="!categoriaQ">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
     </div>
 
@@ -85,6 +79,8 @@
           </th>
 
           <th style="white-space:nowrap;">Cód. barras</th>
+
+          <th style="white-space:nowrap;">Categoría</th>
 
           <th class="text-end sortable" (click)="setSort('cantidad')">
             Vendidos
@@ -126,6 +122,7 @@
           <td>{{ r.farmacia }}</td>
           <td>{{ r.nombre }}</td>
           <td>{{ r.codigoBarras || '—' }}</td>
+          <td>{{ r.categoria || '—' }}</td>
           <td class="text-end">{{ r.cantidadVendida | number}}</td>
           <td class="text-end">{{ r.costoTotal | currency }}</td>
           <td class="text-end">{{ r.importeVendido | currency }}</td>
@@ -151,7 +148,7 @@
 
       <tfoot *ngIf="rows.length">
         <tr class="fw-bold">
-          <td colspan="3" class="text-end">Totales:</td>
+          <td colspan="4" class="text-end">Totales:</td>
           <td class="text-end">{{ totalCantidad | number}}</td>
           <td class="text-end">{{ totalCosto | currency }}</td>
           <td class="text-end">{{ totalImporte | currency }}</td>

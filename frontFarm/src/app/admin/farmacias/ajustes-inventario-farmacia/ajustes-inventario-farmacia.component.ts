@@ -49,7 +49,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   cargando = false;
   aplicandoCambiosMasivos = false;
 
-  sortBy: 'existencia' | '' = 'existencia';
+  sortBy: 'existencia' | 'nombre' = 'existencia';
   sortDir: 'asc' | 'desc' = 'asc';
 
   constructor(
@@ -133,7 +133,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           } 
         }));
         this.paginaActual = 1;
-        this.cargando = false;
+        this.cargando = false; 
       },
       error: (err) => {
         console.error('Error al buscar inventario', err);
@@ -148,6 +148,12 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     this.buscar();
   }
+
+  clickSortNombre() {
+  this.sortBy = 'nombre';
+  this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+  this.buscar();
+}
 
   seleccionarTodos(event: any) {
     /* this.inventario.forEach(p => p.seleccionado = this.todosSeleccionados); */

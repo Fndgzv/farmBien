@@ -1,246 +1,253 @@
 <!-- <div class="container"> -->
 
-    <div class="titulo-container">
-        <h1 class="titulo">Ajustes de Inventario en {{ nombreFarmaciaSeleccionada }}</h1>
-    </div>
+<div class="titulo-container">
+    <h1 class="titulo">Ajustes de Inventario en {{ nombreFarmaciaSeleccionada }}</h1>
+</div>
 
-    <form [formGroup]="formFiltros" (ngSubmit)="buscar()" class="filter-container">
-        <div class="row">
+<form [formGroup]="formFiltros" (ngSubmit)="buscar()" class="filter-container">
+    <div class="row">
 
-            <div class="col-md-2">
-                <label>Farmacia</label>
-                <select class="form-control" formControlName="farmacia" required>
-                    <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
-                </select>
-            </div>
+        <div class="col-md-2">
+            <label>Farmacia</label>
+            <select class="form-control" formControlName="farmacia" required>
+                <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+            </select>
+        </div>
 
-            <div class="col-md-3">
-                <label class="me-2 mb-0" style="white-space: nowrap;">Nombre</label>
-                <div class="position-relative">
-                    <input type="text" formControlName="nombre" class="form-control pe-4 flex-grow-1">
-                    <button *ngIf="formFiltros.get('nombre')?.value" type="button"
-                        class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                        (click)="limpiarFiltro('nombre')">
-                        <fa-icon [icon]="faTimes"></fa-icon>
-                    </button>
-                </div>
-            </div>
-
-            <div class="col-md-2">
-                <label class="me-2 mb-0" style="white-space: nowrap;">Código de Barras</label>
-                <div class="position-relative">
-                    <input type="text" formControlName="codigoBarras" class="form-control pe-4 flex-grow-1">
-                    <button *ngIf="formFiltros.get('codigoBarras')?.value" type="button"
-                        class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                        (click)="limpiarFiltro('codigoBarras')">
-                        <fa-icon [icon]="faTimes"></fa-icon>
-                    </button>
-                </div>
-            </div>
-
-            <div class="col-md-2">
-                <label class="me-2 mb-0" style="white-space: nowrap;">Categoría</label>
-                <div class="position-relative">
-                    <input type="text" formControlName="categoria" class="form-control pe-4 flex-grow-1">
-                    <button *ngIf="formFiltros.get('categoria')?.value" type="button"
-                        class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                        (click)="limpiarFiltro('categoria')">
-                        <fa-icon [icon]="faTimes"></fa-icon>
-                    </button>
-                </div>
-            </div>
-
-            <div class="col-md-1">
-                <label class="me-2 mb-0" style="white-space: nowrap;">INAPAM</label>
-                <div class="position-relative">
-                    <select class="form-control pe-4 flex-grow-1" formControlName="inapam">
-                        <option value="">--</option>
-                        <option value="true">Sí</option>
-                        <option value="false">No</option>
-                    </select>
-                    <button *ngIf="formFiltros.get('inapam')?.value !== ''" type="button"
-                        class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                        (click)="limpiarFiltro('inapam')">
-                        <fa-icon [icon]="faTimes"></fa-icon>
-                    </button>
-                </div>
-            </div>
-
-            <div class="col-md-1">
-                <label class="me-2 mb-0" style="white-space: nowrap;">Genérico?</label>
-                <div class="position-relative">
-                    <select class="form-control pe-4 flex-grow-1" formControlName="generico">
-                        <option value="">--</option>
-                        <option value="true">Sí</option>
-                        <option value="false">No</option>
-                    </select>
-                    <button *ngIf="formFiltros.get('generico')?.value !== ''" type="button"
-                        class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                        (click)="limpiarFiltro('generico')">
-                        <fa-icon [icon]="faTimes"></fa-icon>
-                    </button>
-                </div>
-            </div>
-
-            <div class="col-md-1 text-end mt-3">
-                <button type="submit" class="btn-gris" [disabled]="cargando">
-                    {{ cargando ? 'Cargando…' : 'Buscar' }}</button>
+        <div class="col-md-3">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Nombre</label>
+            <div class="position-relative">
+                <input type="text" formControlName="nombre" class="form-control pe-4 flex-grow-1">
+                <button *ngIf="formFiltros.get('nombre')?.value" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('nombre')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
             </div>
         </div>
 
-    </form>
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Código de Barras</label>
+            <div class="position-relative">
+                <input type="text" formControlName="codigoBarras" class="form-control pe-4 flex-grow-1">
+                <button *ngIf="formFiltros.get('codigoBarras')?.value" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('codigoBarras')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
 
-    <div *ngIf="inventario.length > 0" class="mt-3">
-        <table class="tabla">
-            <thead class="text-center">
-                <tr style="color: blue;">
-                    <th>AJUSTE MASIVO</th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
-                    <th></th>
-                    <th>
-                        <input [(ngModel)]="ajusteMasivo.existencia" class="form-control form-control-sm" type="number">
-                    </th>
-                    <th>
-                        <input [(ngModel)]="ajusteMasivo.stockMax" class="form-control form-control-sm" type="number">
-                    </th>
-                    <th>
-                        <input [(ngModel)]="ajusteMasivo.stockMin" class="form-control form-control-sm" type="number">
-                    </th>
-                    <th>
-                        <button class="btn-verde-chico" (click)="guardarAjusteMasivo()"
-                            [disabled]="deshabilitarBotonAplicar || aplicandoCambiosMasivos">
-                            {{ aplicandoCambiosMasivos ? 'Guardando…' : 'Aplicar a todos' }}
-                        </button>
-                    </th>
-                    <th></th>
-                </tr>
-                <tr>
-                    <th>
-                        <input type="checkbox" (change)="seleccionarTodos($event)">
-                    </th>
-                    <th>Nombre</th>
-                    <th>Código barras</th>
-                    <th>Ubicación</th>
-                    <th>Categoria</th>
-                    <th>Genérico</th>
-                    <th>INAPAM</th>
-                    <th (click)="clickSortExistencia()" class="th-sort text-center" title="Ordenar por existencia">
-                        Existencia
-                        <i class="bi" [ngClass]="{
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Categoría</label>
+            <div class="position-relative">
+                <input type="text" formControlName="categoria" class="form-control pe-4 flex-grow-1">
+                <button *ngIf="formFiltros.get('categoria')?.value" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('categoria')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-1">
+            <label class="me-2 mb-0" style="white-space: nowrap;">INAPAM</label>
+            <div class="position-relative">
+                <select class="form-control pe-4 flex-grow-1" formControlName="inapam">
+                    <option value="">--</option>
+                    <option value="true">Sí</option>
+                    <option value="false">No</option>
+                </select>
+                <button *ngIf="formFiltros.get('inapam')?.value !== ''" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('inapam')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-1">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Genérico?</label>
+            <div class="position-relative">
+                <select class="form-control pe-4 flex-grow-1" formControlName="generico">
+                    <option value="">--</option>
+                    <option value="true">Sí</option>
+                    <option value="false">No</option>
+                </select>
+                <button *ngIf="formFiltros.get('generico')?.value !== ''" type="button"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('generico')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-1 text-end mt-3">
+            <button type="submit" class="btn-gris" [disabled]="cargando">
+                {{ cargando ? 'Cargando…' : 'Buscar' }}</button>
+        </div>
+    </div>
+
+</form>
+
+<div *ngIf="inventario.length > 0" class="mt-3">
+    <table class="tabla">
+        <thead class="text-center">
+            <tr style="color: blue;">
+                <th>AJUSTE MASIVO</th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th>
+                    <input [(ngModel)]="ajusteMasivo.existencia" class="form-control form-control-sm" type="number">
+                </th>
+                <th>
+                    <input [(ngModel)]="ajusteMasivo.stockMin" class="form-control form-control-sm" type="number">
+                </th>
+                <th>
+                    <input [(ngModel)]="ajusteMasivo.stockMax" class="form-control form-control-sm" type="number">
+                </th>
+                <th>
+                    <button class="btn-verde-chico" (click)="guardarAjusteMasivo()"
+                        [disabled]="deshabilitarBotonAplicar || aplicandoCambiosMasivos">
+                        {{ aplicandoCambiosMasivos ? 'Guardando…' : 'Aplicar a todos' }}
+                    </button>
+                </th>
+                <th></th>
+            </tr>
+            <tr>
+                <th>
+                    <input type="checkbox" (change)="seleccionarTodos($event)">
+                </th>
+                <th (click)="clickSortNombre()" class="th-sort" title="Ordenar por nombre">
+                    Nombre
+                    <i class="bi" [ngClass]="{
+                        'bi-caret-up-fill':   sortBy === 'nombre' && sortDir === 'asc',
+                        'bi-caret-down-fill': sortBy === 'nombre' && sortDir === 'desc',
+                        'bi-caret-up':        sortBy !== 'nombre'
+                        }" style="margin-left:.25rem;">
+                    </i>
+                </th>
+                <th>Ubicación</th>
+                <th>Categoria</th>
+                <th>Genérico</th>
+                <th>INAPAM</th>
+                <th (click)="clickSortExistencia()" class="th-sort text-center" title="Ordenar por existencia">
+                    Existencia
+                    <i class="bi" [ngClass]="{
                             'bi-caret-up-fill':   sortBy === 'existencia' && sortDir === 'asc',
                             'bi-caret-down-fill': sortBy === 'existencia' && sortDir === 'desc',
                             'bi-caret-up':        sortBy !== 'existencia'
                             }" style="margin-left:.25rem;">
-                        </i>
-                    </th>
-                    <th>Stock Máx</th>
-                    <th>Stock Mín</th>
-                    <th>Precio Venta</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr *ngFor="let i of inventarioPaginado;">
-                    <td>
-                        <input type="checkbox" [(ngModel)]="i.seleccionado">
-                    </td>
+                    </i>
+                </th>
+                <th>Stock Mín</th>
+                <th>Stock Máx</th>
+                <th>Precio Venta</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let i of inventarioPaginado;">
+                <td>
+                    <input type="checkbox" [(ngModel)]="i.seleccionado">
+                </td>
 
-                    <td>{{ i.producto?.nombre }}</td>
+                <td class="nombre-cell">
+                    <div class="nombre-text">{{ i.producto?.nombre }}</div>
+                    <small class="codigo-mini">{{ i.producto?.codigoBarras || '—' }}</small>
+                </td>
 
-                    <td>{{ i.producto?.codigoBarras }}</td>
-                    
-                    <td>
-                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.ubicacionEnFarmacia" type="text"
-                            class="form-control form-control-sm">
-                    </td>
+                <td class="col-ubicacion">
+                    <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.ubicacionEnFarmacia" type="text"
+                        class="form-control form-control-sm w-100">
+                </td>
 
-                    <td>{{ i.producto?.categoria }}</td>
+                <td>{{ i.producto?.categoria }}</td>
 
-                    <td class="text-center">
-                        {{ i.producto?.generico ? 'Sí' : 'No' }}
-                    </td>
+                <td class="text-center">
+                    {{ i.producto?.generico ? 'Sí' : 'No' }}
+                </td>
 
-                    <td class="text-center">
-                        {{ i.producto?.descuentoINAPAM ? 'Sí' : 'No' }}
-                    </td>
+                <td class="text-center">
+                    {{ i.producto?.descuentoINAPAM ? 'Sí' : 'No' }}
+                </td>
 
-                    <td>
-                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.existencia" type="number"
-                            class="form-control form-control-sm">
-                    </td>
+                <td>
+                    <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.existencia" type="number"
+                        class="form-control form-control-sm">
+                </td>
 
-                    <td>
-                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMax" type="number"
-                            class="form-control form-control-sm">
-                    </td>
+                <td>
+                    <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMin" type="number"
+                        class="form-control form-control-sm">
+                </td>
 
-                    <td>
-                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMin" type="number"
-                            class="form-control form-control-sm">
-                    </td>
+                <td>
+                    <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMax" type="number"
+                        class="form-control form-control-sm">
+                </td>
 
-                    <td>
-                        <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.precioVenta" type="number"
-                            class="form-control form-control-sm" step="0.1">
-                    </td>
+                <td>
+                    <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.precioVenta" type="number"
+                        class="form-control form-control-sm" step="0.1">
+                </td>
 
-                    <td>
-                        <div class="d-flex justify-content-center">
-                            <!-- Botón Editar -->
-                            <button class="btn-icon-chico btn-gris-chico" [disabled]="estadoEdicion[i._id]"
-                                (click)="habilitarEdicion(i._id)" matTooltip="Editar renglón">
-                                <fa-icon [icon]="faEdit"></fa-icon>
-                            </button>
+                <td>
+                    <div class="d-flex justify-content-center">
+                        <!-- Botón Editar -->
+                        <button class="btn-icon-chico btn-gris-chico" [disabled]="estadoEdicion[i._id]"
+                            (click)="habilitarEdicion(i._id)" matTooltip="Editar renglón">
+                            <fa-icon [icon]="faEdit"></fa-icon>
+                        </button>
 
-                            <!-- Botón Guardar -->
-                            <button class="btn-icon-chico btn-verde-chico"
-                                [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
-                                (click)="guardarFila(i)" matTooltip="Guardar">
-                                <fa-icon *ngIf="estadoGuardado[i._id] === 'guardando'" [icon]="faSpinner"
-                                    class="fa-spin"></fa-icon>
-                                <fa-icon *ngIf="estadoGuardado[i._id] === 'exito'" [icon]="faCheck"></fa-icon>
-                                <fa-icon *ngIf="!estadoGuardado[i._id] || estadoGuardado[i._id] === 'idle'"
-                                    [icon]="faSave"></fa-icon>
-                            </button>
+                        <!-- Botón Guardar -->
+                        <button class="btn-icon-chico btn-verde-chico"
+                            [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
+                            (click)="guardarFila(i)" matTooltip="Guardar">
+                            <fa-icon *ngIf="estadoGuardado[i._id] === 'guardando'" [icon]="faSpinner"
+                                class="fa-spin"></fa-icon>
+                            <fa-icon *ngIf="estadoGuardado[i._id] === 'exito'" [icon]="faCheck"></fa-icon>
+                            <fa-icon *ngIf="!estadoGuardado[i._id] || estadoGuardado[i._id] === 'idle'"
+                                [icon]="faSave"></fa-icon>
+                        </button>
 
-                            <!-- Botón Cancelar -->
-                            <button class="btn-icon-chico btn-rojo-chico"
-                                [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
-                                (click)="cancelarEdicion(i)" matTooltip="Cancelar">
-                                <fa-icon [icon]="faTimes"></fa-icon>
-                            </button>
-                        </div>
-                    </td>
+                        <!-- Botón Cancelar -->
+                        <button class="btn-icon-chico btn-rojo-chico"
+                            [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
+                            (click)="cancelarEdicion(i)" matTooltip="Cancelar">
+                            <fa-icon [icon]="faTimes"></fa-icon>
+                        </button>
+                    </div>
+                </td>
 
-                </tr>
-            </tbody>
+            </tr>
+        </tbody>
 
-        </table>
-    </div>
+    </table>
+</div>
 
-    <div class="paginacion">
-        <button (click)="irAPrimera()" [disabled]="paginaActual === 1" matTooltip="Primera página">
-            <i class="fa fa-angle-double-left"></i>
-        </button>
+<div class="paginacion">
+    <button (click)="irAPrimera()" [disabled]="paginaActual === 1" matTooltip="Primera página">
+        <i class="fa fa-angle-double-left"></i>
+    </button>
 
-        <button (click)="paginaAnterior()" [disabled]="paginaActual === 1" matTooltip="Anterior">
-            <i class="fa fa-angle-left"></i>
-        </button>
+    <button (click)="paginaAnterior()" [disabled]="paginaActual === 1" matTooltip="Anterior">
+        <i class="fa fa-angle-left"></i>
+    </button>
 
-        Página {{ paginaActual }} de {{ totalPaginas }}
-        <span class="total-registros">({{ inventario.length }} productos)</span>
+    Página {{ paginaActual }} de {{ totalPaginas }}
+    <span class="total-registros">({{ inventario.length }} productos)</span>
 
-        <button (click)="paginaSiguiente()" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
-            <i class="fa fa-angle-right"></i>
-        </button>
+    <button (click)="paginaSiguiente()" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
+        <i class="fa fa-angle-right"></i>
+    </button>
 
-        <button (click)="irAUltima()" [disabled]="paginaActual === totalPaginas" matTooltip="Última página">
-            <i class="fa fa-angle-double-right"></i>
-        </button>
-    </div>
+    <button (click)="irAUltima()" [disabled]="paginaActual === totalPaginas" matTooltip="Última página">
+        <i class="fa fa-angle-double-right"></i>
+    </button>
+</div>
 
 <!-- </div> -->

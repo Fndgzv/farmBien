@@ -4,8 +4,9 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import {
   faScaleBalanced, faSackDollar, faUser, faHospital, faUserDoctor, faCapsules, faUsers, faReceipt,
-  faTruck, faShoppingCart, faCashRegister, faUndo, faPrescription, 
-  faFileSignature, faStethoscope, faClipboardList, faWarehouse, faChartLine, faDiagramProject
+  faTruck, faShoppingCart, faCashRegister, faUndo, faPrescription,
+  faFileSignature, faStethoscope, faClipboardList, faWarehouse, faChartLine, faDiagramProject,
+  faTags, faPrint, faPenRuler
 } from '@fortawesome/free-solid-svg-icons';
 import { AuthService } from '../../services/auth.service';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
@@ -33,8 +34,12 @@ export class SidebarComponent implements OnInit {
 
   public icons = {
     reporteVentas: faChartLine,
-    faReceipt : faReceipt, // o faProjectDiagram en FA v5
+    faReceipt: faReceipt, // o faProjectDiagram en FA v5
   };
+
+  faTags = faTags;           // sección
+  faPrint = faPrint;         // impresión
+  faPenRuler = faPenRuler;   // diseño
 
   constructor(
     private authService: AuthService,
@@ -48,7 +53,7 @@ export class SidebarComponent implements OnInit {
       faUserDoctor, faCapsules,
       faUsers, faTruck, faShoppingCart, faCashRegister,
       faUndo, faFileSignature, faStethoscope, faPrescription,
-      faClipboardList, faWarehouse, faChartLine, faDiagramProject
+      faClipboardList, faWarehouse, faChartLine, faDiagramProject,
     );
 
   }
