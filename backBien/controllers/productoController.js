@@ -640,10 +640,23 @@ const validarLotesDuplicados = (lotes) => {
   return true;
 }
 
-const validarFechasLotes = (lotes) => {
+const validarFechasLotes = (lotes = []) => {
+  if (!Array.isArray(lotes)) return true;
+
   const hoy = new Date();
-  return lotes.every(l => new Date(l.fechaCaducidad) > hoy);
-}
+  hoy.setHours(0, 0, 0, 0); // comparar solo fecha
+
+  return lotes.every(l => {
+    const fc = l && l.fechaCaducidad;
+
+    // ✅ considerar vacío como válido
+    if (fc === null || fc === undefined || fc === '') return true;
+
+    const d = new Date(fc);
+    return !isNaN(d.getTime()) && d > hoy; // usa >= si quieres permitir hoy
+  });
+};
+
 
 const validarPorcentaje = (valor) => {
   return valor >= 0 && valor <= 100;

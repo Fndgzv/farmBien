@@ -1,4 +1,4 @@
-import { Component, ElementRef, QueryList, ViewChildren, ChangeDetectorRef, AfterViewInit } from '@angular/core';
+import { Component, ElementRef, QueryList, ViewChild, ViewChildren, ChangeDetectorRef, AfterViewInit, NgZone } from '@angular/core';
 import { LabelDesign, LabelElement } from '../../../core/models/label-design.model';
 import { LabelDesignsService } from '../../../core/services/label-designs.service';
 import { LabelsProductsService } from '../../../core/services/labels-products.service';
@@ -33,12 +33,13 @@ export class EtiquetasPrintComponent {
   farmaciaId: string = '';
 
   @ViewChildren('printBarcode') printBarcodes!: QueryList<ElementRef<SVGElement>>;
-
+  @ViewChild('printHost') printHost!: ElementRef<HTMLElement>;
+  
   constructor(
     private designsSvc: LabelDesignsService,
     private prodSvc: LabelsProductsService,
     private farmacia: FarmaciaService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef, private zone: NgZone
   ) { }
 
   ngAfterViewInit() {
@@ -66,7 +67,6 @@ export class EtiquetasPrintComponent {
     const svgs = this.printBarcodes?.toArray() || [];
     let idx = 0;
 
-    // recorre tus items y elementos del diseño en el mismo orden que en el template
     for (const item of this.itemsParaImprimir) {
       for (const el of this.design?.elements || []) {
         if (el.type !== 'barcode') continue;
@@ -75,7 +75,7 @@ export class EtiquetasPrintComponent {
 
         const valor = this.valorCampo(item, { ...el, field: 'codigoBarras' } as any) || '';
         if ((el.barcode?.symbology || 'CODE128') === 'QR') {
-          svg.innerHTML = ''; // (pendiente: lib QR)
+          svg.innerHTML = ''; // (pendiente lib QR)
           continue;
         }
 
@@ -88,6 +88,67 @@ export class EtiquetasPrintComponent {
         });
       }
     }
+  }
+
+private svgToDataUrl(svg: Element): string {
+  const xml = new XMLSerializer().serializeToString(svg as SVGElement);
+  const encoded = window.btoa(unescape(encodeURIComponent(xml)));
+  return `data:image/svg+xml;base64,${encoded}`;
+}
+
+  private replaceBarcodesWithImages(host: HTMLElement) {
+    const svgs = Array.from(host.querySelectorAll('svg.barcode'));
+    for (const svg of svgs) {
+      const img = document.createElement('img');
+      img.src = this.svgToDataUrl(svg);
+      img.style.width = (svg as any).style?.width || '100%';
+      img.style.height = (svg as any).style?.height || '100%';
+      svg.replaceWith(img);
+    }
+  }
+
+  private buildPrintHtml(contentEl: HTMLElement): string {
+    // incluye estilos mínimos para la página de impresión
+    const styles = `
+    <style>
+      @page { margin: 0; }
+      html, body { margin: 0; padding: 0; }
+      .page { margin: 0 auto; }
+      .labels-grid { display: grid; }
+      .label-box { background:#fff; position: relative; }
+      .label-inner { position: relative; width:100%; height:100%; }
+      .el { position:absolute; }
+    </style>
+  `;
+    return `<!doctype html>
+<html>
+<head><meta charset="utf-8">${styles}</head>
+<body>${contentEl.outerHTML}</body>
+</html>`;
+  }
+
+  private printViaIframe(html: string) {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument!;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    // espera a que el iframe procese layout
+    setTimeout(() => {
+      iframe.contentWindow!.focus();
+      iframe.contentWindow!.print();
+      // limpiar
+      setTimeout(() => document.body.removeChild(iframe), 500);
+    }, 50);
   }
 
   cargarFarmacias() {
@@ -139,23 +200,30 @@ export class EtiquetasPrintComponent {
   previsualizar() {
     if (!this.design || this.seleccionados.length === 0) return;
 
-    // arma itemsParaImprimir como ya lo haces…
+    // preparar data…
     this.mostrarPrint = true;
 
-    // espera a que Angular pinte el overlay
+    // Espera a que Angular pinte el overlay
     setTimeout(() => {
-      // fuerza un ciclo de CD para que ViewChildren detecte los SVGs
       this.cdr.detectChanges();
 
-      // dibuja los barcodes en la vista de impresión
+      // 1) Render barcodes en el DOM de impresión
       this.renderPrintBarcodes();
+      this.cdr.detectChanges();
 
-      // espera un frame y luego dispara la impresión
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          window.print();
-        }, 50);
-      });
+      // 2) Clonar el host, reemplazar SVGs por IMG dataURL, e imprimir en iframe
+      const clone = this.printHost.nativeElement.cloneNode(true) as HTMLElement;
+      this.replaceBarcodesWithImages(clone);
+      const html = this.buildPrintHtml(clone);
+
+      // 3) Imprimir en iframe (sin bloquear la app)
+      this.printViaIframe(html);
+
+      // 4) Cerrar overlay al terminar (afterprint del window principal no se dispara para el iframe)
+      setTimeout(() => {
+        this.mostrarPrint = false;
+        this.cdr.detectChanges();
+      }, 300);
     }, 0);
   }
 

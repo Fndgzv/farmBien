@@ -31,6 +31,7 @@
             </div>
             <!-- Lotes -->
             <div formArrayName="lotes">
+                
                 <label class="subtitulo-edit">Lotes:</label>
                 <div *ngFor="let lote of lotesFormArray.controls; let i = index" [formGroupName]="i"
                     class="edit-seccion">
@@ -112,7 +113,7 @@
         <div class="modal-buttons">
             <button class="btn-rojo-chico" (click)="cerrarModal()">Cancelar</button>
             <button class="btn-verde-chico btn-right" (click)="guardarProducto()"
-                [disabled]="formulario.invalid">Guardar</button>
+                [disabled]="!formOkSinLotes()">Guardar</button>
         </div>
 
     </div>

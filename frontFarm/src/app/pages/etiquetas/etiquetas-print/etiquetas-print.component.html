@@ -49,7 +49,7 @@
 </div>
 
 <!-- Contenedor oculto que se muestra sólo al imprimir -->
-<div class="etiquetas-impresion" *ngIf="mostrarPrint">
+<div class="etiquetas-impresion" *ngIf="mostrarPrint"  #printHost>
   <div class="page" [style.width]="(design?.pageWidthMm || 210) + 'mm'"
      [style.height]="(design?.pageHeightMm || 297) + 'mm'">
 
