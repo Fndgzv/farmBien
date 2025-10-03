@@ -1,4 +1,3 @@
-<!-- label-designer.component.html -->
 <div class="designer">
   <div class="sidebar">
     <h3>Diseño</h3>
@@ -7,19 +6,19 @@
 
     <h4>Tamaño etiqueta (mm)</h4>
     <div class="grid">
-      <label>Ancho</label><input type="number" [(ngModel)]="design.size.widthMm">
-      <label>Alto</label><input type="number" [(ngModel)]="design.size.heightMm">
-      <label>Margen</label><input type="number" [(ngModel)]="design.size.marginMm">
+      <label>Ancho</label><input type="number" [(ngModel)]="design.widthMm">
+      <label>Alto</label><input type="number" [(ngModel)]="design.heightMm">
+      <label>Margen</label><input type="number" [(ngModel)]="design.marginMm">
     </div>
 
     <h4>Hoja (mm)</h4>
     <div class="grid">
-      <label>Page W</label><input type="number" [(ngModel)]="design.layout.pageWidthMm">
-      <label>Page H</label><input type="number" [(ngModel)]="design.layout.pageHeightMm">
-      <label>Cols</label><input type="number" [(ngModel)]="design.layout.columns">
-      <label>Rows</label><input type="number" [(ngModel)]="design.layout.rows">
-      <label>Gap X</label><input type="number" [(ngModel)]="design.layout.gapXmm">
-      <label>Gap Y</label><input type="number" [(ngModel)]="design.layout.gapYmm">
+      <label>Page W</label><input type="number" [(ngModel)]="design.pageWidthMm">
+      <label>Page H</label><input type="number" [(ngModel)]="design.pageHeightMm">
+      <label>Cols</label><input type="number" [(ngModel)]="design.cols">
+      <label>Rows</label><input type="number" [(ngModel)]="design.rows">
+      <label>Gap X</label><input type="number" [(ngModel)]="design.gapXmm">
+      <label>Gap Y</label><input type="number" [(ngModel)]="design.gapYmm">
     </div>
 
     <h4>Agregar elemento</h4>
@@ -32,6 +31,7 @@
     <div *ngIf="selected">
       <h4>Propiedades</h4>
       <div>Tipo: {{selected.type}}</div>
+
       <div *ngIf="selected.type!=='barcode'">
         <label>Fuente (pt)</label><input type="number" [(ngModel)]="selected.fontSize">
         <label><input type="checkbox" [(ngModel)]="selected.bold"> Negritas</label>
@@ -43,6 +43,7 @@
         <label>Suffix</label><input [(ngModel)]="selected.suffix">
         <label><input type="checkbox" [(ngModel)]="selected.uppercase"> MAYÚSCULAS</label>
       </div>
+
       <div *ngIf="selected.type==='barcode'">
         <label>Símbolo</label>
         <select [(ngModel)]="selected.barcode!.symbology">
@@ -55,6 +56,7 @@
         <label>Height(px)</label><input type="number" [(ngModel)]="selected.barcode!.height">
         <label><input type="checkbox" [(ngModel)]="selected.barcode!.displayValue"> Mostrar texto</label>
       </div>
+
       <button (click)="deleteSelected()">Eliminar elemento</button>
     </div>
 
@@ -67,12 +69,12 @@
   <!-- Área de etiqueta (preview) -->
   <div class="canvas-wrap">
     <div class="label-canvas"
-         [style.width.mm]="design.size.widthMm"
-         [style.height.mm]="design.size.heightMm"
+         [style.width]="design.widthMm + 'mm'"
+         [style.height]="design.heightMm + 'mm'"
          (click)="selected=null">
 
-      <div class="label-inner" [style.padding.mm]="design.size.marginMm">
-        <div *ngFor="let el of design.elements"
+      <div class="label-inner" [style.padding]="(design.marginMm || 0) + 'mm'">
+        <div *ngFor="let el of design.elements; let idx = index"
              class="el"
              [class.selected]="el===selected"
              [style.left.%]="el.x"
@@ -94,7 +96,6 @@
 
             <div *ngSwitchCase="'barcode'">
               <svg #barcodeSvg></svg>
-              <!-- En el TS, al renderizar, usamos JsBarcode sobre ese SVG con un valor de muestra -->
             </div>
           </ng-container>
         </div>
@@ -104,7 +105,9 @@
     <div class="design-list">
       <h4>Mis diseños guardados</h4>
       <ul>
-        <li *ngFor="let d of disenos" (click)="load(d)" [class.active]="d._id===design._id">
+        <li *ngFor="let d of disenos"
+            (click)="load(d)"
+            [class.active]="d._id===design._id">
           {{ d.nombre }}
           <button class="mini" (click)="remove(d, $event)">Borrar</button>
         </li>

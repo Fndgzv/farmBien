@@ -2,9 +2,9 @@
 const mongoose = require("mongoose");
 
 const LoteSchema = new mongoose.Schema({
-    lote: { type: String, required: true },
-    fechaCaducidad: { type: Date, required: true },
-    cantidad: { type: Number, required: true } // Se irá restando conforme se vendan productos
+    lote: { type: String },
+    fechaCaducidad: { type: Date },
+    cantidad: { type: Number } // Se irá restando conforme se vendan productos
 });
 
 const ProductoSchema = new mongoose.Schema({

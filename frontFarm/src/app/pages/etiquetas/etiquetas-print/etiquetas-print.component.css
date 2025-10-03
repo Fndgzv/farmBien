@@ -18,12 +18,7 @@
 .el { position: absolute; }
 
 @media print {
-  .barra, .tabla, .designer { display: none !important; }
-  .etiquetas-impresion { display: block; }
-  @page {
-    margin: 0;
-    /* Si quieres forzar tamaño exacto:
-       size: 210mm 297mm;  // A4
-     */
-  }
+  .barra, .tabla { display: none !important; }
+  .etiquetas-impresion { display: block !important; position: static !important; }
+  html, body { height: auto !important; }
 }

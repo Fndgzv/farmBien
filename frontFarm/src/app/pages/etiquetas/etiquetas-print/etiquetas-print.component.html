@@ -17,9 +17,9 @@
 
     <input placeholder="Filtrar por nombre" [(ngModel)]="fNombre" (keyup.enter)="buscar()" [disabled]="!farmaciaId">
     <input placeholder="Categoría" [(ngModel)]="fCategoria" (keyup.enter)="buscar()" [disabled]="!farmaciaId">
-    <button (click)="buscar()" [disabled]="!farmaciaId">Buscar</button>
+    <button class="btn-gris" (click)="buscar()" [disabled]="!farmaciaId">Buscar</button>
 
-    <button [disabled]="!farmaciaId || seleccionados.length===0 || !design" (click)="previsualizar()">
+    <button class="btn-amarillo" [disabled]="!farmaciaId || seleccionados.length===0 || !design" (click)="previsualizar()">
       Previsualizar / Imprimir
     </button>
   </div>
@@ -50,15 +50,18 @@
 
 <!-- Contenedor oculto que se muestra sólo al imprimir -->
 <div class="etiquetas-impresion" *ngIf="mostrarPrint">
-  <div class="page" [style.width.mm]="design!.layout.pageWidthMm" [style.height.mm]="design!.layout.pageHeightMm">
+  <div class="page" [style.width]="(design?.pageWidthMm || 210) + 'mm'"
+     [style.height]="(design?.pageHeightMm || 297) + 'mm'">
 
-    <div class="labels-grid" [style.gap]="design!.layout.gapYmm + 'mm ' + design!.layout.gapXmm + 'mm'"
-      [style.gridTemplateColumns]="'repeat(' + design!.layout.columns + ', ' + design!.size.widthMm + 'mm)'"
-      [style.gridTemplateRows]="'repeat(' + design!.layout.rows + ', ' + design!.size.heightMm + 'mm)'">
+    <div class="labels-grid"
+        [style.gap]="(design?.gapYmm || 0) + 'mm ' + (design?.gapXmm || 0) + 'mm'"
+        [style.gridTemplateColumns]="'repeat(' + (design?.cols || 1) + ', ' + (design?.widthMm || 0) + 'mm)'"
+        [style.gridTemplateRows]="'repeat(' + (design?.rows || 1) + ', ' + (design?.heightMm || 0) + 'mm)'">
 
       <ng-container *ngFor="let item of itemsParaImprimir">
-        <div class="label-box" [style.width.mm]="design!.size.widthMm" [style.height.mm]="design!.size.heightMm">
-          <div class="label-inner" [style.padding.mm]="design!.size.marginMm">
+        <div class="label-box" [style.width]="(design?.widthMm || 0) + 'mm'"
+         [style.height]="(design?.heightMm || 0) + 'mm'">
+          <div class="label-inner" [style.padding]="(design?.marginMm || 0) + 'mm'">
             <!-- Renderizamos cada elemento del diseño con los datos del producto -->
             <ng-container *ngFor="let el of design!.elements">
               <div class="el" [style.left.%]="el.x" [style.top.%]="el.y" [style.width.%]="el.w" [style.height.%]="el.h"

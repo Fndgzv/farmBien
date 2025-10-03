@@ -1,20 +1,21 @@
 import { Component, ElementRef, QueryList, ViewChildren } from '@angular/core';
-import { LabelDesign, LabelElement } from '../../../core/models/label-design.model';
-import { LabelDesignsService } from '../../../core/services/label-designs.service';
-import JsBarcode from 'jsbarcode';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 
+import { LabelDesign, LabelElement } from '../../../core/models/label-design.model';
+import { LabelDesignsService } from '../../../core/services/label-designs.service';
+import JsBarcode from 'jsbarcode';
+
 @Component({
   selector: 'app-label-designer',
+  standalone: true,
   templateUrl: './label-designer.component.html',
   styleUrls: ['./label-designer.component.css'],
-  standalone: true,
   imports: [ FormsModule, CommonModule, DragDropModule ]
 })
 export class LabelDesignerComponent {
-  design: LabelDesign = this.blank();
+  design: LabelDesign = this.blankDesign();
   disenos: LabelDesign[] = [];
   selected: LabelElement | null = null;
 
@@ -24,28 +25,68 @@ export class LabelDesignerComponent {
 
   ngOnInit() { this.refreshList(); }
 
-  blank(): LabelDesign {
+  blankDesign(): LabelDesign {
     return {
-      nombre: 'Nuevo diseño',
-      size: { widthMm: 50, heightMm: 30, marginMm: 2 },
-      layout: { pageWidthMm: 210, pageHeightMm: 297, columns: 4, rows: 8, gapXmm: 2, gapYmm: 2 },
+      nombre: '',
+      widthMm: 50,
+      heightMm: 30,
+      marginMm: 2,
+      gapXmm: 2,
+      gapYmm: 2,
+      cols: 3,
+      rows: 8,
       elements: []
     };
   }
 
-  refreshList() { this.svc.list().subscribe(d => this.disenos = d); }
-  load(d: LabelDesign) { this.design = JSON.parse(JSON.stringify(d)); this.selected = null; setTimeout(()=>this.renderBarcodes(),0); }
-  nuevo() { this.design = this.blank(); this.selected = null; }
+  refreshList() {
+    this.svc.list().subscribe(d => this.disenos = d || []);
+  }
 
-  addText(field: LabelElement['field']) {
-    this.design.elements.push({ type: 'text', field, x: 5, y: 5, w: 60, h: 10, fontSize: 9, align:'left', bold:false, uppercase:false, prefix:'', suffix:'' });
+  load(d: LabelDesign) {
+    if (d?._id) {
+      this.svc.get(d._id).subscribe(full => this.design = full);
+    } else {
+      this.design = { ...d }; // fallback
+    }
   }
+
+  nuevo() {
+    this.design = this.blankDesign();
+    this.selected = null;
+  }
+
+  addText(field: NonNullable<LabelElement['field']>) {
+    this.design.elements.push({
+      type: 'text',
+      field,
+      x: 5, y: 5, w: 60, h: 10,
+      fontSize: 9,
+      align:'left',
+      bold:false,
+      uppercase:false,
+      prefix:'',
+      suffix:''
+    });
+  }
+
   addPrice() {
-    this.design.elements.push({ type: 'price', field: 'precioVenta', x: 5, y: 20, w: 60, h: 15, fontSize: 16, align:'left', bold:true, prefix:'$' });
+    this.design.elements.push({
+      type: 'price',
+      field: 'precioVenta',
+      x: 5, y: 20, w: 60, h: 15,
+      fontSize: 16, align:'left', bold:true, prefix:'$'
+    });
   }
+
   addBarcode() {
-    this.design.elements.push({ type: 'barcode', field: 'codigoBarras', x: 5, y: 40, w: 80, h: 25, barcode: { symbology:'CODE128', width:1, height:30, displayValue:false } });
-    setTimeout(()=>this.renderBarcodes(),0);
+    this.design.elements.push({
+      type: 'barcode',
+      field: 'codigoBarras',
+      x: 5, y: 40, w: 80, h: 25,
+      barcode: { symbology:'CODE128', width:1, height:30, displayValue:false }
+    });
+    setTimeout(() => this.renderBarcodes(), 0);
   }
 
   deleteSelected() {
@@ -55,7 +96,6 @@ export class LabelDesignerComponent {
   }
 
   onDragEnd(ev: any, el: LabelElement) {
-    // Convertimos px a % respecto al contenedor; más sencillo: usamos boundingClientRect
     const host: HTMLElement = (ev.source.element.nativeElement as HTMLElement).parentElement!;
     const rect = host.getBoundingClientRect();
     const pos = ev.source.getFreeDragPosition();
@@ -79,37 +119,40 @@ export class LabelDesignerComponent {
   }
 
   sampleValue(el: LabelElement) {
-    const map = {
-      nombre: 'Paracetamol 500mg 24 tabs',
-      renglon1: 'Caja c/24',
-      renglon2: 'Lote A123',
+    const map: any = {
+      nombre: 'Ciprofloxacino 3.5 mg / Dexametasona 1 mg / 1 mL SONS C/5 mL Sol Oftalmica',
+      renglon1: 'Ciprofloxacino / Dexametasona',
+      renglon2: '3.5 mg /1 mg / 1 mL C/5 mL',
       codigoBarras: '7501234567890',
       precioVenta: '123.45',
       custom: el.text || 'Texto fijo'
-    } as any;
+    };
 
-    let v = map[el.field || 'nombre'] || '';
+    const key = el.field || 'nombre';
+    let v = map[key] || '';
     if (el.uppercase) v = String(v).toUpperCase();
     return `${el.prefix || ''}${v}${el.suffix || ''}`;
   }
 
   formatPrice(val: number, el: LabelElement) {
-    const v = (el.prefix || '$') + val.toFixed(2);
+    const v = (el.prefix || '$') + Number(val || 0).toFixed(2);
     return el.uppercase ? v.toUpperCase() : v;
   }
 
   renderBarcodes() {
-    const values = this.barcodeSvgs.toArray();
-    this.design.elements.forEach((el, idx) => {
+    const svgs = this.barcodeSvgs.toArray();
+    let idxSvg = 0;
+    this.design.elements.forEach((el) => {
       if (el.type !== 'barcode') return;
-      const svg = values.shift()?.nativeElement;
+      const svg = svgs[idxSvg++]?.nativeElement;
       if (!svg) return;
-      const valor = this.sampleValue({ ...el, field: 'codigoBarras' } as any);
+
       if (el.barcode?.symbology === 'QR') {
-        // Para QR, más adelante (otra lib). Nos quedamos con CODE128/EAN para empezar.
-        svg.innerHTML = ''; // placeholder
+        svg.innerHTML = ''; // placeholder; futuro usar librería QR
         return;
       }
+
+      const valor = this.sampleValue({ ...el, field: 'codigoBarras' });
       JsBarcode(svg, valor, {
         format: el.barcode?.symbology || 'CODE128',
         width: el.barcode?.width || 1,
@@ -121,16 +164,32 @@ export class LabelDesignerComponent {
   }
 
   save() {
-    if (this.design._id) {
-      this.svc.update(this.design._id, this.design).subscribe(d => { this.design = d; this.refreshList(); });
-    } else {
-      this.svc.create(this.design).subscribe(d => { this.design = d; this.refreshList(); });
+    const d = this.design;
+    if (!d || !d.nombre?.trim()) {
+      alert('Ponle un nombre al diseño.');
+      return;
     }
+    if (!d.widthMm || !d.heightMm) {
+      alert('Define el tamaño de la etiqueta (ancho/alto en mm).');
+      return;
+    }
+    if (!Array.isArray(d.elements)) d.elements = [];
+
+    const req$ = d._id ? this.svc.update(d._id, d) : this.svc.create(d);
+    req$.subscribe({
+      next: resp => { this.design = resp; this.refreshList(); },
+      error: err => {
+        console.error('Error al guardar diseño', err);
+        const msg = err?.error?.error || err?.error?.mensaje || err?.message || 'No se pudo guardar el diseño';
+        alert(msg);
+      }
+    });
   }
 
   remove(d: LabelDesign, ev: MouseEvent) {
     ev.stopPropagation();
+    if (!d._id) return;
     if (!confirm(`¿Eliminar diseño "${d.nombre}"?`)) return;
-    this.svc.remove(d._id!).subscribe(() => this.refreshList());
+    this.svc.remove(d._id).subscribe(() => this.refreshList());
   }
 }
