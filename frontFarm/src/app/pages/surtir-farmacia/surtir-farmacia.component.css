@@ -1,7 +1,30 @@
 .surtir-farmacia {
-    max-width: 90%;
+    max-width: 100%;
     margin: 1rem auto;
     padding: 0 1rem;
+}
+
+.omitido {
+  opacity: .55;
+}
+
+.chk-omit{
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  -moz-appearance: checkbox;
+
+  /* reset de cualquier escala/zoom global */
+  transform: none;
+  zoom: 1;
+
+  /* algunos engines respetan width/height de inputs nativos */
+  width: 16px;
+  height: 16px;
+
+  vertical-align: middle;
+  margin: 0;          /* evita que se vea descentrado en celdas estrechas */
+  padding: 0;
+  cursor: pointer;
 }
 
 form {

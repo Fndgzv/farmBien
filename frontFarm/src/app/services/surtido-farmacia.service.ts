@@ -15,7 +15,7 @@ export class SurtidoFarmaciaService {
     return this.http.put<{ pendientes: any[] }>(this.apiUrl, { farmaciaId, confirm: false });
   }
 
-  surtirFarmacia(farmaciaId: string) {
-    return this.http.put(this.apiUrl, { farmaciaId, confirm: true });
+  surtirFarmacia(farmaciaId: string, detalles: { producto: string, omitir: boolean }[]) {
+    return this.http.put(this.apiUrl, { farmaciaId, confirm: true, detalles });
   }
 }

@@ -141,11 +141,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   /* Configuración de la escala de la imagen en los renglones de la tabla */
   thumbScale = 2; scales = [1, 1.5, 2, 2.5, 3, 3.5, 4];
-  private leerEscalaGuardada(): number | null {
-    const raw = localStorage.getItem('thumbScale');
-    const n = raw != null ? Number(raw) : NaN;
-    return Number.isFinite(n) ? n : null;
-  }
   /* Fin configuracion de la escala de imágenes */
 
   onScaleChange(v: number) {

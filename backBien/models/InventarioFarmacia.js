@@ -1,3 +1,4 @@
+// backBien\models\InventarioFarmacia.js
 const mongoose = require("mongoose");
 const InventarioFarmaciaSchema = new mongoose.Schema({
     farmacia: { type: mongoose.Schema.Types.ObjectId, ref: 'Farmacia' },

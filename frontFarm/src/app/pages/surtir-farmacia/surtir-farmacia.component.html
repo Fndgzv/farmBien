@@ -1,8 +1,9 @@
-<!-- surtir-farmacia.component.html -->
+<!-- frontFarm/src/app/pages/surtir-farmacia.component.html -->
 <div class="surtir-farmacia">
   <div class="titulo-container">
     <p class="titulo">Surtir Farmacias</p>
   </div>
+
   <form [formGroup]="form" (ngSubmit)="onAceptar()" style="border-bottom:2px solid #0453b3; padding-bottom: 1rem;">
     <label>
       <span class="subtitulo">Farmacia:</span>
@@ -14,25 +15,46 @@
       </select>
     </label>
     <button type="submit" class="btn-gris" [disabled]="form.invalid || cargando || pendientes.length > 0"
-        matTooltip="Buscar productos que requieren surtirse">
+      matTooltip="Buscar productos que requieren surtirse">
       {{ cargando ? 'Cargando…' : 'Aceptar' }}
     </button>
   </form>
 
+  <div *ngIf="pendientes.length" class="toolbar" style="margin: .5rem 0; display:flex; gap:.5rem; align-items:center;">
+    <button class="btn-gris" (click)="omitirTodos()" matTooltip="Marca todos como omitidos">Omitir todos</button>
+    <button class="btn-gris" (click)="quitarOmisiones()" matTooltip="Quita todas las omisiones">Quitar
+      omisiones</button>
+    <span style="margin-left:auto; font-size: .9rem;">
+      Omitidos: <strong>{{ totalOmitidos }}</strong> / {{ rows.length }}
+    </span>
+    <div *ngIf="pendientes.length" class="toolbar"
+      style="margin: .5rem 0; display:flex; gap:.5rem; align-items:center;">
+      <button class="btn-amarillo" (click)="imprimirPrevia()" matTooltip="Imprime la hoja de surtido con las omisiones">
+        Imprimir previa
+      </button>
+    </div>
+
+  </div>
+
   <table *ngIf="pendientes.length" class="tabla">
     <thead>
       <tr>
+        <th>Omit</th>
         <th>Producto</th>
         <th>Cód. Barras</th>
         <th>Existencia</th>
         <th>Stock Mínimo</th>
         <th>Stock Máximo</th>
         <th>Cantidad a Surtir</th>
-        <th>Disponible Almacen</th>
+        <th>Disponible Almacén</th>
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let p of pagedRows">
+      <tr *ngFor="let p of pagedRows; trackBy: trackByProd" [class.omitido]="p.omitir">
+        <td style="text-align:center;">
+          <input type="checkbox" class="chk-omit" [(ngModel)]="p.omitir" name="omitir_{{ p.producto }}"
+            [attr.aria-label]="'Omitir ' + p.nombre" matTooltip="Si está activado, este producto no se surtirá" />
+        </td>
         <td>{{ p.nombre }}</td>
         <td>{{ p.codigoBarras }}</td>
         <td>{{ p.existenciaActual }}</td>
@@ -62,9 +84,11 @@
     </button>
   </div>
 
-
   <div *ngIf="pendientes.length" class="botones-accion">
     <button (click)="onCancelar()" class="btn-rojo" matTooltip="Quitar lista sin surtir">Cancelar</button>
-    <button (click)="onSurtir()" class="btn-verde a-la-derecha" matTooltip="Surtir los productos de la lista">Surtir</button>
+    <button (click)="onSurtir()" class="btn-verde a-la-derecha"
+      [disabled]="rows.length > 0 && totalOmitidos === rows.length" matTooltip="Surtir los productos de la lista">
+      Surtir
+    </button>
   </div>
 </div>
