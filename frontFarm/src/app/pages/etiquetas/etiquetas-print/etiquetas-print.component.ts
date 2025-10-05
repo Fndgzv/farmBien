@@ -9,13 +9,14 @@ import { DragDropModule } from '@angular/cdk/drag-drop';
 
 import { Farmacia, FarmaciaService } from '../../../services/farmacia.service'
 import Swal from 'sweetalert2';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-etiquetas-print',
   templateUrl: './etiquetas-print.component.html',
   styleUrls: ['./etiquetas-print.component.css'],
   standalone: true,
-  imports: [FormsModule, CommonModule, DragDropModule]
+  imports: [FormsModule, CommonModule, DragDropModule, MatTooltipModule]
 })
 export class EtiquetasPrintComponent {
   disenos: LabelDesign[] = [];
@@ -32,20 +33,28 @@ export class EtiquetasPrintComponent {
   farmacias: Farmacia[] = [];
   farmaciaId: string = '';
 
-  @ViewChildren('printBarcode') printBarcodes!: QueryList<ElementRef<SVGElement>>;
+
   @ViewChild('printHost') printHost!: ElementRef<HTMLElement>;
-  
+  @ViewChildren('printBarcode') printBarcodes!: QueryList<ElementRef<HTMLCanvasElement>>;
+
+  get seleccionados() { return this.productos.filter(p => p._checked); }
+  page = 1;
+  limit = 20;
+  totalFiltrado = 0;
+  totalPages = 1;
+
+  // Estado global de selección (todas las páginas)
+  selectedIds = new Set<string>();
+  selectedItems = new Map<string, any>(); // guarda el producto seleccionado tal cual llegó
+
+  get totalSeleccionados() { return this.selectedIds.size; }
+
   constructor(
     private designsSvc: LabelDesignsService,
     private prodSvc: LabelsProductsService,
     private farmacia: FarmaciaService,
     private cdr: ChangeDetectorRef, private zone: NgZone
   ) { }
-
-  ngAfterViewInit() {
-    // por si se abre impresión muy rápido; no hace nada si no hay SVGs todavía
-    this.renderPrintBarcodes();
-  }
 
   ngOnInit() {
     this.designsSvc.list().subscribe(d => {
@@ -63,23 +72,29 @@ export class EtiquetasPrintComponent {
     });
   }
 
-  private renderPrintBarcodes() {
-    const svgs = this.printBarcodes?.toArray() || [];
+  private renderBarcodesIn(host: HTMLElement) {
+    // Busca las <img class="barcode"> que corresponden a los elementos 'barcode'
+    const imgs = Array.from(host.querySelectorAll('img.barcode')) as HTMLImageElement[];
     let idx = 0;
 
     for (const item of this.itemsParaImprimir) {
       for (const el of this.design?.elements || []) {
         if (el.type !== 'barcode') continue;
-        const svg = svgs[idx++]?.nativeElement;
-        if (!svg) continue;
+
+        const img = imgs[idx++];
+        if (!img) continue;
 
         const valor = this.valorCampo(item, { ...el, field: 'codigoBarras' } as any) || '';
+
+        // Si algún día soportas QR, cambia aquí por la lib correspondiente
         if ((el.barcode?.symbology || 'CODE128') === 'QR') {
-          svg.innerHTML = ''; // (pendiente lib QR)
+          // img.src = generarQRDataUrl(valor);
+          img.src = '';
           continue;
         }
 
-        JsBarcode(svg, valor, {
+        // JsBarcode soporta <img>: le pone dataURL automático al src
+        JsBarcode(img, valor, {
           format: el.barcode?.symbology || 'CODE128',
           width: el.barcode?.width || 1,
           height: el.barcode?.height || 30,
@@ -90,65 +105,41 @@ export class EtiquetasPrintComponent {
     }
   }
 
-private svgToDataUrl(svg: Element): string {
-  const xml = new XMLSerializer().serializeToString(svg as SVGElement);
-  const encoded = window.btoa(unescape(encodeURIComponent(xml)));
-  return `data:image/svg+xml;base64,${encoded}`;
-}
-
-  private replaceBarcodesWithImages(host: HTMLElement) {
-    const svgs = Array.from(host.querySelectorAll('svg.barcode'));
-    for (const svg of svgs) {
-      const img = document.createElement('img');
-      img.src = this.svgToDataUrl(svg);
-      img.style.width = (svg as any).style?.width || '100%';
-      img.style.height = (svg as any).style?.height || '100%';
-      svg.replaceWith(img);
-    }
-  }
-
   private buildPrintHtml(contentEl: HTMLElement): string {
-    // incluye estilos mínimos para la página de impresión
     const styles = `
-    <style>
-      @page { margin: 0; }
-      html, body { margin: 0; padding: 0; }
-      .page { margin: 0 auto; }
-      .labels-grid { display: grid; }
-      .label-box { background:#fff; position: relative; }
-      .label-inner { position: relative; width:100%; height:100%; }
-      .el { position:absolute; }
-    </style>
-  `;
-    return `<!doctype html>
-<html>
-<head><meta charset="utf-8">${styles}</head>
-<body>${contentEl.outerHTML}</body>
-</html>`;
+  <style>
+    @page { margin: 0; }
+    html, body { margin: 0; padding: 0; }
+    .page { margin: 0 auto; overflow: hidden; }
+    .labels-grid { display: grid; }
+    .label-box { background:#fff; position: relative; }
+    .label-inner { position: relative; width:100%; height:100%; }
+    .el { position:absolute; }
+    img { max-width: 100%; max-height: 100%; display: block; }
+  </style>`;
+    return `<!doctype html><html><head><meta charset="utf-8">${styles}</head><body>${contentEl.outerHTML}</body></html>`;
   }
 
-  private printViaIframe(html: string) {
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    document.body.appendChild(iframe);
+  private printViaNewWindow(html: string) {
+    const printWin = window.open('', '_blank', 'width=800,height=600');
+    if (!printWin) {
+      alert('⚠️ El navegador bloqueó la ventana de impresión. Habilita pop-ups para continuar.');
+      return;
+    }
 
-    const doc = iframe.contentDocument!;
-    doc.open();
-    doc.write(html);
-    doc.close();
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
 
-    // espera a que el iframe procese layout
-    setTimeout(() => {
-      iframe.contentWindow!.focus();
-      iframe.contentWindow!.print();
-      // limpiar
-      setTimeout(() => document.body.removeChild(iframe), 500);
-    }, 50);
+    // Esperamos a que el contenido cargue bien antes de imprimir
+    printWin.onload = () => {
+      // Pequeño delay para asegurar render completo
+      setTimeout(() => {
+        printWin.focus();
+        printWin.print();
+        printWin.close();
+      }, 300);
+    };
   }
 
   cargarFarmacias() {
@@ -158,18 +149,35 @@ private svgToDataUrl(svg: Element): string {
     });
   }
 
-  onFarmaciaChange() {
-    // persistir el idFarmacia para esta pantalla
-    localStorage.setItem('farmaciaId_print', this.farmaciaId);
+  private normalizeDesign(raw: any): LabelDesign & any {
+    const size = raw?.size || {};
+    const layout = raw?.layout || {};
+
+    return {
+      ...raw,
+      // forma plana que el componente ya espera
+      widthMm: size.widthMm ?? raw.widthMm ?? 0,
+      heightMm: size.heightMm ?? raw.heightMm ?? 0,
+      marginMm: size.marginMm ?? raw.marginMm ?? 0,
+
+      pageWidthMm: layout.pageWidthMm ?? raw.pageWidthMm ?? 210,
+      pageHeightMm: layout.pageHeightMm ?? raw.pageHeightMm ?? 297,
+      cols: layout.columns ?? raw.cols ?? 1,
+      rows: layout.rows ?? raw.rows ?? 1,
+      gapXmm: layout.gapXmm ?? raw.gapXmm ?? 0,
+      gapYmm: layout.gapYmm ?? raw.gapYmm ?? 0,
+    };
   }
 
   loadDesign() {
     if (!this.designId) return;
-    this.designsSvc.get(this.designId).subscribe(d => this.design = d);
+    this.designsSvc.get(this.designId).subscribe(d => {
+      this.design = this.normalizeDesign(d);
+    });
   }
 
+  // en tu componente etiquetas-print
   buscar() {
-
     const fid = this.farmaciaId?.trim();
     if (!fid) {
       Swal.fire({
@@ -183,49 +191,146 @@ private svgToDataUrl(svg: Element): string {
       });
       return;
     }
-    this.prodSvc.search({ farmaciaId: fid, nombre: this.fNombre, categoria: this.fCategoria, limit: 200 })
-      .subscribe(r => { this.productos = r.rows.map(x => ({ ...x, _checked: false })); this.allChecked = false; });
+
+    this.prodSvc.search({
+      farmaciaId: fid,
+      nombre: this.fNombre,
+      categoria: this.fCategoria,
+      page: this.page,
+      limit: this.limit
+    })
+      .subscribe(r => {
+        this.productos = (r.rows || []).map((x: any) => {
+          const id = String(x._id);                  // 👈 normaliza a string
+          return {
+            ...x,
+            _id: id,                                 // 👈 asegura string
+            _checked: this.selectedIds.has(id)       // 👈 rehidrata check
+          };
+        });
+        // “select all” de la página actual
+        this.allChecked = this.productos.length > 0 && this.productos.every(p => p._checked);
+
+        // paginación
+        this.totalFiltrado = r?.paginacion?.total ?? this.productos.length;
+        this.totalPages = r?.paginacion?.totalPages ?? 1;
+        this.page = r?.paginacion?.page ?? 1;
+        this.limit = r?.paginacion?.limit ?? this.limit;
+      });
+  }
+
+  onToggleRow(p: any) {
+    const id = String(p._id);
+    if (p._checked) {
+      this.selectedIds.add(id);
+      this.selectedItems.set(id, p);
+    } else {
+      this.selectedIds.delete(id);
+      this.selectedItems.delete(id);
+    }
+    this.allChecked = this.productos.length > 0 && this.productos.every(x => this.selectedIds.has(String(x._id)));
   }
 
   toggleAll(ev: any) {
     this.allChecked = ev.target.checked;
-    this.productos.forEach(p => p._checked = this.allChecked);
+    for (const p of this.productos) {
+      const id = String(p._id);
+      p._checked = this.allChecked;
+      if (this.allChecked) {
+        this.selectedIds.add(id);
+        this.selectedItems.set(id, p);
+      } else {
+        this.selectedIds.delete(id);
+        this.selectedItems.delete(id);
+      }
+    }
   }
+
+  trackById = (_: number, p: any) => p?._id;
+
+  // Si cambiaste farmacia o hiciste un nuevo filtro manual, resetea selección global
+  onFarmaciaChange() {
+    localStorage.setItem('farmaciaId_print', this.farmaciaId);
+    this.selectedIds.clear();
+    this.selectedItems.clear();
+    this.page = 1;
+    this.buscar();
+  }
+
+  limpiar(){
+    this.fCategoria = '';
+    this.fNombre = '';
+    this.buscar();
+  }
+
   updateChecked() {
     this.seleccionados; // getter calcula
   }
+  irPrimera() { if (this.page !== 1) { this.page = 1; this.buscar(); } }
+  irAnterior() { if (this.page > 1) { this.page--; this.buscar(); } }
+  irSiguiente() { if (this.page < this.totalPages) { this.page++; this.buscar(); } }
+  irUltima() { if (this.page !== this.totalPages) { this.page = this.totalPages; this.buscar(); } }
 
-  get seleccionados() { return this.productos.filter(p => p._checked); }
+  cambiarLimit(n: number) {
+    this.limit = Number(n) || 20;
+    this.page = 1;
+    this.buscar();
+  }
+
+  private escapeHtml(s: string): string {
+    return String(s ?? '').replace(/[&<>"']/g, (m) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as any)[m]
+    );
+  }
+
+  private barcodeDataUrl(valor: string, symbology = 'CODE128', width = 1, height = 30, displayValue = false): string {
+    const canvas = document.createElement('canvas');
+    // Si el valor es vacío, evita que JsBarcode truene
+    const safe = valor && String(valor).trim().length ? String(valor) : '000000000000';
+    JsBarcode(canvas, safe, {
+      format: symbology as any,
+      width,
+      height,
+      displayValue,
+      margin: 0
+    });
+    return canvas.toDataURL('image/png');
+  }
 
   previsualizar() {
-    if (!this.design || this.seleccionados.length === 0) return;
+    if (!this.design || this.selectedIds.size === 0) return;
 
-    // preparar data…
+    this.itemsParaImprimir = Array.from(this.selectedItems.values());
+
     this.mostrarPrint = true;
 
-    // Espera a que Angular pinte el overlay
     setTimeout(() => {
       this.cdr.detectChanges();
 
-      // 1) Render barcodes en el DOM de impresión
-      this.renderPrintBarcodes();
-      this.cdr.detectChanges();
+      const host = this.printHost?.nativeElement as HTMLElement;
+      if (!host) return;
 
-      // 2) Clonar el host, reemplazar SVGs por IMG dataURL, e imprimir en iframe
-      const clone = this.printHost.nativeElement.cloneNode(true) as HTMLElement;
-      this.replaceBarcodesWithImages(clone);
+      // Clonamos el host visible de impresión
+      const clone = host.cloneNode(true) as HTMLElement;
+
+      // 1) Pintar códigos de barras directamente en las <img> del CLON
+
+      console.log(this.itemsParaImprimir[0]);
+
+      this.renderBarcodesIn(clone);
+
+      // 2) Imprimir esperando a que las imágenes estén listas
       const html = this.buildPrintHtml(clone);
+      this.printViaNewWindow(html);
 
-      // 3) Imprimir en iframe (sin bloquear la app)
-      this.printViaIframe(html);
-
-      // 4) Cerrar overlay al terminar (afterprint del window principal no se dispara para el iframe)
+      // 3) Cerrar overlay
       setTimeout(() => {
         this.mostrarPrint = false;
         this.cdr.detectChanges();
       }, 300);
     }, 0);
   }
+
 
   styleTexto(el: LabelElement) {
     return {

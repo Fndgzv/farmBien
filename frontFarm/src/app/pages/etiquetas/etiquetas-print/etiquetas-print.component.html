@@ -1,27 +1,75 @@
 <!-- etiquetas-print.component.html -->
 <div class="etiquetas">
   <h2 class="titulo text-center">Impresión de etiquetas</h2>
-  <div class="barra">
-    <!-- 🔹 Farmacia -->
-    <label>Farmacia</label>
-    <select [(ngModel)]="farmaciaId" (change)="onFarmaciaChange()">
-      <option value="" disabled selected>— Selecciona —</option>
-      <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
-    </select>
+  <div class="filtros">
+    <div class="row g-2 align-items-end">
+      <!-- 🔹 Farmacia -->
+      <div class="col-md-2">
+        <label class="form-label">Farmacia</label>
+        <div>
+          <select class="form-select" [(ngModel)]="farmaciaId" (change)="onFarmaciaChange()">
+            <option value="" disabled selected>— Selecciona —</option>
+            <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+          </select>
+        </div>
+      </div>
 
-    <!-- 🔹 Diseño (deshabilitado hasta elegir farmacia opcionalmente) -->
-    <label>Diseño</label>
-    <select [(ngModel)]="designId" (change)="loadDesign()" [disabled]="!farmaciaId || !disenos?.length">
-      <option *ngFor="let d of disenos" [value]="d._id">{{ d.nombre }}</option>
-    </select>
+      <!-- 🔹 Diseño (deshabilitado hasta elegir farmacia opcionalmente) -->
+      <div class="col-md-2">
+        <label class="form-label">Diseño</label>
+        <div>
+          <select class="form-select" [(ngModel)]="designId" (change)="loadDesign()"
+            [disabled]="!farmaciaId || !(disenos && disenos.length)">
+            <option *ngFor="let d of disenos" [value]="d._id">{{ d.nombre }}</option>
+          </select>
+        </div>
+      </div>
 
-    <input placeholder="Filtrar por nombre" [(ngModel)]="fNombre" (keyup.enter)="buscar()" [disabled]="!farmaciaId">
-    <input placeholder="Categoría" [(ngModel)]="fCategoria" (keyup.enter)="buscar()" [disabled]="!farmaciaId">
-    <button class="btn-gris" (click)="buscar()" [disabled]="!farmaciaId">Buscar</button>
+      <div class="col-md-3">
+        <label class="form-label">Nombre</label>
+        <div>
+          <input class="form-control" placeholder="Nombre" [(ngModel)]="fNombre" (keyup.enter)="buscar()"
+            [disabled]="!farmaciaId">
+        </div>
+      </div>
 
-    <button class="btn-amarillo" [disabled]="!farmaciaId || seleccionados.length===0 || !design" (click)="previsualizar()">
-      Previsualizar / Imprimir
-    </button>
+      <div class="col-md-3">
+        <label class="form-label">Categoría</label>
+        <div>
+          <input class="form-control" placeholder="Categoría" [(ngModel)]="fCategoria" (keyup.enter)="buscar()"
+            [disabled]="!farmaciaId">
+        </div>
+      </div>
+
+      <div class="col-md-1">
+        <label class="form-label">x pág.:</label>
+        <div>
+          <select class="form-select" [ngModel]="limit" (ngModelChange)="cambiarLimit($event)">
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+            <option [ngValue]="100">100</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="col-md-1" style="margin-top: 1.3rem;">
+        <button type="button" class="btn-rojo" (click)="limpiar()" matTooltip="Limpiar filtros"><i
+            class="fas fa-times"></i></button>
+      </div>
+    </div>
+
+    <div class="row g-2 align-items-end mb-2">
+      <div class="col-md-6" style="margin-top: 1.3rem;">
+        <button class="btn-amarillo btn-icon-only" [disabled]="!farmaciaId || seleccionados.length===0 || !design"
+          (click)="previsualizar()" matTooltip="Imprimir" aria-label="Imprimir">
+          <i class="bi bi-printer"></i>
+        </button>
+      </div>
+      <div class="col-md-6" style="margin-top: 1.3rem; text-align: end;">
+        <button class="btn-gris" (click)="buscar()" [disabled]="!farmaciaId">Buscar</button>
+      </div>
+    </div>
   </div>
 
   <table class="tabla">
@@ -29,18 +77,24 @@
       <tr>
         <th><input type="checkbox" [checked]="allChecked" (change)="toggleAll($event)"></th>
         <th>Nombre</th>
-        <th>Categoría</th>
         <th>Código barras</th>
+        <th>Renglón 1</th>
+        <th>Renglón 2</th>
+        <th>Categoría</th>
         <th>Precio</th>
         <th>Exist.</th>
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let p of productos">
-        <td><input type="checkbox" [(ngModel)]="p._checked" (ngModelChange)="updateChecked()"></td>
+      <tr *ngFor="let p of productos; trackBy: trackById">
+        <td>
+          <input type="checkbox" [(ngModel)]="p._checked" (ngModelChange)="onToggleRow(p)">
+        </td>
         <td>{{p.nombre}}</td>
-        <td>{{p.categoria}}</td>
         <td>{{p.codigoBarras}}</td>
+        <td>{{p.renglon1}}</td>
+        <td>{{p.renglon2}}</td>
+        <td>{{p.categoria}}</td>
         <td>{{p.precioVenta | currency}}</td>
         <td>{{p.existencia}}</td>
       </tr>
@@ -48,37 +102,52 @@
   </table>
 </div>
 
-<!-- Contenedor oculto que se muestra sólo al imprimir -->
-<div class="etiquetas-impresion" *ngIf="mostrarPrint"  #printHost>
-  <div class="page" [style.width]="(design?.pageWidthMm || 210) + 'mm'"
-     [style.height]="(design?.pageHeightMm || 297) + 'mm'">
+<div class="mt-2 paginacion">
+  <span><b>Etiquetas a imprimir:</b> {{ totalSeleccionados }}</span>
+</div>
 
-    <div class="labels-grid"
-        [style.gap]="(design?.gapYmm || 0) + 'mm ' + (design?.gapXmm || 0) + 'mm'"
-        [style.gridTemplateColumns]="'repeat(' + (design?.cols || 1) + ', ' + (design?.widthMm || 0) + 'mm)'"
-        [style.gridTemplateRows]="'repeat(' + (design?.rows || 1) + ', ' + (design?.heightMm || 0) + 'mm)'">
+<!-- Resumen y paginación -->
+<div class="mt-2 paginacion">
+  <button (click)="irPrimera()" [disabled]="page<=1" matTooltip="Inicio">
+    <i class="fa fa-angle-double-left"></i>
+  </button>
+  <button (click)="irAnterior()" [disabled]="page<=1" matTooltip="Anterior">
+    <i class="fa fa-angle-left"></i>
+  </button>
 
+  <span>&nbsp; {{ totalFiltrado }} productos. Página {{ page }} / {{ totalPages }} &nbsp;</span>
+
+  <button (click)="irSiguiente()" [disabled]="page>=totalPages" matTooltip="Siguiente">
+    <i class="fa fa-angle-right"></i>
+  </button>
+  <button (click)="irUltima()" [disabled]="page>=totalPages" matTooltip="Fin">
+    <i class="fa fa-angle-double-right"></i>
+  </button>
+</div>
+
+<!-- Contenedor de impresión -->
+<div class="etiquetas-impresion" *ngIf="mostrarPrint && design as d">
+  <div #printHost class="page" [style.width]="(d.pageWidthMm || 210) + 'mm'"
+    [style.height]="(d.pageHeightMm || 297) + 'mm'">
+    <div class="labels-grid" [style.gap]="(d.gapYmm || 0) + 'mm ' + (d.gapXmm || 0) + 'mm'"
+      [style.gridTemplateColumns]="'repeat(' + (d.cols || 1) + ', ' + (d.widthMm || 0) + 'mm)'"
+      [style.gridTemplateRows]="'repeat(' + (d.rows || 1) + ', ' + (d.heightMm || 0) + 'mm)'">
       <ng-container *ngFor="let item of itemsParaImprimir">
-        <div class="label-box" [style.width]="(design?.widthMm || 0) + 'mm'"
-         [style.height]="(design?.heightMm || 0) + 'mm'">
-          <div class="label-inner" [style.padding]="(design?.marginMm || 0) + 'mm'">
-            <!-- Renderizamos cada elemento del diseño con los datos del producto -->
-            <ng-container *ngFor="let el of design!.elements">
+        <div class="label-box" [style.width]="(d.widthMm || 0) + 'mm'" [style.height]="(d.heightMm || 0) + 'mm'">
+          <div class="label-inner" [style.padding]="(d.marginMm || 0) + 'mm'">
+            <ng-container *ngFor="let el of d.elements">
               <div class="el" [style.left.%]="el.x" [style.top.%]="el.y" [style.width.%]="el.w" [style.height.%]="el.h"
                 [ngStyle]="styleTexto(el)">
                 <ng-container [ngSwitch]="el.type">
                   <div *ngSwitchCase="'text'">{{ valorCampo(item, el) }}</div>
                   <div *ngSwitchCase="'price'">{{ valorPrecio(item, el) }}</div>
-                  <div *ngSwitchCase="'barcode'">
-                    <svg class="barcode" #printBarcode></svg>
-                  </div>
+                  <img *ngSwitchCase="'barcode'" class="barcode" />
                 </ng-container>
               </div>
             </ng-container>
           </div>
         </div>
       </ng-container>
-
     </div>
   </div>
 </div>
