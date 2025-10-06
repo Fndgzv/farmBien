@@ -23,6 +23,33 @@ export class ModalEditarProductoComponent implements OnInit {
     @Inject('PRODUCTO_DATA') public producto: Producto
   ) { }
 
+  get utilAbs(): number | null {
+    // obtener utilidad en la captura individual
+    const c = Number(this.formulario.get('costo')?.value);
+    const p = Number(this.formulario.get('precio')?.value);
+    if (!isFinite(c) || !isFinite(p)) return null;
+    return p - c;
+  }
+
+  get utilPct(): number | null {
+    // obtener porcentaje de utilidad en la captura individual
+    const c = Number(this.formulario.get('costo')?.value);
+    const p = Number(this.formulario.get('precio')?.value);
+
+    if (!isFinite(c) || c <= 0 || !isFinite(p)) return null; // evita /0 y NaN
+    return ((p - c) / c) * 100;
+  }
+
+  get utilColor(): 'green' | 'orange' | 'red' | null {
+    // color de semáforo de acuerdo a la utilidad
+    const v = this.utilPct;
+    if (v === null) return null;
+    if (v >= 25) return 'green';
+    if (v >= 18) return 'orange';
+    return 'red';
+  }
+
+
   ngOnInit(): void {
     this.formulario = this.fb.group({
       nombre: [this.producto.nombre, [Validators.required]],

@@ -19,6 +19,8 @@ interface Pendiente {
   producto: string;
   nombre: string;
   codigoBarras: string;
+  categoria: string;
+  ubicacion: string;
   existenciaActual: number;
   stockMin: number;
   stockMax: number;
@@ -101,6 +103,9 @@ export class SurtirFarmaciaComponent implements OnInit {
           ...p,
           omitir: false
         }));
+
+        console.log('Pendientes', pendientes);
+        
         this.rows = this.pendientes; // fuente de la tabla/paginación
         this.resetPagination();
         this.cargando = false;
@@ -316,14 +321,16 @@ export class SurtirFarmaciaComponent implements OnInit {
       const cod = it?.producto?.codigoBarras || '';
       const lote = it?.lote || 'SIN-LOTE';
       const cant = it?.cantidad ?? 0;
-      const pu = it?.precioUnitario ?? 0;
+      const categoria = it?.producto?.categoria || '-';
+      const ubicacion = it?.producto?.ubicacion || '-';
       return `
       <tr>
         <td>${cod}</td>
         <td>${nombre}</td>
         <td>${lote}</td>
         <td style="text-align:right">${cant}</td>
-        <td style="text-align:right">${pu.toFixed(2)}</td>
+        <td>${categoria}</td>
+        <td>${ubicacion}</td>
       </tr>`;
     }).join('');
 
@@ -332,7 +339,7 @@ export class SurtirFarmaciaComponent implements OnInit {
 <html>
 <head>
 <meta charset="utf-8">
-<title>Hoja de Surtido - Real</title>
+<title>Hoja de Surtido - Final</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, Helvetica, sans-serif; margin: 12px; }
@@ -369,15 +376,16 @@ export class SurtirFarmaciaComponent implements OnInit {
         <th>Producto</th>
         <th style="width:90px">Lote</th>
         <th style="width:80px; text-align:right">Cantidad</th>
-        <th style="width:100px; text-align:right">Precio Unit.</th>
+        <th style="width:100px">Categoria</th>
+        <th style="width:100px">Ubicacion</th>
       </tr>
     </thead>
     <tbody>
-      ${filas || `<tr><td colspan="5">Sin items</td></tr>`}
+      ${filas || `<tr><td colspan="6">Sin items</td></tr>`}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="5">Productos surtidos: ${(surtido?.items || []).length}</td>
+        <td colspan="6">Productos surtidos: ${(surtido?.items || []).length}</td>
       </tr>
     </tfoot>
   </table>

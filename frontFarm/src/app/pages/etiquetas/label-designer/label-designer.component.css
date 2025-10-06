@@ -1,5 +1,10 @@
 /* label-designer.component.css */
 
+.name-label {
+    font-size: large;
+    color: #0257ac;
+}
+
 .designer {
     display: grid;
     grid-template-columns: 320px 1fr;

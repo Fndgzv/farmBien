@@ -16,22 +16,32 @@
                 <input type="number" formControlName="stockMinimo" style="width: 4rem;">
                 <label>Stock Maximo:</label>
                 <input type="number" formControlName="stockMaximo" style="width: 4rem;">
-            </div>
-            <div class="edit-seccion">
                 <label>IVA:</label>
                 <input type="checkbox" formControlName="iva">
+            </div>
+            <div class="edit-seccion">
                 <label>INAPAM:</label>
                 <input type="checkbox" formControlName="descuentoINAPAM">
                 <label>Costo:</label>
-                <input type="number" formControlName="costo" style="width: 4rem;" step="0.1">
+                <input type="number" formControlName="costo" style="width: 5rem;" step="0.1">
                 <label>Precio:</label>
-                <input type="number" formControlName="precio" style="width: 4rem;" step="0.1">
-                <label>Ubicación</label>
-                <input type="text" formControlName="ubicacion" style="width: 15rem;">
+                <input type="number" formControlName="precio" style="width: 5rem;" step="0.1">
+
+
+                <small *ngIf="utilPct !== null; else sinDato" [style.color]="utilColor">
+                    Util. {{ utilPct | number:'1.0-2' }}%
+                </small>
+                <ng-template #sinDato>—</ng-template>
+                <small *ngIf="utilAbs !== null" [style.color]="utilColor">
+                    ({{ utilAbs | currency }})
+                </small>
+
+                <label style="margin-left: 2rem;">Ubicación:</label>
+                <input type="text" formControlName="ubicacion" style="width: 13rem;">
             </div>
             <!-- Lotes -->
             <div formArrayName="lotes">
-                
+
                 <label class="subtitulo-edit">Lotes:</label>
                 <div *ngFor="let lote of lotesFormArray.controls; let i = index" [formGroupName]="i"
                     class="edit-seccion">

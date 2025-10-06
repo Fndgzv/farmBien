@@ -41,6 +41,8 @@ exports.surtirFarmacia = async (req, res) => {
         producto: inv.producto?._id,
         nombre: inv.producto?.nombre,
         codigoBarras: inv.producto?.codigoBarras,
+        categoria: inv.producto?.categoria,
+        ubicacion: inv.producto?.ubicacion,
         existenciaActual: inv.existencia ?? 0,
         stockMin: inv.stockMin ?? 0,
         stockMax: inv.stockMax ?? 0,
@@ -128,7 +130,7 @@ exports.surtirFarmacia = async (req, res) => {
       });
 
       const surtido = await SurtidoFarmacia.findById(surtidoId)
-        .populate({ path: 'items.producto', select: 'nombre codigoBarras' });
+        .populate({ path: 'items.producto', select: 'nombre codigoBarras categoria ubicacion' });
 
       // OK transacción
       return res.json({

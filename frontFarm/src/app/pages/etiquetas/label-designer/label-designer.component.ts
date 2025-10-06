@@ -6,6 +6,7 @@ import { DragDropModule } from '@angular/cdk/drag-drop';
 import { LabelDesign, LabelElement } from '../../../core/models/label-design.model';
 import { LabelDesignsService } from '../../../core/services/label-designs.service';
 import JsBarcode from 'jsbarcode';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-label-designer',
@@ -186,10 +187,42 @@ export class LabelDesignerComponent {
     });
   }
 
-  remove(d: LabelDesign, ev: MouseEvent) {
-    ev.stopPropagation();
-    if (!d._id) return;
-    if (!confirm(`¿Eliminar diseño "${d.nombre}"?`)) return;
-    this.svc.remove(d._id).subscribe(() => this.refreshList());
-  }
+remove(d: LabelDesign, ev?: MouseEvent) {
+  ev?.stopPropagation();
+  if (!d?._id) return;
+
+  Swal.fire({
+    title: '¿Eliminar diseño?',
+    html: `<b>${d.nombre}</b> se eliminará de forma permanente.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar',
+    reverseButtons: true,
+    focusCancel: true
+  }).then(res => {
+    if (!res.isConfirmed) return;
+
+    this.svc.remove(d._id!).subscribe({
+      next: () => {
+        // si estabas editando este diseño, limpia el canvas
+        if (this.design?._id === d._id) this.nuevo();
+
+        this.refreshList();
+        Swal.fire({
+          icon: 'success',
+          title: 'Eliminado',
+          text: 'El diseño se eliminó correctamente.',
+          timer: 1300,
+          showConfirmButton: false
+        });
+      },
+      error: (err) => {
+        console.error('Error eliminando diseño', err);
+        Swal.fire('Error', 'No se pudo eliminar el diseño.', 'error');
+      }
+    });
+  });
+}
+
 }

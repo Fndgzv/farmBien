@@ -21,30 +21,30 @@
       <label>Gap Y</label><input type="number" [(ngModel)]="design.gapYmm">
     </div>
 
-    <div>
+    <div class="mb-2">
       <h4 class="subtitulo text-center mt-1">Agregar elemento</h4>
       <div class="row mb-1">
         <div class="col-4">
-          <button class="btn-rojo-chico" (click)="addText('nombre')">Nombre</button>
+          <button class="btn-gris-chico" (click)="addText('nombre')">Nombre</button>
         </div>
         <div class="col-4" style="text-align: center;">
-          <button class="btn-rojo-chico" (click)="addText('renglon1')">Renglón 1</button>
+          <button class="btn-gris-chico" (click)="addText('renglon1')">Renglón 1</button>
         </div>
         <div class="col-4" style="text-align: end;">
-          <button class="btn-rojo-chico" (click)="addText('renglon2')">Renglón 2</button>
+          <button class="btn-gris-chico" (click)="addText('renglon2')">Renglón 2</button>
         </div>
       </div>
       <div class="row">
         <div class="col-5">
-          <button class="btn-rojo-chico" (click)="addPrice()">Precio</button>
+          <button class="btn-gris-chico" (click)="addPrice()">Precio</button>
         </div>
         <div class="col-7" style="text-align: end;">
-          <button class="btn-rojo-chico" (click)="addBarcode()">Código de barras</button>
+          <button class="btn-gris-chico" (click)="addBarcode()">Código de barras</button>
         </div>
       </div>
     </div>
 
-    <div *ngIf="selected">
+    <div *ngIf="selected" class="mb-1">
       <h4 class="subtitulo text-center mt-1">Propiedades</h4>
       <div style="text-align: center;">Tipo: <span><strong>{{selected.type}}</strong></span></div>
       <div *ngIf="selected.type!=='barcode'">
@@ -52,7 +52,7 @@
           <label style="margin-right: 1rem;">Fuente (pt)</label><input type="number" [(ngModel)]="selected.fontSize"
             style="width: 4rem;">
         </div>
-        <div class="row">
+        <div class="row mt-1">
           <div class="col-5">
             <label><input type="checkbox" [(ngModel)]="selected.bold"> Negritas</label>
           </div>
@@ -65,36 +65,44 @@
             </select>
           </div>
         </div>
-        <div class="row">
-          <div class="col-6">
-            <label style="margin-right: 0.5rem;">Prefix</label><input [(ngModel)]="selected.prefix">
-          </div>
-          <div class="col-6">
-            <label style="margin-right: 0.5rem; text-align: end;">Suffix</label><input [(ngModel)]="selected.suffix">
-          </div>
-          <label><input type="checkbox" [(ngModel)]="selected.uppercase"> MAYÚSCULAS</label>
+
+        <div class="grid my-2">
+          <label>Prefijo</label><input [(ngModel)]="selected.prefix">
+          <label>Sufijo</label><input [(ngModel)]="selected.suffix">
+
         </div>
+        <label><input type="checkbox" [(ngModel)]="selected.uppercase"> MAYÚSCULAS</label>
+
       </div>
 
-      <div *ngIf="selected.type==='barcode'">
-        <label>Símbolo</label>
+      <div *ngIf="selected.type==='barcode'" class="my-1">
+        <label>Símbolo&nbsp;</label>
         <select [(ngModel)]="selected.barcode!.symbology">
           <option>CODE128</option>
           <option>EAN13</option>
           <option>EAN8</option>
           <option>QR</option>
         </select>
-        <label>Width(px)</label><input type="number" [(ngModel)]="selected.barcode!.width">
-        <label>Height(px)</label><input type="number" [(ngModel)]="selected.barcode!.height">
+        <div class="grid my-1">
+          <label>ancho(px)</label><input type="number" [(ngModel)]="selected.barcode!.width">
+          <label>alto(px)</label><input type="number" [(ngModel)]="selected.barcode!.height">
+        </div>
         <label><input type="checkbox" [(ngModel)]="selected.barcode!.displayValue"> Mostrar texto</label>
       </div>
 
-      <button (click)="deleteSelected()">Eliminar elemento</button>
+      <div class="mb-1" style="display:flex; justify-content:center;">
+        <button (click)="deleteSelected()" class="btn-rojo-chico">Eliminar elemento</button>
+      </div>
+
     </div>
 
-    <div class="acciones">
-      <button (click)="save()">Guardar diseño</button>
-      <button (click)="nuevo()">Nuevo</button>
+    <div class="row">
+      <div class="col-7">
+        <button class="btn-verde-chico" (click)="save()">Guardar diseño</button>
+      </div>
+      <div class="col-5" style="text-align: end;">
+        <button class="btn-verde-chico" (click)="nuevo()">Nuevo</button>
+      </div>
     </div>
   </div>
 
@@ -126,11 +134,11 @@
     </div>
 
     <div class="design-list">
-      <h4>Mis diseños guardados</h4>
+      <h4 class="titulo">Mis diseños guardados</h4>
       <ul>
-        <li *ngFor="let d of disenos" (click)="load(d)" [class.active]="d._id===design._id">
+        <li *ngFor="let d of disenos" (click)="load(d)" [class.active]="d._id===design._id" class="name-label">
           {{ d.nombre }}
-          <button class="mini" (click)="remove(d, $event)">Borrar</button>
+          <button class="mini btn-rojo" (click)="remove(d, $event)">Borrar</button>
         </li>
       </ul>
     </div>
