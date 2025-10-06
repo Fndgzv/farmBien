@@ -4,6 +4,16 @@ const SurtidoFarmacia = require('../models/SurtidoFarmacia');
 const Producto = require('../models/Producto');
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 
+const norm = (s) => (s ?? '')
+  .toString()
+  .normalize('NFD')               // separa acentos
+  .replace(/[\u0300-\u036f]/g, '')// quita acentos
+  .toUpperCase()
+  .trim();
+
+const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+
 exports.surtirFarmacia = async (req, res) => {
   try {
     // 0) Solo admin
@@ -29,28 +39,30 @@ exports.surtirFarmacia = async (req, res) => {
     const bajos = inventarios.filter(inv => (inv.existencia ?? 0) <= (inv.stockMin ?? 0));
 
     // 3) Generar "pendientes" con disponible en almacén (suma lotes)
-    const pendientes = bajos.map(inv => {
-      const falta = Math.max(0, (inv.stockMax ?? 0) - (inv.existencia ?? 0));
-      const disponibleEnAlmacen = Array.isArray(inv.producto?.lotes)
+    const pendientes = bajos.map(inv => ({
+      producto: inv.producto?._id,
+      nombre: inv.producto?.nombre,
+      codigoBarras: inv.producto?.codigoBarras,
+      categoria: inv.producto?.categoria,
+      ubicacion: inv.producto?.ubicacion,
+      existenciaActual: inv.existencia ?? 0,
+      stockMin: inv.stockMin ?? 0,
+      stockMax: inv.stockMax ?? 0,
+      falta: Math.max(0, (inv.stockMax ?? 0) - (inv.existencia ?? 0)),
+      disponibleEnAlmacen: Array.isArray(inv.producto?.lotes)
         ? inv.producto.lotes.reduce((sum, l) => sum + (l.cantidad ?? 0), 0)
-        : 0;
-      const pid = String(inv.producto?._id || '');
-      const omitir = omitirMap.has(pid) ? omitirMap.get(pid) : false;
+        : 0,
+      omitir: omitirMap.has(String(inv.producto?._id || ''))
+        ? omitirMap.get(String(inv.producto?._id || ''))
+        : false
+    }));
 
-      return {
-        producto: inv.producto?._id,
-        nombre: inv.producto?.nombre,
-        codigoBarras: inv.producto?.codigoBarras,
-        categoria: inv.producto?.categoria,
-        ubicacion: inv.producto?.ubicacion,
-        existenciaActual: inv.existencia ?? 0,
-        stockMin: inv.stockMin ?? 0,
-        stockMax: inv.stockMax ?? 0,
-        falta,
-        disponibleEnAlmacen,
-        omitir
-      };
-    });
+    // === ORDENAR POR CATEGORÍA (luego ubicación y nombre) ===
+    pendientes.sort((a, b) =>
+      cmp(norm(a.categoria), norm(b.categoria)) ||
+      cmp(norm(a.ubicacion), norm(b.ubicacion)) ||
+      cmp(norm(a.nombre), norm(b.nombre))
+    );
 
     // 4) Si no confirman, solo devolvemos pendientes (marcando omitir calculado)
     if (!confirm) {
@@ -132,11 +144,19 @@ exports.surtirFarmacia = async (req, res) => {
       const surtido = await SurtidoFarmacia.findById(surtidoId)
         .populate({ path: 'items.producto', select: 'nombre codigoBarras categoria ubicacion' });
 
+      // Pasar a objeto plano y ordenar items por categoría -> nombre
+      const sObj = surtido?.toObject ? surtido.toObject() : surtido;
+      if (sObj?.items?.length) {
+        sObj.items.sort((a, b) =>
+          cmp(norm(a.producto?.categoria), norm(b.producto?.categoria)) ||
+          cmp(norm(a.producto?.nombre), norm(b.producto?.nombre))
+        );
+      }
       // OK transacción
       return res.json({
         mensaje: 'Farmacia surtida correctamente (solo con cantidades disponibles y sin omitir).',
         pendientes, // útil para UI
-        surtido
+        surtido: sObj
       });
 
     } catch (txErr) {

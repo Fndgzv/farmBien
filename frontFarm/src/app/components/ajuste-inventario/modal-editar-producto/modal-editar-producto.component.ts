@@ -2,7 +2,6 @@ import { Component, EventEmitter, Inject, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ValidatorFn, AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { Producto, Lote } from '../../../models/producto.model';
-import { startWith } from 'rxjs';
 
 @Component({
   selector: 'app-modal-editar-producto',
@@ -40,12 +39,30 @@ export class ModalEditarProductoComponent implements OnInit {
     return ((p - c) / c) * 100;
   }
 
+  get miCategoria(): string | null {
+    return this.formulario.get('categoria')?.value;
+  }
+
+  get esGenerico(): boolean | null {
+    return this.formulario.get('generico')?.value;
+  }
+
   get utilColor(): 'green' | 'orange' | 'red' | null {
     // color de semáforo de acuerdo a la utilidad
     const v = this.utilPct;
     if (v === null) return null;
-    if (v >= 25) return 'green';
-    if (v >= 18) return 'orange';
+    if (this.miCategoria === 'Abarrotes' || this.miCategoria === 'ABARROTES' || this.miCategoria === 'abarrotes') {
+      if (v > 45) return 'orange';
+      if (v >= 18) return 'green';
+      return 'red';
+    }
+    if (this.esGenerico) {
+      if (v > 60) return 'orange';
+      if (v >= 30) return 'green';
+      return 'red';
+    }
+    if (v > 20) return 'orange';
+    if (v >= 10) return 'green';
     return 'red';
   }
 
@@ -59,6 +76,7 @@ export class ModalEditarProductoComponent implements OnInit {
       precio: [this.producto.precio, [Validators.required, Validators.min(0)]],
       costo: [this.producto.costo, [Validators.required, Validators.min(0)]],
       iva: [this.producto.iva],
+      generico: [this.producto.generico],
       descuentoINAPAM: [this.producto.descuentoINAPAM],
       stockMinimo: [this.producto.stockMinimo, [Validators.required, Validators.min(0)]],
       stockMaximo: [this.producto.stockMaximo, [Validators.required, Validators.min(0)]],
