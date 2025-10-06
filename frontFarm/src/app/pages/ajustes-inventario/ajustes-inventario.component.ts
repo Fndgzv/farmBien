@@ -144,6 +144,7 @@ export class AjustesInventarioComponent implements OnInit {
           _imgSrc: p?.imagen ? this.productoService.obtenerImagenProductoUrl(p._id) : this.placeholderSrc
         }));
 
+        this.cachearNorms();
         this.recomputarCBDuplicados();
 
         if (borrarFiltros) {
@@ -163,6 +164,21 @@ export class AjustesInventarioComponent implements OnInit {
     });
   }
 
+  /** Quita acentos, pasa a minúsculas y colapsa espacios */
+  private normTxt(v: any): string {
+    return String(v ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // quita diacríticos
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /** Divide en palabras no vacías */
+  private splitWords(v: string): string[] {
+    return this.normTxt(v).split(' ').filter(Boolean);
+  }
+
   aplicarFiltros() {
     if (this.filtrando || this.iniciando) return;
     this.filtrando = true;
@@ -170,15 +186,19 @@ export class AjustesInventarioComponent implements OnInit {
 
     setTimeout(() => {
       const f = this.filtros;
+      const palabras = f?.nombre ? this.splitWords(f.nombre) : [];
+      const palabrasCategoria = f?.categoria ? this.splitWords(f.categoria) : [];
       this.productosFiltrados = (this.productos || []).filter(p => {
-        const coincideNombre = f.nombre
-          ? (p.nombre || '').toLowerCase().includes(f.nombre.toLowerCase())
+        const nombreNorm = (p as any)._normNombre ?? this.normTxt(p?.nombre);
+        const coincideNombre = palabras.length
+          ? palabras.every(w => nombreNorm.includes(w))
           : true;
         const coincideCodigo = f.codigoBarras
           ? (p.codigoBarras || '').toLowerCase().includes(f.codigoBarras.toLowerCase())
           : true;
-        const coincideCategoria = f.categoria
-          ? (p.categoria || '').toLowerCase().includes(f.categoria.toLowerCase())
+        const categoriaNorm = (p as any)._normCategoria ?? this.normTxt(p?.categoria);
+        const coincideCategoria = palabrasCategoria.length
+          ? palabrasCategoria.every(w => categoriaNorm.includes(w))
           : true;
         const coincideINAPAM = f.descuentoINAPAM === null
           ? true
@@ -214,6 +234,13 @@ export class AjustesInventarioComponent implements OnInit {
 
   private normCB(v: any): string {
     return String(v ?? '').trim().toLowerCase();
+  }
+
+  private cachearNorms(): void {
+    for (const p of (this.productos || [])) {
+      (p as any)._normNombre = this.normTxt(p?.nombre);
+      (p as any)._normCategoria = this.normTxt(p?.categoria);
+    }
   }
 
   // NUEVO: recalcula el set de duplicados a partir de this.productos
@@ -424,7 +451,7 @@ export class AjustesInventarioComponent implements OnInit {
 
   guardarProductoEditado(productoActualizado: ProductoUI) {
     console.log('producto actualizado en ajustes-inventario =====>', productoActualizado);
-    
+
     // 1) separa id y crea payload sin _id
     const id = (productoActualizado as any)._id;
     const payload: any = { ...productoActualizado };

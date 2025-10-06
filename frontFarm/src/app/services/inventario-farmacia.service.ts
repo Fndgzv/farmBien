@@ -14,8 +14,6 @@ export class InventarioFarmaciaService {
 
   buscarInventarioFarmacia(filtros: any): Observable<any[]> {
 
-      console.log('mi base url es:', this.baseUrl);
-
     let params = new HttpParams();
 
     if (filtros.farmacia) params = params.set('farmacia', filtros.farmacia);
