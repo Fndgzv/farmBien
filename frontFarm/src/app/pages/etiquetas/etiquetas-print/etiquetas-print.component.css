@@ -22,6 +22,14 @@
   line-height: 1;
 }
 
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sortable:hover { text-decoration: underline; }
+.sort { margin-left: 6px; font-size: .85em; opacity: .7; }
+
 
 /* etiquetas-print.component.css */
 .barra { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
@@ -42,8 +50,33 @@
 
 .el { position: absolute; }
 
+/* === SOLO PARA IMPRIMIR === */
 @media print {
-  .barra, .tabla { display: none !important; }
-  .etiquetas-impresion { display: block !important; }
+  /* Oculta TODO menos el contenedor de impresión */
+  body * { visibility: hidden !important; }
+
+  /* Muestra solo el overlay de impresión y sus hijos */
+  .etiquetas-impresion,
+  .etiquetas-impresion * {
+    visibility: visible !important;
+  }
+
+  /* Fija el overlay para ocupar toda la página al imprimir */
+  .etiquetas-impresion {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 999999 !important;
+    background: #fff;
+    display: block !important; /* por si estaba oculto */
+  }
+
+  img.barcode { display:block !important; visibility:visible !important; }
+
+  /* Márgenes a 0; el tamaño lo controlas con estilos inline (mm) */
   @page { margin: 0; }
 }
+
+/* Refuerzos generales (útiles en Edge/Chrome) */
+html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 100%; height: 100%; }
+img { image-rendering: auto; }

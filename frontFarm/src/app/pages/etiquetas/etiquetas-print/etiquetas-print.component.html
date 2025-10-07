@@ -61,9 +61,11 @@
 
     <div class="row g-2 align-items-end mb-2">
       <div class="col-md-6" style="margin-top: 1.3rem;">
-        <button class="btn-amarillo btn-icon-only" [disabled]="!farmaciaId || seleccionados.length===0 || !design"
-          (click)="previsualizar()" matTooltip="Imprimir" aria-label="Imprimir">
-          <i class="bi bi-printer"></i>
+        <button class="btn-amarillo btn-icon-only"
+          [disabled]="!farmaciaId || seleccionados.length===0 || !design || isPrinting" (click)="previsualizar()"
+          matTooltip="Imprimir" aria-label="Imprimir">
+          <span *ngIf="!isPrinting"><i class="bi bi-printer"></i></span>
+          <span *ngIf="isPrinting">Imprimiendo…</span>
         </button>
       </div>
       <div class="col-md-6" style="margin-top: 1.3rem; text-align: end;">
@@ -76,11 +78,17 @@
     <thead>
       <tr>
         <th><input type="checkbox" [checked]="allChecked" (change)="toggleAll($event)"></th>
-        <th>Nombre</th>
+        <th class="sortable" (click)="toggleSort('nombre')" title="Ordenar por nombre">
+          Nombre
+          <span class="sort" *ngIf="sortBy==='nombre'">{{ sortDir==='asc' ? '▲' : '▼' }}</span>
+        </th>
         <th>Código barras</th>
         <th>Renglón 1</th>
         <th>Renglón 2</th>
-        <th>Categoría</th>
+        <th class="sortable" (click)="toggleSort('categoria')" title="Ordenar por categoría">
+          Categoría
+          <span class="sort" *ngIf="sortBy==='categoria'">{{ sortDir==='asc' ? '▲' : '▼' }}</span>
+        </th>
         <th>Precio</th>
         <th>Exist.</th>
       </tr>
@@ -126,16 +134,19 @@
 </div>
 
 <!-- Contenedor de impresión -->
-<div class="etiquetas-impresion" *ngIf="mostrarPrint && design as d">
-  <div #printHost class="page" [style.width]="(d.pageWidthMm || 210) + 'mm'"
-    [style.height]="(d.pageHeightMm || 297) + 'mm'">
-    <div class="labels-grid" [style.gap]="(d.gapYmm || 0) + 'mm ' + (d.gapXmm || 0) + 'mm'"
-      [style.gridTemplateColumns]="'repeat(' + (d.cols || 1) + ', ' + (d.widthMm || 0) + 'mm)'"
-      [style.gridTemplateRows]="'repeat(' + (d.rows || 1) + ', ' + (d.heightMm || 0) + 'mm)'">
+<div class="etiquetas-impresion" *ngIf="mostrarPrint">
+  <div #printHost class="page" [style.width.mm]="forceRollPreview ? lblW : (design?.pageWidthMm || 210)"
+    [style.height.mm]="forceRollPreview ? calcRollHeightMm(itemsParaImprimir.length)
+                                        : (design?.pageHeightMm || 297)">
+    <div class="labels-grid" [style.gap]="(gapY) + 'mm ' + (gapX) + 'mm'" [style.gridTemplateColumns]="forceRollPreview
+        ? '1fr'
+        : 'repeat(' + (design?.cols || 1) + ', ' + lblW + 'mm)'" [style.gridTemplateRows]="forceRollPreview
+        ? 'repeat(' + itemsParaImprimir.length + ', ' + lblH + 'mm)'
+        : 'repeat(' + (design?.rows || 1) + ', ' + lblH + 'mm)'">
       <ng-container *ngFor="let item of itemsParaImprimir">
-        <div class="label-box" [style.width]="(d.widthMm || 0) + 'mm'" [style.height]="(d.heightMm || 0) + 'mm'">
-          <div class="label-inner" [style.padding]="(d.marginMm || 0) + 'mm'">
-            <ng-container *ngFor="let el of d.elements">
+        <div class="label-box" [style.width.mm]="lblW" [style.height.mm]="lblH">
+          <div class="label-inner" [style.padding.mm]="pad">
+            <ng-container *ngFor="let el of design!.elements">
               <div class="el" [style.left.%]="el.x" [style.top.%]="el.y" [style.width.%]="el.w" [style.height.%]="el.h"
                 [ngStyle]="styleTexto(el)">
                 <ng-container [ngSwitch]="el.type">

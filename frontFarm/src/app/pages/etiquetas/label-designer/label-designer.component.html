@@ -1,7 +1,9 @@
 <div class="designer">
+  <!-- ───── Col 1: Sidebar (config) ───── -->
   <div class="sidebar">
     <h3 class="titulo text-center">Diseño</h3>
-    <label style="margin-right: 1rem;">Nombre</label>
+
+    <label style="margin-right:1rem;">Nombre</label>
     <input [(ngModel)]="design.nombre" />
 
     <h4 class="subtitulo text-center mt-1">Tamaño etiqueta (mm)</h4>
@@ -11,136 +13,190 @@
       <label>Margen</label><input type="number" [(ngModel)]="design.marginMm">
     </div>
 
-    <h4 class="subtitulo text-center mt-1">Hoja (mm)</h4>
+    <h4 class="subtitulo text-center mt-1">Modo</h4>
+    <label><input type="radio" [(ngModel)]="design.mode" value="sheet"> Hoja (A4 / columnas)</label>
+    <label style="margin-left:1rem;"><input type="radio" [(ngModel)]="design.mode" value="roll"> Rollo (Brother
+      QL-800)</label>
+
+    <div *ngIf="design.mode !== 'roll'">
+      <h4 class="subtitulo text-center mt-1">Hoja (mm)</h4>
+      <div class="grid">
+        <label>Ancho pág.</label><input type="number" [(ngModel)]="design.pageWidthMm">
+        <label>Alto pág.</label><input type="number" [(ngModel)]="design.pageHeightMm">
+        <label>Cols</label><input type="number" [(ngModel)]="design.cols">
+        <label>Rens</label><input type="number" [(ngModel)]="design.rows">
+        <label>Gap X</label><input type="number" [(ngModel)]="design.gapXmm">
+        <label>Gap Y</label><input type="number" [(ngModel)]="design.gapYmm">
+      </div>
+    </div>
+
+    <!-- Solo visible en modo Rollo -->
+    <div *ngIf="design.mode === 'roll'">
+      <h4 class="subtitulo text-center mt-1">Rollo</h4>
+      <div class="grid">
+        <label>Gap entre etiquetas (mm)</label>
+        <input type="number" [(ngModel)]="design.rollGapMm" min="0">
+      </div>
+      <small>El ancho de la etiqueta debe coincidir con el ancho del rollo instalado en la QL-800.</small>
+    </div>
+
+    <h4 class="subtitulo text-center mt-1">Guía: 2 columnas</h4>
     <div class="grid">
-      <label>Ancho pág.</label><input type="number" [(ngModel)]="design.pageWidthMm">
-      <label>Alto pág.</label><input type="number" [(ngModel)]="design.pageHeightMm">
-      <label>Cols</label><input type="number" [(ngModel)]="design.cols">
-      <label>Rens</label><input type="number" [(ngModel)]="design.rows">
-      <label>Gap X</label><input type="number" [(ngModel)]="design.gapXmm">
-      <label>Gap Y</label><input type="number" [(ngModel)]="design.gapYmm">
+      <label>Activar</label>
+      <input type="checkbox" [(ngModel)]="design.twoCols">
+      <label>Split (%)</label>
+      <input type="number" [(ngModel)]="design.splitPct" min="10" max="90">
     </div>
 
     <div class="mb-2">
       <h4 class="subtitulo text-center mt-1">Agregar elemento</h4>
       <div class="row mb-1">
-        <div class="col-4">
-          <button class="btn-gris-chico" (click)="addText('nombre')">Nombre</button>
-        </div>
-        <div class="col-4" style="text-align: center;">
-          <button class="btn-gris-chico" (click)="addText('renglon1')">Renglón 1</button>
-        </div>
-        <div class="col-4" style="text-align: end;">
-          <button class="btn-gris-chico" (click)="addText('renglon2')">Renglón 2</button>
-        </div>
+        <div class="col-4"><button class="btn-gris-chico" (click)="addText('nombre')">Nombre</button></div>
+        <div class="col-4" style="text-align:center;"><button class="btn-gris-chico"
+            (click)="addText('renglon1')">Renglón 1</button></div>
+        <div class="col-4" style="text-align:end;"><button class="btn-gris-chico" (click)="addText('renglon2')">Renglón
+            2</button></div>
       </div>
       <div class="row">
-        <div class="col-5">
-          <button class="btn-gris-chico" (click)="addPrice()">Precio</button>
-        </div>
-        <div class="col-7" style="text-align: end;">
-          <button class="btn-gris-chico" (click)="addBarcode()">Código de barras</button>
-        </div>
+        <div class="col-5"><button class="btn-gris-chico" (click)="addPrice()">Precio</button></div>
+        <div class="col-7" style="text-align:end;"><button class="btn-gris-chico" (click)="addBarcode()">Código de
+            barras</button></div>
       </div>
-    </div>
-
-    <div *ngIf="selected" class="mb-1">
-      <h4 class="subtitulo text-center mt-1">Propiedades</h4>
-      <div style="text-align: center;">Tipo: <span><strong>{{selected.type}}</strong></span></div>
-      <div *ngIf="selected.type!=='barcode'">
-        <div>
-          <label style="margin-right: 1rem;">Fuente (pt)</label><input type="number" [(ngModel)]="selected.fontSize"
-            style="width: 4rem;">
-        </div>
-        <div class="row mt-1">
-          <div class="col-5">
-            <label><input type="checkbox" [(ngModel)]="selected.bold"> Negritas</label>
-          </div>
-          <div class="col-7" style="text-align: end;">
-            <label style="margin-right: 0.5rem;">Alineación</label>
-            <select [(ngModel)]="selected.align">
-              <option>left</option>
-              <option>center</option>
-              <option>right</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid my-2">
-          <label>Prefijo</label><input [(ngModel)]="selected.prefix">
-          <label>Sufijo</label><input [(ngModel)]="selected.suffix">
-
-        </div>
-        <label><input type="checkbox" [(ngModel)]="selected.uppercase"> MAYÚSCULAS</label>
-
-      </div>
-
-      <div *ngIf="selected.type==='barcode'" class="my-1">
-        <label>Símbolo&nbsp;</label>
-        <select [(ngModel)]="selected.barcode!.symbology">
-          <option>CODE128</option>
-          <option>EAN13</option>
-          <option>EAN8</option>
-          <option>QR</option>
-        </select>
-        <div class="grid my-1">
-          <label>ancho(px)</label><input type="number" [(ngModel)]="selected.barcode!.width">
-          <label>alto(px)</label><input type="number" [(ngModel)]="selected.barcode!.height">
-        </div>
-        <label><input type="checkbox" [(ngModel)]="selected.barcode!.displayValue"> Mostrar texto</label>
-      </div>
-
-      <div class="mb-1" style="display:flex; justify-content:center;">
-        <button (click)="deleteSelected()" class="btn-rojo-chico">Eliminar elemento</button>
-      </div>
-
     </div>
 
     <div class="row">
-      <div class="col-7">
-        <button class="btn-verde-chico" (click)="save()">Guardar diseño</button>
+      <div class="col-7"><button class="btn-verde-chico" (click)="save()">Guardar diseño</button></div>
+      <div class="col-5" style="text-align:end;"><button class="btn-verde-chico" (click)="nuevo()">Nuevo</button></div>
+    </div>
+  </div>
+
+  <!-- ───── Col 2: Canvas + Propiedades ───── -->
+  <div class="center-col">
+    <!-- Preview (zoom con scroll) -->
+    <div class="canvas-wrap">
+      <div class="label-canvas" [style.width]="design.widthMm + 'mm'" [style.height]="design.heightMm + 'mm'"
+        [style.transform]="'scale(' + zoom + ')'" (click)="selected=null">
+
+        <div class="label-inner" [style.padding]="(design.marginMm || 0) + 'mm'">
+          <!-- guía 2 columnas -->
+          <div *ngIf="design.twoCols" class="two-cols-guide" [style.left.%]="design.splitPct"></div>
+
+          <div *ngFor="let el of design.elements; let idx = index" class="el" [class.selected]="el===selected"
+            [style.left.%]="el.x" [style.top.%]="el.y" [style.width.%]="el.w" [style.height.%]="el.h"
+            (click)="$event.stopPropagation(); selected=el" cdkDrag cdkDragBoundary=".label-inner"
+            (cdkDragEnded)="onDragEnd($event, el)">
+
+            <ng-container [ngSwitch]="el.type">
+              <div *ngSwitchCase="'text'" [ngStyle]="textStyle(el)">
+                {{ sampleValue(el) }}
+              </div>
+
+              <div *ngSwitchCase="'price'" [ngStyle]="textStyle(el)">
+                {{ formatPrice(123.45, el) }}
+              </div>
+
+              <div *ngSwitchCase="'barcode'">
+                <svg #barcodeSvg></svg>
+              </div>
+            </ng-container>
+          </div>
+        </div>
       </div>
-      <div class="col-5" style="text-align: end;">
-        <button class="btn-verde-chico" (click)="nuevo()">Nuevo</button>
+    </div>
+
+    <!-- Propiedades debajo del canvas -->
+    <div *ngIf="selected" class="props-card">
+      <h4 class="subtitulo" style="text-align:center;">Propiedades del elemento seleccionado</h4>
+      <div style="text-align:center;">Tipo: <b>{{selected.type}}</b></div>
+
+      <!-- Posición y tamaño en dos renglones -->
+      <div class="rowline">
+        <span class="lead">Posición:</span>
+        <label>X (%)</label>
+        <input type="number" [(ngModel)]="selected.x" min="0" max="100">
+        <label>Y (%)</label>
+        <input type="number" [(ngModel)]="selected.y" min="0" max="100">
+      </div>
+
+      <div class="rowline">
+        <span class="lead">Tamaño:</span>
+        <label>Ancho (%)</label>
+        <input type="number" [(ngModel)]="selected.w" min="1" max="100">
+        <label>Alto (%)</label>
+        <input type="number" [(ngModel)]="selected.h" min="1" max="100">
+      </div>
+
+
+      <div *ngIf="selected.type!=='barcode'">
+        <div class="row mt-1">
+          <div class="col-4">
+            <label style="margin-right:.75rem;">Fuente (pt):</label>
+            <input type="number" [(ngModel)]="selected.fontSize">
+          </div>
+          <div class="col-2" style="text-align: center;">
+            <label><input type="checkbox" [(ngModel)]="selected.bold"> Negritas</label>
+          </div>
+          <div class="col-2" style="text-align: center;">
+            <label><input type="checkbox" [(ngModel)]="selected.uppercase"> MAYÚSCULAS</label>
+          </div>
+          <div class="col-4" style="text-align:end;">
+            <label>Alineación: </label>
+            <select [(ngModel)]="selected.align">
+              <option>izq</option>
+              <option>centro</option>
+              <option>der</option>
+            </select>
+          </div>
+        </div>
+        <div class="row my-2">
+          <div class="col-6" style="text-align: center;">
+            <label>Prefijo:</label><input [(ngModel)]="selected.prefix">
+          </div>
+          <div class="col-6" style="text-align: center;">
+            <label>Sufijo:</label><input [(ngModel)]="selected.suffix">
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="selected.type==='barcode'" class="row my-1">
+        <div class="col-2">
+          <label>Símb.&nbsp;</label>
+          <select [(ngModel)]="selected.barcode!.symbology" (ngModelChange)="renderBarcodes()">
+            <option>CODE128</option>
+            <option>EAN13</option>
+            <option>EAN8</option>
+            <option>QR</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label>CB ancho(px)</label><input type="number" [(ngModel)]="selected.barcode!.width"
+            (ngModelChange)="renderBarcodes()">
+        </div>
+        <div class="col-4">
+          <label>CB alto(px)</label><input type="number" [(ngModel)]="selected.barcode!.height"
+            (ngModelChange)="renderBarcodes()">
+        </div>
+        <div class="col-2" style="text-align: end;">
+          <label><input type="checkbox" [(ngModel)]="selected.barcode!.displayValue" (ngModelChange)="renderBarcodes()">
+            Mostrar texto
+          </label>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:center; margin-top:.5rem;">
+        <button (click)="deleteSelected()" class="btn-rojo-chico">Eliminar elemento</button>
       </div>
     </div>
   </div>
 
-  <!-- Área de etiqueta (preview) -->
-  <div class="canvas-wrap">
-    <div class="label-canvas" [style.width]="design.widthMm + 'mm'" [style.height]="design.heightMm + 'mm'"
-      (click)="selected=null">
-
-      <div class="label-inner" [style.padding]="(design.marginMm || 0) + 'mm'">
-        <div *ngFor="let el of design.elements; let idx = index" class="el" [class.selected]="el===selected"
-          [style.left.%]="el.x" [style.top.%]="el.y" [style.width.%]="el.w" [style.height.%]="el.h"
-          (click)="$event.stopPropagation(); selected=el" cdkDrag (cdkDragEnded)="onDragEnd($event, el)">
-
-          <ng-container [ngSwitch]="el.type">
-            <div *ngSwitchCase="'text'" [ngStyle]="textStyle(el)">
-              {{ sampleValue(el) }}
-            </div>
-
-            <div *ngSwitchCase="'price'" [ngStyle]="textStyle(el)">
-              {{ formatPrice(123.45, el) }}
-            </div>
-
-            <div *ngSwitchCase="'barcode'">
-              <svg #barcodeSvg></svg>
-            </div>
-          </ng-container>
-        </div>
-      </div>
-    </div>
-
-    <div class="design-list">
-      <h4 class="titulo">Mis diseños guardados</h4>
-      <ul>
-        <li *ngFor="let d of disenos" (click)="load(d)" [class.active]="d._id===design._id" class="name-label">
-          {{ d.nombre }}
-          <button class="mini btn-rojo" (click)="remove(d, $event)">Borrar</button>
-        </li>
-      </ul>
-    </div>
+  <!-- ───── Col 3: Mis diseños guardados ───── -->
+  <div class="design-list">
+    <h4 class="titulo">Mis diseños guardados</h4>
+    <ul>
+      <li *ngFor="let d of disenos" (click)="load(d)" [class.active]="d._id===design._id" class="name-label">
+        <span class="name">{{ d.nombre }}</span>
+        <button class="mini btn-rojo" (click)="remove(d, $event)">Borrar</button>
+      </li>
+    </ul>
   </div>
 </div>

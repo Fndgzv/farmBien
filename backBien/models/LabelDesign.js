@@ -37,6 +37,9 @@ const ElementoSchema = new Schema({
 const LabelDesignSchema = new Schema({
   nombre: { type: String, required: true, trim: true, unique: true },
 
+  mode: { type: String, enum: ['sheet','roll'], default: 'sheet' },
+  rollGapMm: { type: Number, default: 0 },
+
   // Tamaño físico de la etiqueta (para CSS de impresión)
   size: {
     widthMm: { type: Number, default: 50 },   // ancho etiqueta en mm
