@@ -5,6 +5,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { InventarioFarmaciaService } from '../../../services/inventario-farmacia.service';
 import { FarmaciaService } from '../../../services/farmacia.service';
 import Swal from 'sweetalert2';
+import { finalize } from 'rxjs/operators';
 
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -110,10 +111,10 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       sortDir: this.sortDir
     };
 
-    this.inventarioService.buscarInventarioFarmacia(params).subscribe({      
+    this.inventarioService.buscarInventarioFarmacia(params).subscribe({
       next: (resp) => {
         this.estadoEdicion = {};
-         console.log('inventario farma', resp );     
+        console.log('inventario farma', resp);
         this.inventario = resp.map((item: any) => ({
           _id: item._id,
           farmacia: item.farmacia,
@@ -130,10 +131,10 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
             stockMin: item.stockMin,
             precioVenta: item.precioVenta,
             ubicacionEnFarmacia: item.ubicacionEnFarmacia,
-          } 
+          }
         }));
         this.paginaActual = 1;
-        this.cargando = false; 
+        this.cargando = false;
       },
       error: (err) => {
         console.error('Error al buscar inventario', err);
@@ -150,10 +151,10 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   }
 
   clickSortNombre() {
-  this.sortBy = 'nombre';
-  this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
-  this.buscar();
-}
+    this.sortBy = 'nombre';
+    this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    this.buscar();
+  }
 
   seleccionarTodos(event: any) {
     /* this.inventario.forEach(p => p.seleccionado = this.todosSeleccionados); */
@@ -209,8 +210,27 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       return cambio;
     });
 
-    this.inventarioService.actualizarMasivo(farmacia, cambios).subscribe({
+    // 1) Abrir loader
+    void Swal.fire({
+      title: 'Aplicando ajustes...',
+      html: 'Esto puede tardar unos segundos.',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    this.inventarioService.actualizarMasivo(farmacia, cambios).pipe(
+      // 2) Siempre limpiar bandera al terminar
+      finalize(() => {
+        this.aplicandoCambiosMasivos = false;
+      })
+    ).subscribe({
       next: () => {
+        // Cerrar loader antes de mostrar el success
+        Swal.close();
+
         for (const p of productosAjustar) {
           if (ajustarExistencia && existenciaNum > 0) {
             p.existencia = existenciaNum;
@@ -225,6 +245,13 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
             p.copiaOriginal.stockMin = stockMinNum;
           }
         }
+
+        // Reset de inputs del ajuste masivo
+        this.ajusteMasivo.existencia = 0;
+        this.ajusteMasivo.stockMax = 0;
+        this.ajusteMasivo.stockMin = 0;
+
+        // Aviso de éxito
         Swal.fire({
           icon: 'success',
           title: 'Actualizado',
@@ -234,13 +261,11 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           allowOutsideClick: false,
           allowEscapeKey: false
         });
-        this.aplicandoCambiosMasivos = false;
-        this.ajusteMasivo.existencia = 0;
-        this.ajusteMasivo.stockMax = 0;
-        this.ajusteMasivo.stockMin = 0;
       },
       error: (err) => {
         console.error('Error en ajuste masivo', err);
+        // Cerrar loader y avisar del error
+        Swal.close();
         Swal.fire('Error', 'No se pudieron aplicar los ajustes.', 'error');
       }
     });
@@ -410,7 +435,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       i.existencia >= 0 &&
       i.stockMax >= 0 &&
       i.stockMin >= 0 &&
-      i.precioVenta >= 0 
+      i.precioVenta >= 0
 
     return cambios && valoresValidos;
   }

@@ -14,6 +14,7 @@ import Swal from 'sweetalert2';
 import { FarmaciaService } from '../../services/farmacia.service';
 import { SurtidoFarmaciaService } from '../../services/surtido-farmacia.service';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { finalize } from 'rxjs';
 
 interface Pendiente {
   producto: string;
@@ -105,7 +106,7 @@ export class SurtirFarmaciaComponent implements OnInit {
         }));
 
         console.log('Pendientes', pendientes);
-        
+
         this.rows = this.pendientes; // fuente de la tabla/paginación
         this.resetPagination();
         this.cargando = false;
@@ -144,67 +145,86 @@ export class SurtirFarmaciaComponent implements OnInit {
     this.rows.forEach(r => r.omitir = false);
   }
 
-  onSurtir() {
-    const farmaciaId = this.form.value.farmaciaId;
-    const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
+onSurtir() {
+  const farmaciaId = this.form.value.farmaciaId;
+  const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
 
-    // Arma detalles con omitir por producto (para TODA la lista, no solo la página)
-    const detalles = this.rows.map(r => ({
-      producto: r.producto,
-      omitir: !!r.omitir
-    }));
+  const detalles = this.rows.map(r => ({
+    producto: r.producto,
+    omitir: !!r.omitir
+  }));
 
+  Swal.fire({
+    icon: 'question',
+    title: 'Confirmar surtido',
+    html: `
+      Se surtirá a la farmacia <strong>${farmNombre}</strong> respetando las omisiones marcadas.<br>
+      <small>Omitidos: ${this.totalOmitidos} / ${this.rows.length}</small>
+    `,
+    showCancelButton: true,
+    confirmButtonText: 'Continuar',
+    cancelButtonText: 'Cancelar',
+    allowOutsideClick: false,
+    allowEscapeKey: false
+  }).then(result => {
+    if (!result.isConfirmed) {
+      this.toggleFarmacia(false);
+      return;
+    }
+
+    // Abrir loader (modal nuevo)
     Swal.fire({
-      icon: 'question',
-      title: 'Confirmar surtido',
-      html: `
-        Se surtirá a la farmacia <strong>${farmNombre}</strong> respetando las omisiones marcadas.<br>
-        <small>Omitidos: ${this.totalOmitidos} / ${this.rows.length}</small>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Continuar',
-      cancelButtonText: 'Cancelar',
+      title: 'Surtido en progreso...',
+      html: 'Generando hoja y actualizando inventarios.',
       allowOutsideClick: false,
-      allowEscapeKey: false
-    }).then(result => {
-      if (!result.isConfirmed) {
-        this.toggleFarmacia(false);
-        return;
-      }
-
-      Swal.showLoading();
-      this.surtidoService.surtirFarmacia(farmaciaId, detalles)
-        .subscribe(
-          (res: any) => {
-            Swal.hideLoading();
-            Swal.fire({
-              icon: 'success',
-              title: 'Surtido completado',
-              html: '¿Deseas imprimir la hoja de surtido?',
-              showCancelButton: true,
-              confirmButtonText: 'Sí',
-              cancelButtonText: 'No',
-              allowOutsideClick: false,
-              allowEscapeKey: false
-            }).then((d) => {
-              if (d.isConfirmed && res?.surtido) {
-                this.imprimirReal(res.surtido);
-              }
-              this.pendientes = [];
-              this.form.reset({ farmaciaId: null });
-              this.toggleFarmacia(false);
-            });
-          },
-          err => {
-            Swal.hideLoading();
-            console.error(err);
-            const msg = err?.error?.detalle || err?.error?.mensaje || 'No se pudo surtir la farmacia.';
-            Swal.fire('Aviso', msg, 'warning');
-            this.toggleFarmacia(false);
-          }
-        );
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading()
     });
-  }
+
+    this.surtidoService.surtirFarmacia(farmaciaId, detalles)
+      .pipe(
+        // ¡OJO! aquí NO cerramos el Swal. Sólo limpiamos estado si quieres.
+        finalize(() => {
+          // cualquier bandera/estado UI que quieras restablecer
+        })
+      )
+      .subscribe({
+        next: (res: any) => {
+          // Cerrar SOLO el loader
+          Swal.close();
+
+          // Ahora sí mostramos la pregunta de impresión
+          Swal.fire({
+            icon: 'success',
+            title: 'Surtido completado',
+            html: '¿Deseas imprimir la hoja de surtido?',
+            showCancelButton: true,
+            confirmButtonText: 'Sí',
+            cancelButtonText: 'No',
+            allowOutsideClick: false,
+            allowEscapeKey: false
+          }).then((d) => {
+            if (d.isConfirmed && res?.surtido) {
+              this.imprimirReal(res.surtido);
+            }
+            this.pendientes = [];
+            this.form.reset({ farmaciaId: null });
+            this.toggleFarmacia(false);
+          });
+        },
+        error: (err) => {
+          console.error(err);
+          // Cerrar SOLO el loader
+          Swal.close();
+
+          const msg = err?.error?.detalle || err?.error?.mensaje || 'No se pudo surtir la farmacia.';
+          Swal.fire('Aviso', msg, 'warning');
+          this.toggleFarmacia(false);
+        }
+      });
+  });
+}
+
 
   onCancelar() {
     this.pendientes = [];
