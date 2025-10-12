@@ -135,30 +135,27 @@
 
 <!-- Contenedor de impresión -->
 <div class="etiquetas-impresion" *ngIf="mostrarPrint">
-  <div #printHost class="page" [style.width.mm]="forceRollPreview ? lblW : (design?.pageWidthMm || 210)"
-    [style.height.mm]="forceRollPreview ? calcRollHeightMm(itemsParaImprimir.length)
-                                        : (design?.pageHeightMm || 297)">
-    <div class="labels-grid" [style.gap]="(gapY) + 'mm ' + (gapX) + 'mm'" [style.gridTemplateColumns]="forceRollPreview
-        ? '1fr'
-        : 'repeat(' + (design?.cols || 1) + ', ' + lblW + 'mm)'" [style.gridTemplateRows]="forceRollPreview
-        ? 'repeat(' + itemsParaImprimir.length + ', ' + lblH + 'mm)'
-        : 'repeat(' + (design?.rows || 1) + ', ' + lblH + 'mm)'">
-      <ng-container *ngFor="let item of itemsParaImprimir">
-        <div class="label-box" [style.width.mm]="lblW" [style.height.mm]="lblH">
-          <div class="label-inner" [style.padding.mm]="pad">
-            <ng-container *ngFor="let el of design!.elements">
-              <div class="el" [style.left.%]="el.x" [style.top.%]="el.y" [style.width.%]="el.w" [style.height.%]="el.h"
-                [ngStyle]="styleTexto(el)">
-                <ng-container [ngSwitch]="el.type">
-                  <div *ngSwitchCase="'text'">{{ valorCampo(item, el) }}</div>
-                  <div *ngSwitchCase="'price'">{{ valorPrecio(item, el) }}</div>
-                  <img *ngSwitchCase="'barcode'" class="barcode" />
-                </ng-container>
-              </div>
+  <div #printHost class="print-root">
+    <!-- Cada etiqueta = UNA hoja/corte -->
+    <section class="sheet"
+             *ngFor="let item of itemsParaImprimir"
+             [style.width.mm]="lblWmm"
+             [style.height.mm]="lblHmm">
+      <div class="label-inner" [style.padding.mm]="padMm">
+        <ng-container *ngFor="let el of design!.elements">
+          <div class="el"
+               [style.left.%]="el.x" [style.top.%]="el.y"
+               [style.width.%]="el.w" [style.height.%]="el.h"
+               [ngStyle]="styleTexto(el)">
+            <ng-container [ngSwitch]="el.type">
+              <div *ngSwitchCase="'text'">{{ valorCampo(item, el) }}</div>
+              <div *ngSwitchCase="'price'">{{ valorPrecio(item, el) }}</div>
+              <!-- marcador de CB; lo sustituyo por SVG -->
+              <img *ngSwitchCase="'barcode'" class="barcode" />
             </ng-container>
           </div>
-        </div>
-      </ng-container>
-    </div>
+        </ng-container>
+      </div>
+    </section>
   </div>
 </div>

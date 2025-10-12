@@ -1,24 +1,28 @@
 .filtros {
-    border-bottom: 2px solid #0453b3;
-    margin-bottom: 1rem;
+  border-bottom: 2px solid #0453b3;
+  margin-bottom: 1rem;
 }
 
 .form-label {
-    margin-bottom: 0 !important;
+  margin-bottom: 0 !important;
 }
 
 .btn-icon-only {
-  width: 2.5rem;          /* cuadrado bonito */
+  width: 2.5rem;
+  /* cuadrado bonito */
   height: 2.5rem;
-  padding: 0;             /* sin padding extra */
+  padding: 0;
+  /* sin padding extra */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: .5rem;   /* opcional */
+  border-radius: .5rem;
+  /* opcional */
 }
 
 .btn-icon-only .bi {
-  font-size: 1.25rem;     /* tamaño del icono */
+  font-size: 1.25rem;
+  /* tamaño del icono */
   line-height: 1;
 }
 
@@ -27,56 +31,153 @@
   user-select: none;
   white-space: nowrap;
 }
-.sortable:hover { text-decoration: underline; }
-.sort { margin-left: 6px; font-size: .85em; opacity: .7; }
+
+.sortable:hover {
+  text-decoration: underline;
+}
+
+.sort {
+  margin-left: 6px;
+  font-size: .85em;
+  opacity: .7;
+}
 
 
 /* etiquetas-print.component.css */
-.barra { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-.tabla { width: 100%; border-collapse: collapse; }
-.tabla th, .tabla td { border-bottom: 1px solid #eee; padding: 6px; }
+.barra {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
 
-.etiquetas-impresion { position: fixed; inset: 0; background: white; z-index: 9999; }
-.page { margin: 0 auto; position: relative; }
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  border-bottom: 1px solid #eee;
+  padding: 6px;
+}
+
+.etiquetas-impresion {
+  position: fixed;
+  inset: 0;
+  background: white;
+  z-index: 9999;
+}
+
+.page {
+  margin: 0 auto;
+  position: relative;
+}
+
 .labels-grid {
   display: grid;
   /* columnas y filas se setean vía style binding */
 }
 
 .label-box {
-  background: #fff; border: 1px dashed transparent; position: relative;
+  background: #fff;
+  border: 1px dashed transparent;
+  position: relative;
 }
-.label-inner { position: relative; width: 100%; height: 100%; }
 
-.el { position: absolute; }
+.label-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
 
-/* === SOLO PARA IMPRIMIR === */
+.el {
+  position: absolute;
+}
+
+.print-root {
+  width: 62mm;
+}
+
+/* ancho del rollo */
+
+.sheet {
+  position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+.label-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.el {
+  position: absolute;
+}
+
+img.barcode {
+  display: block;
+}
+
 @media print {
-  /* Oculta TODO menos el contenedor de impresión */
+
+  /* Oculta TODO menos el overlay */
   body * { visibility: hidden !important; }
 
-  /* Muestra solo el overlay de impresión y sus hijos */
   .etiquetas-impresion,
   .etiquetas-impresion * {
     visibility: visible !important;
   }
 
-  /* Fija el overlay para ocupar toda la página al imprimir */
   .etiquetas-impresion {
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 999999 !important;
-    background: #fff;
-    display: block !important; /* por si estaba oculto */
+    position: static !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    inset: auto !important;
+    z-index: auto !important;
+    background: #fff !important;
+    display: block !important;
   }
 
-  img.barcode { display:block !important; visibility:visible !important; }
+  /* UNA etiqueta = UNA hoja física */
+  .sheet {
+    margin: 0 !important;
+    padding: 0 !important;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    overflow: hidden !important;
+    position: relative;
+  }
+  .sheet:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
 
-  /* Márgenes a 0; el tamaño lo controlas con estilos inline (mm) */
-  @page { margin: 0; }
+  /* Que el SVG/CB se pinte siempre */
+  svg, img.barcode {
+    display: block !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+  }
 }
 
 /* Refuerzos generales (útiles en Edge/Chrome) */
-html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.page { width: 100%; height: 100%; }
-img { image-rendering: auto; }
+html,
+body {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.page {
+  width: 100%;
+  height: 100%;
+}
+
+img {
+  image-rendering: auto;
+}

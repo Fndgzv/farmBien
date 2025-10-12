@@ -1,15 +1,15 @@
-import { Component, ElementRef, QueryList, ViewChild, ViewChildren, ChangeDetectorRef, AfterViewInit, NgZone } from '@angular/core';
-import { LabelDesign, LabelElement } from '../../../core/models/label-design.model';
-import { LabelDesignsService } from '../../../core/services/label-designs.service';
-import { LabelsProductsService } from '../../../core/services/labels-products.service';
-import JsBarcode from 'jsbarcode';
+import { Component, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { DragDropModule } from '@angular/cdk/drag-drop';
-
-import { Farmacia, FarmaciaService } from '../../../services/farmacia.service'
-import Swal from 'sweetalert2';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import JsBarcode from 'jsbarcode';
+
+import { LabelDesign, LabelElement } from '../../../core/models/label-design.model';
+import { LabelDesignsService } from '../../../core/services/label-designs.service';
+import { LabelsProductsService } from '../../../core/services/labels-products.service';
+import { Farmacia, FarmaciaService } from '../../../services/farmacia.service';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-etiquetas-print',
@@ -19,76 +19,51 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   imports: [FormsModule, CommonModule, DragDropModule, MatTooltipModule]
 })
 
+
 export class EtiquetasPrintComponent {
 
+  constructor(
+    private designsSvc: LabelDesignsService,
+    private prodSvc: LabelsProductsService,
+    private farmacia: FarmaciaService,
+    private cdr: ChangeDetectorRef
+  ) { }
+
+  // ===== Compat con tu plantilla =====
+  mostrarPrint = false;                 // tu overlay (no lo uso para imprimir, pero lo dejo)
+  itemsParaImprimir: any[] = [];        // usado por el *ngFor del overlay
+
+  get seleccionados() {                 // checkbox de la tabla
+    return this.productos.filter(p => p._checked);
+  }
+
+  trackById = (_: number, p: any) => p?._id;  // trackBy del *ngFor
+
+  // alias para los nombres que espera tu HTML
+  get lblW() { return this.lblWmm; }
+  get lblH() { return this.lblHmm; }
+  get pad() { return this.padMm; }
+
+  // estilo de texto que esperaba tu plantilla
+  styleTexto(el: LabelElement) {
+    return {
+      position: 'absolute',
+      'font-weight': el.bold ? '700' : '400',
+      'font-size.px': (el.fontSize || 10),
+      'text-align': el.align || 'left',
+      overflow: 'hidden',
+      display: 'flex',
+      'align-items': 'center',
+      'justify-content': el.align === 'center'
+        ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start'),
+      'white-space': 'nowrap',
+      'min-height.px': 1
+    };
+  }
+
+
+  // ====== Estado ======
   isPrinting = false;
-
-  // firma de la última búsqueda (para decidir si limpiar selección)
-  private lastQuerySig = '';
-
-  private _barcodeCache = new Map<string, string>(); // valor→dataURL
-  private _transparentPx =
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/axu8J8AAAAASUVORK5CYII=';
-
-  /** Espera a que todas las <img> dentro de host estén decodificadas.
-   *  Chrome/Edge respetan mucho mejor decode() que sólo 'complete' + RAFs.
-   */
-  private async waitImagesDecoded(host: HTMLElement) {
-    const imgs = Array.from(host.querySelectorAll('img')) as HTMLImageElement[];
-    if (!imgs.length) return;
-
-    // Forzamos eager + decoding sincronizado
-    for (const img of imgs) {
-      img.loading = 'eager';
-      // @ts-ignore
-      img.decoding = 'sync';
-    }
-
-    // decode() funciona muy bien con data: URLs
-    await Promise.all(
-      imgs.map(i => typeof i.decode === 'function' ? i.decode().catch(() => { }) : Promise.resolve())
-    );
-  }
-
-
-  private buildBarcodeDataURL(
-    value: string,
-    opts: { format?: string; width?: number; height?: number; displayValue?: boolean } = {}
-  ): string {
-    const v = (value || '').trim();
-    if (!v) return this._transparentPx;
-
-    try {
-      const canvas = document.createElement('canvas');
-      JsBarcode(canvas, v, {
-        format: (opts.format as any) || 'CODE128',
-        width: opts.width || 1,
-        height: opts.height || 30,
-        displayValue: !!opts.displayValue,
-        margin: 0
-      });
-      return canvas.toDataURL('image/png');
-    } catch {
-      // valor no compatible con el symbology, etc.
-      return this._transparentPx;
-    }
-  }
-
-
-
-  forceRollPreview = true;
-  get lblW() { return this.design?.widthMm ?? 60; }
-  get lblH() { return this.design?.heightMm ?? 30; }
-  get gapX() { return this.design?.gapXmm ?? 0; }
-  get gapY() { return this.design?.gapYmm ?? 0; }
-  get pad() { return this.design?.marginMm ?? 0; }
-
-  // alto total de la tira (en mm) para N etiquetas
-  calcRollHeightMm(n: number) {
-    if (!n) return this.lblH + 2 * this.pad;
-    const total = (n * this.lblH) + ((n - 1) * this.gapY) + 2 * this.pad;
-    return Math.max(total, this.lblH + 2 * this.pad);
-  }
 
   disenos: LabelDesign[] = [];
   designId: string | null = null;
@@ -99,132 +74,60 @@ export class EtiquetasPrintComponent {
   productos: any[] = [];
   allChecked = false;
 
-  mostrarPrint = false;
-  itemsParaImprimir: any[] = []; // productos seleccionados (se puede multiplicar si quieres varias copias)
   farmacias: Farmacia[] = [];
   farmaciaId: string = '';
 
-
   @ViewChild('printHost') printHost!: ElementRef<HTMLElement>;
-  @ViewChildren('printBarcode') printBarcodes!: QueryList<ElementRef<HTMLCanvasElement>>;
 
-  get seleccionados() { return this.productos.filter(p => p._checked); }
-  page = 1;
-  limit = 20;
-  totalFiltrado = 0;
-  totalPages = 1;
-
-  // Estado global de selección (todas las páginas)
+  // selección global
   selectedIds = new Set<string>();
-  selectedItems = new Map<string, any>(); // guarda el producto seleccionado tal cual llegó
-
+  selectedItems = new Map<string, any>();
   get totalSeleccionados() { return this.selectedIds.size; }
 
-  private makeQuerySig(fid: string, nombre: string, categoria: string): string {
-    const norm = (s: string) =>
-      (s || '')
-        .trim()
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(Boolean)
-        .sort()
-        .join(' ');
-    return `${fid}|${norm(nombre)}|${norm(categoria)}`;
-  }
+  page = 1; limit = 20; totalFiltrado = 0; totalPages = 1;
+  sortBy: 'nombre' | 'categoria' = 'nombre';
+  sortDir: 'asc' | 'desc' = 'asc';
 
-  private clearSelection() {
-    this.selectedIds.clear();
-    this.selectedItems.clear();
-    this.allChecked = false;
-  }
+  private lastQuerySig = '';
 
-
-  constructor(
-    private designsSvc: LabelDesignsService,
-    private prodSvc: LabelsProductsService,
-    private farmacia: FarmaciaService,
-    private cdr: ChangeDetectorRef, private zone: NgZone
-  ) { }
+  // ====== Geometría del diseño ======
+  get lblWmm() { return 62; } // Brother QL: 62mm
+  get lblHmm() { return this.design?.heightMm ?? 30; }
+  get padMm() { return this.design?.marginMm ?? 0; }
 
   ngOnInit() {
     this.designsSvc.list().subscribe(d => {
       this.disenos = d;
       if (d.length) { this.designId = d[0]._id!; this.loadDesign(); }
     });
-
     const last = localStorage.getItem('farmaciaId_print') || '';
     this.farmaciaId = last;
     this.cargarFarmacias();
-
-    window.addEventListener('afterprint', () => {
-      this.mostrarPrint = false;
-      this.cdr.detectChanges();
-    });
-
     this.buscar();
   }
 
-
-  // Renderiza códigos como SVG inline EN EL HOST VISIBLE (sin <img>, sin dataURL)
-  private renderBarcodesInline(host: HTMLElement) {
-    const imgs = Array.from(host.querySelectorAll('img.barcode')) as HTMLImageElement[];
-    let idx = 0;
-
-    for (const item of this.itemsParaImprimir) {
-      for (const el of this.design?.elements || []) {
-        if (el.type !== 'barcode') continue;
-
-        const img = imgs[idx++];
-        if (!img) continue;
-
-        const valor = (this.valorCampo(item, { ...el, field: 'codigoBarras' } as any) || '').trim();
-        let dataUrl = this._transparentPx;
-
-        if ((el.barcode?.symbology || 'CODE128') !== 'QR') {
-          dataUrl = this.buildBarcodeDataURL(valor, {
-            format: el.barcode?.symbology,
-            width: el.barcode?.width,
-            height: el.barcode?.height,
-            displayValue: el.barcode?.displayValue
-          });
-        }
-
-        img.setAttribute('loading', 'eager');
-        img.setAttribute('decoding', 'sync');
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.src = dataUrl;   // ✅ siempre algo (pixel si vacío)
-        img.alt = '';
-      }
-    }
+  private normalizeDesign(raw: any): LabelDesign & any {
+    const size = raw?.size || {};
+    const layout = raw?.layout || {};
+    return {
+      ...raw,
+      widthMm: size.widthMm ?? raw.widthMm ?? 0,
+      heightMm: size.heightMm ?? raw.heightMm ?? 0,
+      marginMm: size.marginMm ?? raw.marginMm ?? 0,
+      pageWidthMm: layout.pageWidthMm ?? raw.pageWidthMm ?? 210,
+      pageHeightMm: layout.pageHeightMm ?? raw.pageHeightMm ?? 297,
+      cols: layout.columns ?? raw.cols ?? 1,
+      rows: layout.rows ?? raw.rows ?? 1,
+      gapXmm: layout.gapXmm ?? raw.gapXmm ?? 0,
+      gapYmm: layout.gapYmm ?? raw.gapYmm ?? 0,
+      elements: raw.elements ?? []
+    };
   }
 
-
-
-  private buildPrintHtml(contentEl: HTMLElement): string {
-
-    // si estamos en modo “rollo”, usamos el alto total calculado
-    const pageW = this.forceRollPreview ? this.lblW : (this.design?.pageWidthMm ?? 210);
-    const pageH = this.forceRollPreview
-      ? this.calcRollHeightMm(this.itemsParaImprimir.length)
-      : (this.design?.pageHeightMm ?? 297);
-
-    const styles = `
-  <style>
-    @page { margin: 0; size: ${pageW}mm ${pageH}mm; }
-    html, body { margin: 0; padding: 0; }
-    .page { margin: 0 auto; overflow: hidden; }
-    .labels-grid { display: grid; }
-    .label-box { background:#fff; position: relative; }
-    .label-inner { position: relative; width:100%; height:100%; }
-    .el { position:absolute; }
-    img { max-width: 100%; max-height: 100%; display: block; }
-    .barcode-svg { width:100%; height:100%; display:block; }
-  </style>`;
-    const spacer = `<img src="${this._transparentPx}" alt="" style="width:1px;height:1px;position:absolute;left:-9999px;top:-9999px;">`;
-    return `<!doctype html><html><head><meta charset="utf-8">${styles}</head><body>${contentEl.outerHTML}${spacer}</body></html>`;
+  loadDesign() {
+    if (!this.designId) return;
+    this.designsSvc.get(this.designId).subscribe(d => this.design = this.normalizeDesign(d));
   }
-
 
   cargarFarmacias() {
     this.farmacia.obtenerFarmacias().subscribe({
@@ -233,98 +136,43 @@ export class EtiquetasPrintComponent {
     });
   }
 
-  private normalizeDesign(raw: any): LabelDesign & any {
-    const size = raw?.size || {};
-    const layout = raw?.layout || {};
-
-    return {
-      ...raw,
-      // forma plana que el componente ya espera
-      widthMm: size.widthMm ?? raw.widthMm ?? 0,
-      heightMm: size.heightMm ?? raw.heightMm ?? 0,
-      marginMm: size.marginMm ?? raw.marginMm ?? 0,
-
-      pageWidthMm: layout.pageWidthMm ?? raw.pageWidthMm ?? 210,
-      pageHeightMm: layout.pageHeightMm ?? raw.pageHeightMm ?? 297,
-      cols: layout.columns ?? raw.cols ?? 1,
-      rows: layout.rows ?? raw.rows ?? 1,
-      gapXmm: layout.gapXmm ?? raw.gapXmm ?? 0,
-      gapYmm: layout.gapYmm ?? raw.gapYmm ?? 0,
-    };
+  private makeQuerySig(fid: string, nombre: string, categoria: string): string {
+    const norm = (s: string) => (s || '').trim().toLowerCase().split(/\s+/).filter(Boolean).sort().join(' ');
+    return `${fid}|${norm(nombre)}|${norm(categoria)}`;
   }
 
-  loadDesign() {
-    if (!this.designId) return;
-    this.designsSvc.get(this.designId).subscribe(d => {
-      this.design = this.normalizeDesign(d);
-    });
-  }
-
-  // en tu componente etiquetas-print
   buscar() {
     const fid = this.farmaciaId?.trim();
     if (!fid) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Aviso',
-        text: 'Debes de seleccionar una farmacia.',
-        timer: 1600,
-        timerProgressBar: true,
-        allowOutsideClick: false,
-        allowEscapeKey: false
-      });
+      Swal.fire({ icon: 'info', title: 'Aviso', text: 'Debes seleccionar una farmacia.', timer: 1500, showConfirmButton: false });
       return;
     }
-
-    const nombre = (this.fNombre || '').trim();
-    const categoria = (this.fCategoria || '').trim();
-
-    // 👇 si cambió la firma (nuevo filtro), limpiamos selección global
-    const sig = this.makeQuerySig(fid, nombre, categoria);
+    const sig = this.makeQuerySig(fid, this.fNombre, this.fCategoria);
     if (sig !== this.lastQuerySig) {
-      this.clearSelection();
-      this.page = 1;
-      this.lastQuerySig = sig;
+      this.selectedIds.clear(); this.selectedItems.clear(); this.page = 1; this.lastQuerySig = sig;
     }
-
     this.prodSvc.search({
       farmaciaId: fid,
       nombre: (this.fNombre || '').trim(),
       categoria: (this.fCategoria || '').trim(),
-      page: this.page,
-      limit: this.limit,
-      sortBy: this.sortBy,
-      sortDir: this.sortDir
-    })
-      .subscribe(r => {
-        this.productos = (r.rows || []).map((x: any) => {
-          const id = String(x._id);                  // 👈 normaliza a string
-          return {
-            ...x,
-            _id: id,                                 // 👈 asegura string
-            _checked: this.selectedIds.has(id)       // 👈 rehidrata check
-          };
-        });
-        // “select all” de la página actual
-        this.allChecked = this.productos.length > 0 && this.productos.every(p => p._checked);
-
-        // paginación
-        this.totalFiltrado = r?.paginacion?.total ?? this.productos.length;
-        this.totalPages = r?.paginacion?.totalPages ?? 1;
-        this.page = r?.paginacion?.page ?? 1;
-        this.limit = r?.paginacion?.limit ?? this.limit;
+      page: this.page, limit: this.limit, sortBy: this.sortBy, sortDir: this.sortDir
+    }).subscribe(r => {
+      this.productos = (r.rows || []).map((x: any) => {
+        const id = String(x._id);
+        return { ...x, _id: id, _checked: this.selectedIds.has(id) };
       });
+      this.allChecked = this.productos.length > 0 && this.productos.every(p => p._checked);
+      this.totalFiltrado = r?.paginacion?.total ?? this.productos.length;
+      this.totalPages = r?.paginacion?.totalPages ?? 1;
+      this.page = r?.paginacion?.page ?? 1;
+      this.limit = r?.paginacion?.limit ?? this.limit;
+    });
   }
 
   onToggleRow(p: any) {
     const id = String(p._id);
-    if (p._checked) {
-      this.selectedIds.add(id);
-      this.selectedItems.set(id, p);
-    } else {
-      this.selectedIds.delete(id);
-      this.selectedItems.delete(id);
-    }
+    if (p._checked) { this.selectedIds.add(id); this.selectedItems.set(id, p); }
+    else { this.selectedIds.delete(id); this.selectedItems.delete(id); }
     this.allChecked = this.productos.length > 0 && this.productos.every(x => this.selectedIds.has(String(x._id)));
   }
 
@@ -333,239 +181,352 @@ export class EtiquetasPrintComponent {
     for (const p of this.productos) {
       const id = String(p._id);
       p._checked = this.allChecked;
-      if (this.allChecked) {
-        this.selectedIds.add(id);
-        this.selectedItems.set(id, p);
-      } else {
-        this.selectedIds.delete(id);
-        this.selectedItems.delete(id);
-      }
+      if (this.allChecked) { this.selectedIds.add(id); this.selectedItems.set(id, p); }
+      else { this.selectedIds.delete(id); this.selectedItems.delete(id); }
     }
   }
 
-  trackById = (_: number, p: any) => p?._id;
-
-  // Si cambiaste farmacia o hiciste un nuevo filtro manual, resetea selección global
-  onFarmaciaChange() {
-    localStorage.setItem('farmaciaId_print', this.farmaciaId);
-    this.selectedIds.clear();
-    this.selectedItems.clear();
-    this.page = 1;
-    this.buscar();
-  }
-
-  limpiar() {
-    this.fCategoria = '';
-    this.fNombre = '';
-    this.clearSelection();
-    this.page = 1;
-    this.lastQuerySig = this.makeQuerySig(this.farmaciaId?.trim() || '', '', '');
-    this.buscar();
-  }
-
-  updateChecked() {
-    this.seleccionados; // getter calcula
-  }
+  onFarmaciaChange() { localStorage.setItem('farmaciaId_print', this.farmaciaId); this.selectedIds.clear(); this.selectedItems.clear(); this.page = 1; this.buscar(); }
+  limpiar() { this.fCategoria = ''; this.fNombre = ''; this.selectedIds.clear(); this.selectedItems.clear(); this.page = 1; this.lastQuerySig = this.makeQuerySig(this.farmaciaId?.trim() || '', '', ''); this.buscar(); }
   irPrimera() { if (this.page !== 1) { this.page = 1; this.buscar(); } }
   irAnterior() { if (this.page > 1) { this.page--; this.buscar(); } }
   irSiguiente() { if (this.page < this.totalPages) { this.page++; this.buscar(); } }
   irUltima() { if (this.page !== this.totalPages) { this.page = this.totalPages; this.buscar(); } }
+  cambiarLimit(n: number) { this.limit = Number(n) || 20; this.page = 1; this.buscar(); }
 
-  cambiarLimit(n: number) {
-    this.limit = Number(n) || 20;
-    this.page = 1;
-    this.buscar();
-  }
-
-  async previsualizar() {
-    if (!this.design || this.selectedIds.size === 0) return;
-    if (this.isPrinting) return;
-    this.isPrinting = true;
-
-    try {
-      // Dedup por _id
-      const uniq = new Map<string, any>();
-      for (const it of this.selectedItems.values()) uniq.set(String(it._id), it);
-      this.itemsParaImprimir = this.sanitizeItemsForDesign(Array.from(uniq.values()));
-
-      // Si todos están “incompletos”, igual seguimos (ya metemos NBSP/pixel)
-      this.mostrarPrint = true;
-
-      // deja pintar overlay
-      await Promise.resolve();
-      this.cdr.detectChanges();
-
-      const host = this.printHost?.nativeElement as HTMLElement | null;
-      if (!host) return;
-
-      // 🔹 Pinta CB en el DOM VISIBLE (no clones, no iframes)
-      this.renderBarcodesInline(host);
-
-      // 🔹 Espera a que las IMG queden decodificadas + 2 RAF para composición
-      await this.waitImagesDecoded(host);
-      await new Promise<void>(r => requestAnimationFrame(() =>
-        requestAnimationFrame(() => r())
-      ));
-
-      // 🔹 Imprime desde el DOM visible
-      try { window.focus(); } catch { }
-
-      window.print();
-
-      // 🔹 Cierra el overlay pase lo que pase
-      setTimeout(() => {
-        if (this.mostrarPrint) {
-          this.mostrarPrint = false;
-          this.cdr.detectChanges();
-        }
-      }, 400);
-    } finally {
-      this.isPrinting = false;
-    }
-  }
-
-
-  styleTexto(el: LabelElement) {
-    return {
-      position: 'absolute',
-      'font-weight': el.bold ? '700' : '400',
-      'font-size.px': (el.fontSize || 10),
-      'text-align': el.align || 'left',
-      overflow: 'hidden',
-      display: 'flex',
-      'align-items': 'center',
-      'justify-content': el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start'),
-      'white-space': 'nowrap',         // 👈 evita colapso en vacío
-      'min-height.px': 1               // 👈 garantiza 1px “pintable”
-    };
-  }
-
+  // ====== Utils de datos/formatos ======
+  private nb = '\u00A0';
+  private safe(v: any) { return (v === null || v === undefined) ? '' : String(v); }
 
   valorCampo(item: any, el: LabelElement) {
-    const nb = '\u00A0';
-    const safe = (v: any) => (v === null || v === undefined) ? '' : String(v);
     const map: Record<string, any> = {
-      nombre: safe(item?.nombre),
-      renglon1: safe(item?.renglon1),
-      renglon2: safe(item?.renglon2),
-      codigoBarras: safe(item?.codigoBarras),
-      precioVenta: safe(item?.precioVenta)
+      nombre: this.safe(item?.nombre),
+      renglon1: this.safe(item?.renglon1),
+      renglon2: this.safe(item?.renglon2),
+      codigoBarras: this.safe(item?.codigoBarras),
+      precioVenta: this.safe(item?.precioVenta),
     };
-
     let v = el.field ? (map[el.field] ?? '') : (el.text ?? '');
     if (el.uppercase && typeof v === 'string') v = v.toUpperCase();
     const out = `${el.prefix || ''}${v}${el.suffix || ''}`;
-    return out.trim() === '' ? nb : out; // ✅ NBSP para Edge
+    return out.trim() === '' ? this.nb : out;
   }
-
-  private sanitizeItemsForDesign(items: any[]): any[] {
-    const nb = '\u00A0';
-    const cleanText = (v: any) => {
-      const s = (v === null || v === undefined) ? '' : String(v);
-      return s.trim() === '' ? nb : s;
-    };
-    return items.map(it => ({
-      ...it,
-      nombre: cleanText(it?.nombre),
-      renglon1: cleanText(it?.renglon1),
-      renglon2: cleanText(it?.renglon2),
-      precioVenta: (it?.precioVenta === '' || it?.precioVenta === null || it?.precioVenta === undefined)
-        ? null
-        : (Number.isFinite(Number(it?.precioVenta)) ? Number(it.precioVenta) : null)
-    }));
-  }
-
 
   valorPrecio(item: any, el: LabelElement) {
     const raw = item?.precioVenta;
-    if (raw === null || raw === undefined || raw === '') return ''; // ← no mostrar nada si no hay precio
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return '';
+    if (raw === null || raw === undefined || raw === '') return '';
+    const n = Number(raw); if (!Number.isFinite(n)) return '';
     const txt = (el.prefix || '$') + n.toFixed(2) + (el.suffix || '');
     return el.uppercase ? txt.toUpperCase() : txt;
   }
 
+  // ====== Impresión 100% aislada (sin overlay, sin depender del DOM del app) ======
 
-  private printViaIframe(html: string): Promise<void> {
-    return new Promise<void>((resolve) => {
+  /** Genera un SVG (texto) del código de barras (CODE128 por defecto). */
+  private makeBarcodeSVG(value: string, opts: { format?: string; width?: number; height?: number; displayValue?: boolean } = {}): string {
+    const v = (value || '').trim();
+    if (!v) return '<svg width="1" height="1"></svg>';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    try {
+      JsBarcode(svg as any, v, {
+        format: (opts.format as any) || 'CODE128',
+        width: opts.width || 1,
+        height: opts.height || 5,
+        displayValue: !!opts.displayValue,
+        margin: 0
+      });
+    } catch { }
+    return svg.outerHTML;
+  }
+
+  /** Convierte un elemento del diseño + un item → HTML (div absolutamente posicionado). */
+  private elToHtml(item: any, el: LabelElement): string {
+    const base = `position:absolute;left:${el.x}%;top:${el.y}%;width:${el.w}%;height:${el.h}%;`;
+    const font = `font-weight:${el.bold ? 700 : 400};font-size:${el.fontSize || 10}px;text-align:${el.align || 'left'};display:flex;align-items:center;justify-content:${el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start')};white-space:nowrap;overflow:hidden;`;
+    if (el.type === 'text') {
+      const v = this.valorCampo(item, el);
+      return `<div class="el text" style="${base}${font}">${v}</div>`;
+    }
+    if (el.type === 'price') {
+      const v = this.valorPrecio(item, el);
+      return `<div class="el price" style="${base}${font}">${v}</div>`;
+    }
+    if (el.type === 'barcode') {
+      const valor = this.valorCampo(item, { ...el, field: 'codigoBarras' } as any).trim();
+      const svg = this.makeBarcodeSVG(valor, {
+        format: el.barcode?.symbology,
+        width: el.barcode?.width,
+        height: el.barcode?.height,
+        displayValue: el.barcode?.displayValue
+      });
+      return `<div class="el barcode" style="${base}">${svg}</div>`;
+    }
+
+
+    return '';
+  }
+
+  /** Una etiqueta (UNA hoja) → HTML. */
+  private labelToHtml(item: any): string {
+    const pad = this.padMm;
+    const inner = (this.design?.elements || []).map(el => this.elToHtml(item, el)).join('');
+    return `
+<section class="sheet">
+  <div class="label-inner" style="position:relative;width:100%;height:100%;padding:${pad}mm">
+    ${inner}
+  </div>
+</section>`;
+  }
+
+
+  // Orden
+  toggleSort(field: 'nombre' | 'categoria') {
+    if (this.sortBy === field) this.sortDir = (this.sortDir === 'asc') ? 'desc' : 'asc';
+    else { this.sortBy = field; this.sortDir = 'asc'; }
+    this.page = 1; this.buscar();
+  }
+
+
+  /** Normaliza los items antes de pintar (NBSP para vacíos y precio numérico). */
+  private sanitizeItemsForDesign(items: any[]): any[] {
+    const nb = '\u00A0';
+    const clean = (v: any) => {
+      const s = (v === null || v === undefined) ? '' : String(v);
+      return s.trim() === '' ? nb : s;
+    };
+
+    return (items || []).map(it => ({
+      ...it,
+      // campos de texto que pueden venir vacíos
+      nombre: clean(it?.nombre),
+      renglon1: clean(it?.renglon1),
+      renglon2: clean(it?.renglon2),
+
+      // código de barras en limpio (si viene vacío, lo dejamos vacío;
+      // JsBarcode se encarga; el NBSP sólo es para textos visibles)
+      codigoBarras: (it?.codigoBarras ?? '').toString().trim(),
+
+      // precio a número o null (para que valorPrecio oculte cuando no aplica)
+      precioVenta:
+        (it?.precioVenta === '' || it?.precioVenta === null || it?.precioVenta === undefined)
+          ? null
+          : (Number.isFinite(Number(it?.precioVenta)) ? Number(it?.precioVenta) : null),
+    }));
+  }
+
+  private async printViaIframeStrict(html: string): Promise<void> {
+    const isEdge = navigator.userAgent.toLowerCase().includes('edg/');
+
+    if (isEdge) {
+      // 1) documento completo con script de auto-print
+      const doc = this.wrapForAutoPrint(html);
+
+      // 2) mejor que about:blank → usa un blob: URL (Edge lo renderiza más estable)
+      const blob = new Blob([doc], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+
+      // 3) abre la pestaña por el gesto del usuario (ya estás en handler de botón)
+      const win = window.open(url, '_blank'); // sin noopener para mantener mismo origin
+      if (!win) {
+        alert('Edge bloqueó la ventana emergente. Permite popups para este sitio.');
+        return;
+      }
+
+      // 4) seguridad: limpia el blob cuando cierre
+      const revoke = () => { try { URL.revokeObjectURL(url); } catch { } };
+      try { win.addEventListener('unload', revoke, { once: true }); } catch { }
+      return;
+    }
+
+    // ---- Chrome: iframe oculto (igual que ya tenías)
+    const ID = 'label-print-frame';
+    document.getElementById(ID)?.remove();
+    const frame = document.createElement('iframe');
+    frame.id = ID;
+    frame.style.position = 'fixed';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    frame.setAttribute('sandbox', 'allow-modals allow-same-origin');
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
+
+    await new Promise<void>((resolve) => {
+      const ready = () => resolve();
+      frame.addEventListener('load', ready, { once: true });
+      setTimeout(ready, 500);
+    });
+
+    const win = frame.contentWindow;
+    if (!win) { frame.remove(); return; }
+    const cleanup = () => { try { frame.remove(); } catch { } };
+    try { win.addEventListener('afterprint', () => setTimeout(cleanup, 50), { once: true }); } catch { }
+    try {
+      const mm = win.matchMedia && win.matchMedia('print');
+      mm?.addEventListener?.('change', e => { if (!e.matches) setTimeout(cleanup, 50); });
+    } catch { }
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    try { win.focus(); } catch { }
+    win.print();
+  }
+
+  private buildPrintHTML(content: string, wmm: number, hmm: number, padmm: number): string {
+    const H = Number(hmm) || 30;
+    const P = Number(padmm) || 0;
+
+    const SHRINK = 0.985;
+    const NUDGE_Y_MM = 0.6;
+    const NUDGE_X_MM = 0.0;
+
+
+    const css = `
+  <style>
+    @page { size: 62mm ${H}mm; margin: 0; }
+
+    html, body {
+      margin: 0 !important; padding: 0 !important;
+      width: 62mm !important; height: ${H}mm !important;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      background: #fff;
+    }
+    .sheet {
+      width: 62mm; height: ${H}mm;
+      page-break-after: always; break-after: page;
+      page-break-inside: avoid; break-inside: avoid;
+      margin: 0; padding: 0; overflow: hidden; position: relative;
+      background: #fff;
+    }
+    .sheet:last-child { page-break-after: auto; break-after: auto; }
+
+    .label-inner {
+      position:relative; width:100%; height:100%;
+      padding:${P}mm; box-sizing:border-box;
+
+      /* === Calibración en impresión === */
+      transform: translate(${NUDGE_X_MM}mm, ${NUDGE_Y_MM}mm) scale(${SHRINK});
+      transform-origin: top left;
+    }
+
+    .el { position:absolute; overflow:hidden; }
+    .el.barcode svg { display:block; width:100%; height:100%; }
+    .el.text, .el.price { line-height:1; white-space:nowrap; }
+  </style>`;
+
+
+    return `<!doctype html><html><head><meta charset="utf-8">${css}</head><body>${content}</body></html>`;
+  }
+
+
+  async testQL() {
+    const wmm = 62;
+    const hmm = 20;
+    const pad = 2;
+
+    const content = `
+    <section class="sheet">
+      <div class="label-inner" style="position:relative;width:100%;height:100%;padding:${pad}mm">
+        <div class="el" style="position:absolute;left:5%;top:20%;font-size:12px;">TEST 62×20</div>
+      </div>
+    </section>`;
+
+    const html = `
+  <!doctype html><html><head><meta charset="utf-8">
+    <style>
+      @page { size: ${wmm}mm ${hmm}mm; margin:0; }
+      html,body { margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .sheet { width:${wmm}mm; height:${hmm}mm; margin:0; padding:0; overflow:hidden;
+               position:relative; page-break-after:always; break-after:page; }
+      .label-inner { width:100%; height:100%; position:relative; }
+      .el { position:absolute; }
+    </style>
+  </head><body>${content}</body></html>`;
+
+    // iframe estricto
+    await new Promise<void>((resolve) => {
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
+      iframe.style.right = '0'; iframe.style.bottom = '0';
+      iframe.style.width = '0'; iframe.style.height = '0'; iframe.style.border = '0';
       document.body.appendChild(iframe);
 
-      const cleanup = () => setTimeout(() => { try { iframe.remove(); } catch { } resolve(); }, 1200);
+      const cleanup = () => setTimeout(() => { try { iframe.remove(); } catch { } resolve(); }, 300);
 
-      const waitForImages = async (doc: Document) => {
-        const imgs = Array.from(doc.images) as HTMLImageElement[];
-        if (!imgs.length) return;
-
-        // intenta decode() (rápido con dataURL); si falla, sigue con eventos
-        const decodes = await Promise.allSettled(imgs.map(img => (img as any).decode?.() ?? Promise.resolve()));
-        const someRejected = decodes.some(d => d.status === 'rejected');
-        if (!someRejected) return;
-
-        await new Promise<void>((res) => {
-          let pending = imgs.length;
-          const done = () => { if (--pending <= 0) res(); };
-          for (const img of imgs) {
-            if (img.complete) done();
-            else {
-              img.addEventListener('load', done, { once: true });
-              img.addEventListener('error', done, { once: true });
-            }
-          }
-          // respaldo duro por si algún evento no llega en Edge
-          setTimeout(res, 1500);
-        });
-      };
-
-      const twoRafs = () => new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-
-      // Cargar contenido (evita about:blank popup)
-      iframe.srcdoc = html;
-
-      const onLoad = async () => {
+      iframe.onload = async () => {
         const win = iframe.contentWindow!;
-        const doc = iframe.contentDocument!;
-        if (doc.readyState !== 'complete') {
-          await new Promise<void>(res => (iframe.onload = () => res()));
-        }
-        await waitForImages(doc);
-        await twoRafs();        // asegura composición
-
-        try {
-          win.focus();
-          win.print();
-        } finally {
-          cleanup();
-        }
+        let done = false;
+        const safeDone = () => { if (!done) { done = true; cleanup(); } };
+        win.addEventListener('afterprint', safeDone, { once: true });
+        setTimeout(safeDone, 6000);
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        try { win.focus(); } catch { }
+        win.print();
       };
 
-      // si ya está listo, imprime; si no, espera load
-      if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') onLoad();
-      else iframe.addEventListener('load', onLoad, { once: true });
+      iframe.srcdoc = html; // ← **NO** imprime la ruta del app
     });
   }
 
-  // Estado de orden
-  sortBy: 'nombre' | 'categoria' = 'nombre';
-  sortDir: 'asc' | 'desc' = 'asc';
 
-  // Cambiar orden al clickear el encabezado
-  toggleSort(field: 'nombre' | 'categoria') {
-    if (this.sortBy === field) {
-      this.sortDir = (this.sortDir === 'asc') ? 'desc' : 'asc';
-    } else {
-      this.sortBy = field;
-      this.sortDir = 'asc';      // default al cambiar de campo
+  private wrapForAutoPrint(htmlInner: string): string {
+    return `<!doctype html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+${htmlInner}
+<script>
+(function () {
+  function go(){ try{ window.focus(); }catch(e){}
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ try{ window.print(); }catch(e){} }));
+  }
+  function bye(){ setTimeout(()=>{ try{ window.close(); }catch(e){} }, 120); }
+  try{ window.addEventListener('afterprint', bye, {once:true}); }catch(e){}
+  try{
+    var mm = window.matchMedia && window.matchMedia('print');
+    if (mm && mm.addEventListener) mm.addEventListener('change', e=>{ if(!e.matches) bye(); });
+  }catch(e){}
+  if (document.readyState === 'complete' || document.readyState === 'interactive') go();
+  else window.addEventListener('DOMContentLoaded', go, {once:true});
+})();
+</script>
+</body></html>`;
+  }
+
+
+  async previsualizar() {
+    if (!this.design || this.selectedIds.size === 0 || this.isPrinting) return;
+    this.isPrinting = true;
+    try {
+      const uniq = new Map<string, any>();
+      for (const it of this.selectedItems.values()) uniq.set(String(it._id), it);
+      const items = this.sanitizeItemsForDesign(Array.from(uniq.values()));
+
+      const isEdge = navigator.userAgent.toLowerCase().includes('edg/');
+
+      if (isEdge) {
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Usa Chrome para imprimir etiquetas',
+          html: `
+      La impresión de etiquetas no es estable en Microsoft Edge en este equipo.<br>
+      Por favor abre este módulo en <b>Google Chrome</b> y vuelve a intentarlo.
+    `,
+          confirmButtonText: 'Entendido'
+        });
+        return;
+      }
+
+      // ===== CHROME (tu flujo existente con iframe) =====
+      const content = items.map(it => this.labelToHtml(it)).join('');
+      const html = this.buildPrintHTML(content, this.lblWmm, this.lblHmm, this.padMm);
+      await this.printViaIframeStrict(html);
+
+    } finally {
+      this.isPrinting = false;
+      this.cdr.detectChanges();
     }
-    // No limpiamos selección al ordenar (sólo reconsulta)
-    this.page = 1;
-    this.buscar();
   }
 
 }
