@@ -77,7 +77,11 @@
       <div class="label-canvas" [style.width]="design.widthMm + 'mm'" [style.height]="design.heightMm + 'mm'"
         [style.transform]="'scale(' + zoom + ')'" (click)="selected=null">
 
-        <div class="label-inner" [style.padding]="(design.marginMm || 0) + 'mm'">
+        <div class="label-inner" [style.padding]="
+            'calc(' + (design.marginMm||0) + 'mm + ' + SAFE_TOP_MM + 'mm) ' +
+            (design.marginMm||0) + 'mm ' +
+            (design.marginMm||0) + 'mm ' +
+            (design.marginMm||0) + 'mm'">
           <!-- guía 2 columnas -->
           <div *ngIf="design.twoCols" class="two-cols-guide" [style.left.%]="design.splitPct"></div>
 
@@ -128,39 +132,45 @@
 
 
       <div *ngIf="selected.type!=='barcode'">
-        <div class="row mt-1">
-          <div class="col-4">
-            <label style="margin-right:.75rem;">Fuente (pt):</label>
-            <input type="number" [(ngModel)]="selected.fontSize">
-          </div>
-          <div class="col-2" style="text-align: center;">
-            <label><input type="checkbox" [(ngModel)]="selected.bold"> Negritas</label>
-          </div>
-          <div class="col-2" style="text-align: center;">
+        <div class="rowTexto">
+          <label>Tipografía:</label>
+          <select [(ngModel)]="selected.fontFamily">
+            <option *ngFor="let f of fontOptions" [ngValue]="f.stack">{{ f.name }}</option>
+          </select>
+          <label style="margin-right:.75rem;">Fuente (pt):</label>
+          <input style="width: 3.5rem;" type="number" [(ngModel)]="selected.fontSize">
+          <label><input type="checkbox" [(ngModel)]="selected.bold"> Negritas</label>
+
+
+          <label>Tracking (px):</label>
+          <input type="number" step="0.1" [(ngModel)]="selected.letterSpacing">
+        </div>
+
+        <div class="row mt-2">
+          <div class="col-3">
             <label><input type="checkbox" [(ngModel)]="selected.uppercase"> MAYÚSCULAS</label>
           </div>
-          <div class="col-4" style="text-align:end;">
-            <label>Alineación: </label>
+          <div class="col-3">
+            <label>Alineación:&nbsp;</label>
             <select [(ngModel)]="selected.align">
-              <option>izq</option>
-              <option>centro</option>
-              <option>der</option>
+              <option>left</option>
+              <option>center</option>
+              <option>right</option>
             </select>
           </div>
-        </div>
-        <div class="row my-2">
-          <div class="col-6" style="text-align: center;">
-            <label>Prefijo:</label><input [(ngModel)]="selected.prefix">
+          <div class="col-3" style="text-align: center;">
+            <label>Pref.:&nbsp;<input [(ngModel)]="selected.prefix" style="width: 7rem;"></label>
           </div>
-          <div class="col-6" style="text-align: center;">
-            <label>Sufijo:</label><input [(ngModel)]="selected.suffix">
+          <div class="col-3" style="text-align: end;">
+            <label>Sufi.:&nbsp;<input [(ngModel)]="selected.suffix" style="width: 6rem;"></label>
           </div>
         </div>
+
       </div>
 
       <div *ngIf="selected.type==='barcode'" class="row my-1">
-        <div class="col-2">
-          <label>Símb.&nbsp;</label>
+        <!--        <div class="col-2">
+           <label>Símb.&nbsp;</label>
           <select [(ngModel)]="selected.barcode!.symbology" (ngModelChange)="renderBarcodes()">
             <option>CODE128</option>
             <option>EAN13</option>
@@ -168,13 +178,14 @@
             <option>QR</option>
           </select>
         </div>
-        <div class="col-4">
-          <label>CB ancho(px)</label><input type="number" [(ngModel)]="selected.barcode!.width"
-            (ngModelChange)="renderBarcodes()">
+ -->
+        <div class="col-5">
+          <label>CB ancho(px)&nbsp;</label><input type="number" [(ngModel)]="selected.barcode!.width"
+            style="width: 3rem;" (ngModelChange)="renderBarcodes()">
         </div>
-        <div class="col-4">
-          <label>CB alto(px)</label><input type="number" [(ngModel)]="selected.barcode!.height"
-            (ngModelChange)="renderBarcodes()">
+        <div class="col-5">
+          <label>CB alto(px)&nbsp;</label><input type="number" [(ngModel)]="selected.barcode!.height"
+            style="width: 3rem;" (ngModelChange)="renderBarcodes()">
         </div>
         <div class="col-2" style="text-align: end;">
           <label><input type="checkbox" [(ngModel)]="selected.barcode!.displayValue" (ngModelChange)="renderBarcodes()">

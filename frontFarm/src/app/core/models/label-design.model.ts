@@ -23,7 +23,7 @@ export interface LabelElement {
   id?: string;
 
   type: LabelType;
-  field?: 'nombre' | 'renglon1' | 'renglon2' | 'precioVenta' | 'codigoBarras';
+  field?: 'nombre' | 'renglon1' | 'renglon2' | 'precioVenta' | 'codigoBarras' | 'custom';
   // posición/tamaño relativos (0–100)
   x: number; y: number; w: number; h: number;
 
@@ -42,6 +42,9 @@ export interface LabelElement {
 
   // opciones de código de barras (solo type='barcode')
   barcode?: LabelBarcodeOptions;
+
+  fontFamily?: string;
+  letterSpacing?: number;
 }
 
 export interface LabelDesign {

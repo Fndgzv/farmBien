@@ -103,7 +103,6 @@ export class EtiquetasPrintComponent {
     const last = localStorage.getItem('farmaciaId_print') || '';
     this.farmaciaId = last;
     this.cargarFarmacias();
-    this.buscar();
   }
 
   private normalizeDesign(raw: any): LabelDesign & any {
@@ -131,10 +130,22 @@ export class EtiquetasPrintComponent {
 
   cargarFarmacias() {
     this.farmacia.obtenerFarmacias().subscribe({
-      next: (resp) => { this.farmacias = resp || []; },
+      next: (resp) => {
+        this.farmacias = resp || [];
+
+        if (this.farmacias.length) {
+          const existe = this.farmacias.some(f => f._id === this.farmaciaId);
+          if (!this.farmaciaId || !existe) {
+            this.farmaciaId = this.farmacias[0]._id!;
+            localStorage.setItem('farmaciaId_print', this.farmaciaId);
+          }
+          this.buscar();
+        }
+      },
       error: () => { this.farmacias = []; }
     });
   }
+
 
   private makeQuerySig(fid: string, nombre: string, categoria: string): string {
     const norm = (s: string) => (s || '').trim().toLowerCase().split(/\s+/).filter(Boolean).sort().join(' ');
@@ -240,10 +251,27 @@ export class EtiquetasPrintComponent {
     return svg.outerHTML;
   }
 
-  /** Convierte un elemento del diseño + un item → HTML (div absolutamente posicionado). */
+  private cssFont(el: LabelElement): string {
+    const family = (el.fontFamily || 'system-ui, Arial, sans-serif').trim();
+    const letter = (el.letterSpacing ?? 0);
+    return `font-family:${family};line-height:1;letter-spacing:${letter}px;`;
+  }
+
   private elToHtml(item: any, el: LabelElement): string {
     const base = `position:absolute;left:${el.x}%;top:${el.y}%;width:${el.w}%;height:${el.h}%;`;
-    const font = `font-weight:${el.bold ? 700 : 400};font-size:${el.fontSize || 10}px;text-align:${el.align || 'left'};display:flex;align-items:center;justify-content:${el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start')};white-space:nowrap;overflow:hidden;`;
+
+    // tipografía 100% inline
+    const fam = (el.fontFamily || 'system-ui, Arial, sans-serif').replace(/"/g, "'");
+    const font =
+      `font-weight:${el.bold ? 700 : 400};` +
+      `font-size:${el.fontSize || 10}px;` +
+      `font-family:${fam};` +
+      `letter-spacing:${(el.letterSpacing ?? 0)}px;` +
+      // maquetación
+      `display:flex;align-items:center;` +
+      `justify-content:${el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start')};` +
+      `white-space:nowrap;overflow:hidden;line-height:1;`;
+
     if (el.type === 'text') {
       const v = this.valorCampo(item, el);
       return `<div class="el text" style="${base}${font}">${v}</div>`;
@@ -262,10 +290,9 @@ export class EtiquetasPrintComponent {
       });
       return `<div class="el barcode" style="${base}">${svg}</div>`;
     }
-
-
     return '';
   }
+
 
   /** Una etiqueta (UNA hoja) → HTML. */
   private labelToHtml(item: any): string {
@@ -350,7 +377,7 @@ export class EtiquetasPrintComponent {
     frame.style.width = '0';
     frame.style.height = '0';
     frame.style.border = '0';
-    frame.setAttribute('sandbox', 'allow-modals allow-same-origin');
+    frame.setAttribute('sandbox', 'allow-modals allow-same-origin allow-scripts');
     frame.srcdoc = html;
     document.body.appendChild(frame);
 
@@ -370,22 +397,18 @@ export class EtiquetasPrintComponent {
     } catch { }
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     try { win.focus(); } catch { }
-    win.print();
   }
 
   private buildPrintHTML(content: string, wmm: number, hmm: number, padmm: number): string {
     const H = Number(hmm) || 30;
     const P = Number(padmm) || 0;
+    const SAFE_TOP_MM = 0.8;
 
-    const SHRINK = 0.985;
-    const NUDGE_Y_MM = 0.6;
-    const NUDGE_X_MM = 0.0;
-
+    const fontImports = this.collectFontImports(); // (ya lo tienes)
 
     const css = `
   <style>
     @page { size: 62mm ${H}mm; margin: 0; }
-
     html, body {
       margin: 0 !important; padding: 0 !important;
       width: 62mm !important; height: ${H}mm !important;
@@ -400,23 +423,31 @@ export class EtiquetasPrintComponent {
       background: #fff;
     }
     .sheet:last-child { page-break-after: auto; break-after: auto; }
-
     .label-inner {
       position:relative; width:100%; height:100%;
-      padding:${P}mm; box-sizing:border-box;
-
-      /* === Calibración en impresión === */
-      transform: translate(${NUDGE_X_MM}mm, ${NUDGE_Y_MM}mm) scale(${SHRINK});
-      transform-origin: top left;
+      box-sizing:border-box;
+      padding: calc(${P}mm + ${SAFE_TOP_MM}mm) ${P}mm ${P}mm ${P}mm;
     }
-
     .el { position:absolute; overflow:hidden; }
     .el.barcode svg { display:block; width:100%; height:100%; }
     .el.text, .el.price { line-height:1; white-space:nowrap; }
   </style>`;
 
+    const js = `
+  <script>
+  (async function(){
+    try{ if (document.fonts && document.fonts.ready) { await document.fonts.ready; } }catch(e){}
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      try{ window.focus(); }catch(e){}
+      try{ window.print(); }catch(e){}
+    }));
+    try{
+      window.addEventListener('afterprint', ()=>{ setTimeout(()=>{ try{ window.close(); }catch(e){} }, 100); }, {once:true});
+    }catch(e){}
+  })();
+  </script>`;
 
-    return `<!doctype html><html><head><meta charset="utf-8">${css}</head><body>${content}</body></html>`;
+    return `<!doctype html><html><head><meta charset="utf-8">${fontImports}${css}</head><body>${content}${js}</body></html>`;
   }
 
 
@@ -528,5 +559,30 @@ ${htmlInner}
       this.cdr.detectChanges();
     }
   }
+
+  private collectFontImports(): string {
+    const used = new Set<string>();
+    (this.design?.elements || []).forEach(el => {
+      const fam = (el.fontFamily || '').toLowerCase();
+      if (fam.includes('inter')) used.add('Inter:wght@400;700');
+      if (fam.includes('roboto')) used.add('Roboto:wght@400;700');
+      if (fam.includes('lato')) used.add('Lato:wght@400;700');
+      if (fam.includes('montserrat')) used.add('Montserrat:wght@400;700');
+      if (fam.includes('open sans')) used.add('Open+Sans:wght@400;700');
+      if (fam.includes('poppins')) used.add('Poppins:wght@400;700');
+      if (fam.includes('merriweather')) used.add('Merriweather:wght@400;700');
+      if (fam.includes('playfair')) used.add('Playfair+Display:wght@400;700');
+      if (fam.includes('noto sans')) used.add('Noto+Sans:wght@400;700');
+      if (fam.includes('noto serif')) used.add('Noto+Serif:wght@400;700');
+    });
+    if (!used.size) return '';
+    const families = Array.from(used).join('&family=');
+    return [
+      `<link rel="preconnect" href="https://fonts.googleapis.com">`,
+      `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
+      `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${families}&display=swap">`
+    ].join('');
+  }
+
 
 }

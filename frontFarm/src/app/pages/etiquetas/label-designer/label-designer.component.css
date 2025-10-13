@@ -45,6 +45,7 @@
 
 .el { position: absolute; cursor: move; }
 .el.selected { outline: 1px dashed #3c7cff; }
+.el div { line-height: 1; }
 
 .two-cols-guide {
   position: absolute; top: 0; bottom: 0; width: 0;
@@ -75,6 +76,14 @@
   .design-list { grid-column: 1 / -1; }
 }
  */
+.rowTexto{
+  display: grid;
+  grid-template-columns: auto 12rem 6rem 6rem 6rem 7rem 3rem; 
+  column-gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+}
+
 .rowline{
   display: grid;
   grid-template-columns: auto 80px 80px 80px 80px; /* texto, label, input, label, input */
@@ -88,5 +97,6 @@
   white-space: nowrap;
 }
 @media (max-width: 520px){
-  .rowline{ grid-template-columns: auto 48px 1fr 48px 1fr; }
+  /* .rowline{ grid-template-columns: auto 48px 1fr 48px 1fr; } */
+  .rowline{ grid-template-columns: auto 80px 80px 80px 80px; }
 }

@@ -1,7 +1,6 @@
 // backBien/controllers/etiquetasController.js
 const EtiquetaDiseno = require('../models/LabelDesign');
 const Producto = require('../models/Producto'); // tu modelo existente
-const InventarioFarmacia = require('../models/InventarioFarmacia'); // tu modelo existente
 const { Types } = require('mongoose');
 
 exports.listarDisenos = async (req, res) => {

@@ -27,6 +27,18 @@ export class LabelDesignerComponent {
 
   @ViewChildren('barcodeSvg') barcodeSvgs!: QueryList<ElementRef<SVGElement>>;
 
+  fontOptions = [
+    { name: 'Inter', stack: 'Inter, system-ui, Arial, sans-serif' },
+    { name: 'Roboto', stack: 'Roboto, system-ui, Arial, sans-serif' },
+    { name: 'System UI', stack: 'system-ui, Arial, sans-serif' },
+    { name: 'Arial', stack: 'Arial, Helvetica, sans-serif' },
+    { name: 'Georgia', stack: 'Georgia, "Times New Roman", serif' },
+    { name: 'Times New Roman', stack: '"Times New Roman", Times, serif' },
+    { name: 'Courier New', stack: '"Courier New", Courier, monospace' },
+  ];
+
+  SAFE_TOP_MM = 0.8;
+
   constructor(private svc: LabelDesignsService) { }
 
   ngOnInit() { this.refreshList(); }
@@ -68,7 +80,9 @@ export class LabelDesignerComponent {
             height: e.barcode.height ?? 30,
             displayValue: e.barcode.displayValue ?? true
           }
-          : { symbology: 'CODE128', width: 1, height: 30, displayValue: true }
+          : { symbology: 'CODE128', width: 1, height: 30, displayValue: true },
+        fontFamily: e.fontFamily ?? 'Inter, system-ui, Arial, sans-serif',
+        letterSpacing: typeof e.letterSpacing === 'number' ? e.letterSpacing : 0
       }))
     };
   }
@@ -148,7 +162,9 @@ export class LabelDesignerComponent {
       field,
       x: 5, y: 5, w: 60, h: 10,
       fontSize: 11, align: 'left', bold: false,
-      uppercase: false, prefix: '', suffix: ''
+      uppercase: false, prefix: '', suffix: '',
+      fontFamily: 'Inter, system-ui, Arial, sans-serif',
+      letterSpacing: 0
     });
   }
 
@@ -158,7 +174,9 @@ export class LabelDesignerComponent {
       field: 'precioVenta',
       x: 5, y: 20, w: 60, h: 15,
       fontSize: 16, align: 'left', bold: true, prefix: '$',
-      uppercase: false, suffix: ''
+      uppercase: false, suffix: '',
+      fontFamily: 'Inter, system-ui, Arial, sans-serif',
+      letterSpacing: 0
     });
   }
 
@@ -205,6 +223,7 @@ export class LabelDesignerComponent {
     return {
       'font-weight': el.bold ? '700' : '400',
       'font-size.px': (el.fontSize || 10),
+      'font-family': el.fontFamily || 'system-ui, Arial, sans-serif',
       'text-align': el.align || 'left',
       'width': '100%',
       'height': '100%',
@@ -212,7 +231,9 @@ export class LabelDesignerComponent {
       'align-items': 'center',
       'justify-content': el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start'),
       'overflow': 'hidden',
-      'white-space': 'nowrap'
+      'white-space': 'nowrap',
+      'line-height': 1,
+      'letter-spacing.px': el.letterSpacing ?? 0
     };
   }
 
@@ -272,8 +293,26 @@ export class LabelDesignerComponent {
     }
     if (!Array.isArray(d.elements)) d.elements = [];
 
+    // label-designer.component.ts (en save)
     const payload = {
       ...d,
+      elements: (d.elements || []).map(e => ({
+        type: e.type,
+        field: e.field,
+        x: e.x, y: e.y, w: e.w, h: e.h,
+        fontSize: e.fontSize,
+        bold: e.bold,
+        align: e.align,
+        uppercase: e.uppercase,
+        prefix: e.prefix,
+        suffix: e.suffix,
+        text: e.text,
+        barcode: e.barcode ? { ...e.barcode } : undefined,
+
+        // 👇 asegúrate de mandarlas
+        fontFamily: e.fontFamily,
+        letterSpacing: e.letterSpacing
+      })),
       size: {
         widthMm: d.widthMm,
         heightMm: d.heightMm,
@@ -288,6 +327,7 @@ export class LabelDesignerComponent {
         gapYmm: d.gapYmm ?? 0
       }
     };
+
 
     const req$ = d._id ? this.svc.update(d._id, payload) : this.svc.create(payload);
 

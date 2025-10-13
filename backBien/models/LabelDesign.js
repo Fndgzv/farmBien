@@ -31,7 +31,10 @@ const ElementoSchema = new Schema({
     width: { type: Number, default: 1 },   // grosor barra (px)
     height: { type: Number, default: 30 }, // alto (px)
     displayValue: { type: Boolean, default: false } // mostrar el texto debajo
-  }
+  },
+  
+  fontFamily: { type: String, default: 'system-ui, Arial, sans-serif' },
+  letterSpacing: { type: Number, default: 0 }
 }, { _id: false });
 
 const LabelDesignSchema = new Schema({
