@@ -95,7 +95,7 @@ export class LabelDesignerComponent {
       pageWidthMm: 210, pageHeightMm: 297,
       cols: 4, rows: 8, gapXmm: 2, gapYmm: 2,
       twoCols: false, splitPct: 50,
-      mode: 'sheet',     // 👈 default
+      mode: 'roll',     // 👈 default
       rollGapMm: 0,      // 👈 default
       elements: []
     };
@@ -121,7 +121,7 @@ export class LabelDesignerComponent {
       rows: d?.rows ?? d?.layout?.rows ?? 8,
       gapXmm: d?.gapXmm ?? d?.layout?.gapXmm ?? 2,
       gapYmm: d?.gapYmm ?? d?.layout?.gapYmm ?? 2,
-      mode: d?.mode ?? 'sheet',
+      mode: d?.mode ?? 'roll',
       rollGapMm: d?.rollGapMm ?? 0,
       elements: d?.elements ?? []
     };
@@ -254,9 +254,14 @@ export class LabelDesignerComponent {
   }
 
   formatPrice(val: number, el: LabelElement) {
-    const v = (el.prefix || '$') + Number(val || 0).toFixed(2) + (el.suffix || '');
+    const body = new Intl.NumberFormat('es-MX', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(Math.round(Number(val) || 0));
+    const v = `${el.prefix || '$'}${body}${el.suffix || ''}`;
     return el.uppercase ? v.toUpperCase() : v;
   }
+
 
   renderBarcodes() {
     const svgs = this.barcodeSvgs?.toArray() || [];

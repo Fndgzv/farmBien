@@ -1,0 +1,69 @@
+.card { border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.05); }
+.card-header { background: #f8f9fa; border-bottom: 1px solid #eee; }
+.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable span { opacity: .3; margin-left: 6px; font-size: 11px; }
+.sortable span.active { opacity: 1; }
+.table td, .table th { vertical-align: middle; }
+
+.acciones-container {
+    border-bottom: 2px solid #0453b3;
+    padding-bottom: 1rem;
+}
+
+.form-label {
+    margin-bottom: 0 !important;
+}
+
+/* Hacemos que los anchos se respeten */
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;       /* ¡Clave para que <colgroup> mande! */
+}
+
+/* Anchos por columna (ajusta valores) */
+.col-grab { width: 4%; }           /* checkbox */
+.col-prod { width: auto; }          /* nombre del producto (largo) */
+.col-cb   { width: 10%; }          /* código de barras */
+.col-cat  { width: 10%; }          /* categoría */
+.col-n1  { width: 5%; }          /* 4 columas numéricas: existencia, stock Max, stock Min, comprar */
+.col-num  { width: 7%; }           /* 3 columnas numéricas */
+
+th, td { padding: .5rem .6rem; }
+
+/* Evita que los números se partan en varias líneas */
+.nowrap { white-space: nowrap; }
+
+/* Trunca texto largo con "..." */
+/* .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+} */
+
+/* Fuente monoespaciada para códigos/IDs */
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Estilos de ordenamiento (opcional) */
+.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable span { opacity: .45; margin-left: 6px; font-size: 11px; }
+.sortable span.active { opacity: 1; }
+
+/* Responsive: en pantallas chicas, cede ancho a columnas largas */
+@media (max-width: 1200px) {
+  .col-prod { width: 26rem; }
+  .col-cat  { width: 12rem; }
+}
+@media (max-width: 992px) {
+  .col-prod { width: 20rem; }
+  .col-cat  { width: 10rem; }
+  .col-cb   { width: 10rem; }
+}
+@media (max-width: 768px) {
+  .col-prod { width: 16rem; }
+  .col-cat  { width: 9rem; }
+  .col-cb   { width: 9rem; }
+  .col-num  { width: 7rem; }
+}

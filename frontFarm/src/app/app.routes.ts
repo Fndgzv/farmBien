@@ -23,13 +23,14 @@ import { HistorialProductoPageComponent } from './reportes-compras/historial-pro
 import { ReporteComprasVentasComponent } from './pages/reporte-compras-ventas/reporte-compras-ventas.component';
 import { LabelDesignerComponent } from './pages/etiquetas/label-designer/label-designer.component';
 import { EtiquetasPrintComponent } from './pages/etiquetas/etiquetas-print/etiquetas-print.component';
+import { ReportePresupuestoComponent } from './pages/reporte-presupuesto/reporte-presupuesto.component';
 
 export const routes: Routes = [
   {
     path: '',
     component: MainLayoutComponent,
     children: [
-      { path: '', redirectTo: 'home', pathMatch: 'full' }, 
+      { path: '', redirectTo: 'home', pathMatch: 'full' },
       { path: 'home', component: HomeComponent },
       {
         path: 'ventas',
@@ -132,6 +133,7 @@ export const routes: Routes = [
       { path: 'reporte/resumen-utilidades', component: ReporteResumenUtilidadesComponent },
       { path: 'reporte/utilidades', component: ReportesUtilidadComponent },
       { path: 'reporte/compras', component: ReporteComprasComponent },
+      { path: 'reporte-presupuesto', component: ReportePresupuestoComponent },
       {
         path: 'reportes/devoluciones',
         loadComponent: () => import('./reportes-devoluciones/devoluciones-page.component')
@@ -143,9 +145,10 @@ export const routes: Routes = [
         loadComponent: () => import('./reportes-compras/compras-page.component')
           .then(m => m.ComprasPageComponent)
       },
-      { 
+      {
         path: 'reportes/compras-historial-producto',
-          component: HistorialProductoPageComponent },
+        component: HistorialProductoPageComponent
+      },
       {
         path: 'reportes/cancelaciones',
         loadComponent: () => import('./reportes-cancelaciones/cancelaciones-page.component')
@@ -153,16 +156,16 @@ export const routes: Routes = [
       },
       {
         path: 'reportes/compras-ventas',
-          component: ReporteComprasVentasComponent
+        component: ReporteComprasVentasComponent
       },
       {
         path: 'etiquetas/print',
-          component: EtiquetasPrintComponent
+        component: EtiquetasPrintComponent
       }
       ,
       {
         path: 'etiquetas/design',
-          component: LabelDesignerComponent
+        component: LabelDesignerComponent
       }
 
 

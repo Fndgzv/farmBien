@@ -1,0 +1,163 @@
+<h3 class="titulo" style="text-align: center;">Reporte de Presupuesto</h3>
+<div class="card-body">
+    <!-- Filtros -->
+    <form class="row mb-1" (ngSubmit)="buscar(true)">
+        <div class="col-sm-2">
+            <label class="form-label">Fecha inicial *</label>
+            <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" required>
+        </div>
+        <div class="col-sm-2">
+            <label class="form-label">Fecha final *</label>
+            <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" required>
+        </div>
+        <div class="col-sm-3">
+            <label class="form-label">Categoría</label>
+            <input type="text" class="form-control" [(ngModel)]="categoria" name="categoria">
+        </div>
+        <div class="col-sm-3">
+            <label class="form-label">Nombre</label>
+            <input type="text" class="form-control" [(ngModel)]="nombre" name="nombre"
+                placeholder="Palabras del producto">
+        </div>
+        <div class="col-sm-2 d-flex align-items-end">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" [(ngModel)]="soloExistMenorQueVentas"
+                    name="soloExistMenorQueVentas" id="chkExist">
+                <label class="form-check-label" for="chkExist">
+                    Existencia &lt; Vendidos
+                </label>
+            </div>
+        </div>
+
+        <div class="col-sm-2 mt-2">
+            <label class="form-label">Registros por página</label>
+            <select class="form-select" [ngModel]="limit" (ngModelChange)="cambiarLimit($event)" name="limit">
+                <option [ngValue]="10">10</option>
+                <option [ngValue]="20">20</option>
+                <option [ngValue]="50">50</option>
+                <option [ngValue]="100">100</option>
+            </select>
+        </div>
+
+        <div class="col-sm-10 d-flex align-items-end justify-content-end mt-2">
+            <button class="btn-gris" type="submit" [disabled]="cargando">
+                {{ cargando ? 'Buscando...' : 'Buscar' }}
+            </button>
+        </div>
+    </form>
+
+    <!-- Acciones -->
+    <div class="d-flex justify-content-between align-items-center mb-2 acciones-container">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" [(ngModel)]="seleccionarTodos"
+                (change)="toggleSeleccionTodos()" id="chkTodos">
+            <label class="form-check-label" for="chkTodos">
+                Seleccionar todos (Grabar stocks)
+            </label>
+        </div>
+
+        <button class="btn-verde" (click)="grabarSeleccionados()" [disabled]="cargando">
+            Grabar seleccionados
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="tabla">
+            <!-- Control de anchos por columna -->
+            <colgroup>
+                <col class="col-grab">
+                <col class="col-prod">
+                <col class="col-cb">
+                <col class="col-cat">
+                <col class="col-n1">
+                <col class="col-n1">
+                <col class="col-n1">
+                <col class="col-num">
+                <col class="col-num">
+                <col class="col-n1">
+                <col class="col-num">
+            </colgroup>
+
+            <thead>
+                <tr>
+                    <th matTooltip="Grabar stocks Máx y Mín estimados">Gr</th>
+                    <th (click)="ordenarPor('nombre')" class="sortable">Producto
+                        <span [class.active]="sortBy==='nombre'">▲▼</span>
+                    </th>
+                    <th>Cod. Barras</th>
+                    <th (click)="ordenarPor('categoria')" class="sortable">Categoría
+                        <span [class.active]="sortBy==='categoria'">▲▼</span>
+                    </th>
+                    <th matTooltip="Existencia en almacén" (click)="ordenarPor('existencia')" class="sortable text-end">Ex.
+                        <span [class.active]="sortBy==='existencia'">▲▼</span>
+                    </th>
+                    <th matTooltip="stock Máx actual en almacén" class="text-end">S Máx</th>
+                    <th matTooltip="stock Mín actual en almacén" class="text-end">S Mín</th>
+                    <th matTooltip="Productos vendidos, stock Máx estimado." (click)="ordenarPor('vendidos')" class="sortable text-end">Vend.
+                        <span [class.active]="sortBy==='vendidos'">▲▼</span>
+                    </th>
+                    <th matTooltip="Stock Mín estimado" class="text-end">Stk Mín Es</th>
+                    <th matTooltip="# productos requeridos p/alcanzar stock Máx estimado" class="text-end">Comp.</th>
+                    <th matTooltip="Costo estimado" class="text-end">Costo Est</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr *ngFor="let r of rows">
+                    <td><input type="checkbox" [(ngModel)]="r.grabar" [ngModelOptions]="{standalone:true}" /></td>
+
+                    <!-- Agrega .truncate a columnas de texto largo -->
+                    <td class="truncate" title="{{ r.producto }}">{{ r.producto }}</td>
+                    <td class="mono">{{ r.codigoBarras }}</td>
+                    <td class="truncate" title="{{ r.categoria }}">{{ r.categoria }}</td>
+
+                    <td class="text-end nowrap">{{ fmtNumber(r.existencia) }}</td>
+                    <td class="text-end nowrap">{{ fmtNumber(r.stockMax) }}</td>
+                    <td class="text-end nowrap">{{ fmtNumber(r.stockMin) }}</td>
+                    <td class="text-end nowrap fw-semibold">{{ fmtNumber(r.vendidosSMaxE) }}</td>
+                    <td class="text-end nowrap">{{ fmtNumber(r.sMinE) }}</td>
+                    <td class="text-end nowrap" [class.text-danger]="r.comprar>0" [class.fw-semibold]="r.comprar>0">
+                        {{ fmtNumber(r.comprar) }}
+                    </td>
+                    <td class="text-end nowrap">{{ fmtMoney(r.costoEst) }}</td>
+                </tr>
+
+                <tr *ngIf="rows.length===0 && !cargando">
+                    <td colspan="11" class="text-center text-muted py-3">Sin resultados</td>
+                </tr>
+            </tbody>
+
+            <tfoot>
+                <tr>
+                    <td colspan="10" class="text-end"><b>Total Costo Est. (todas las filas filtradas):</b></td>
+                    <td class="text-end"><b>{{ fmtMoney(totalCostoEst) }}</b></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    <div class="d-flex justify-content-between align-items-center mt-2 paginacion">
+        <div>
+            Total: <b>{{ totalRows }}</b> productos
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary btn-sm" (click)="irAPagina(1)" matTooltip="Inicio"
+                [disabled]="isFirstPage()"><i class="fa fa-angle-double-left"></i></button>
+
+            <button class="btn btn-outline-secondary btn-sm" (click)="cambiarPagina(-1)" matTooltip="Anterior"
+                [disabled]="isFirstPage()"><i class="fa fa-angle-left"></i></button>
+
+            <button class="btn btn-outline-secondary btn-sm">
+                Página {{ page }} de {{ totalPages }}
+            </button>
+
+            <button class="btn btn-outline-secondary btn-sm" (click)="cambiarPagina(1)" matTooltip="Siguiente"
+                [disabled]="isLastPage()"><i class="fa fa-angle-right"></i></button>
+
+            <button class="btn btn-outline-secondary btn-sm" (click)="irAPagina(totalPages)" matTooltip="Fin"
+                [disabled]="isLastPage()"><i class="fa fa-angle-double-right"></i></button>
+        </div>
+    </div>
+
+</div>

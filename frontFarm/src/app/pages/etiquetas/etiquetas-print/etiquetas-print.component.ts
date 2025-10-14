@@ -95,6 +95,14 @@ export class EtiquetasPrintComponent {
   get lblHmm() { return this.design?.heightMm ?? 30; }
   get padMm() { return this.design?.marginMm ?? 0; }
 
+  private formatMoneyNoCents(n: number): string {
+    // Sólo separadores de miles, sin símbolo
+    return new Intl.NumberFormat('es-MX', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(Math.round(Number(n) || 0));
+  }
+
   ngOnInit() {
     this.designsSvc.list().subscribe(d => {
       this.disenos = d;
@@ -227,9 +235,11 @@ export class EtiquetasPrintComponent {
     const raw = item?.precioVenta;
     if (raw === null || raw === undefined || raw === '') return '';
     const n = Number(raw); if (!Number.isFinite(n)) return '';
-    const txt = (el.prefix || '$') + n.toFixed(2) + (el.suffix || '');
+    const body = this.formatMoneyNoCents(n);
+    const txt = `${el.prefix || '$'}${body}${el.suffix || ''}`;
     return el.uppercase ? txt.toUpperCase() : txt;
   }
+
 
   // ====== Impresión 100% aislada (sin overlay, sin depender del DOM del app) ======
 
@@ -400,52 +410,70 @@ export class EtiquetasPrintComponent {
   }
 
   private buildPrintHTML(content: string, wmm: number, hmm: number, padmm: number): string {
+    const W = Number(wmm) || 62;
     const H = Number(hmm) || 30;
     const P = Number(padmm) || 0;
-    const SAFE_TOP_MM = 0.8;
+    const SAFE_TOP_MM = 2;
+    const SAFE_BOTTOM_MM = 2;
 
-    const fontImports = this.collectFontImports(); // (ya lo tienes)
+    const fontImports = this.collectFontImports();
 
     const css = `
-  <style>
-    @page { size: 62mm ${H}mm; margin: 0; }
-    html, body {
-      margin: 0 !important; padding: 0 !important;
-      width: 62mm !important; height: ${H}mm !important;
-      -webkit-print-color-adjust: exact; print-color-adjust: exact;
-      background: #fff;
-    }
-    .sheet {
-      width: 62mm; height: ${H}mm;
-      page-break-after: always; break-after: page;
-      page-break-inside: avoid; break-inside: avoid;
-      margin: 0; padding: 0; overflow: hidden; position: relative;
-      background: #fff;
-    }
-    .sheet:last-child { page-break-after: auto; break-after: auto; }
-    .label-inner {
-      position:relative; width:100%; height:100%;
-      box-sizing:border-box;
-      padding: calc(${P}mm + ${SAFE_TOP_MM}mm) ${P}mm ${P}mm ${P}mm;
-    }
-    .el { position:absolute; overflow:hidden; }
-    .el.barcode svg { display:block; width:100%; height:100%; }
-    .el.text, .el.price { line-height:1; white-space:nowrap; }
-  </style>`;
+      <style>
+        @page { size: ${W}mm ${H}mm; margin: 0; }
+
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: ${W}mm !important;
+          height: auto !important;            /* que el body no imponga alto */
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+          background: #fff;
+        }
+
+        /* Cada etiqueta = 1 página */
+        .sheet {
+          width: ${W}mm;
+          height: 100vh;                       /* === exactamente el alto de página */
+          min-height: 100vh;
+          max-height: 100vh;
+          page-break-after: always;
+          break-after: page;
+          page-break-inside: avoid;
+          break-inside: avoid-page;            /* evita que se parta */
+          -webkit-region-break-inside: avoid;  /* WebKit legacy */
+          margin: 0; padding: 0; overflow: hidden; position: relative;
+          background: #fff;
+        }
+        .sheet:last-child { page-break-after: auto; break-after: auto; }
+
+        .label-inner {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          padding: calc(${P}mm + ${SAFE_TOP_MM}mm) ${P}mm calc(${P}mm + ${SAFE_BOTTOM_MM}mm) ${P}mm;
+
+        .el { position:absolute; overflow:hidden; }
+        .el.barcode svg { display:block; width:100%; height:100%; }
+        .el.text, .el.price { line-height:1; white-space:nowrap; }
+      </style>`;
+
 
     const js = `
-  <script>
-  (async function(){
-    try{ if (document.fonts && document.fonts.ready) { await document.fonts.ready; } }catch(e){}
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      try{ window.focus(); }catch(e){}
-      try{ window.print(); }catch(e){}
-    }));
-    try{
-      window.addEventListener('afterprint', ()=>{ setTimeout(()=>{ try{ window.close(); }catch(e){} }, 100); }, {once:true});
-    }catch(e){}
-  })();
-  </script>`;
+      <script>
+      (async function(){
+        try{ if (document.fonts && document.fonts.ready) { await document.fonts.ready; } }catch(e){}
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          try{ window.focus(); }catch(e){}
+          try{ window.print(); }catch(e){}
+        }));
+        try{
+          window.addEventListener('afterprint', ()=>{ setTimeout(()=>{ try{ window.close(); }catch(e){} }, 100); }, {once:true});
+        }catch(e){}
+      })();
+      </script>`;
 
     return `<!doctype html><html><head><meta charset="utf-8">${fontImports}${css}</head><body>${content}${js}</body></html>`;
   }
