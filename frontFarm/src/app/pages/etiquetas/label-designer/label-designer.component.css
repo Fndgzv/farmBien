@@ -76,6 +76,15 @@
   .design-list { grid-column: 1 / -1; }
 }
  */
+
+ .row-pos{
+  display: grid;
+  grid-template-columns: auto 4rem 4rem 4rem 4rem 4rem 4rem;
+  column-gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+ }
+
 .rowTexto{
   display: grid;
   grid-template-columns: auto 12rem 6rem 6rem 6rem 7rem 3rem; 

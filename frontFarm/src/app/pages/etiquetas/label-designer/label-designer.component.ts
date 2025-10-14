@@ -1,4 +1,4 @@
-import { Component, ElementRef, QueryList, ViewChildren, AfterViewInit } from '@angular/core';
+import { Component, ElementRef, QueryList, ViewChildren, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { DragDropModule } from '@angular/cdk/drag-drop';
@@ -39,9 +39,34 @@ export class LabelDesignerComponent {
 
   SAFE_TOP_MM = 0.8;
 
+  stepX = 1;
+  stepY = 1;
+  keyboardNudgeActive = true;
+
   constructor(private svc: LabelDesignsService) { }
 
   ngOnInit() { this.refreshList(); }
+
+  /** Mueve el elemento seleccionado en porcentajes, respetando límites. */
+  nudge(dx: number, dy: number) {
+    if (!this.selected) return;
+
+    const snap = (v: number) => {
+      // si quieres usar tu grilla: this.gridStep
+      return Math.round(v * 10) / 10; // redondeo a 0.1 para que no se llene de decimales
+    };
+
+    // límites: no dejar salir del 0..100 - (w/h)
+    const maxX = Math.max(0, 100 - (this.selected.w ?? 0));
+    const maxY = Math.max(0, 100 - (this.selected.h ?? 0));
+
+    const nx = Math.min(maxX, Math.max(0, (this.selected.x ?? 0) + Number(dx || 0)));
+    const ny = Math.min(maxY, Math.max(0, (this.selected.y ?? 0) + Number(dy || 0)));
+
+    this.selected.x = snap(nx);
+    this.selected.y = snap(ny);
+  }
+
 
   private fromApi(doc: ApiDesign): LabelDesign {
     return {
@@ -91,7 +116,7 @@ export class LabelDesignerComponent {
   blankDesign(): LabelDesign {
     return {
       nombre: '',
-      widthMm: 50, heightMm: 30, marginMm: 2,
+      widthMm: 62, heightMm: 30, marginMm: 2,
       pageWidthMm: 210, pageHeightMm: 297,
       cols: 4, rows: 8, gapXmm: 2, gapYmm: 2,
       twoCols: false, splitPct: 50,
@@ -141,13 +166,13 @@ export class LabelDesignerComponent {
     if (d?._id) {
       this.svc.get(d._id).subscribe(full => {
         this.design = this.normalizeDesign(full);
-        // Espera a que el *ngFor pinte los SVG y luego renderiza
         setTimeout(() => this.renderBarcodes(), 0);
       });
     } else {
       this.design = this.normalizeDesign(d);
       setTimeout(() => this.renderBarcodes(), 0);
     }
+    this.selected = null;
   }
 
 
@@ -379,5 +404,53 @@ export class LabelDesignerComponent {
       });
     });
   }
+
+  /** Ignora teclas cuando escribes en inputs/textarea/select o contentEditable */
+  private isTypingTarget(t: EventTarget | null) {
+    return !!t && (
+      (t as HTMLElement).isContentEditable ||
+      t instanceof HTMLInputElement ||
+      t instanceof HTMLTextAreaElement ||
+      t instanceof HTMLSelectElement
+    );
+  }
+
+  /** Ajusta el paso según modificadores (Shift/Alt/Ctrl) */
+  private keyStep(base: number, ev: KeyboardEvent) {
+    let s = base;
+    if (ev.shiftKey) s *= 10;   // Shift = gran salto
+    if (ev.altKey) s *= 0.1;  // Alt   = salto fino
+    // (si quieres, Ctrl podría forzar al gridStep)
+    return s;
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onKeydown(ev: KeyboardEvent) {
+    if (!this.selected || !this.keyboardNudgeActive) return;
+    if (this.isTypingTarget(ev.target)) return;
+
+    // Flechas (y WASD como alias)
+    const k = ev.key.toLowerCase();
+    const isArrow =
+      k === 'arrowleft' || k === 'arrowright' ||
+      k === 'arrowup' || k === 'arrowdown';
+    const isWASD = k === 'a' || k === 'd' || k === 'w' || k === 's';
+
+    if (!isArrow && !isWASD) return;
+
+    const dx = (k === 'arrowleft' || k === 'a') ? -this.keyStep(this.stepX, ev)
+      : (k === 'arrowright' || k === 'd') ? this.keyStep(this.stepX, ev)
+        : 0;
+
+    const dy = (k === 'arrowup' || k === 'w') ? -this.keyStep(this.stepY, ev)
+      : (k === 'arrowdown' || k === 's') ? this.keyStep(this.stepY, ev)
+        : 0;
+
+    if (dx !== 0 || dy !== 0) {
+      ev.preventDefault(); // evita scroll de la página
+      this.nudge(dx, dy);
+    }
+  }
+
 }
 

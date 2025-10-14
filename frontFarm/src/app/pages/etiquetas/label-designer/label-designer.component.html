@@ -71,7 +71,7 @@
   </div>
 
   <!-- ───── Col 2: Canvas + Propiedades ───── -->
-  <div class="center-col">
+  <div class="center-col" tabindex="0">
     <!-- Preview (zoom con scroll) -->
     <div class="canvas-wrap">
       <div class="label-canvas" [style.width]="design.widthMm + 'mm'" [style.height]="design.heightMm + 'mm'"
@@ -114,13 +114,30 @@
       <div style="text-align:center;">Tipo: <b>{{selected.type}}</b></div>
 
       <!-- Posición y tamaño en dos renglones -->
-      <div class="rowline">
+      <div class="row-pos">
         <span class="lead">Posición:</span>
-        <label>X (%)</label>
-        <input type="number" [(ngModel)]="selected.x" min="0" max="100">
-        <label>Y (%)</label>
-        <input type="number" [(ngModel)]="selected.y" min="0" max="100">
+
+        <!-- Eje X -->
+          <label>X={{ selected.x | number:'1.0-1' }}%</label>
+          <button type="button" class="btn-amarillo-chico" (click)="nudge(-stepX, 0)" matTooltip="Izquierda">
+            <i class="fa fa-arrow-left"></i>
+          </button>
+          <button type="button" class="btn-amarillo-chico" (click)="nudge(stepX, 0)" matTooltip="Derecha">
+            <i class="fa fa-arrow-right"></i>
+          </button>
+        
+
+        <!-- Eje Y -->
+          <label>Y={{ selected.y | number:'1.0-1' }}%</label>
+          <button type="button" class="btn-amarillo-chico" (click)="nudge(0, -stepY)" matTooltip="Arriba">
+            <i class="fa fa-arrow-up"></i>
+          </button>
+          <button type="button" class="btn-amarillo-chico" (click)="nudge(0, stepY)" matTooltip="Abajo">
+            <i class="fa fa-arrow-down"></i>
+          </button>
+        
       </div>
+
 
       <div class="rowline">
         <span class="lead">Tamaño:</span>
@@ -169,16 +186,6 @@
       </div>
 
       <div *ngIf="selected.type==='barcode'" class="row my-1">
-        <!--        <div class="col-2">
-           <label>Símb.&nbsp;</label>
-          <select [(ngModel)]="selected.barcode!.symbology" (ngModelChange)="renderBarcodes()">
-            <option>CODE128</option>
-            <option>EAN13</option>
-            <option>EAN8</option>
-            <option>QR</option>
-          </select>
-        </div>
- -->
         <div class="col-5">
           <label>CB ancho(px)&nbsp;</label><input type="number" [(ngModel)]="selected.barcode!.width"
             style="width: 3rem;" (ngModelChange)="renderBarcodes()">
