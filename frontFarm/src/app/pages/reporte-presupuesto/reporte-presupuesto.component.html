@@ -11,18 +11,30 @@
             <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" required>
         </div>
         <div class="col-sm-3">
-            <label class="form-label">Categoría</label>
-            <input type="text" class="form-control" [(ngModel)]="categoria" name="categoria">
+            <label class="form-label" style="white-space: nowrap;">Nombre</label>
+            <div class="position-relative">
+                <input type="text" class="form-control" [(ngModel)]="nombre" name="nombre" (ngModelChange)="onFiltroChange()">
+                <button *ngIf="nombre" type="button" matTooltip="Limpiar nombre"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarNombre()">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
         </div>
         <div class="col-sm-3">
-            <label class="form-label">Nombre</label>
-            <input type="text" class="form-control" [(ngModel)]="nombre" name="nombre"
-                placeholder="Palabras del producto">
+            <label class="form-label" style="white-space: nowrap;">Categoría</label>
+            <div class="position-relative">
+                <input type="text" class="form-control" [(ngModel)]="categoria" name="categoria" (ngModelChange)="onFiltroChange()">
+                <button *ngIf="categoria" type="button" matTooltip="Limpiar categoría"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarCategoria()">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
         </div>
         <div class="col-sm-2 d-flex align-items-end">
             <div class="form-check">
-                <input class="form-check-input" type="checkbox" [(ngModel)]="soloExistMenorQueVentas"
-                    name="soloExistMenorQueVentas" id="chkExist">
+                <input class="form-check-input" type="checkbox" [(ngModel)]="soloExistMenorQueVentas" name="soloExistMenorQueVentas" (ngModelChange)="onFiltroChange()">
                 <label class="form-check-label" for="chkExist">
                     Existencia &lt; Vendidos
                 </label>
@@ -56,7 +68,8 @@
             </label>
         </div>
 
-        <button class="btn-verde" (click)="grabarSeleccionados()" [disabled]="cargando">
+        <button class="btn-verde" (click)="grabarSeleccionados()" matTooltip="Grabar nuevos stocks mín y máx, de los productos seleccionados"
+            [disabled]="cargando || selectedCount === 0">
             Grabar seleccionados
         </button>
     </div>
@@ -104,7 +117,13 @@
 
             <tbody>
                 <tr *ngFor="let r of rows">
-                    <td><input type="checkbox" [(ngModel)]="r.grabar" [ngModelOptions]="{standalone:true}" /></td>
+                    <td>
+                        <input type="checkbox"
+                            [(ngModel)]="r.grabar"
+                            (ngModelChange)="onRowCheckChange()"
+                            [ngModelOptions]="{standalone:true}"
+                            />
+                    </td>
 
                     <!-- Agrega .truncate a columnas de texto largo -->
                     <td class="truncate" title="{{ r.producto }}">{{ r.producto }}</td>
