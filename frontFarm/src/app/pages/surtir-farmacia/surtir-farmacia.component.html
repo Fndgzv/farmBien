@@ -29,10 +29,15 @@
     </span>
     <div *ngIf="pendientes.length" class="toolbar"
       style="margin: .5rem 0; display:flex; gap:.5rem; align-items:center;">
-      <button class="btn-amarillo" (click)="imprimirPrevia()" matTooltip="Imprime la hoja de surtido con las omisiones">
+      <button class="btn-verde" (click)="imprimirPrevia()" matTooltip="Imprime la hoja de surtido con las omisiones">
         Imprimir previa
       </button>
     </div>
+
+    <button class="btn-amarillo" (click)="exportarExcel()" [disabled]="!rows.length"
+      matTooltip="Exporta todos los registros de la tabla">
+      Exportar a Excel
+    </button>
 
   </div>
 

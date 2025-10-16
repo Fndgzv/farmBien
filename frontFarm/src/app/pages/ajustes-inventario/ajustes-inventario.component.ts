@@ -101,6 +101,8 @@ export class AjustesInventarioComponent implements OnInit {
     // 👇 inicializa form del modal
     this.nuevoProductoForm = this.fb.group({
       nombre: ['', [Validators.required, Validators.minLength(3)]],
+      renglon1: [''],
+      renglon2: [''],
       codigoBarras: ['', Validators.required],
       unidad: ['', Validators.required],
       precio: [null, [Validators.required, Validators.min(0)]],
@@ -608,6 +610,8 @@ export class AjustesInventarioComponent implements OnInit {
     this.nuevoProductoForm.reset({
       nombre: '',
       codigoBarras: '',
+      renglon1: '',
+      renglon2: '',
       unidad: 'PZA',
       precio: null,
       costo: null,

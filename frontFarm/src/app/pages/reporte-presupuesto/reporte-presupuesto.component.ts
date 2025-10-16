@@ -1,14 +1,14 @@
 // frontFarm/src/app/pages/reporte-presupuesto/reporte-presupuesto.component.ts
 import { Component, OnInit } from '@angular/core';
-import { ReportesPresupuestoService, PresupuestoRow, PresupuestoResponse } from '../../services/reportes-presupuesto.service';
+import { ReportesPresupuestoService, PresupuestoRow } from '../../services/reportes-presupuesto.service';
 import Swal from 'sweetalert2';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
-import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
-import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faTimes } from '@fortawesome/free-solid-svg-icons';
+import * as XLSX from 'xlsx';
 
 @Component({
     selector: 'app-reporte-presupuesto',
@@ -20,7 +20,7 @@ import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 
 export class ReportePresupuestoComponent implements OnInit {
 
-     faTimes = faTimes;
+    faTimes = faTimes;
 
     get totalPages(): number {
         return Math.max(Math.ceil(this.totalRows / this.limit), 1);
@@ -33,7 +33,11 @@ export class ReportePresupuestoComponent implements OnInit {
     }
 
     private allRows: PresupuestoRow[] = [];
-    private filteredAll: PresupuestoRow[] = []
+    private filteredAll: PresupuestoRow[] = [];
+    get filteredCount(): number {
+        return this.filteredAll.length;
+    }
+    
     // Filtros
     fechaIni = '';
     fechaFin = '';
@@ -64,16 +68,15 @@ export class ReportePresupuestoComponent implements OnInit {
 
     ngOnInit(): void {
         this.setFechasPorDefecto();
-        //this.buscar(true);
     }
 
 
-    limpiarCategoria(){
+    limpiarCategoria() {
         this.categoria = '';
         this.onFiltroChange();
     }
 
-    limpiarNombre(){
+    limpiarNombre() {
         this.nombre = '';
         this.onFiltroChange();
     }
@@ -125,7 +128,7 @@ export class ReportePresupuestoComponent implements OnInit {
     private showLoader(title = 'Buscando...'): void {
         Swal.fire({
             title,
-            text: 'Contando ventas de los productos, calculando stoks',
+            text: 'Contando ventas de los productos, calculando stocks',
             allowOutsideClick: false,
             didOpen: () => Swal.showLoading()
         });
@@ -267,4 +270,68 @@ export class ReportePresupuestoComponent implements OnInit {
     fmtMoney(n: number | null | undefined): string {
         return (n ?? 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 });
     }
+
+
+    exportarExcel(): void {
+        // 1) Construir los datos desde TODO lo filtrado (ignora paginación)
+        const data = this.filteredAll.map(r => ({
+            'Producto': r.producto,
+            'Cod. Barras': r.codigoBarras,
+            'Categoría': r.categoria,
+            'Existencia': r.existencia ?? 0,
+            'Stock Máx': r.stockMax ?? 0,
+            'Stock Mín': r.stockMin ?? 0,
+            'Vendidos StockMax': r.vendidosSMaxE ?? 0,
+            'StockMin (30%)': r.sMinE ?? 0,
+            'Comprar': r.comprar ?? 0,
+            'Costo Estimado': Number((r.costoEst ?? 0).toFixed(2)),
+        }));
+
+        // 2) Worksheet
+        const ws = XLSX.utils.json_to_sheet(data, {
+            header: [
+                'Producto', 'Cod. Barras', 'Categoría', 'Existencia', 'Stock Máx', 'Stock Mín',
+                'Vendidos StockMax', 'StockMin (30%)', 'Comprar', 'Costo Estimado'
+            ],
+            skipHeader: false
+        });
+
+        // 3) Ancho de columnas (wch = "width in characters")
+        ws['!cols'] = [
+            { wch: 40 },  // Producto
+            { wch: 14 },  // Cod. Barras
+            { wch: 18 },  // Categoría
+            { wch: 12 },  // Existencia
+            { wch: 12 },  // Stock Máx
+            { wch: 12 },  // Stock Mín
+            { wch: 16 },  // Vendidos SMaxE
+            { wch: 14 },  // SMinE
+            { wch: 12 },  // Comprar
+            { wch: 16 },  // Costo Est
+        ];
+
+        // 4) Fila de totales (agregada al final)
+        const totalFilas = data.length;
+        const totalCosto = this.filteredAll.reduce((acc, r) => acc + (r.costoEst ?? 0), 0);
+        XLSX.utils.sheet_add_aoa(ws, [
+            ['', '', '', '', '', '', '', '', 'TOTAL Costo Est.:', Number(totalCosto.toFixed(2))]
+        ], { origin: -1 });
+
+        // 5) Opcional: formato numérico para la última columna (MXN con 2 decimales)
+        const startRow = 2;                    // filas en Excel son 1-based; 1 es header
+        const endRow = startRow + totalFilas - 1;
+        for (let r = startRow; r <= endRow + 1; r++) { // +1 incluye fila de total
+            const cellAddr = XLSX.utils.encode_cell({ c: 9, r: r - 1 }); // col 10 (índice 9)
+            const cell = ws[cellAddr];
+            if (cell && typeof cell.v === 'number') cell.z = '#,##0.00';
+        }
+
+        // 6) Workbook y guardado
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Presupuesto');
+        const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        const fname = `presupuesto_${this.fechaIni}_a_${this.fechaFin}_${stamp}.xlsx`;
+        XLSX.writeFile(wb, fname);
+    }
+
 }

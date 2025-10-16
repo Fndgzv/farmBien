@@ -70,6 +70,8 @@ export class ModalEditarProductoComponent implements OnInit {
   ngOnInit(): void {
     this.formulario = this.fb.group({
       nombre: [this.producto.nombre, [Validators.required]],
+      renglon1: [this.producto.renglon1],
+      renglon2: [this.producto.renglon2],
       codigoBarras: [this.producto.codigoBarras, [Validators.required]],
       ubicacion: [this.producto.ubicacion],
       categoria: [this.producto.categoria],

@@ -15,6 +15,7 @@ import { FarmaciaService } from '../../services/farmacia.service';
 import { SurtidoFarmaciaService } from '../../services/surtido-farmacia.service';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { finalize } from 'rxjs';
+import * as XLSX from 'xlsx';
 
 interface Pendiente {
   producto: string;
@@ -440,5 +441,86 @@ onSurtir() {
     const html = this.buildHTMLReal(surtido);
     this.printHTML(html);
   }
+
+exportarExcel(): void {
+  if (!this.rows?.length) {
+    Swal.fire('Aviso', 'No hay datos para exportar', 'info');
+    return;
+  }
+
+  const farmaciaId = this.form.value.farmaciaId;
+  const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
+  const fechaStamp = new Date().toISOString().slice(0,19).replace('T',' ');
+
+  // Datos: TODOS los registros de la tabla (no paginados)
+  const data = this.rows.map(r => ({
+    'Código de barras'     : r.codigoBarras || '',
+    'Producto'             : r.nombre || '',
+    'Categoría'            : r.categoria || '',
+    'Ubicación'            : r.ubicacion || '',
+    'Existencia actual'    : r.existenciaActual ?? 0,
+    'Stock Mín'            : r.stockMin ?? 0,
+    'Stock Máx'            : r.stockMax ?? 0,
+    'Falta'                : r.falta ?? 0,
+    'Disponible en almacén': r.disponibleEnAlmacen ?? 0,
+    'Omitir'               : r.omitir ? 'Sí' : 'No',
+  }));
+
+  // 0) Hoja VACÍA (clave para no duplicar)
+  const ws = XLSX.utils.aoa_to_sheet([]);
+
+  // 1) Encabezado
+  XLSX.utils.sheet_add_aoa(ws, [
+    ['Hoja de Surtido'],
+    [`Farmacia: ${farmNombre}`],
+    [`Generado: ${fechaStamp}`],
+    [''] // línea en blanco
+  ], { origin: 'A1' });
+
+  // 2) Tabla desde A5
+  XLSX.utils.sheet_add_json(ws, data, { origin: 'A5', skipHeader: false });
+
+  // 3) Anchos de columnas
+  ws['!cols'] = [
+    { wch: 16 },  // Código
+    { wch: 40 },  // Producto
+    { wch: 18 },  // Categoría
+    { wch: 14 },  // Ubicación
+    { wch: 14 },  // Existencia actual
+    { wch: 10 },  // Stock Min
+    { wch: 10 },  // Stock Max
+    { wch: 10 },  // Falta
+    { wch: 18 },  // Disponible
+    { wch: 8  },  // Omitir
+  ];
+
+  // 4) Formato numérico columnas 5..9 (1-based) en filas de datos
+  const firstDataRow = 6;                            // header tabla en fila 5 → datos desde 6
+  const lastDataRow  = firstDataRow + this.rows.length - 1;
+  const numCols = [5,6,7,8,9];
+  for (let r = firstDataRow; r <= lastDataRow; r++) {
+    for (const c of numCols) {
+      const addr = XLSX.utils.encode_cell({ r: r - 1, c: c - 1 }); // 0-based
+      const cell = ws[addr];
+      if (cell && typeof cell.v === 'number') cell.z = '#,##0';
+    }
+  }
+
+  // 5) Fila de totales (después de los datos)
+  const totalFalta = this.rows.reduce((a, r) => a + (r.falta ?? 0), 0);
+  const totalDisp  = this.rows.reduce((a, r) => a + (r.disponibleEnAlmacen ?? 0), 0);
+  const totalsRowA1 = `A${lastDataRow + 1}`;        // siguiente fila libre (1-based)
+  XLSX.utils.sheet_add_aoa(ws, [[
+    '', '', '', 'Totales:', '', '', '', totalFalta, totalDisp, ''
+  ]], { origin: totalsRowA1 });
+
+  // 6) Workbook y descarga
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Surtido');
+  const safeFarm = (farmNombre || 'sin-farmacia').replace(/[\\/:*?"<>|]/g, '_');
+  const file = `surtido_${safeFarm}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.xlsx`;
+  XLSX.writeFile(wb, file);
+}
+
 
 }

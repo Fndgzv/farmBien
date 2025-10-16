@@ -52,8 +52,8 @@
         </div>
 
         <div class="col-sm-10 d-flex align-items-end justify-content-end mt-2">
-            <button class="btn-gris" type="submit" [disabled]="cargando">
-                {{ cargando ? 'Buscando...' : 'Buscar' }}
+            <button class="btn-gris" type="submit" [disabled]="cargando" matTooltip="Calcular y contar las ventas del periodo Fecha Inicial y Fecha Final">
+                {{ cargando ? 'Contando y Calculando...' : 'Calcular ventas' }}
             </button>
         </div>
     </form>
@@ -68,10 +68,17 @@
             </label>
         </div>
 
-        <button class="btn-verde" (click)="grabarSeleccionados()" matTooltip="Grabar nuevos stocks mín y máx, de los productos seleccionados"
-            [disabled]="cargando || selectedCount === 0">
-            Grabar seleccionados
-        </button>
+        <div class="d-flex gap-2">
+            <button class="btn-amarillo"
+                    (click)="exportarExcel()"
+                    [disabled]="filteredCount === 0">
+            Exportar a Excel
+            </button>
+            <button class="btn-verde" (click)="grabarSeleccionados()" matTooltip="Grabar nuevos stocks mín y máx, de los productos seleccionados"
+                [disabled]="cargando || selectedCount === 0">
+                Grabar seleccionados
+            </button>
+        </div>
     </div>
 
     <div class="table-responsive">

@@ -136,13 +136,15 @@ exports.crearProducto = async (req, res) => {
 
   try {
     const {
-      nombre, codigoBarras, unidad, precio, costo, iva,
+      nombre, renglon1, renglon2, codigoBarras, unidad, precio, costo, iva,
       stockMinimo, stockMaximo, ubicacion, categoria, generico, descuentoINAPAM
     } = req.body;
 
     // 1) Crear producto
     const nuevoProducto = await Producto.create([{
       nombre,
+      renglon1,
+      renglon2,
       codigoBarras,
       unidad,
       precio,
@@ -781,6 +783,8 @@ actualiza el precio en todas las farmacias*/
 
     // Actualización de campos
     productoActual.nombre = prod.nombre;
+    productoActual.renglon1 = prod.renglon1;
+    productoActual.renglon2 = prod.renglon2;
     productoActual.codigoBarras = prod.codigoBarras;
     productoActual.categoria = prod.categoria;
     productoActual.ubicacion = prod.ubicacion;
