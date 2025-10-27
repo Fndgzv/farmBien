@@ -10,7 +10,8 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, mergeMap, of, from } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import Swal from 'sweetalert2';
 
 type ColumnaOrden = '' | keyof Producto | 'existencia';
@@ -138,6 +139,19 @@ export class AjustesInventarioComponent implements OnInit {
     });
   }
 
+  private cargarThumbnailsAuth(productos: any[]) {
+    // Evita bombardear al servidor: 6 peticiones concurrentes
+    from(productos).pipe(
+      mergeMap(p => {
+        if (!p?.imagen) { p._imgSrc = this.placeholderSrc; return of(null); }
+        return this.productoService.getImagenObjectUrl(p._id).pipe(
+          tap(url => { p._imgSrc = url || this.placeholderSrc; }),
+          catchError(() => { p._imgSrc = this.placeholderSrc; return of(null); })
+        );
+      }, 6)
+    ).subscribe(); // fuego y olvido: ya se pintan cuando cada una llega
+  }
+
   cargarProductos(borrarFiltros: boolean) {
     this.productoService.obtenerProductos().subscribe({
       next: (productos) => {
@@ -145,6 +159,7 @@ export class AjustesInventarioComponent implements OnInit {
           ...p,
           _imgSrc: p?.imagen ? this.productoService.obtenerImagenProductoUrl(p._id) : this.placeholderSrc
         }));
+        this.cargarThumbnailsAuth(this.productos);
 
         this.cachearNorms();
         this.recomputarCBDuplicados();
@@ -164,6 +179,12 @@ export class AjustesInventarioComponent implements OnInit {
       },
       error: (err) => console.error('Error al cargar productos:', err)
     });
+  }
+
+  // Para evitar bucle infinito de error:
+  onImgError(ev: Event, p: any) {
+    const img = ev.target as HTMLImageElement;
+    if (img && img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
   }
 
   /** Quita acentos, pasa a minúsculas y colapsa espacios */
@@ -744,11 +765,6 @@ export class AjustesInventarioComponent implements OnInit {
     const base = this.productoService.obtenerImagenProductoUrl(p._id);
     const t = this.imgCacheBuster[p._id] || 0;
     return t ? `${base}?t=${t}` : base;
-  }
-
-  onImgError(ev: Event, p?: ProductoUI) {
-    (ev.target as HTMLImageElement).src = this.placeholderSrc;
-    if (p) p.imagen = false;
   }
 
   onFileChange(ev: Event, p: any) {

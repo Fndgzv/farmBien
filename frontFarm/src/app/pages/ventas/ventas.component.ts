@@ -1,7 +1,7 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
-import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap } from 'rxjs/operators';
-import { of, Observable } from 'rxjs';
+import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap, tap } from 'rxjs/operators';
+import { of, Observable, from, mergeMap } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -700,22 +700,37 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.focusBarcode(0);
   }
 
-  obtenerProductos() {
-    this.productoService.obtenerProductos().subscribe({
-      next: (data) => {
-        this.productos = data || [];
-        const map: Record<string, string> = {};
-        for (const prod of this.productos) {
-          map[prod._id] = prod?.imagen
-            ? this.productoService.obtenerImagenProductoUrl(prod._id)
-            : this.placeholderSrc;
-        }
-        this.thumbs = map;
-      },
-      error: (error) => console.error('Error al obtener productos', error)
-    });
-  }
+obtenerProductos() {
+  this.productoService.obtenerProductos().subscribe({
+    next: (data) => {
+      this.productos = data || [];
+      this.thumbs = {}; // id -> objectURL
 
+      // Inicial en placeholder
+      for (const prod of this.productos) {
+        this.thumbs[prod._id] = this.placeholderSrc;
+      }
+
+      // Cargar con auth solo los que tienen imagen
+      from(this.productos).pipe(
+        mergeMap(prod => {
+          if (!prod?.imagen) return of(null);
+          return this.productoService.getImagenObjectUrl(prod._id).pipe(
+            tap(url => { this.thumbs[prod._id] = url || this.placeholderSrc; }),
+            catchError(() => of(null))
+          );
+        }, 6)
+      ).subscribe();
+    },
+    error: (error) => console.error('Error al obtener productos', error)
+  });
+}
+
+onThumbError(ev: Event, p: any) {
+  const img = ev.target as HTMLImageElement;
+  if (img && img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
+
+}
   agregarProductoPorCodigo() {
     if (this.codigoBarras.length === 0 && this.carrito.length > 0) {
       this.abrirModalPago();
@@ -1694,13 +1709,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const base = this.ensureClientesArray(this.clientes);
     const c = base.find(x => String(x?.nombre || '').toLowerCase() === nombre);
     if (c) this.onClienteSelected(c); // <- tu método existente
-  }
-
-
-  // si la miniatura falla, fuerza placeholder
-  onThumbError(ev: Event, item?: any) {
-    (ev.target as HTMLImageElement).src = this.placeholderSrc;
-    if (item?.producto) this.thumbs[item.producto] = this.placeholderSrc;
   }
 
   // Modal con imagen grande

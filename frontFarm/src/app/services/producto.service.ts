@@ -1,7 +1,8 @@
 // services/producto.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { catchError, map, tap } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { Producto } from '../models/producto.model';
@@ -12,6 +13,8 @@ import { ProductoLite } from '../models/producto-lite.model';
 })
 export class ProductoService {
   private apiUrl = `${environment.apiUrl}/productos`;
+  private imgCache = new Map<string, string>(); // id -> objectURL
+  private revoked: string[] = [];
 
   constructor(private http: HttpClient) { }
 
@@ -33,7 +36,7 @@ export class ProductoService {
   }
 
   obtenerProductos(): Observable<Producto[]> {
-    return this.http.get<Producto[]>(`${this.apiUrl}`);
+    return this.http.get<any[]>(`${this.apiUrl}`);
   }
 
   consultarPrecioPorCodigo(idFarmacia: string, codigoBarras: string) {
@@ -80,6 +83,33 @@ export class ProductoService {
 
   obtenerImagenProductoUrl(id: string) {
     return `${this.apiUrl}/${id}/imagen`;
+  }
+
+  getImagenObjectUrl(id: string): Observable<string> {
+    const cached = this.imgCache.get(id);
+    if (cached) return of(cached);
+
+    return this.http
+      .get(`${this.apiUrl}/${id}/imagen`, { responseType: 'blob' as 'json' })
+      .pipe(
+        map((blob: any) => URL.createObjectURL(blob as Blob)),
+        tap(url => this.imgCache.set(id, url)),
+        catchError(() => of('')) // devolvemos vacío y el componente pondrá placeholder
+      );
+  }
+
+  clearImagenFromCache(id: string) {
+    const url = this.imgCache.get(id);
+    if (url) {
+      URL.revokeObjectURL(url);
+      this.imgCache.delete(id);
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Limpieza por si el servicio se destruye
+    for (const [, url] of this.imgCache) URL.revokeObjectURL(url);
+    this.imgCache.clear();
   }
 
 }
