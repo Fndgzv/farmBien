@@ -144,7 +144,7 @@ cargarProductos(borrarFiltros: boolean) {
     next: (productos) => {
       this.productos = (productos || []).map((p: any) => ({
         ...p,
-        _imgSrc: this.placeholderSrc
+        _imgSrc: this.productoService.obtenerImagenProductoUrl(p._id) + (p?.updatedAt ? `?v=${encodeURIComponent(p.updatedAt)}` : '')
       }));
 
       // Intento público -> fallback blob, con concurrencia controlada
@@ -826,7 +826,7 @@ private cargarThumbnailsAuth(productos: any[]) {
 
   trackProdBy = (_: number, p: ProductoUI) => p?._id ?? p?.codigoBarras ?? _;
 
-  openPreview(p: ProductoUI) {
+  openPreview(p: any) {
     const url = p?._imgSrc || this.placeholderSrc;
 
     Swal.fire({

@@ -24,7 +24,9 @@ const moment = require('moment');
 require('console');
 
 // Configuración de almacenamiento para imágenes
-const UPLOADS_DIR = path.resolve(__dirname, '..', 'uploads');
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+const SERVER_PLACEHOLDER = path.join(__dirname, '..', 'uploads', 'placeholder.png'); // crea uno ahí
+
 const TMP_DIR = path.resolve(UPLOADS_DIR, 'tmp');
 
 // ---------- Multer (subida temporal) ----------
@@ -52,16 +54,13 @@ exports.uploadImagen = multer({
 }).single('imagen');
 
 // ---------- Helpers ----------
-async function fileExists(abs) {
-  try { await fsp.access(abs); return true; } catch { return false; }
-}
 
+const fileExists = async (abs) => { try { await fsp.access(abs, fs.constants.F_OK); return true; } catch { return false; } };
 function resolveImageAbs(dbPath) {
   if (!dbPath) return null;
-  const base = path.basename(String(dbPath)); // evita traversal
-  return path.join(UPLOADS_DIR, base);
+  const base = path.basename(String(dbPath));      // “1759461299268-0uiq9c.jpeg”
+  return path.join(UPLOADS_DIR, base);             // …/backBien/uploads/1759…jpeg
 }
-
 function makeNewName(mimetype) {
   const ext = mime.extension(mimetype) || 'bin';
   return `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
@@ -70,19 +69,16 @@ function makeNewName(mimetype) {
 // ---------- GET /productos/:id/imagen ----------
 exports.obtenerImagenProductoPorId = async (req, res) => {
   try {
-    const producto = await Producto.findById(req.params.id).lean();
-    if (!producto || !producto.imagen) {
-      return res.status(404).json({ mensaje: 'Imagen no encontrada' });
-    }
-    const abs = resolveImageAbs(producto.imagen);
-    if (!abs || !(await fileExists(abs))) {
-      return res.status(404).json({ mensaje: 'El archivo de la imagen no existe' });
-    }
+    const prod = await Producto.findById(req.params.id).lean();
+    if (!prod?.imagen) return res.status(404).send('No image');
+
+    const abs = resolveImageAbs(prod.imagen);
+    if (!abs || !(await fileExists(abs))) return res.status(404).send('No image');
+
     res.setHeader('Content-Type', mime.lookup(abs) || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 día
+    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
     return res.sendFile(abs);
   } catch (e) {
-    console.error('[GET img] ', e);
     return res.status(500).json({ mensaje: 'Error al obtener la imagen del producto' });
   }
 };
