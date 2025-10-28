@@ -139,47 +139,47 @@ export class AjustesInventarioComponent implements OnInit {
     });
   }
 
-  private cargarThumbnailsAuth(productos: any[]) {
-    // Evita bombardear al servidor: 6 peticiones concurrentes
-    from(productos).pipe(
-      mergeMap(p => {
-        if (!p?.imagen) { p._imgSrc = this.placeholderSrc; return of(null); }
-        return this.productoService.getImagenObjectUrl(p._id).pipe(
-          tap(url => { p._imgSrc = url || this.placeholderSrc; }),
-          catchError(() => { p._imgSrc = this.placeholderSrc; return of(null); })
-        );
-      }, 6)
-    ).subscribe(); // fuego y olvido: ya se pintan cuando cada una llega
-  }
+cargarProductos(borrarFiltros: boolean) {
+  this.productoService.obtenerProductos().subscribe({
+    next: (productos) => {
+      this.productos = (productos || []).map((p: any) => ({
+        ...p,
+        _imgSrc: this.placeholderSrc
+      }));
 
-  cargarProductos(borrarFiltros: boolean) {
-    this.productoService.obtenerProductos().subscribe({
-      next: (productos) => {
-        this.productos = (productos || []).map((p: any): ProductoUI => ({
-          ...p,
-          _imgSrc: p?.imagen ? this.productoService.obtenerImagenProductoUrl(p._id) : this.placeholderSrc
-        }));
-        this.cargarThumbnailsAuth(this.productos);
+      // Intento público -> fallback blob, con concurrencia controlada
+      from(this.productos).pipe(
+        mergeMap(p => { this.tryResolveImage(p); return of(null); }, 8)
+      ).subscribe();
 
-        this.cachearNorms();
-        this.recomputarCBDuplicados();
+      this.cachearNorms();
+      this.recomputarCBDuplicados();
 
-        if (borrarFiltros) {
-          this.filtros = {
-            nombre: '',
-            codigoBarras: '',
-            categoria: '',
-            descuentoINAPAM: null,
-            generico: null,
-            bajoStock: false,
-            duplicadosCB: false,
-          };
-        }
-        this.aplicarFiltros();
-      },
-      error: (err) => console.error('Error al cargar productos:', err)
-    });
-  }
+      if (borrarFiltros) {
+        this.filtros = {
+          nombre: '', codigoBarras: '', categoria: '',
+          descuentoINAPAM: null, generico: null,
+          bajoStock: false, duplicadosCB: false
+        };
+      }
+      this.aplicarFiltros();
+    },
+    error: (err) => console.error('Error al cargar productos:', err)
+  });
+}
+
+
+private cargarThumbnailsAuth(productos: any[]) {
+  from(productos).pipe(
+    mergeMap(p => {
+      if (!p?._id) { p._imgSrc = this.placeholderSrc; return of(null); }
+      return this.productoService.getImagenObjectUrl(p._id).pipe(
+        tap(url => { p._imgSrc = url || this.placeholderSrc; }),
+        catchError(() => { p._imgSrc = this.placeholderSrc; return of(null); })
+      );
+    }, 6) // 6 peticiones simultáneas máximo
+  ).subscribe();
+}
 
   // Para evitar bucle infinito de error:
   onImgError(ev: Event, p: any) {
@@ -798,11 +798,20 @@ export class AjustesInventarioComponent implements OnInit {
 
     try {
       this.subiendoId = p._id;
-      await firstValueFrom(this.productoService.actualizarImagenProducto(p._id, file));
-      // cache-buster: cambia UNA VEZ el src de esa fila
-      const base = this.productoService.obtenerImagenProductoUrl(p._id);
-      p._imgSrc = `${base}?t=${Date.now()}`;
-      p.imagen = true;
+      const resp = await firstValueFrom(this.productoService.actualizarImagenProducto(p._id, file));
+
+      // ✅ si tu API devuelve { imagen: "uploads/xxxx.jpg" }, úsala
+      const nuevaRuta = resp?.imagen as string | undefined;
+
+      if (typeof nuevaRuta === 'string') {
+        p.imagen = nuevaRuta;
+        p._imgSrc = this.productoService.getPublicImageUrl(nuevaRuta) + `?t=${Date.now()}`;
+      } else if (typeof p.imagen === 'string') {
+        p._imgSrc = this.productoService.getPublicImageUrl(p.imagen) + `?t=${Date.now()}`;
+      } else {
+        this.cargarProductos(false);
+      }
+
       Swal.fire('Listo', 'Imagen guardada', 'success');
     } catch (e: any) {
       const msg = e?.error?.mensaje || 'No se pudo subir la imagen';
@@ -810,18 +819,15 @@ export class AjustesInventarioComponent implements OnInit {
     } finally {
       this.subiendoId = null;
     }
+
   }
+
+
 
   trackProdBy = (_: number, p: ProductoUI) => p?._id ?? p?.codigoBarras ?? _;
 
   openPreview(p: ProductoUI) {
-    // si tiene imagen usamos la URL del back, si no, el placeholder
-    const base = p?.imagen
-      ? this.productoService.obtenerImagenProductoUrl(p._id)
-      : this.placeholderSrc;
-
-    // opcional: cache-buster si la cambiaste hace nada
-    const url = p?.imagen ? `${base}?t=${Date.now()}` : base;
+    const url = p?._imgSrc || this.placeholderSrc;
 
     Swal.fire({
       width: 'auto',
@@ -835,6 +841,38 @@ export class AjustesInventarioComponent implements OnInit {
       </div>`
     });
   }
+
+private preload(url: string): Promise<boolean> {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+  });
+}
+
+private loadBlobInto(p: any): void {
+  this.productoService.getImagenObjectUrl(p._id).subscribe(u => {
+    p._imgSrc = u || this.placeholderSrc;
+  });
+}
+
+private tryResolveImage(p: any): void {
+  const hasPath = typeof p?.imagen === 'string' && p.imagen.includes('uploads/');
+  if (hasPath) {
+    const publicSrc = this.productoService.getPublicImageUrl(p.imagen);
+    this.preload(publicSrc).then(ok => {
+      if (ok) {
+        p._imgSrc = publicSrc;
+      } else {
+        this.loadBlobInto(p);
+      }
+    });
+  } else {
+    this.loadBlobInto(p);
+  }
+}
+
 
 
 }

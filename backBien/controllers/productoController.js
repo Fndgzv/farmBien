@@ -21,7 +21,7 @@ function digitsLooseRegex(digits) {
 }
 
 const moment = require('moment');
-const { log } = require('console');
+require('console');
 
 // Configuración de almacenamiento para imágenes
 const UPLOADS_DIR = path.resolve(__dirname, '..', 'uploads');
@@ -55,11 +55,13 @@ exports.uploadImagen = multer({
 async function fileExists(abs) {
   try { await fsp.access(abs); return true; } catch { return false; }
 }
+
 function resolveImageAbs(dbPath) {
   if (!dbPath) return null;
   const base = path.basename(String(dbPath)); // evita traversal
   return path.join(UPLOADS_DIR, base);
 }
+
 function makeNewName(mimetype) {
   const ext = mime.extension(mimetype) || 'bin';
   return `${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;

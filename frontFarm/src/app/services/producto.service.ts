@@ -12,9 +12,9 @@ import { ProductoLite } from '../models/producto-lite.model';
   providedIn: 'root'
 })
 export class ProductoService {
+  private apiBase = environment.apiUrl;
   private apiUrl = `${environment.apiUrl}/productos`;
   private imgCache = new Map<string, string>(); // id -> objectURL
-  private revoked: string[] = [];
 
   constructor(private http: HttpClient) { }
 
@@ -85,18 +85,23 @@ export class ProductoService {
     return `${this.apiUrl}/${id}/imagen`;
   }
 
-  getImagenObjectUrl(id: string): Observable<string> {
-    const cached = this.imgCache.get(id);
-    if (cached) return of(cached);
 
+getPublicImageUrl(pathOrFilename: string): string {
+  if (!pathOrFilename) return '';
+  const clean = String(pathOrFilename).replace(/^\/+/, '');
+  return `/${clean}`; // ↩️ genera "/uploads/abc.jpg"
+}
+
+
+  getImagenObjectUrl(id: string): Observable<string> {
     return this.http
-      .get(`${this.apiUrl}/${id}/imagen`, { responseType: 'blob' as 'json' })
+      .get(`${this.apiUrl}/${id}/imagen`, { responseType: 'blob' })
       .pipe(
-        map((blob: any) => URL.createObjectURL(blob as Blob)),
-        tap(url => this.imgCache.set(id, url)),
-        catchError(() => of('')) // devolvemos vacío y el componente pondrá placeholder
+        map((blob: Blob) => URL.createObjectURL(blob)),
+        catchError(() => of('')) // ← si falla, devolvemos string vacío
       );
   }
+
 
   clearImagenFromCache(id: string) {
     const url = this.imgCache.get(id);
