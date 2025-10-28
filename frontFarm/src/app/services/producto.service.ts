@@ -86,11 +86,18 @@ export class ProductoService {
   }
 
 
-getPublicImageUrl(pathOrFilename: string): string {
-  if (!pathOrFilename) return '';
-  const clean = String(pathOrFilename).replace(/^\/+/, '');
-  return `/${clean}`; // ↩️ genera "/uploads/abc.jpg"
+getPublicImageUrl(pathOrUrl: string): string {
+  if (!pathOrUrl) return '';
+  // Si ya es http(s), úsalo tal cual
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+
+  // Si es ruta tipo 'uploads/archivo.ext', anteponer origen del backend (environment.apiUrl)
+  const api = environment.apiUrl; // p.ej. https://back.onrender.com/api
+  const backendOrigin = new URL(api, window.location.origin).origin; // https://back.onrender.com
+  const clean = String(pathOrUrl).replace(/^\/+/, '');
+  return `${backendOrigin}/${clean}`;
 }
+
 
 
   getImagenObjectUrl(id: string): Observable<string> {

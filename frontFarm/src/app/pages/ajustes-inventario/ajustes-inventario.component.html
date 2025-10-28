@@ -325,8 +325,9 @@
                             [disabled]="subiendoId === p._id"
                             [attr.aria-label]="p.imagen ? 'Cambiar imagen' : 'Agregar imagen'"
                             matTooltip="Cambiar ó Subir imagen">
-                            <img [src]="p._imgSrc || placeholderSrc" loading="lazy" decoding="async" (error)="onImgError($event, p)"
-                                alt="" />
+                            <img [src]="p._imgSrc || placeholderSrc"
+                                loading="lazy" decoding="async"
+                                (error)="onImgError($event, p)" />
                             <span class="overlay" *ngIf="subiendoId !== p._id"><i class="fas fa-upload"></i></span>
                             <span class="overlay" *ngIf="subiendoId === p._id"><i
                                     class="fa fa-spinner fa-spin"></i></span>

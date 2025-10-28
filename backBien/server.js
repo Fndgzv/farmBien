@@ -51,7 +51,14 @@ app.use('/api/labels', require('./routes/labels.products.routes'));
 app.use('/api/reportes', require('./routes/reportesPresupuestoRoutes'));
 
 // ---------- Archivos estáticos (uploads) ----------
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const uploadsRoot =
+  process.env.RENDER  // Render expone esta var en sus contenedores
+    ? path.join(process.cwd(), 'uploads')   // => /opt/render/project/src/uploads
+    : path.join(__dirname, 'uploads');      // local: backBien/uploads
+
+app.use('/uploads', express.static(uploadsRoot));
+
+// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ---------- Servir Angular build ----------
 const angularPath = path.join(__dirname, 'public', 'browser');

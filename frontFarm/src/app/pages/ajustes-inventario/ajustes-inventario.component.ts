@@ -139,53 +139,6 @@ export class AjustesInventarioComponent implements OnInit {
     });
   }
 
-cargarProductos(borrarFiltros: boolean) {
-  this.productoService.obtenerProductos().subscribe({
-    next: (productos) => {
-      this.productos = (productos || []).map((p: any) => ({
-        ...p,
-        _imgSrc: this.productoService.obtenerImagenProductoUrl(p._id) + (p?.updatedAt ? `?v=${encodeURIComponent(p.updatedAt)}` : '')
-      }));
-
-      // Intento público -> fallback blob, con concurrencia controlada
-      from(this.productos).pipe(
-        mergeMap(p => { this.tryResolveImage(p); return of(null); }, 8)
-      ).subscribe();
-
-      this.cachearNorms();
-      this.recomputarCBDuplicados();
-
-      if (borrarFiltros) {
-        this.filtros = {
-          nombre: '', codigoBarras: '', categoria: '',
-          descuentoINAPAM: null, generico: null,
-          bajoStock: false, duplicadosCB: false
-        };
-      }
-      this.aplicarFiltros();
-    },
-    error: (err) => console.error('Error al cargar productos:', err)
-  });
-}
-
-
-private cargarThumbnailsAuth(productos: any[]) {
-  from(productos).pipe(
-    mergeMap(p => {
-      if (!p?._id) { p._imgSrc = this.placeholderSrc; return of(null); }
-      return this.productoService.getImagenObjectUrl(p._id).pipe(
-        tap(url => { p._imgSrc = url || this.placeholderSrc; }),
-        catchError(() => { p._imgSrc = this.placeholderSrc; return of(null); })
-      );
-    }, 6) // 6 peticiones simultáneas máximo
-  ).subscribe();
-}
-
-  // Para evitar bucle infinito de error:
-  onImgError(ev: Event, p: any) {
-    const img = ev.target as HTMLImageElement;
-    if (img && img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
-  }
 
   /** Quita acentos, pasa a minúsculas y colapsa espacios */
   private normTxt(v: any): string {
@@ -760,67 +713,119 @@ private cargarThumbnailsAuth(productos: any[]) {
   subiendoId: string | null = null;
   imgCacheBuster: Record<string, number> = {}; // para bustear cache por producto
 
-  imageUrl(p: any): string {
-    if (!p?._id) return '';
-    const base = this.productoService.obtenerImagenProductoUrl(p._id);
-    const t = this.imgCacheBuster[p._id] || 0;
-    return t ? `${base}?t=${t}` : base;
+// ✅ Usa primero la ruta guardada en BD (uploads/...) y luego el endpoint por id como respaldo
+imageUrl(p: any): string {
+  if (!p?._id) return this.placeholderSrc;
+
+  // 1) Si el producto ya tiene ruta en BD (uploads/xxx.ext), construye URL pública completa
+  if (typeof p.imagen === 'string' && p.imagen.trim()) {
+    const abs = this.productoService.getPublicImageUrl(p.imagen); // ← https://back.../uploads/xxx.ext
+    const t = this.imgCacheBuster[p._id] || p.updatedAt || 0;
+    return t ? `${abs}?t=${encodeURIComponent(String(t))}` : abs;
   }
 
-  onFileChange(ev: Event, p: any) {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files && input.files[0];
-    // Limpia el valor para permitir elegir el mismo archivo otra vez
-    input.value = '';
-    if (!file) return;
-    this.onPickImage(file, p);
-  }
+  // 2) Fallback: endpoint del backend por id (/api/productos/:id/imagen)
+  const base = this.productoService.obtenerImagenProductoUrl(p._id);
+  const t = this.imgCacheBuster[p._id] || p.updatedAt || 0;
+  return t ? `${base}?t=${encodeURIComponent(String(t))}` : base;
+}
 
-  async onPickImage(file: File, p: ProductoUI) {
-    if (!file || !p?._id) return;
+onFileChange(ev: Event, p: any) {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files && input.files[0];
+  input.value = ''; // permite re-seleccionar el mismo archivo
+  if (!file) return;
+  this.onPickImage(file, p);
+}
 
-    // Preview y confirmación
-    const dataURL = await new Promise<string>((res, rej) => {
-      const fr = new FileReader();
-      fr.onload = () => res(String(fr.result));
-      fr.onerror = rej;
-      fr.readAsDataURL(file);
-    });
+async onPickImage(file: File, p: ProductoUI) {
+  if (!file || !p?._id) return;
 
-    const { isConfirmed } = await Swal.fire({
-      title: p.imagen ? '¿Reemplazar imagen?' : '¿Subir imagen?',
-      html: `<img src="${dataURL}" style="max-width:100%;max-height:240px;border-radius:8px;">`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!isConfirmed) return;
+  // preview
+  const dataURL = await new Promise<string>((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result));
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
 
-    try {
-      this.subiendoId = p._id;
-      const resp = await firstValueFrom(this.productoService.actualizarImagenProducto(p._id, file));
+  const { isConfirmed } = await Swal.fire({
+    title: p.imagen ? '¿Reemplazar imagen?' : '¿Subir imagen?',
+    html: `<img src="${dataURL}" style="max-width:100%;max-height:240px;border-radius:8px;">`,
+    showCancelButton: true,
+    confirmButtonText: 'Guardar',
+    cancelButtonText: 'Cancelar'
+  });
+  if (!isConfirmed) return;
 
-      // ✅ si tu API devuelve { imagen: "uploads/xxxx.jpg" }, úsala
-      const nuevaRuta = resp?.imagen as string | undefined;
+  try {
+    this.subiendoId = p._id;
+    const resp = await firstValueFrom(
+      this.productoService.actualizarImagenProducto(p._id, file)
+    );
 
-      if (typeof nuevaRuta === 'string') {
-        p.imagen = nuevaRuta;
-        p._imgSrc = this.productoService.getPublicImageUrl(nuevaRuta) + `?t=${Date.now()}`;
-      } else if (typeof p.imagen === 'string') {
-        p._imgSrc = this.productoService.getPublicImageUrl(p.imagen) + `?t=${Date.now()}`;
-      } else {
-        this.cargarProductos(false);
-      }
+    // 🔑 El backend debe responder { imagen: "uploads/xxxx.ext" }
+    const nuevaRuta: string | undefined = resp?.imagen || resp?.producto?.imagen;
 
-      Swal.fire('Listo', 'Imagen guardada', 'success');
-    } catch (e: any) {
-      const msg = e?.error?.mensaje || 'No se pudo subir la imagen';
-      Swal.fire('Error', msg, 'error');
-    } finally {
-      this.subiendoId = null;
+    if (typeof nuevaRuta === 'string' && nuevaRuta.trim()) {
+      // 1) guarda la ruta relativa en el modelo
+      p.imagen = nuevaRuta;
+
+      // 2) arma url pública completa y busteamos caché
+      p._imgSrc = this.productoService.getPublicImageUrl(nuevaRuta) + `?t=${Date.now()}`;
+
+      // 3) opcional: marca bust en memoria
+      this.imgCacheBuster[p._id] = Date.now();
+    } else {
+      // respaldo: endpoint por id
+      p._imgSrc = this.productoService.obtenerImagenProductoUrl(p._id) + `?t=${Date.now()}`;
     }
 
+    Swal.fire('Listo', 'Imagen guardada', 'success');
+  } catch (e: any) {
+    const msg = e?.error?.mensaje || 'No se pudo subir la imagen';
+    Swal.fire('Error', msg, 'error');
+  } finally {
+    this.subiendoId = null;
   }
+}
+
+// 🔄 Al cargar: usa p.imagen si existe; si no, endpoint por id.
+//    No hagas blobs ni pasos extra: deja que el <img> pida la URL pública.
+cargarProductos(borrarFiltros: boolean) {
+  this.productoService.obtenerProductos().subscribe({
+    next: (productos) => {
+      this.productos = (productos || []).map((p: any): ProductoUI => {
+        const src = (typeof p.imagen === 'string' && p.imagen.trim())
+          ? this.productoService.getPublicImageUrl(p.imagen) +
+              (p?.updatedAt ? `?v=${encodeURIComponent(p.updatedAt)}` : '')
+          : this.productoService.obtenerImagenProductoUrl(p._id) +
+              (p?.updatedAt ? `?v=${encodeURIComponent(p.updatedAt)}` : '');
+        return { ...p, _imgSrc: src };
+      });
+
+      this.cachearNorms();
+      this.recomputarCBDuplicados();
+
+      if (borrarFiltros) {
+        this.filtros = {
+          nombre: '', codigoBarras: '', categoria: '',
+          descuentoINAPAM: null, generico: null,
+          bajoStock: false, duplicadosCB: false
+        };
+      }
+      this.aplicarFiltros();
+    },
+    error: (err) => console.error('Error al cargar productos:', err)
+  });
+}
+
+// Si falla la URL pública o el endpoint, muestra el placeholder una sola vez
+onImgError(ev: Event, _p: any) {
+  const img = ev.target as HTMLImageElement;
+  if (!img) return;
+  if (img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
+}
 
 
 
@@ -828,50 +833,46 @@ private cargarThumbnailsAuth(productos: any[]) {
 
   openPreview(p: any) {
     const url = p?._imgSrc || this.placeholderSrc;
-
     Swal.fire({
-      width: 'auto',
-      showConfirmButton: false,
-      showCloseButton: true,
-      background: '#000',
-      padding: 0,
-      html: `
-      <div style="max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center">
-        <img src="${url}" alt="" style="max-width:90vw;max-height:90vh;object-fit:contain" />
-      </div>`
+      width: 'auto', showConfirmButton: false, showCloseButton: true,
+      background: '#000', padding: 0,
+      html: `<div style="max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center">
+             <img src="${url}" style="max-width:90vw;max-height:90vh;object-fit:contain" />
+           </div>`
     });
   }
 
-private preload(url: string): Promise<boolean> {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    img.src = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
-  });
-}
 
-private loadBlobInto(p: any): void {
-  this.productoService.getImagenObjectUrl(p._id).subscribe(u => {
-    p._imgSrc = u || this.placeholderSrc;
-  });
-}
-
-private tryResolveImage(p: any): void {
-  const hasPath = typeof p?.imagen === 'string' && p.imagen.includes('uploads/');
-  if (hasPath) {
-    const publicSrc = this.productoService.getPublicImageUrl(p.imagen);
-    this.preload(publicSrc).then(ok => {
-      if (ok) {
-        p._imgSrc = publicSrc;
-      } else {
-        this.loadBlobInto(p);
-      }
+  private preload(url: string): Promise<boolean> {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
     });
-  } else {
-    this.loadBlobInto(p);
   }
-}
+
+  private loadBlobInto(p: any): void {
+    this.productoService.getImagenObjectUrl(p._id).subscribe(u => {
+      p._imgSrc = u || this.placeholderSrc;
+    });
+  }
+
+  private tryResolveImage(p: any): void {
+    const hasPath = typeof p?.imagen === 'string' && p.imagen.includes('uploads/');
+    if (hasPath) {
+      const publicSrc = this.productoService.getPublicImageUrl(p.imagen);
+      this.preload(publicSrc).then(ok => {
+        if (ok) {
+          p._imgSrc = publicSrc;
+        } else {
+          this.loadBlobInto(p);
+        }
+      });
+    } else {
+      this.loadBlobInto(p);
+    }
+  }
 
 
 
