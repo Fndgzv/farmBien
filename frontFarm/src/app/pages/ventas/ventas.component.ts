@@ -1,11 +1,12 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
 import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap, tap } from 'rxjs/operators';
-import { of, Observable, from, mergeMap } from 'rxjs';
+import { of, Observable, from, mergeMap, firstValueFrom, async } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
 import { VentasService } from '../../services/ventas.service';
+import { FarmaciaService } from '../../services/farmacia.service';
 import { ProductoService } from '../../services/producto.service';
 import { ClienteService } from '../../services/cliente.service';
 import { VentaTicketComponent } from '../../impresiones/venta-ticket/venta-ticket.component';
@@ -101,6 +102,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   farmaciaId: string = '';
   farmaciaNombre: string = '';
+  farmaciaTitulo1: string = '';
+  farmaciaTitulo2: string = '';
+  farmaciaImagen: string = '';
   farmaciaDireccion: string = '';
   farmaciaTelefono: string = '';
 
@@ -183,6 +187,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     private productoService: ProductoService,
     private clienteService: ClienteService,
     private ventaService: VentaService,
+    private farmaciaService: FarmaciaService,
     private cdRef: ChangeDetectorRef,
     private ngZone: NgZone
   ) {
@@ -220,7 +225,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     this.obtenerProductos();
     const stored = localStorage.getItem('user_farmacia');
     const farmacia = stored ? JSON.parse(stored) : null;
@@ -231,6 +236,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
       this.farmaciaDireccion = farmacia.direccion;
       this.farmaciaTelefono = farmacia.telefono;
     }
+
+    await this.cargarFarmacia()
 
     const storeUs = localStorage.getItem('user_nombre');
     this.nombreUs = storeUs ? storeUs : '';
@@ -268,6 +275,18 @@ export class VentasComponent implements OnInit, AfterViewInit {
       }
     });
 
+  }
+
+
+  async cargarFarmacia() {
+    try {
+      const f = await firstValueFrom(this.farmaciaService.getFarmaciaById(this.farmaciaId));
+      this.farmaciaTitulo1 = f?.titulo1 ?? '';
+      this.farmaciaTitulo2 = f?.titulo2 ?? '';
+      this.farmaciaImagen = f?.imagen ?? '';
+    } catch (e) {
+      console.error('Error farmacia:', e);
+    }
   }
 
   onClienteInput() {
@@ -700,37 +719,37 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.focusBarcode(0);
   }
 
-obtenerProductos() {
-  this.productoService.obtenerProductos().subscribe({
-    next: (data) => {
-      this.productos = data || [];
-      this.thumbs = {}; // id -> objectURL
+  obtenerProductos() {
+    this.productoService.obtenerProductos().subscribe({
+      next: (data) => {
+        this.productos = data || [];
+        this.thumbs = {}; // id -> objectURL
 
-      // Inicial en placeholder
-      for (const prod of this.productos) {
-        this.thumbs[prod._id] = this.placeholderSrc;
-      }
+        // Inicial en placeholder
+        for (const prod of this.productos) {
+          this.thumbs[prod._id] = this.placeholderSrc;
+        }
 
-      // Cargar con auth solo los que tienen imagen
-      from(this.productos).pipe(
-        mergeMap(prod => {
-          if (!prod?.imagen) return of(null);
-          return this.productoService.getImagenObjectUrl(prod._id).pipe(
-            tap(url => { this.thumbs[prod._id] = url || this.placeholderSrc; }),
-            catchError(() => of(null))
-          );
-        }, 6)
-      ).subscribe();
-    },
-    error: (error) => console.error('Error al obtener productos', error)
-  });
-}
+        // Cargar con auth solo los que tienen imagen
+        from(this.productos).pipe(
+          mergeMap(prod => {
+            if (!prod?.imagen) return of(null);
+            return this.productoService.getImagenObjectUrl(prod._id).pipe(
+              tap(url => { this.thumbs[prod._id] = url || this.placeholderSrc; }),
+              catchError(() => of(null))
+            );
+          }, 6)
+        ).subscribe();
+      },
+      error: (error) => console.error('Error al obtener productos', error)
+    });
+  }
 
-onThumbError(ev: Event, p: any) {
-  const img = ev.target as HTMLImageElement;
-  if (img && img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
+  onThumbError(ev: Event, p: any) {
+    const img = ev.target as HTMLImageElement;
+    if (img && img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
 
-}
+  }
   agregarProductoPorCodigo() {
     if (this.codigoBarras.length === 0 && this.carrito.length > 0) {
       this.abrirModalPago();
@@ -823,12 +842,12 @@ onThumbError(ev: Event, p: any) {
         iva: producto.iva ? precioFinal * 0.16 : 0,
         cantidadPagada: 1,
         farmacia: this.farmaciaId,
-        promoCantidadRequerida: producto.promoCantidadRequerida,       
+        promoCantidadRequerida: producto.promoCantidadRequerida,
       };
       this.carrito = [nuevo, ...this.carrito];
     }
 
-    
+
 
     if (this.aplicaGratis) this.validarProductoGratis(producto._id);
 
@@ -1306,8 +1325,11 @@ onThumbError(ev: Event, p: any) {
       cliente: this.nombreCliente,
       farmacia: {
         nombre: this.farmaciaNombre,
+        titulo1: this.farmaciaTitulo1,
+        titulo2: this.farmaciaTitulo2,
         direccion: this.farmaciaDireccion,
-        telefono: this.farmaciaTelefono
+        telefono: this.farmaciaTelefono,
+        imagen: this.farmaciaImagen
       },
       productos,
       cantidadProductos: this.totalArticulos,
@@ -1325,9 +1347,6 @@ onThumbError(ev: Event, p: any) {
       fecha: new Date().toISOString(),
       usuario: this.nombreUs
     };
-
-    console.log('Datos enviados al ticket: ', this.ventaParaImpresion);
-
 
     // Mostrar ticket y cerrar el modal ANTES de imprimir
     this.mostrarTicket = true;

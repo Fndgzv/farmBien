@@ -7,6 +7,8 @@ import { environment } from '../../environments/environment';
 export interface Farmacia {
   _id?: string;
   nombre: string;
+  titulo1: string;
+  titulo2: string;
   direccion?: string;
   telefono?: string;
   firmaUpdatedAt?: string | Date;

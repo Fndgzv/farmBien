@@ -8,7 +8,9 @@
     <table class="tabla">
         <thead>
             <tr>
-                <th>Nombre</th>
+                <th>Título 1</th>
+                <th>Título 2</th>
+                <th>Sucursal</th>
                 <th>Dirección</th>
                 <th>Teléfono</th>
                 <th>Firma</th>
@@ -17,6 +19,8 @@
         </thead>
         <tbody>
             <tr *ngFor="let f of farmacias">
+                <td>{{ f.titulo1 }}</td>
+                <td>{{ f.titulo2 }}</td>
                 <td>{{ f.nombre }}</td>
                 <td>{{ f.direccion }}</td>
                 <td>{{ f.telefono }}</td>
@@ -60,7 +64,15 @@
                 <div class="modal-body">
                     <form *ngIf="formFarmacia" [formGroup]="formFarmacia">
                         <div class="mb-2">
-                            <label>Nombre:</label>
+                            <label>Titulo1:</label>
+                            <input type="text" class="form-control" formControlName="titulo1">
+                        </div>
+                        <div class="mb-2">
+                            <label>Titulo2:</label>
+                            <input type="text" class="form-control" formControlName="titulo2">
+                        </div>
+                        <div class="mb-2">
+                            <label>Sucursal:</label>
                             <input type="text" class="form-control" formControlName="nombre">
                         </div>
                         <div class="mb-2">

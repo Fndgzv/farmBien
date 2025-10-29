@@ -343,17 +343,6 @@ export class AuthService {
     }
   }
 
-
-  // Método para decodificar el token y verificar su expiración
-  private getPayload(token: string) {
-    try {
-      return JSON.parse(atob(token.split('.')[1])); // Decodificar el payload del token
-    } catch (e) {
-      return null;
-    }
-  }
-
-
   // Método para obtener el ID del usuario autenticado
   getUserId() {
     return localStorage.getItem('user_id');

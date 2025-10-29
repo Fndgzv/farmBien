@@ -21,7 +21,7 @@ exports.obtenerFarmacias = async (_req, res) => {
 
 exports.crearFarmacia = async (req, res) => {
   try {
-    const { nombre, direccion, telefono, contacto, firma } = req.body;
+    const { nombre, titulo1, titulo2, direccion, telefono, contacto, firma } = req.body;
 
     if (!firma || !firma.trim()) {
       return res.status(400).json({ mensaje: "La firma es obligatoria" });
@@ -32,6 +32,8 @@ exports.crearFarmacia = async (req, res) => {
 
     const nuevaFarmacia = new Farmacia({
       nombre,
+      titulo1,
+      titulo2,
       direccion,
       telefono,
       contacto,
@@ -52,9 +54,9 @@ exports.crearFarmacia = async (req, res) => {
 exports.actualizarFarmacia = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, direccion, telefono, contacto, firmaActual, nuevaFirma } = req.body;
+    const { nombre, titulo1, titulo2, direccion, telefono, contacto, firmaActual, nuevaFirma } = req.body;
 
-    const updates = { nombre, direccion, telefono, contacto };
+    const updates = { nombre, titulo1, titulo2, direccion, telefono, contacto };
 
     const farmacia = await Farmacia.findById(id);
     if (!farmacia) return res.status(404).json({ mensaje: "Farmacia no encontrada" });

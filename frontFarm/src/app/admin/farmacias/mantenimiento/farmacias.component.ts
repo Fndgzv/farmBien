@@ -43,10 +43,12 @@ export class FarmaciasComponent implements OnInit {
   showConfirm = false;
   farmaciaTarget: any = null;
 
-  constructor(private fb: FormBuilder, private farmaciaService: FarmaciaService, private library: FaIconLibrary,) {
+  constructor(private fb: FormBuilder, private farmaciaService: FarmaciaService, library: FaIconLibrary,) {
     library.addIcons(faPen, faTrash, faPlus, faEye, faEyeSlash, faKey);
     this.formFarmacia = this.fb.group({
       nombre: ['', Validators.required],
+      titulo1: [''],
+      titulo2: [''],
       direccion: [''],
       telefono: [''],
       firma: ['', Validators.required]
@@ -58,6 +60,8 @@ export class FarmaciasComponent implements OnInit {
     this.formFarmacia = this.fb.group(
       {
         nombre: ['', [Validators.required, Validators.minLength(2)]],
+        titulo1: [''],
+        titulo2: [''],
         direccion: [''],
         telefono: [''],
 
@@ -123,6 +127,8 @@ export class FarmaciasComponent implements OnInit {
 
     this.formFarmacia.reset({
       nombre: f.nombre,
+      titulo1: f.titulo1,
+      titulo2: f.titulo2,
       direccion: f.direccion,
       telefono: f.telefono,
       firmaActual: '',
@@ -227,6 +233,8 @@ cargarFarmacias() {
 
     this.formFarmacia.reset({
       nombre: '',
+      tutulo1: '',
+      titulo2: '',
       direccion: '',
       telefono: '',
       firma: '',
@@ -253,11 +261,13 @@ cargarFarmacias() {
 
     this.guardando = true;
 
-    const { nombre, direccion, telefono, firmaActual, nuevaFirma } = this.formFarmacia.value;
+    const { nombre, titulo1, titulo2, direccion, telefono, firmaActual, nuevaFirma } = this.formFarmacia.value;
 
     // Payload base
     const datos: any = {
       nombre: (nombre || '').trim(),
+      titulo1: (titulo1 || '').trim(),
+      titulo2: (titulo2 || '').trim(),
       direccion: (direccion || '').trim(),
       telefono: (telefono || '').trim()
     };

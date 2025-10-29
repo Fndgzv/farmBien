@@ -9,6 +9,9 @@ import { CommonModule } from '@angular/common';
 })
 export class TicketHeaderComponent {
   @Input() nombreFarmacia!: string;
+  @Input() titulo1!: string;
+  @Input() titulo2!: string;
   @Input() direccion!: string;
   @Input() telefono!: string;
+  @Input() imagen!: string;
 }
