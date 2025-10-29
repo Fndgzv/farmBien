@@ -5,7 +5,7 @@ const fs = require('fs/promises');
 const mongoose = require('mongoose');
 const Producto = require('../models/Producto');
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
 function norm(p) {
   return String(p || '').replace(/^[\\/]+/, '').replace(/\\/g, '/');

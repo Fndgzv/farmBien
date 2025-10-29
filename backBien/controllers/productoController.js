@@ -24,7 +24,7 @@ const moment = require('moment');
 require('console');
 
 // Configuración de almacenamiento para imágenes
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 

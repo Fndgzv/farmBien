@@ -17,7 +17,7 @@ services:
 
     startCommand: node backBien/server.js
 
-    disks:
+    disk:
       name: uploads
       mountPath: /opt/render/project/src/backBien/uploads
       sizeGB: 20
