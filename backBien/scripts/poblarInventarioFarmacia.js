@@ -6,7 +6,7 @@ const InventarioFarmacia = require('../models/InventarioFarmacia');
 // Usamos la URI del .env
 const MONGO_URI = process.env.MONGO_URI;
 
-const farmaciaId = '67d73b3a6348d5c1f9b74313'; // reemplaza con un _id real
+const farmaciaId = '6901b8db573b04d722ea9963'; // reemplaza con un _id real
 
 mongoose.connect(MONGO_URI)
   .then(async () => {
