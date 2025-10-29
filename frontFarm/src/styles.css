@@ -446,6 +446,9 @@ button {
 
   .logo-ticket {
     display: block !important;
+    width: 40px !important;
+    height: auto !important;
+    visibility: visible !important;
   }
 
   .ticket-impresion,

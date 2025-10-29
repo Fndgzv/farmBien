@@ -1282,6 +1282,46 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.focusBarcode(50);
   }
 
+  private async waitImagesLoaded(containerId: string, timeoutMs = 3000): Promise<void> {
+    const root = document.getElementById(containerId);
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
+    if (imgs.length === 0) return;
+
+    const allLoaded = Promise.all(
+      imgs.map(img => new Promise<void>(res => {
+        if (img.complete && img.naturalWidth > 0) return res();
+        const onLoad = () => { cleanup(); res(); };
+        const onErr = () => { cleanup(); res(); }; // no bloqueamos si falla
+        const cleanup = () => {
+          img.removeEventListener('load', onLoad);
+          img.removeEventListener('error', onErr);
+        };
+        img.addEventListener('load', onLoad);
+        img.addEventListener('error', onErr);
+      }))
+    );
+
+    await Promise.race([allLoaded, new Promise<void>(r => setTimeout(r, timeoutMs))]);
+  }
+
+  private isEdge(): boolean {
+    return /Edg\//.test(navigator.userAgent); // Edge (Chromium)
+  }
+
+  private forceEdgeImageReady(containerId: string): void {
+    const root = document.getElementById(containerId);
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
+    // Forzamos reflow/recarga (workaround conocido de Edge al imprimir)
+    imgs.forEach(img => {
+      const s = img.src;
+      img.src = '';
+      img.offsetHeight; // reflow
+      img.src = s;
+    });
+  }
+
   finalizarVenta() {
     // Normalizar
     this.efectivoRecibido = Math.max(0, this.pagoEfectivo);
@@ -1384,11 +1424,21 @@ export class VentasComponent implements OnInit, AfterViewInit {
     mq?.addEventListener?.('change', onMQ);
 
     // Watchdog: si nada dispara, cerramos igual
-    const watchdog = setTimeout(safeFinish, 6000);
+    const watchdog = setTimeout(safeFinish, 9000);
 
     // Imprimir
-    setTimeout(() => {
-      try { window.print(); } catch { safeFinish(); }
+    setTimeout(async () => {
+      try {
+        // ⬅️ Espera a que carguen logos/imagenes del ticket
+        await this.waitImagesLoaded('ticketVenta', 3500);
+        if (this.isEdge()) {
+          this.forceEdgeImageReady('ticketVenta');
+          await new Promise(r => setTimeout(r, 50)); // micro-pausa
+        }
+        window.print();
+      } catch {
+        safeFinish();
+      }
     }, 0);
   }
 
