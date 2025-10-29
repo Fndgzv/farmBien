@@ -27,29 +27,51 @@ require('console');
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const SERVER_PLACEHOLDER = path.join(UPLOADS_DIR, 'farmBienIcon.png');
 
 // ---------- Multer (subida temporal) ----------
 const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
+(async () => {
+  try { await fsp.mkdir(UPLOADS_DIR, { recursive: true }); } catch {}
+})();
+
+// Extensión segura por mimetype (fallback a .bin)
+function extFromMimetype(mimetype) {
+  const ext = mime.extension(mimetype);
+  return ext ? `.${ext}` : '.bin';
+}
+
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+  destination: async (_req, _file, cb) => {
+    try {
+      await fsp.mkdir(UPLOADS_DIR, { recursive: true });
+      cb(null, UPLOADS_DIR);
+    } catch (e) {
+      cb(e);
+    }
+  },
   filename: (_req, file, cb) => {
-    const ext = (file.originalname.match(/\.[a-zA-Z0-9]+$/)?.[0]) || '';
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2,8)}${ext || '.bin'}`);
+    const ext = extFromMimetype(file.mimetype);
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+    cb(null, name);
   }
 });
 
-const fileFilter = (req, file, cb) => {
-  if (!allowed.has(file.mimetype)) return cb(new Error('Formato no permitido'));
+// (Opcional) restringe tipos y pesos
+const fileFilter = (_req, file, cb) => {
+  const ok = /^image\/(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.mimetype);
+  if (!ok) return cb(new Error('Tipo de imagen no permitido'));
   cb(null, true);
 };
 
-exports.uploadImagen = multer({
+const upload = multer({
   storage,
-  fileFilter,
-  limits: { fileSize: 3 * 1024 * 1024 } // 3MB
-}).single('imagen');
+  fileFilter,              // puedes quitarlo si no lo quieres
+  limits: { fileSize: 5 * 1024 * 1024 } // 5 MB; ajusta si necesitas
+});
+
+// Exporta tu middleware EXACTO como lo usas en las rutas:
+exports.uploadImagen = upload.single('imagen');
 
 // ---------- Helpers ----------
 async function fileExists(abs) {
@@ -70,25 +92,23 @@ function makeNewName(mimetype) {
 // ---------- GET /productos/:id/imagen ----------
 exports.obtenerImagenProductoPorId = async (req, res) => {
   try {
-    const prod = await Producto.findById(req.params.id).lean();
-
-    // 1) Resolver ruta física a partir del valor guardado en Mongo (e.g. "uploads/xxx.jpeg")
-    let abs = prod?.imagen ? resolveImageAbs(prod.imagen) : null;
-
-    // 2) Si no existe el archivo, usa el placeholder del servidor (nunca regresamos 404 a <img>)
-    if (!abs || !(await fileExists(abs))) {
-      abs = (await fileExists(SERVER_PLACEHOLDER)) ? SERVER_PLACEHOLDER : null;
-      if (!abs) return res.status(200).end(); // último recurso (vacío pero 200)
+    const producto = await Producto.findById(req.params.id).lean();
+    if (!producto || !producto.imagen) {
+      return res.status(404).json({ mensaje: 'Imagen no encontrada' });
     }
-
+    const abs = resolveImageAbs(producto.imagen);
+    if (!abs || !(await fileExists(abs))) {
+      return res.status(404).json({ mensaje: 'El archivo de la imagen no existe' });
+    }
     res.setHeader('Content-Type', mime.lookup(abs) || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable'); // 30 días
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     return res.sendFile(abs);
   } catch (e) {
-    console.error('[GET /api/productos/:id/imagen]', e);
-    return res.status(200).end(); // jamás 500 hacia un <img>, evita el “cuadro negro”
+    console.error('[GET img] ', e);
+    return res.status(500).json({ mensaje: 'Error al obtener la imagen del producto' });
   }
 };
+
 
 // ---------- PUT /productos/:id/imagen (usar uploadImagen antes) ----------
 exports.actualizarImagenProducto = async (req, res) => {

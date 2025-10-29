@@ -2,22 +2,24 @@ services:
   - type: web
     name: farmacia-bienestar
     env: node
-    plan: free
+    plan: starter
+    branch: main
+    autoDeploy: true
 
     buildCommand: |
       cd backBien
-      npm install
+      npm ci
       cd ../frontFarm
-      npm install
+      npm ci
       npm run build -- --configuration production
       cd ..
       node copy-dist.js
 
     startCommand: node backBien/server.js
 
-    disk:
+    disks:
       name: uploads
-      mountPath: /opt/render/project/src/uploads
+      mountPath: /opt/render/project/src/backBien/uploads
       sizeGB: 20
 
     envVars:
@@ -30,4 +32,3 @@ services:
       - key: MONGODB_URI
         sync: false
 
-    autoDeploy: true
