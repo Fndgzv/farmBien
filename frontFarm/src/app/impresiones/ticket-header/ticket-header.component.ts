@@ -1,4 +1,5 @@
 // ticket-header.component.ts
+import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 
@@ -6,7 +7,8 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
   selector: 'app-ticket-header',
   standalone: true,
   templateUrl: './ticket-header.component.html',
-  styleUrl: './ticket-header.component.css'
+  styleUrl: './ticket-header.component.css',
+  imports: [ CommonModule]
 })
 export class TicketHeaderComponent implements OnChanges {
   @Input() nombreFarmacia!: string;
