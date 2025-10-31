@@ -11,6 +11,5 @@ import { TicketFooterComponent } from "../ticket-footer/ticket-footer.component"
   styleUrl: './venta-ticket.component.css'
 })
 export class VentaTicketComponent {
-  @Input() venta: any; 
-
+  @Input() venta: any;
 }

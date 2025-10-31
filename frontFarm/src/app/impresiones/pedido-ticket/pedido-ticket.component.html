@@ -1,7 +1,12 @@
 <!-- pedido-ticket.component.html -->
 <div class="ticket-impresion" id="ticketPedido" style="font-family: Roboto Condensed, Arial, sans-serif;">
-    <app-ticket-header [nombreFarmacia]="pedido.farmaNombre" [direccion]="pedido.farmaDireccion"
-        [telefono]="pedido.farmaTelefono">
+    <app-ticket-header
+        [nombreFarmacia]="pedido.farmaNombre"
+        [direccion]="pedido.farmaDireccion"
+        [telefono]="pedido.farmaTelefono"
+        [imagen]="pedido.farmaImagen"
+        [titulo1]="pedido.farmaTitulo1"
+        [titulo2]="pedido.farmaTitulo2">
     </app-ticket-header>
 
     <div class="info-pedido">

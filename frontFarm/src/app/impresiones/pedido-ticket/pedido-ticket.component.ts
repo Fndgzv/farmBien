@@ -16,6 +16,9 @@ export class PedidoTicketComponent {
     farmaNombre: string,
     farmaDireccion: string,
     farmaTelefono: string,
+    farmaImagen: string,
+    farmaTitulo1: string,
+    farmaTitulo2: string,
     userName: string,
     client: string,
     movimiento: 'agregar' | 'surtir' | 'cancelar'

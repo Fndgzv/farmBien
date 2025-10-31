@@ -1,8 +1,13 @@
 <!-- devolucion-ticket.component.html -->
 <div class="ticket-impresion" *ngIf="venta">
 
-    <app-ticket-header [nombreFarmacia]="venta.farmacia.nombre" [direccion]="venta.farmacia.direccion"
-        [telefono]="venta.farmacia.telefono">
+    <app-ticket-header
+        [nombreFarmacia]="venta.farmacia.nombre"
+        [direccion]="venta.farmacia.direccion"
+        [telefono]="venta.farmacia.telefono"
+        [imagen]="venta.farmacia.imagen"
+        [titulo1]="venta.farmacia.titulo1"
+        [titulo2]="venta.farmacia.titulo2">
     </app-ticket-header>
 
     <hr />
@@ -19,7 +24,7 @@
             </tr>
         </thead>
         <tbody>
-            <ng-container *ngFor="let p of venta.devolucion.productosDevueltos">
+            <ng-container *ngFor="let p of venta.devolucion.productos">
                 <!-- 1. cóg barras 3 digitos finales y Nombre del producto -->
                 <tr>
                     <td colspan="3">
@@ -46,14 +51,6 @@
     </table>
 
     <hr />
-
-<!--     <div class="totales">
-        <div style="text-align: right;">Total: <strong>${{ venta.totalADevolver | number:'1.2-2' }}</strong></div>
-        <div style="text-align: right;" *ngIf="venta.totalDevolverVales > 0">Abonó a su monedero: <strong>${{
-                venta.totalDevolverVales | number:'1.2-2' }}</strong></div>
-        <div style="text-align: right;" *ngIf="venta.totalDevolverEfectivo > 0">Devolución de efectivo: <strong>${{
-                venta.totalDevolverEfectivo | number:'1.2-2'}}</strong></div>
-    </div> -->
 
 <div class="totales">
   <div style="text-align: right;">

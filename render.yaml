@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: farmacia-bienestar
+    name: farmBien
     env: node
     plan: starter
     branch: main
@@ -18,9 +18,9 @@ services:
     startCommand: node backBien/server.js
 
     disk:
-      name: uploads
-      mountPath: /opt/render/project/src/backBien/uploads
-      sizeGB: 20
+      - name: uploads
+        mountPath: /opt/render/project/src/backBien/uploads
+        sizeGB: 50
 
     envVars:
       - key: NODE_VERSION

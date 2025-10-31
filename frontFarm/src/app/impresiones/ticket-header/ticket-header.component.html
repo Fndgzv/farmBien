@@ -1,26 +1,29 @@
-<!-- ticket-header.component.html -->
+<!-- src/app/impresiones/ticket-header/ticket-header.component.html -->
+ 
 <div class="lineBottom">
   <div class="encabezado-flex">
+
     <img
       [src]="safeLogoSrc"
       alt="Logo"
       class="logo logo-ticket"
       loading="eager"
       decoding="sync"
+      (load)="onLogoLoad()"
+      (error)="onLogoError($event)"
     />
-
-    <!-- Contenedor de títulos centrado -->
-    <div class="title-wrap">
-      <span class="title-line">{{ titulo1 }}</span><br />
-      <span class="title-line">{{ titulo2 }}</span>
+    <div class="titulos">
+      <div class="titulo1">{{ titulo1 }}</div>
+      <div class="titulo2">{{ titulo2 }}</div>
     </div>
   </div>
 
-  <div class="datos-farmacia">
+  <div class="datos-farmacia" style="font-size: 16px;">
     Sucursal: {{ nombreFarmacia }}<br />
-    {{ direccion }}
-    <ng-container *ngIf="telefono">
-      <br />Teléfono: {{ telefono }}
+    {{ direccion }}<br />
+    <!-- solo si viene teléfono -->
+    <ng-container *ngIf="telefono && telefono.trim()">
+      Teléfono: {{ telefono }}
     </ng-container>
   </div>
 </div>

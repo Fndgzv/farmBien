@@ -40,7 +40,7 @@ export class LoginComponent {
     public authService: AuthService,
     public router: Router,
     private cdr: ChangeDetectorRef,
-    private library: FaIconLibrary
+    library: FaIconLibrary
   ) {
 
     library.addIcons(faEye, faEyeSlash);
@@ -59,6 +59,7 @@ export class LoginComponent {
 
   // 🔹 Función para iniciar sesión
   onSubmit(): void {
+
     if (!this.loginForm.valid) {
       this.showErrorAlert('Por favor, completa todos los campos correctamente.');
       return;
@@ -67,8 +68,10 @@ export class LoginComponent {
     const { usuario, password } = this.loginForm.value;
 
     const intentarLogin = (firma?: string) => {
+
       this.authService.login(usuario, password, firma).subscribe({
         next: (response: any) => {
+
           if (response && response.token && response.user) {
             this.authService.setUserData(
               response.token,

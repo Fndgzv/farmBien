@@ -45,6 +45,9 @@ export class DevolucionesComponent implements OnInit {
   farmaciaNombre: string = '';
   farmaciaDireccion: string = '';
   farmaciaTelefono: string = '';
+  farmaciaImagen: string = '';
+  farmaciaTitulo1: string = '';
+  farmaciaTitulo2: string = '';
   usuarioId: string = '';
   usuarioRol: string = '';
   usuarioNombre: string = '';
@@ -90,6 +93,9 @@ export class DevolucionesComponent implements OnInit {
     this.farmaciaNombre = farmacia.nombre;
     this.farmaciaDireccion = farmacia.direccion;
     this.farmaciaTelefono = farmacia.telefono;
+    this.farmaciaImagen = farmacia.imagen;
+    this.farmaciaTitulo1 = farmacia.titulo1;
+    this.farmaciaTitulo2 = farmacia.titulo2;
 
     const usuario = this.authService.getUserData();
     const rol = usuario?.rol;
@@ -395,9 +401,15 @@ export class DevolucionesComponent implements OnInit {
       farmacia: {
         nombre: this.farmaciaNombre,
         direccion: this.farmaciaDireccion,
-        telefono: this.farmaciaTelefono
+        telefono: this.farmaciaTelefono,
+        imagen: this.farmaciaImagen,
+        titulo1: this.farmaciaTitulo1,
+        titulo2: this.farmaciaTitulo2,
       },
     };
+
+    console.log('Datos a imprimir', this.paraImpresion);
+    
 
     // 9) Mostrar e imprimir
     this.mostrarTicket = true;

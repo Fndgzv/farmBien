@@ -51,20 +51,22 @@ app.use('/api/labels', require('./routes/labels.products.routes'));
 app.use('/api/reportes', require('./routes/reportesPresupuestoRoutes'));
 
 // ---------- Archivos estáticos (uploads) ----------
-const uploadsDir = path.join(__dirname, 'uploads'); // => backBien/uploads SIEMPRE
-//app.use('/uploads', express.static(uploadsDir));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '7d',
+  etag: true,
+}));
 
 // ---------- Servir Angular build ----------
 const angularPath = path.join(__dirname, 'public', 'browser');
 console.log('Sirviendo Angular desde:', angularPath);
+
+/* app.use('/browser/uploads', express.static(path.join(__dirname, 'uploads'))); */
 
 // estáticos con cache largo (los archivos tienen hash en el nombre)
 app.use(express.static(angularPath, { maxAge: '1y', etag: true }));
 
 // fallback SPA: devolver index.html SIN cache para evitar frontend viejo
 app.get('*', (req, res, next) => {
-  // no interceptar rutas de API ni uploads
   if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
     return next();
   }

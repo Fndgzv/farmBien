@@ -12,7 +12,6 @@ import { ProductoLite } from '../models/producto-lite.model';
   providedIn: 'root'
 })
 export class ProductoService {
-  private apiBase = environment.apiUrl;
   private apiUrl = `${environment.apiUrl}/productos`;
   private imgCache = new Map<string, string>(); // id -> objectURL
 
@@ -85,18 +84,22 @@ export class ProductoService {
     return `${this.apiUrl}/${id}/imagen`;
   }
 
+  getPublicImageUrl(pathOrUrl: string): string {
+    if (!pathOrUrl) return '';
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;      // ya es absoluta
+    const api = environment.apiUrl;                              // p.ej. https://back.onrender.com/api
+    const backendOrigin = new URL(api, window.location.origin).origin; // https://back.onrender.com
+    const clean = String(pathOrUrl).replace(/^\/+/, '');         // "uploads/xxx.jpg"
+    return `${backendOrigin}/${clean}`;
+  }
 
-getPublicImageUrl(pathOrUrl: string): string {
-  if (!pathOrUrl) return '';
-  // Si ya es http(s), úsalo tal cual
-  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
 
-  // Si es ruta tipo 'uploads/archivo.ext', anteponer origen del backend (environment.apiUrl)
-  const api = environment.apiUrl; // p.ej. https://back.onrender.com/api
-  const backendOrigin = new URL(api, window.location.origin).origin; // https://back.onrender.com
-  const clean = String(pathOrUrl).replace(/^\/+/, '');
-  return `${backendOrigin}/${clean}`;
-}
+  // opcional, ponlo abajito
+  private farmIconFallback(): string {
+    const api = environment.apiUrl;
+    const backendOrigin = new URL(api, window.location.origin).origin;
+    return `${backendOrigin}/browser/assets/images/farmBienIcon.png`;
+  }
 
 
 

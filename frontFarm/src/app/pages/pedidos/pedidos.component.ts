@@ -26,6 +26,9 @@ interface PedidoTicketData {
   farmaNombre: string;
   farmaDireccion: string;
   farmaTelefono: string;
+  farmaImagen: string;
+  farmaTitulo1: string;
+  farmaTitulo2: string;
   userName: string;
   client: string;
   movimiento: MovimientoPedido;
@@ -67,6 +70,9 @@ export class PedidosComponent implements OnInit {
   farmaciaNombre: string = '';
   farmaciaTelefono: string = '';
   farmaciaDireccion: string = '';
+  farmaciaImagen: string = '';
+  titulo1: string = '';
+  titulo2: string = '';
 
   usuarioId: string = '';
   usuarioRol: string = '';
@@ -126,6 +132,9 @@ export class PedidosComponent implements OnInit {
       this.farmaciaNombre = farmacia.nombre;
       this.farmaciaTelefono = farmacia.telefono;
       this.farmaciaDireccion = farmacia.direccion;
+      this.farmaciaImagen = farmacia.imagen;
+      this.titulo1 = farmacia.titulo1;
+      this.titulo2 = farmacia.titulo2;
     }
 
     const usuario = this.authService.getUserData();
@@ -400,6 +409,9 @@ export class PedidosComponent implements OnInit {
           farmaNombre: this.farmaciaNombre,
           farmaDireccion: this.farmaciaDireccion,
           farmaTelefono: this.farmaciaTelefono,
+          farmaImagen: this.farmaciaImagen,
+          farmaTitulo1: this.titulo1,
+          farmaTitulo2: this.titulo2,
           userName: this.usuarioNombre,
           client: this.nombreCliente,
           movimiento: 'cancelar'
@@ -486,6 +498,9 @@ export class PedidosComponent implements OnInit {
       farmaNombre: this.farmaciaNombre,
       farmaDireccion: this.farmaciaDireccion,
       farmaTelefono: this.farmaciaTelefono,
+      farmaImagen: this.farmaciaImagen,
+      farmaTitulo1: this.titulo1,
+      farmaTitulo2: this.titulo2,
       userName: this.usuarioNombre,
       client: this.nombreCliente,
       movimiento: 'surtir'
@@ -564,6 +579,9 @@ export class PedidosComponent implements OnInit {
       pedido: this.paraGuardar,
       farmaNombre: this.farmaciaNombre,
       farmaDireccion: this.farmaciaDireccion,
+      farmaImagen: this.farmaciaImagen,
+      farmaTitulo1: this.titulo1,
+      farmaTitulo2: this.titulo2,
       farmaTelefono: this.farmaciaTelefono,
       userName: this.usuarioNombre,
       client: this.nombreCliente,

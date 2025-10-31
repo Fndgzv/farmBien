@@ -1,6 +1,5 @@
 // authController.js
 const Usuario = require('../models/Usuario');
-const Farmacia = require('../models/Farmacia');
 const Corte = require('../models/CorteCaja');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -17,7 +16,7 @@ exports.iniciarSesion = async (req, res) => {
   try {
     // ⬇️ Incluye firmaHash (y firma solo para compatibilidad temporal)
     const usuarioExistente = await Usuario.findOne({ usuario })
-      .populate('farmacia', 'nombre direccion telefono firmaHash');
+      .populate('farmacia', 'nombre direccion telefono firmaHash titulo1 titulo2 imagen');
 
     if (!usuarioExistente) {
       return res.status(400).json({ mensaje: 'Credenciales incorrectas' });
@@ -107,7 +106,10 @@ exports.iniciarSesion = async (req, res) => {
           _id: farmaciaAsociada._id,
           nombre: farmaciaAsociada.nombre,
           direccion: farmaciaAsociada.direccion,
-          telefono: farmaciaAsociada.telefono
+          telefono: farmaciaAsociada.telefono,
+          titulo1: farmaciaAsociada.titulo1,
+          titulo2: farmaciaAsociada.titulo2,
+          imagen: farmaciaAsociada.imagen,
         } : null
       }
     });

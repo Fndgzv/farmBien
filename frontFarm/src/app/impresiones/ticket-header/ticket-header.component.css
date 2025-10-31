@@ -1,20 +1,26 @@
 .encabezado-flex {
   display: flex;
-  align-items: center; /* centra verticalmente */
-  /* justify-content: flex-start; */
+  align-items: center;
+  gap: 10px;
 }
 
 .logo {
   width: 40px;
   height: auto;
-  margin-right: 12px;
-  flex: 0 0 40px; 
 }
 
-/* El bloque de títulos ocupa todo el resto y va centrado */
-.title-wrap {
-  flex: 1 1 auto;
-  text-align: center;
+.titulos {
+  flex: 1;                 /* ← ocupa todo el ancho restante */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;      /* ← centra horizontal */
+  text-align: center;       /* ← por si la impresora ignora align-items */
+}
+
+.titulo1,
+.titulo2 {
+  line-height: 1.1;
 }
 
 /* Evita usar margin-left “mágicos” */

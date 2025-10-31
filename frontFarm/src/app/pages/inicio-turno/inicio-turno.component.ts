@@ -26,6 +26,9 @@ export class InicioTurnoComponent implements OnInit {
   farmaciaNombre: string | null = null;
   farmaciaDireccion: string | null = null;
   farmaciaTelefono: string | null = null;
+  farmaciaImagen: string | null = null;
+  farmaciaTitulo1: string | null = null;
+  farmaciaTitulo2: string | null = null;
 
   mostrarFormulario: boolean = false;
 
@@ -54,6 +57,9 @@ export class InicioTurnoComponent implements OnInit {
       this.farmaciaNombre = JSON.parse(farmacia).nombre;
       this.farmaciaDireccion = JSON.parse(farmacia).direccion;
       this.farmaciaTelefono = JSON.parse(farmacia).telefono;
+      this.farmaciaImagen = JSON.parse(farmacia).imagen;
+      this.farmaciaTitulo1 = JSON.parse(farmacia).titulo1;
+      this.farmaciaTitulo2 = JSON.parse(farmacia).titulo2;
 
     }
 
@@ -186,6 +192,9 @@ export class InicioTurnoComponent implements OnInit {
             nomFarm: this.farmaciaNombre,
             dirFarm: this.farmaciaDireccion,
             telFarm: this.farmaciaTelefono,
+            imgFarm: this.farmaciaImagen,
+            ti1Farm: this.farmaciaTitulo1,
+            ti2Farm: this.farmaciaTitulo2,
             ...res.corte
           };
 

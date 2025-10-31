@@ -8,18 +8,6 @@ import { environment } from '../../environments/environment';
 
 const baseUrl = environment.apiUrl;
 
-interface LoginResponse {
-  token: string;
-  user: {
-    nombre: string;
-    rol: string;
-    email: string;
-    farmacia: string;
-    telefono: string;
-    domicilio: string;
-  };
-}
-
 interface RegisterResponse {
   mensaje: string;
   token: string;
@@ -53,7 +41,6 @@ export class AuthService {
   private farmaciaSubject = new BehaviorSubject<any>(this.getFarmaciaData());
   public farmacia$ = this.farmaciaSubject.asObservable();
 
-  private token: string = '';
   private usuario: any = null;
 
   userNombre$ = this.userNombreSubject.asObservable();
@@ -63,6 +50,35 @@ export class AuthService {
   constructor(private router: Router, private http: HttpClient) {
     this.cargarStorage();
   }
+
+  /*   login(usuario: string, password: string, firma?: string): Observable<any> {
+      const url = `${baseUrl}/auth/login`;
+  
+      const body: any = { usuario, password };
+      if (firma) body.firma = firma;
+  
+      return this.http.post(url, body).pipe(
+        tap((res: any) => {
+          if (res?.token && res?.user) {
+            this.setUserData(
+              res.token,
+              res.user.nombre,
+              res.user.rol,
+              res.user.email,
+              res.user.farmacia,
+              res.user.telefono,
+              res.user.domicilio
+            );
+          }
+        }),
+        map(res => res),
+        catchError((error) => {
+          console.error('❌ Error en login observable:', error);
+          return throwError(() => error);
+        })
+  
+      );
+    } */
 
   login(usuario: string, password: string, firma?: string): Observable<any> {
     const url = `${baseUrl}/auth/login`;
@@ -82,40 +98,6 @@ export class AuthService {
       })
     );
   }
-
-  fetchUserDataFromBackend() {
-    const token = localStorage.getItem('auth_token');
-    if (!token) return;
-
-    const headers = new HttpHeaders({
-      'x-auth-token': token,
-      'Content-Type': 'application/json'
-    });
-
-    const body = {}; // No enviamos datos, solo queremos obtener la respuesta
-
-    this.http.get<any>(`${this.apiUrl}/me`, { headers }).subscribe({
-      next: (response) => {
-        if (response.usuario) {
-          localStorage.setItem('user_nombre', response.usuario.nombre);
-          localStorage.setItem('user_rol', response.usuario.rol);
-          localStorage.setItem('user_email', response.usuario.email);
-          localStorage.setItem('user_farmacia', response.usuario.farmacia);
-          localStorage.setItem('user_telefono', response.usuario.telefono);
-          localStorage.setItem('user_domicilio', response.usuario.domicilio);
-
-          // 🔹 Emitir los valores actualizados
-          this.userNombreSubject.next(response.usuario.nombre);
-          this.userRolSubject.next(response.usuario.rol);
-        }
-      },
-      error: (error) => {
-        console.error("❌ Error al obtener datos del usuario:", error);
-      }
-    });
-
-  }
-
 
   // 🔹 Método para auto registrar un nuevo usuario
   register(nombre: string, password: string, email: string, telefono: string, domicilio: string): Observable<RegisterResponse> {
@@ -145,18 +127,36 @@ export class AuthService {
     if (telefono) localStorage.setItem('user_telefono', telefono);
     if (domicilio) localStorage.setItem('user_domicilio', domicilio);
 
-    localStorage.setItem('user_farmacia', JSON.stringify(farmacia));
+    const farmaciaObj = farmacia && typeof farmacia === 'object'
+      ? {
+        _id: farmacia._id,
+        nombre: farmacia.nombre,
+        direccion: farmacia.direccion,
+        telefono: farmacia.telefono,
+        titulo1: farmacia.titulo1,
+        titulo2: farmacia.titulo2,
+        imagen: farmacia.imagen
+      }
+      : null;
+
+    if (farmaciaObj) {
+      localStorage.setItem('user_farmacia', JSON.stringify(farmaciaObj));
+      this.setFarmacia(farmaciaObj);
+    } else {
+      // si no hay datos suficientes
+      localStorage.removeItem('user_farmacia');
+      this.setFarmacia(null);
+    }
 
     //this.isLoggedIn = true;
     // 🔹 Emitimos los nuevos valores para actualizar en tiempo real
     this.userNombreSubject.next(nombre);
     this.userRolSubject.next(rol);
-    this.setFarmacia(farmacia);
+    this.setFarmacia(farmaciaObj);
 
   }
 
   logout() {
-    this.token = '';
     this.usuario = null;
     localStorage.clear();
     this.farmaciaSubject.next(null);
@@ -165,17 +165,12 @@ export class AuthService {
   }
 
   guardarToken(token: string) {
-    this.token = token;
     localStorage.setItem('token', token);
   }
 
 
   cargarStorage() {
-    const token = localStorage.getItem('token');
     const user = localStorage.getItem('usuario');
-
-    this.token = token || '';
-
     try {
       this.usuario = user && user !== 'undefined' ? JSON.parse(user) : null;
     } catch (e) {
@@ -349,6 +344,7 @@ export class AuthService {
   }
 
   setFarmacia(farmacia: any) {
+
     if (farmacia) {
       localStorage.setItem('user_farmacia', JSON.stringify(farmacia));
     } else {

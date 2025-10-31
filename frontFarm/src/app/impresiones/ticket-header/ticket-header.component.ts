@@ -1,49 +1,69 @@
-// ticket-header.component.ts
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-ticket-header',
   standalone: true,
+  imports: [CommonModule],
   templateUrl: './ticket-header.component.html',
-  styleUrl: './ticket-header.component.css',
-  imports: [ CommonModule]
+  styleUrl: './ticket-header.component.css'
 })
 export class TicketHeaderComponent implements OnChanges {
   @Input() nombreFarmacia!: string;
   @Input() titulo1!: string;
   @Input() titulo2!: string;
   @Input() direccion!: string;
-  @Input() telefono!: string;
-  @Input() imagen!: string;   // p.ej. 'assets/images/logo-santo-remedio.png'
+  @Input() telefono?: string;
+  @Input() imagen?: string;
 
-  safeLogoSrc: SafeUrl = '';
-  private readonly fallback = 'assets/images/farmBienIcon.png';
+  // avisa cuando cargó
+  @Output() logoReady = new EventEmitter<void>();
 
-  constructor(private san: DomSanitizer) {}
+  /** Esta es la que usa el HTML */
+  safeLogoSrc = '';
 
-  async ngOnChanges(c: SimpleChanges) {
-    if (!c['imagen']) return;
-
-    const url = await this.toDataURLSafe(this.imagen).catch(() => '');
-    const finalUrl = url || (await this.toDataURLSafe(this.fallback).catch(() => this.fallback));
-    this.safeLogoSrc = this.san.bypassSecurityTrustUrl(finalUrl);
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['imagen']) {
+      this.safeLogoSrc = this.resolveLogo(this.imagen);
+      // pequeño cache-bust para evitar “ghost cache”
+      if (/^https?:\/\//i.test(this.safeLogoSrc) || this.safeLogoSrc.startsWith('/')) {
+        const sep = this.safeLogoSrc.includes('?') ? '&' : '?';
+        this.safeLogoSrc += `${sep}v=${Date.now()}`;
+      }
+      // Si la imagen ya estuviera en caché completa, dispara el ready
+      setTimeout(() => {
+        const test = new Image();
+        test.onload = () => this.logoReady.emit();
+        test.onerror = () => { }; // no bloqueamos
+        test.src = this.safeLogoSrc;
+      }, 0);
+    }
   }
 
-  private async toDataURLSafe(path: string): Promise<string> {
-    const abs = new URL(
-      path.replace(/^\/+/, '').startsWith('assets/') ? path.replace(/^\/+/, '') : `assets/${path.replace(/^\/+/, '')}`,
-      document.baseURI
-    ).toString();
-    const r = await fetch(abs, { cache: 'force-cache' });
-    if (!r.ok) throw new Error('fetch fail');
-    const b = await r.blob();
-    const dataUrl = await new Promise<string>(res => {
-      const rd = new FileReader();
-      rd.onloadend = () => res(String(rd.result || ''));
-      rd.readAsDataURL(b);
-    });
-    return dataUrl;
+  private assetsBase(): string {
+    const base = (environment as any).assetsBase || (typeof window !== 'undefined' ? window.location.origin : '');
+    return String(base).replace(/\/+$/, '');
+  }
+  private resolveLogo(img?: string): string {
+    const base = this.assetsBase();
+    if (!img || !img.trim()) return `${base}/assets/images/farmBienIcon.png`;
+    if (/^https?:\/\//i.test(img)) return img;
+    const clean = img.replace(/^\/+/, '');
+    if (clean.startsWith('assets/')) return `${base}/${clean}`;
+    if (clean.startsWith('browser/assets/')) return `${base}/${clean.replace(/^browser\//, '')}`;
+    return `${base}/assets/images/${clean}`;
+  }
+
+  onLogoError(e: Event) {
+    const el = e.target as HTMLImageElement;
+    const fallback = `${this.assetsBase()}/assets/images/farmBienIcon.png`;
+    if (el.src !== fallback) el.src = fallback;
+    // aunque falle, emitimos para que no bloquee la impresión
+    this.logoReady.emit();
+  }
+
+  onLogoLoad() {
+    this.logoReady.emit();
   }
 }

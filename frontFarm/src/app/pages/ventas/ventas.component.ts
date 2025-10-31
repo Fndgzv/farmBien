@@ -21,6 +21,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
 import { MatTooltip } from '@angular/material/tooltip';
+import { environment } from '../../../environments/environment';
+
 
 @Component({
   selector: 'app-ventas',
@@ -750,6 +752,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (img && img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
 
   }
+  
   agregarProductoPorCodigo() {
     if (this.codigoBarras.length === 0 && this.carrito.length > 0) {
       this.abrirModalPago();
@@ -852,7 +855,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (this.aplicaGratis) this.validarProductoGratis(producto._id);
 
     this.calcularTotal();
-    //this.syncClienteCtrlDisabled();
+    
   }
 
   limpiarPromocion(promo: string) {
@@ -1322,126 +1325,147 @@ export class VentasComponent implements OnInit, AfterViewInit {
     });
   }
 
-  finalizarVenta() {
-    // Normalizar
-    this.efectivoRecibido = Math.max(0, this.pagoEfectivo);
-    this.montoTarjeta = Math.max(0, this.pagoTarjeta1);
-    this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
-    this.montoVale = Math.max(0, this.pagoVale1);
-    this.cambio = Math.max(0, this.cambio);
+private assetsBase(): string {
+  const base = (environment as any).assetsBase || (typeof window !== 'undefined' ? window.location.origin : '');
+  return String(base).replace(/\/+$/, '');
+}
 
-    const totalPagado = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
-    const pagosDigitales = this.montoTarjeta + this.montoTransferencia + this.montoVale;
+private resolveLogoForPrint(img?: string): string {
+  const base = this.assetsBase(); // ej: http://localhost:5000  ó https://farmbien.onrender.com
+  if (!img || !img.trim()) return `${base}/assets/images/farmBienIcon.png`;
+  if (/^https?:\/\//i.test(img)) return img;               // ya es absoluta
+  if (img.startsWith('/'))        return `${base}${img}`;   // '/assets/...'
+  return `${base}/${img}`;                                  // 'assets/...'
+}
 
-    if (pagosDigitales > this.total) {
-      Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
-      return;
-    }
-    if (totalPagado < this.total) {
-      Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
-      return;
-    }
+private preloadImage(url: string, timeoutMs = 2500): Promise<void> {
+  return new Promise((resolve) => {
+    const i = new Image();
+    let done = false;
+    const end = () => { if (!done) { done = true; resolve(); } };
+    i.onload = end;
+    i.onerror = end; // si falla, igual resolvemos para no colgarnos
+    // cache-bust solo para evitar caché “pegada” de Chrome al imprimir
+    i.src = url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
+    setTimeout(end, timeoutMs);
+  });
+}
 
-    const folio = this.folioVentaGenerado || this.generarFolioLocal();
-    this.folioVentaGenerado = folio;
 
-    const productos = this.carrito.map(p => ({
-      producto: p.producto,
-      nombre: p.nombre,
-      barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
-      cantidad: p.cantidad,
-      precio: p.precioFinal,
-      totalRen: p.precioFinal * p.cantidad,
-      precioOriginal: p.precioOriginal,
-      iva: p.iva,
-      tipoDescuento: p.tipoDescuento,
-      descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
-      cadenaDescuento: p.cadDesc ?? '',
-      monederoCliente: (p.almonedero ?? 0) * p.cantidad,
-    }));
+finalizarVenta() {
+  // --- Normalizar pagos
+  this.efectivoRecibido   = Math.max(0, this.pagoEfectivo);
+  this.montoTarjeta       = Math.max(0, this.pagoTarjeta1);
+  this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
+  this.montoVale          = Math.max(0, this.pagoVale1);
+  this.cambio             = Math.max(0, this.cambio);
 
-    this.ventaParaImpresion = {
-      folio: this.folioVentaGenerado,
-      cliente: this.nombreCliente,
-      farmacia: {
-        nombre: this.farmaciaNombre,
-        titulo1: this.farmaciaTitulo1,
-        titulo2: this.farmaciaTitulo2,
-        direccion: this.farmaciaDireccion,
-        telefono: this.farmaciaTelefono,
-        imagen: this.farmaciaImagen
-      },
-      productos,
-      cantidadProductos: this.totalArticulos,
-      total: this.total,
-      totalDescuento: this.totalDescuento,
-      totalMonederoCliente: this.totalAlmonedero,
-      formaPago: {
-        efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
-        tarjeta: this.montoTarjeta,
-        transferencia: this.montoTransferencia,
-        vale: this.montoVale
-      },
-      AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
-      elcambio: this.cambio,
-      fecha: new Date().toISOString(),
-      usuario: this.nombreUs
-    };
+  const totalPagado    = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
+  const pagosDigitales = this.montoTarjeta + this.montoTransferencia + this.montoVale;
 
-    // Mostrar ticket y cerrar el modal ANTES de imprimir
-    this.mostrarTicket = true;
-    this.mostrarModalPago = false;
-    this.cdRef.detectChanges();
-
-    // Salida única y robusta
-    let finished = false;
-    const safeFinish = () => {
-      if (finished) return;
-      finished = true;
-      cleanup();
-      this.ngZone.run(() => {
-        this.mostrarTicket = false;
-        this.hayCliente = false;
-        this.guardarVentaDespuesDeImpresion(folio);
-      });
-    };
-
-    const cleanup = () => {
-      window.removeEventListener('afterprint', onAfterPrint);
-      mq?.removeEventListener?.('change', onMQ);
-      if (watchdog) clearTimeout(watchdog);
-    };
-
-    const onAfterPrint = () => safeFinish();
-
-    // Safari/Firefox fallback
-    const mq = (window as any).matchMedia ? window.matchMedia('print') : null;
-    const onMQ = (e: any) => {
-      if (!e?.matches) safeFinish(); // terminó de imprimir
-    };
-
-    window.addEventListener('afterprint', onAfterPrint);
-    mq?.addEventListener?.('change', onMQ);
-
-    // Watchdog: si nada dispara, cerramos igual
-    const watchdog = setTimeout(safeFinish, 9000);
-
-    // Imprimir
-    setTimeout(async () => {
-      try {
-        // ⬅️ Espera a que carguen logos/imagenes del ticket
-        await this.waitImagesLoaded('ticketVenta', 3500);
-        if (this.isEdge()) {
-          this.forceEdgeImageReady('ticketVenta');
-          await new Promise(r => setTimeout(r, 50)); // micro-pausa
-        }
-        window.print();
-      } catch {
-        safeFinish();
-      }
-    }, 0);
+  if (pagosDigitales > this.total) {
+    Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
+    return;
+  }
+  if (totalPagado < this.total) {
+    Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
+    return;
   }
 
+  const folio = this.folioVentaGenerado || this.generarFolioLocal();
+  this.folioVentaGenerado = folio;
+
+  // ✅ Resolver logo absoluto UNA vez
+  const logoUrl = this.resolveLogoForPrint(this.farmaciaImagen);
+
+  const productos = this.carrito.map(p => ({
+    producto: p.producto,
+    nombre: p.nombre,
+    barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
+    cantidad: p.cantidad,
+    precio: p.precioFinal,
+    totalRen: p.precioFinal * p.cantidad,
+    precioOriginal: p.precioOriginal,
+    iva: p.iva,
+    tipoDescuento: p.tipoDescuento,
+    descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
+    cadenaDescuento: p.cadDesc ?? '',
+    monederoCliente: (p.almonedero ?? 0) * p.cantidad,
+  }));
+
+  this.ventaParaImpresion = {
+    folio: this.folioVentaGenerado,
+    cliente: this.nombreCliente,
+    farmacia: {
+      nombre: this.farmaciaNombre,
+      titulo1: this.farmaciaTitulo1,
+      titulo2: this.farmaciaTitulo2,
+      direccion: this.farmaciaDireccion,
+      telefono: this.farmaciaTelefono,
+      imagen: logoUrl, // 👈 ya absoluto
+    },
+    productos,
+    cantidadProductos: this.totalArticulos,
+    total: this.total,
+    totalDescuento: this.totalDescuento,
+    totalMonederoCliente: this.totalAlmonedero,
+    formaPago: {
+      efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
+      tarjeta: this.montoTarjeta,
+      transferencia: this.montoTransferencia,
+      vale: this.montoVale
+    },
+    AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
+    elcambio: this.cambio,
+    fecha: new Date().toISOString(),
+    usuario: this.nombreUs
+  };
+
+  // Mostrar ticket antes de imprimir
+  this.mostrarTicket = true;
+  this.mostrarModalPago = false;
+  this.cdRef.detectChanges();
+
+  // --- Limpieza/terminación
+  let finished = false;
+  const safeFinish = () => {
+    if (finished) return;
+    finished = true;
+    cleanup();
+    this.ngZone.run(() => {
+      this.mostrarTicket = false;
+      this.hayCliente = false;
+      this.guardarVentaDespuesDeImpresion(folio);
+    });
+  };
+  const cleanup = () => {
+    window.removeEventListener('afterprint', onAfterPrint);
+    mq?.removeEventListener?.('change', onMQ);
+    if (watchdog) clearTimeout(watchdog);
+  };
+  const onAfterPrint = () => safeFinish();
+  const mq = (window as any).matchMedia ? window.matchMedia('print') : null;
+  const onMQ = (e: any) => { if (!e?.matches) safeFinish(); };
+
+  window.addEventListener('afterprint', onAfterPrint);
+  mq?.addEventListener?.('change', onMQ);
+
+  const watchdog = setTimeout(safeFinish, 9000);
+
+  // --- Imprimir: precargar SOLO el logo y listo
+  setTimeout(async () => {
+    try {
+      await this.preloadImage(logoUrl, 2500);   // 👈 clave para Chrome
+      if (this.isEdge()) {
+        this.forceEdgeImageReady?.('ticketVenta'); // opcional, no estorba
+        await new Promise(r => setTimeout(r, 50));
+      }
+      window.print();
+    } catch {
+      safeFinish();
+    }
+  }, 0);
+}
 
   limpiarVenta() {
     this.carrito = [];

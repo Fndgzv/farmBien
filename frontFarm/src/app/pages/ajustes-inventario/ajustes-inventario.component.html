@@ -256,7 +256,8 @@
                 matTooltip="Borrar parámetros del cambio masivo" (click)="limpiarCamposCambioMasivo()">Cancelar
             </button>
             <button class="btn-verde-chico" style="margin-right: 4rem;" type="button"
-                matTooltip="Aplica cambios a los productos seleccionados en la tabla" [disabled]="!cambiosMasivosValidos" (click)="aplicarCambiosMasivos()">
+                matTooltip="Aplica cambios a los productos seleccionados en la tabla"
+                [disabled]="!cambiosMasivosValidos" (click)="aplicarCambiosMasivos()">
                 Aplicar Cambios
             </button>
         </div>
@@ -325,12 +326,18 @@
                             [disabled]="subiendoId === p._id"
                             [attr.aria-label]="p.imagen ? 'Cambiar imagen' : 'Agregar imagen'"
                             matTooltip="Cambiar ó Subir imagen">
-                            <img [src]="p._imgSrc || placeholderSrc"
+                            <img
+                                [src]="p._imgSrc || placeholderSrc"
+                                (error)="onImgError($event,p)"
                                 loading="lazy" decoding="async"
-                                (error)="onImgError($event, p)" />
-                            <span class="overlay" *ngIf="subiendoId !== p._id"><i class="fas fa-upload"></i></span>
-                            <span class="overlay" *ngIf="subiendoId === p._id"><i
-                                    class="fa fa-spinner fa-spin"></i></span>
+                            />
+
+                            <span class="overlay" *ngIf="subiendoId !== p._id">
+                                <i class="fas fa-upload"></i>
+                            </span>
+                            <span class="overlay" *ngIf="subiendoId === p._id">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </span>
                         </button>
 
                         <!-- 🔍 lupa: abre preview grande (NO dispara el file) -->
@@ -341,9 +348,10 @@
 
                         <!-- input file oculto -->
                         <input #file type="file" accept="image/*" style="display:none"
-                            (change)="onFileChange($event, p)">
+                            (change)="onFileChange($event, p)" />
                     </div>
                 </td>
+
 
                 <td class="col-producto">
                     <div class="prod-nombre">{{ p.nombre }}</div>
@@ -392,7 +400,8 @@
         Página {{ paginaActual }} de {{ totalPaginas }}
         <span class="total-registros">({{ productosFiltrados.length }} productos)</span>
 
-        <button (click)="paginaActual = paginaActual + 1" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
+        <button (click)="paginaActual = paginaActual + 1" [disabled]="paginaActual === totalPaginas"
+            matTooltip="Siguiente">
             <i class="fa fa-angle-right"></i>
         </button>
 

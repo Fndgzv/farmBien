@@ -9,8 +9,9 @@ import { ProductoService } from '../../services/producto.service';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { environment } from '../../../environments/environment';
 
-import { firstValueFrom } from 'rxjs';
+import { catchError, firstValueFrom, from, mergeMap, of, tap } from 'rxjs';
 import Swal from 'sweetalert2';
 
 type ColumnaOrden = '' | keyof Producto | 'existencia';
@@ -75,7 +76,10 @@ export class AjustesInventarioComponent implements OnInit {
 
   eliminandoId: string | null = null;
 
-  placeholderSrc = 'assets/images/farmBienIcon.png';
+ thumbs: Record<string, string> = {};
+placeholderSrc = 'assets/images/farmBienIcon.png';
+
+  private baseUrl = `${environment.apiUrl}`;
 
   constructor(
     private fb: FormBuilder,
@@ -737,93 +741,110 @@ export class AjustesInventarioComponent implements OnInit {
     this.onPickImage(file, p);
   }
 
-  async onPickImage(file: File, p: ProductoUI) {
-    if (!file || !p?._id) return;
+async onPickImage(file: File, p: ProductoUI) {
+  if (!file || !p?._id) return;
 
-    // preview
-    const dataURL = await new Promise<string>((res, rej) => {
-      const fr = new FileReader();
-      fr.onload = () => res(String(fr.result));
-      fr.onerror = rej;
-      fr.readAsDataURL(file);
-    });
+  // 1) preview local
+  const dataURL = await new Promise<string>((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result));
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
 
-    const { isConfirmed } = await Swal.fire({
-      title: p.imagen ? '¿Reemplazar imagen?' : '¿Subir imagen?',
-      html: `<img src="${dataURL}" style="max-width:100%;max-height:240px;border-radius:8px;">`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!isConfirmed) return;
+  // 2) preguntar
+  const { isConfirmed } = await Swal.fire({
+    title: (typeof p.imagen === 'string' && p.imagen.trim())
+      ? '¿Reemplazar imagen?'
+      : '¿Subir imagen?',
+    html: `<img src="${dataURL}" style="max-width:100%;max-height:240px;border-radius:8px;">`,
+    showCancelButton: true,
+    confirmButtonText: 'Guardar',
+    cancelButtonText: 'Cancelar'
+  });
 
-    try {
-      this.subiendoId = p._id;
-      const resp = await firstValueFrom(
-        this.productoService.actualizarImagenProducto(p._id, file)
-      );
+  if (!isConfirmed) return;
 
-      // 🔑 El backend debe responder { imagen: "uploads/xxxx.ext" }
-      const nuevaRuta: string | undefined = resp?.imagen || resp?.producto?.imagen;
+  try {
+    this.subiendoId = p._id;
 
-      if (typeof nuevaRuta === 'string' && nuevaRuta.trim()) {
-        // 1) guarda la ruta relativa en el modelo
-        p.imagen = nuevaRuta;
+    // 3) subir al backend
+    const resp = await firstValueFrom(
+      this.productoService.actualizarImagenProducto(p._id, file)
+    );
 
-        // 2) arma url pública completa y busteamos caché
-        p._imgSrc = this.productoService.getPublicImageUrl(nuevaRuta) + `?t=${Date.now()}`;
+    // el backend puede responder en varias formas
+    const nuevaRuta = (resp && typeof resp.imagen === 'string' && resp.imagen.trim())
+      ? resp.imagen.trim()
+      : (resp && resp.producto && typeof resp.producto.imagen === 'string' && resp.producto.imagen.trim())
+        ? resp.producto.imagen.trim()
+        : '';
 
-        // 3) opcional: marca bust en memoria
-        this.imgCacheBuster[p._id] = Date.now();
-      } else {
-        // respaldo: endpoint por id
-        p._imgSrc = this.productoService.obtenerImagenProductoUrl(p._id) + `?t=${Date.now()}`;
-      }
+    if (nuevaRuta) {
+      // guardar tal cual en el modelo (ya NO dejamos que sea boolean aquí)
+      p.imagen = nuevaRuta;
 
-      Swal.fire('Listo', 'Imagen guardada', 'success');
-    } catch (e: any) {
-      const msg = e?.error?.mensaje || 'No se pudo subir la imagen';
-      Swal.fire('Error', msg, 'error');
-    } finally {
-      this.subiendoId = null;
+      // armar URL pública y bustear cache
+      const publico = this.productoService.getPublicImageUrl(nuevaRuta);
+      const bust = Date.now();
+      p._imgSrc = `${publico}?t=${bust}`;
+
+      // para que otras partes del componente también sepan que cambió
+      this.imgCacheBuster[p._id] = bust;
+    } else {
+      // respaldo: endpoint por id
+      const base = this.productoService.obtenerImagenProductoUrl(p._id);
+      const bust = Date.now();
+      p._imgSrc = `${base}?t=${bust}`;
+      this.imgCacheBuster[p._id] = bust;
     }
+
+    await Swal.fire('Listo', 'Imagen guardada', 'success');
+  } catch (e: any) {
+    const msg = e?.error?.mensaje || 'No se pudo subir la imagen';
+    await Swal.fire('Error', msg, 'error');
+  } finally {
+    this.subiendoId = null;
   }
+}
 
-  // 🔄 Al cargar: usa p.imagen si existe; si no, endpoint por id.
-  //    No hagas blobs ni pasos extra: deja que el <img> pida la URL pública.
-  cargarProductos(borrarFiltros: boolean) {
-    this.productoService.obtenerProductos().subscribe({
-      next: (productos) => {
-        this.productos = (productos || []).map((p: any): ProductoUI => {
-          const src = (typeof p.imagen === 'string' && p.imagen.trim())
-            ? this.productoService.getPublicImageUrl(p.imagen) +
-            (p?.updatedAt ? `?v=${encodeURIComponent(p.updatedAt)}` : '')
-            : this.productoService.obtenerImagenProductoUrl(p._id) +
-            (p?.updatedAt ? `?v=${encodeURIComponent(p.updatedAt)}` : '');
-          return { ...p, _imgSrc: src };
-        });
+cargarProductos(borrarFiltros: boolean) {
+  this.productoService.obtenerProductos().subscribe({
+    next: (productos) => {
+      this.productos = (productos || []).map((p: any) => ({
+        ...p,
+        _imgSrc: this.placeholderSrc, // todos empiezan con placeholder
+      }));
 
-        this.cachearNorms();
-        this.recomputarCBDuplicados();
+      // Igual que en Ventas: obtenemos blob por ID con concurrencia controlada
+      from(this.productos).pipe(
+        mergeMap(prod => this.productoService.getImagenObjectUrl(prod._id).pipe(
+          tap(url => { prod._imgSrc = url || this.placeholderSrc; }),
+          catchError(() => of(null))
+        ), 6)
+      ).subscribe();
 
-        if (borrarFiltros) {
-          this.filtros = {
-            nombre: '', codigoBarras: '', categoria: '',
-            descuentoINAPAM: null, generico: null,
-            bajoStock: false, duplicadosCB: false
-          };
-        }
-        this.aplicarFiltros();
-      },
-      error: (err) => console.error('Error al cargar productos:', err)
-    });
-  }
+      this.cachearNorms();
+      this.recomputarCBDuplicados();
+
+      if (borrarFiltros) {
+        this.filtros = {
+          nombre: '', codigoBarras: '', categoria: '',
+          descuentoINAPAM: null, generico: null,
+          bajoStock: false, duplicadosCB: false
+        };
+      }
+      this.aplicarFiltros();
+    },
+    error: (err) => console.error('Error al cargar productos:', err)
+  });
+}
+
 
   onImgError(ev: Event, _p: any) {
     const img = ev.target as HTMLImageElement;
-    if (img && img.src !== this.placeholderSrc) {
+    if (img && img.src !== this.placeholderSrc) 
       img.src = this.placeholderSrc;
-    }
   }
 
   trackProdBy = (_: number, p: ProductoUI) => p?._id ?? p?.codigoBarras ?? _;

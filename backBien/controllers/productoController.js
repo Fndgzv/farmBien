@@ -23,27 +23,22 @@ function digitsLooseRegex(digits) {
 const moment = require('moment');
 require('console');
 
-// Configuración de almacenamiento para imágenes
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// === Directorios de uploads (únicos y consistentes) ===
+const ROOT_DIR = path.join(__dirname, '..');
+const UPLOADS_DIR = path.join(ROOT_DIR, 'uploads');              // .../backBien/uploads
+const UPLOADS_PROD_DIR = path.join(UPLOADS_DIR, 'productos');    // .../backBien/uploads/productos
+fs.mkdirSync(UPLOADS_PROD_DIR, { recursive: true });
 
-
-// ---------- Multer (subida temporal) ----------
-const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 (async () => {
-  try { await fsp.mkdir(UPLOADS_DIR, { recursive: true }); } catch {}
+  try { await fsp.mkdir(UPLOADS_DIR, { recursive: true }); } catch { }
 })();
 
-// Extensión segura por mimetype (fallback a .bin)
-function extFromMimetype(mimetype) {
-  const ext = mime.extension(mimetype);
-  return ext ? `.${ext}` : '.bin';
-}
 
 const storage = multer.diskStorage({
   destination: async (_req, _file, cb) => {
     try {
+      // Primero a /uploads (temporal de destino del storage); luego nosotros movemos a /uploads/productos
       await fsp.mkdir(UPLOADS_DIR, { recursive: true });
       cb(null, UPLOADS_DIR);
     } catch (e) {
@@ -51,13 +46,11 @@ const storage = multer.diskStorage({
     }
   },
   filename: (_req, file, cb) => {
-    const ext = extFromMimetype(file.mimetype);
-    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-    cb(null, name);
+    cb(null, makeNewName(file.mimetype));
   }
 });
 
-// (Opcional) restringe tipos y pesos
+// Tipos permitidos (opcional)
 const fileFilter = (_req, file, cb) => {
   const ok = /^image\/(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.mimetype);
   if (!ok) return cb(new Error('Tipo de imagen no permitido'));
@@ -66,28 +59,49 @@ const fileFilter = (_req, file, cb) => {
 
 const upload = multer({
   storage,
-  fileFilter,              // puedes quitarlo si no lo quieres
-  limits: { fileSize: 5 * 1024 * 1024 } // 5 MB; ajusta si necesitas
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5 MB
 });
 
-// Exporta tu middleware EXACTO como lo usas en las rutas:
+// Exporta con el nombre que ya usas en routes
 exports.uploadImagen = upload.single('imagen');
 
-// ---------- Helpers ----------
+
+// --- helpers de imagen ---
+function extFromMimetype(mimetype) {
+  const ext = mime.extension(mimetype);
+  return ext ? `.${ext}` : '.bin';
+}
+
 async function fileExists(abs) {
   try { await fsp.access(abs, fs.constants.F_OK); return true; } catch { return false; }
 }
-function resolveImageAbs(dbPath) {
-  if (!dbPath) return null;
-  const base = path.basename(String(dbPath));         // "1759461299268-0uiq9c.jpeg"
-  return path.join(UPLOADS_DIR, base);                // .../backBien/uploads/1759...jpeg
-}
 
+// Resuelve un path guardado en BD (e.g. 'uploads/xxx.jpg' o 'uploads/productos/xxx.jpg') a absoluto seguro
+function resolveImageAbs(dbPath) {
+  if (!dbPath || typeof dbPath !== 'string') return null;
+
+  // Si vino con http(s)://, quédate con la ruta
+  try {
+    const u = new URL(dbPath);
+    dbPath = u.pathname; // e.g. "/uploads/productos/123.jpg"
+  } catch { /* no era URL, seguimos */ }
+
+  const rel = dbPath.replace(/^\/+/, '');            // "uploads/...”
+  const abs = path.join(ROOT_DIR, rel);              // .../backBien/uploads/...
+
+  const normUploads = path.resolve(UPLOADS_DIR);     // base segura
+  const normAbs = path.resolve(abs);
+  if (!normAbs.startsWith(normUploads + path.sep) && normAbs !== normUploads) {
+    return null; // fuera de /uploads => no lo toques
+  }
+  return normAbs;
+}
 
 function makeNewName(mimetype) {
-  const ext = mime.extension(mimetype) || 'bin';
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extFromMimetype(mimetype)}`;
 }
+
 
 // ---------- GET /productos/:id/imagen ----------
 exports.obtenerImagenProductoPorId = async (req, res) => {
@@ -96,55 +110,67 @@ exports.obtenerImagenProductoPorId = async (req, res) => {
     if (!producto || !producto.imagen) {
       return res.status(404).json({ mensaje: 'Imagen no encontrada' });
     }
+
     const abs = resolveImageAbs(producto.imagen);
     if (!abs || !(await fileExists(abs))) {
       return res.status(404).json({ mensaje: 'El archivo de la imagen no existe' });
     }
-    res.setHeader('Content-Type', mime.lookup(abs) || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+
+    const ctype = mime.lookup(abs) || 'application/octet-stream';
+    res.setHeader('Content-Type', ctype);
+
+    // **Importante** para que el navegador no se quede con la miniatura vieja:
+    res.setHeader('Cache-Control', 'no-store');
+
     return res.sendFile(abs);
   } catch (e) {
-    console.error('[GET img] ', e);
+    console.error('[GET img]', e);
     return res.status(500).json({ mensaje: 'Error al obtener la imagen del producto' });
   }
 };
 
 
-// ---------- PUT /productos/:id/imagen (usar uploadImagen antes) ----------
 exports.actualizarImagenProducto = async (req, res) => {
   try {
-    const producto = await Producto.findById(req.params.id);
+    const { id } = req.params;
+
+    const producto = await Producto.findById(id);
     if (!producto) {
-      if (req.file?.path) { try { await fsp.unlink(req.file.path); } catch { } }
+      if (req.file?.path) { try { await fsp.unlink(req.file.path); } catch {} }
       return res.status(404).json({ mensaje: 'Producto no encontrado' });
     }
     if (!req.file) return res.status(400).json({ mensaje: 'No se recibió archivo' });
 
-    await fsp.mkdir(UPLOADS_DIR, { recursive: true });
-    const newName = makeNewName(req.file.mimetype);
-    const destAbs = path.join(UPLOADS_DIR, newName);
+    await fsp.mkdir(UPLOADS_PROD_DIR, { recursive: true });
 
-    // mover desde tmp → uploads
+    // Nuevo nombre (si quieres incluir el id)
+    const newName = `${id}-${Date.now()}${extFromMimetype(req.file.mimetype)}`;
+    const destAbs = path.join(UPLOADS_PROD_DIR, newName);
+    const destRel = path.posix.join('uploads', 'productos', newName); // esto se guarda en BD
+
+    // mover de /uploads/<tmpName> -> /uploads/productos/<id-timestamp.ext>
     await fsp.rename(req.file.path, destAbs);
 
-    // borrar imagen anterior (si existe)
+    // Borrar imagen anterior local (si existía)
     const oldAbs = resolveImageAbs(producto.imagen);
 
-    // guarda ruta "uploads/archivo.ext" (sin slash inicial)
-    producto.imagen = path.posix.join('uploads', newName);
-    await producto.save();
+    // Guardar ruta relativa estable en BD
+    producto.imagen = destRel;
+    await producto.save(); // updatedAt cambia
 
-    if (oldAbs && await fileExists(oldAbs)) { fsp.unlink(oldAbs).catch(() => { }); }
+    if (oldAbs && await fileExists(oldAbs)) {
+      fsp.unlink(oldAbs).catch(() => {});
+    }
 
     return res.json({
-      mensaje: 'Imagen actualizada correctamente',
       ok: true,
+      mensaje: 'Imagen actualizada correctamente',
       imagen: producto.imagen,
       id: producto._id
     });
   } catch (e) {
-    console.error('[PUT img] ', e);
-    if (req.file?.path) { try { await fsp.unlink(req.file.path); } catch { } }
+    console.error('[PUT img]', e);
+    if (req.file?.path) { try { await fsp.unlink(req.file.path); } catch {} }
     return res.status(500).json({ mensaje: 'Error al actualizar imagen' });
   }
 };

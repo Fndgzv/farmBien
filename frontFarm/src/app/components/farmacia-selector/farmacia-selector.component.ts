@@ -56,7 +56,10 @@ export class FarmaciaSelectorComponent implements OnInit {
       _id: farmaciaSeleccionada._id,
       nombre: farmaciaSeleccionada.nombre,
       direccion: farmaciaSeleccionada.direccion,
-      telefono: farmaciaSeleccionada.telefono
+      telefono: farmaciaSeleccionada.telefono,
+      titulo1: farmaciaSeleccionada.titulo1,
+      titulo2: farmaciaSeleccionada.titulo2,
+      imagen: farmaciaSeleccionada.imagen,
     };
 
     // Guardamos el objeto en el localStorage

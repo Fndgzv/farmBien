@@ -97,7 +97,7 @@ const ProductoSchema = new Schema({
   },
 
   lotes:          [LoteSchema], // Inventario controlado por lotes
-  imagen:         { type: String, trim: true }
+  imagen:         { type: String, trim: true, default: null }
 }, { timestamps: true });
 
 /* ===================== Middlewares de normalización ===================== */
