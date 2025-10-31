@@ -7,7 +7,7 @@ import { environment } from '../../../environments/environment';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './ticket-header.component.html',
-  styleUrl: './ticket-header.component.css'
+  styleUrls: ['./ticket-header.component.css']
 })
 export class TicketHeaderComponent implements OnChanges {
   @Input() nombreFarmacia!: string;
@@ -22,38 +22,53 @@ export class TicketHeaderComponent implements OnChanges {
 
   /** Esta es la que usa el HTML */
   safeLogoSrc = '';
-
   ngOnChanges(changes: SimpleChanges) {
     if (changes['imagen']) {
       this.safeLogoSrc = this.resolveLogo(this.imagen);
-      // pequeño cache-bust para evitar “ghost cache”
-      if (/^https?:\/\//i.test(this.safeLogoSrc) || this.safeLogoSrc.startsWith('/')) {
+
+      // cache-bust solo si es http(s) o ruta absoluta, NO si es data: o blob:
+      const isHttp = /^https?:\/\//i.test(this.safeLogoSrc) || this.safeLogoSrc.startsWith('/');
+      const isDataLike = this.safeLogoSrc.startsWith('data:') || this.safeLogoSrc.startsWith('blob:');
+      if (isHttp && !isDataLike) {
         const sep = this.safeLogoSrc.includes('?') ? '&' : '?';
         this.safeLogoSrc += `${sep}v=${Date.now()}`;
       }
-      // Si la imagen ya estuviera en caché completa, dispara el ready
+
+      // Si ya está en caché, dispara ready sin bloquear
       setTimeout(() => {
         const test = new Image();
         test.onload = () => this.logoReady.emit();
-        test.onerror = () => { }; // no bloqueamos
+        test.onerror = () => { this.logoReady.emit(); }; // no bloquees la impresión
         test.src = this.safeLogoSrc;
       }, 0);
     }
   }
 
+
   private assetsBase(): string {
-    const base = (environment as any).assetsBase || (typeof window !== 'undefined' ? window.location.origin : '');
-    return String(base).replace(/\/+$/, '');
+    return typeof window !== 'undefined' ? window.location.origin.replace(/\/+$/, '') : '';
   }
+
   private resolveLogo(img?: string): string {
     const base = this.assetsBase();
     if (!img || !img.trim()) return `${base}/assets/images/farmBienIcon.png`;
+
+    // http(s) absoluto
     if (/^https?:\/\//i.test(img)) return img;
-    const clean = img.replace(/^\/+/, '');
-    if (clean.startsWith('assets/')) return `${base}/${clean}`;
-    if (clean.startsWith('browser/assets/')) return `${base}/${clean.replace(/^browser\//, '')}`;
-    return `${base}/assets/images/${clean}`;
+
+    // rutas absolutas del mismo host (/assets/…)
+    if (img.startsWith('/')) return `${base}${img}`;
+
+    // rutas relativas típicas del build (assets/…)
+    if (img.startsWith('assets/')) return `${base}/${img}`;
+
+    // por compatibilidad con paths emitidos por el back
+    if (img.startsWith('browser/assets/')) return `${base}/${img.replace(/^browser\//, '')}`;
+
+    // último recurso: asume que es un nombre dentro de assets/images
+    return `${base}/assets/images/${img}`;
   }
+
 
   onLogoError(e: Event) {
     const el = e.target as HTMLImageElement;

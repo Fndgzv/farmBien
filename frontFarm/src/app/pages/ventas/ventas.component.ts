@@ -1330,26 +1330,41 @@ private assetsBase(): string {
   return String(base).replace(/\/+$/, '');
 }
 
-private resolveLogoForPrint(img?: string): string {
-  const base = this.assetsBase(); // ej: http://localhost:5000  ó https://farmbien.onrender.com
-  if (!img || !img.trim()) return `${base}/assets/images/farmBienIcon.png`;
-  if (/^https?:\/\//i.test(img)) return img;               // ya es absoluta
-  if (img.startsWith('/'))        return `${base}${img}`;   // '/assets/...'
-  return `${base}/${img}`;                                  // 'assets/...'
+private resolveLogoForPrint(src?: string): string {
+  const fallback = '/assets/images/farmBienIcon.png'; // tu ruta
+  try {
+    const base = window.location.origin;              // https://farmbien.onrender.com
+    let s = (src && src.trim()) ? src.trim() : fallback;
+    if (/^https?:\/\//i.test(s)) return s;            // ya es absoluta
+    if (!s.startsWith('/')) s = '/' + s;              // fuerza /assets/...
+    return new URL(s, base).toString();
+  } catch {
+    return new URL(fallback, window.location.origin).toString();
+  }
 }
 
-private preloadImage(url: string, timeoutMs = 2500): Promise<void> {
-  return new Promise((resolve) => {
-    const i = new Image();
-    let done = false;
-    const end = () => { if (!done) { done = true; resolve(); } };
-    i.onload = end;
-    i.onerror = end; // si falla, igual resolvemos para no colgarnos
-    // cache-bust solo para evitar caché “pegada” de Chrome al imprimir
-    i.src = url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
-    setTimeout(end, timeoutMs);
+private whenDomStable(): Promise<void> {
+  // 2 RAFs para asegurar que Angular ya pintó el ticket
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve()); // 👈 no pasamos resolve como callback directo
+    });
   });
 }
+
+
+private preloadImage(url: string, timeoutMs = 4000): Promise<void> {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    let done = false;
+    const finish = (ok: boolean) => { if (!done) { done = true; ok ? res() : rej(); } };
+    const t = setTimeout(() => finish(false), timeoutMs);
+    img.onload = () => { clearTimeout(t); finish(true); };
+    img.onerror = () => { clearTimeout(t); finish(false); };
+    img.src = url;
+  });
+}
+
 
 
 finalizarVenta() {
@@ -1452,19 +1467,25 @@ finalizarVenta() {
 
   const watchdog = setTimeout(safeFinish, 9000);
 
-  // --- Imprimir: precargar SOLO el logo y listo
-  setTimeout(async () => {
-    try {
-      await this.preloadImage(logoUrl, 2500);   // 👈 clave para Chrome
-      if (this.isEdge()) {
-        this.forceEdgeImageReady?.('ticketVenta'); // opcional, no estorba
-        await new Promise(r => setTimeout(r, 50));
-      }
-      window.print();
-    } catch {
-      safeFinish();
-    }
-  }, 0);
+// --- Imprimir: espera DOM estable y logo cargado
+setTimeout(async () => {
+  try {
+    // 1) asegura que el ticket ya está en el DOM
+    await this.whenDomStable();
+
+    // 2) precarga el logo (primera vez tras deploy puede tardar)
+    await this.preloadImage(logoUrl, 4000);
+
+    // 3) Edge es quisquilloso; pequeño respiro
+    if (this.isEdge?.()) await new Promise(r => setTimeout(r, 50));
+
+    window.print();
+  } catch {
+    // si algo falla, completa el flujo para no bloquear la venta
+    safeFinish();
+  }
+}, 0);
+
 }
 
   limpiarVenta() {
