@@ -1448,8 +1448,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
       usuario: this.nombreUs
     };
 
-   alert(this.ventaParaImpresion.farmacia.imagen)
-
     // Mostrar ticket antes de imprimir
     this.mostrarTicket = true;
     this.mostrarModalPago = false;
