@@ -53,6 +53,8 @@ export class TicketHeaderComponent implements OnChanges {
     const base = this.assetsBase();
     if (!img || !img.trim()) return `${base}/assets/images/farmBienIcon.png`;
 
+    if (/^(data:|blob:)/i.test(img)) return img;
+
     // http(s) absoluto
     if (/^https?:\/\//i.test(img)) return img;
 

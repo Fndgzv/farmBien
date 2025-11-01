@@ -752,7 +752,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (img && img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
 
   }
-  
+
   agregarProductoPorCodigo() {
     if (this.codigoBarras.length === 0 && this.carrito.length > 0) {
       this.abrirModalPago();
@@ -855,7 +855,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (this.aplicaGratis) this.validarProductoGratis(producto._id);
 
     this.calcularTotal();
-    
+
   }
 
   limpiarPromocion(promo: string) {
@@ -1325,168 +1325,182 @@ export class VentasComponent implements OnInit, AfterViewInit {
     });
   }
 
-private assetsBase(): string {
-  const base = (environment as any).assetsBase || (typeof window !== 'undefined' ? window.location.origin : '');
-  return String(base).replace(/\/+$/, '');
-}
-
-private resolveLogoForPrint(src?: string): string {
-  const fallback = '/assets/images/farmBienIcon.png'; // tu ruta
-  try {
-    const base = window.location.origin;              // https://farmbien.onrender.com
-    let s = (src && src.trim()) ? src.trim() : fallback;
-    if (/^https?:\/\//i.test(s)) return s;            // ya es absoluta
-    if (!s.startsWith('/')) s = '/' + s;              // fuerza /assets/...
-    return new URL(s, base).toString();
-  } catch {
-    return new URL(fallback, window.location.origin).toString();
+  private assetsBase(): string {
+    const base = (environment as any).assetsBase || (typeof window !== 'undefined' ? window.location.origin : '');
+    return String(base).replace(/\/+$/, '');
   }
-}
 
-private whenDomStable(): Promise<void> {
-  // 2 RAFs para asegurar que Angular ya pintó el ticket
-  return new Promise<void>((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve()); // 👈 no pasamos resolve como callback directo
+  private resolveLogoForPrint(src?: string): string {
+    const fallback = '/assets/images/farmBienIcon.png'; // tu ruta
+    try {
+      const base = window.location.origin;              // https://farmbien.onrender.com
+      let s = (src && src.trim()) ? src.trim() : fallback;
+      if (/^https?:\/\//i.test(s)) return s;            // ya es absoluta
+      if (!s.startsWith('/')) s = '/' + s;              // fuerza /assets/...
+      return new URL(s, base).toString();
+    } catch {
+      return new URL(fallback, window.location.origin).toString();
+    }
+  }
+
+  private whenDomStable(): Promise<void> {
+    // 2 RAFs para asegurar que Angular ya pintó el ticket
+    return new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve()); // 👈 no pasamos resolve como callback directo
+      });
     });
-  });
-}
-
-
-private preloadImage(url: string, timeoutMs = 4000): Promise<void> {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    let done = false;
-    const finish = (ok: boolean) => { if (!done) { done = true; ok ? res() : rej(); } };
-    const t = setTimeout(() => finish(false), timeoutMs);
-    img.onload = () => { clearTimeout(t); finish(true); };
-    img.onerror = () => { clearTimeout(t); finish(false); };
-    img.src = url;
-  });
-}
-
-
-
-finalizarVenta() {
-  // --- Normalizar pagos
-  this.efectivoRecibido   = Math.max(0, this.pagoEfectivo);
-  this.montoTarjeta       = Math.max(0, this.pagoTarjeta1);
-  this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
-  this.montoVale          = Math.max(0, this.pagoVale1);
-  this.cambio             = Math.max(0, this.cambio);
-
-  const totalPagado    = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
-  const pagosDigitales = this.montoTarjeta + this.montoTransferencia + this.montoVale;
-
-  if (pagosDigitales > this.total) {
-    Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
-    return;
-  }
-  if (totalPagado < this.total) {
-    Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
-    return;
   }
 
-  const folio = this.folioVentaGenerado || this.generarFolioLocal();
-  this.folioVentaGenerado = folio;
 
-  // ✅ Resolver logo absoluto UNA vez
-  const logoUrl = this.resolveLogoForPrint(this.farmaciaImagen);
-
-  const productos = this.carrito.map(p => ({
-    producto: p.producto,
-    nombre: p.nombre,
-    barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
-    cantidad: p.cantidad,
-    precio: p.precioFinal,
-    totalRen: p.precioFinal * p.cantidad,
-    precioOriginal: p.precioOriginal,
-    iva: p.iva,
-    tipoDescuento: p.tipoDescuento,
-    descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
-    cadenaDescuento: p.cadDesc ?? '',
-    monederoCliente: (p.almonedero ?? 0) * p.cantidad,
-  }));
-
-  this.ventaParaImpresion = {
-    folio: this.folioVentaGenerado,
-    cliente: this.nombreCliente,
-    farmacia: {
-      nombre: this.farmaciaNombre,
-      titulo1: this.farmaciaTitulo1,
-      titulo2: this.farmaciaTitulo2,
-      direccion: this.farmaciaDireccion,
-      telefono: this.farmaciaTelefono,
-      imagen: logoUrl, // 👈 ya absoluto
-    },
-    productos,
-    cantidadProductos: this.totalArticulos,
-    total: this.total,
-    totalDescuento: this.totalDescuento,
-    totalMonederoCliente: this.totalAlmonedero,
-    formaPago: {
-      efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
-      tarjeta: this.montoTarjeta,
-      transferencia: this.montoTransferencia,
-      vale: this.montoVale
-    },
-    AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
-    elcambio: this.cambio,
-    fecha: new Date().toISOString(),
-    usuario: this.nombreUs
-  };
-
-  // Mostrar ticket antes de imprimir
-  this.mostrarTicket = true;
-  this.mostrarModalPago = false;
-  this.cdRef.detectChanges();
-
-  // --- Limpieza/terminación
-  let finished = false;
-  const safeFinish = () => {
-    if (finished) return;
-    finished = true;
-    cleanup();
-    this.ngZone.run(() => {
-      this.mostrarTicket = false;
-      this.hayCliente = false;
-      this.guardarVentaDespuesDeImpresion(folio);
+  private preloadImage(url: string, timeoutMs = 4000): Promise<void> {
+    return new Promise((res, rej) => {
+      const img = new Image();
+      let done = false;
+      const finish = (ok: boolean) => { if (!done) { done = true; ok ? res() : rej(); } };
+      const t = setTimeout(() => finish(false), timeoutMs);
+      img.onload = () => { clearTimeout(t); finish(true); };
+      img.onerror = () => { clearTimeout(t); finish(false); };
+      img.src = url;
     });
-  };
-  const cleanup = () => {
-    window.removeEventListener('afterprint', onAfterPrint);
-    mq?.removeEventListener?.('change', onMQ);
-    if (watchdog) clearTimeout(watchdog);
-  };
-  const onAfterPrint = () => safeFinish();
-  const mq = (window as any).matchMedia ? window.matchMedia('print') : null;
-  const onMQ = (e: any) => { if (!e?.matches) safeFinish(); };
-
-  window.addEventListener('afterprint', onAfterPrint);
-  mq?.addEventListener?.('change', onMQ);
-
-  const watchdog = setTimeout(safeFinish, 9000);
-
-// --- Imprimir: espera DOM estable y logo cargado
-setTimeout(async () => {
-  try {
-    // 1) asegura que el ticket ya está en el DOM
-    await this.whenDomStable();
-
-    // 2) precarga el logo (primera vez tras deploy puede tardar)
-    await this.preloadImage(logoUrl, 4000);
-
-    // 3) Edge es quisquilloso; pequeño respiro
-    if (this.isEdge?.()) await new Promise(r => setTimeout(r, 50));
-
-    window.print();
-  } catch {
-    // si algo falla, completa el flujo para no bloquear la venta
-    safeFinish();
   }
-}, 0);
 
-}
+  private async logoToDataUrl(absUrl: string): Promise<string> {
+    const resp = await fetch(absUrl, { cache: 'reload' });
+    const blob = await resp.blob();
+    return await new Promise<string>((res) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result));
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async finalizarVenta() {
+    // --- Normalizar pagos
+    this.efectivoRecibido = Math.max(0, this.pagoEfectivo);
+    this.montoTarjeta = Math.max(0, this.pagoTarjeta1);
+    this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
+    this.montoVale = Math.max(0, this.pagoVale1);
+    this.cambio = Math.max(0, this.cambio);
+
+    const totalPagado = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
+    const pagosDigitales = this.montoTarjeta + this.montoTransferencia + this.montoVale;
+
+    if (pagosDigitales > this.total) {
+      Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
+      return;
+    }
+    if (totalPagado < this.total) {
+      Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
+      return;
+    }
+
+    const folio = this.folioVentaGenerado || this.generarFolioLocal();
+    this.folioVentaGenerado = folio;
+
+    // ✅ Resolver logo absoluto UNA vez
+    const logoUrl = this.resolveLogoForPrint(this.farmaciaImagen);
+
+    const productos = this.carrito.map(p => ({
+      producto: p.producto,
+      nombre: p.nombre,
+      barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
+      cantidad: p.cantidad,
+      precio: p.precioFinal,
+      totalRen: p.precioFinal * p.cantidad,
+      precioOriginal: p.precioOriginal,
+      iva: p.iva,
+      tipoDescuento: p.tipoDescuento,
+      descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
+      cadenaDescuento: p.cadDesc ?? '',
+      monederoCliente: (p.almonedero ?? 0) * p.cantidad,
+    }));
+
+    const absLogo = this.resolveLogoForPrint(this.farmaciaImagen);
+    let logoForTicket = absLogo;
+    try { logoForTicket = await this.logoToDataUrl(absLogo); } catch { }
+
+    this.ventaParaImpresion = {
+      folio: this.folioVentaGenerado,
+      cliente: this.nombreCliente,
+      farmacia: {
+        nombre: this.farmaciaNombre,
+        titulo1: this.farmaciaTitulo1,
+        titulo2: this.farmaciaTitulo2,
+        direccion: this.farmaciaDireccion,
+        telefono: this.farmaciaTelefono,
+        imagen: logoForTicket,
+      },
+      productos,
+      cantidadProductos: this.totalArticulos,
+      total: this.total,
+      totalDescuento: this.totalDescuento,
+      totalMonederoCliente: this.totalAlmonedero,
+      formaPago: {
+        efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
+        tarjeta: this.montoTarjeta,
+        transferencia: this.montoTransferencia,
+        vale: this.montoVale
+      },
+      AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
+      elcambio: this.cambio,
+      fecha: new Date().toISOString(),
+      usuario: this.nombreUs
+    };
+
+   alert(this.ventaParaImpresion.farmacia.imagen)
+
+    // Mostrar ticket antes de imprimir
+    this.mostrarTicket = true;
+    this.mostrarModalPago = false;
+    this.cdRef.detectChanges();
+
+    // --- Limpieza/terminación
+    let finished = false;
+    const safeFinish = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      this.ngZone.run(() => {
+        this.mostrarTicket = false;
+        this.hayCliente = false;
+        this.guardarVentaDespuesDeImpresion(folio);
+      });
+    };
+    const cleanup = () => {
+      window.removeEventListener('afterprint', onAfterPrint);
+      mq?.removeEventListener?.('change', onMQ);
+      if (watchdog) clearTimeout(watchdog);
+    };
+    const onAfterPrint = () => safeFinish();
+    const mq = (window as any).matchMedia ? window.matchMedia('print') : null;
+    const onMQ = (e: any) => { if (!e?.matches) safeFinish(); };
+
+    window.addEventListener('afterprint', onAfterPrint);
+    mq?.addEventListener?.('change', onMQ);
+
+    const watchdog = setTimeout(safeFinish, 9000);
+
+    // --- Imprimir: espera DOM estable y logo cargado
+    setTimeout(async () => {
+      try {
+        // 1) asegura que el ticket ya está en el DOM
+        await this.whenDomStable();
+
+        // 2) precarga el logo (primera vez tras deploy puede tardar)
+        await this.preloadImage(logoUrl, 4000);
+
+        // 3) Edge es quisquilloso; pequeño respiro
+        if (this.isEdge?.()) await new Promise(r => setTimeout(r, 50));
+
+        window.print();
+      } catch {
+        // si algo falla, completa el flujo para no bloquear la venta
+        safeFinish();
+      }
+    }, 0);
+
+  }
 
   limpiarVenta() {
     this.carrito = [];
