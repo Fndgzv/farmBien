@@ -19,8 +19,9 @@ import { firstValueFrom } from 'rxjs';
 
 import { trigger, state, style, transition, animate } from '@angular/animations';
 
-type MovimientoPedido = 'agregar' | 'surtir' | 'cancelar';
+import { preloadImage, resolveLogoForPrint, whenDomStable, isolateAndPrint } from '../../shared/utils/print-utils';
 
+type MovimientoPedido = 'agregar' | 'surtir' | 'cancelar';
 interface PedidoTicketData {
   pedido: any;
   farmaNombre: string;
@@ -54,6 +55,7 @@ interface PedidoTicketData {
 export class PedidosComponent implements OnInit {
   @ViewChild('contenedorTicket', { static: false }) contenedorTicket!: ElementRef;
   @ViewChild(PedidoTicketComponent) pedidoTicketComp!: PedidoTicketComponent;
+  @ViewChild('ticketPedidoRef') ticketPedidoRef!: ElementRef<HTMLElement>;
 
   pedidos: any[] = [];
   filtroFolio: string = '';
@@ -91,25 +93,14 @@ export class PedidosComponent implements OnInit {
   mostrarTicket = false;
   paraImpresion: PedidoTicketData | null = null;
 
-  /** Helper genérico: muestra ticket, imprime y luego ejecuta la acción */
-  private imprimirY(luego: () => void) {
-    this.mostrarTicket = true;
-    this.cdr.detectChanges();
 
-    setTimeout(() => {
-      window.print();
-      this.mostrarTicket = false;
-      luego();
-    }, 300);
-  }
 
   constructor(private library: FaIconLibrary,
     private pedidosService: PedidosService,
     private authService: AuthService,
     private clienteService: ClienteService,
     private FarmaciaService: FarmaciaService,
-    private cdr: ChangeDetectorRef,
-    private ngZone: NgZone) {
+    private cdr: ChangeDetectorRef) {
     // Registra íconos
     this.library.addIcons(
       faPlus, faMinus, faEyeSlash, faTimes
@@ -145,18 +136,6 @@ export class PedidosComponent implements OnInit {
     this.usuarioId = usuarioId;
     this.usuarioRol = rol;
     this.usuarioNombre = userName;
-
-    this.authService.obtenerFirma(farmacia._id).subscribe({
-      next: (resp) => {
-        this.firmaAutorizada = resp.firma;
-        console.log('La firma es: ', this.firmaAutorizada);
-
-      },
-      error: (err) => {
-        console.error('❌ Error al obtener firma de farmacia:', err);
-        Swal.fire('Error', 'No se pudo obtener la firma de la farmacia', 'error');
-      }
-    });
 
   }
 
@@ -394,22 +373,21 @@ export class PedidosComponent implements OnInit {
 
 
       if (firmaInput.isConfirmed) {
-        const body = { folio: pedido.folio };
 
         // datos para ticket de cancelación
         const pedidoParaTicket = {
           ...pedido,
-          // por si quieres mostrar lo que se devuelve:
-          /* devolucionEfectivo: (pedido.aCuenta - (pedido.pagoACuenta?.vale || 0)),
-          devolucionVale: (pedido.pagoACuenta?.vale || 0), */
+
         };
+
+        const logoUrl = resolveLogoForPrint(this.farmaciaImagen);
 
         this.paraImpresion = {
           pedido: pedidoParaTicket,
           farmaNombre: this.farmaciaNombre,
           farmaDireccion: this.farmaciaDireccion,
           farmaTelefono: this.farmaciaTelefono,
-          farmaImagen: this.farmaciaImagen,
+          farmaImagen: logoUrl,
           farmaTitulo1: this.titulo1,
           farmaTitulo2: this.titulo2,
           userName: this.usuarioNombre,
@@ -417,30 +395,34 @@ export class PedidosComponent implements OnInit {
           movimiento: 'cancelar'
         };
 
-        this.imprimirY(() => {
-          this.pedidosService.cancelarPedido(body).subscribe({
-            next: () => {
-              Swal.fire({
-                icon: 'success',
-                title: 'Pedido cancelado correctamente',
-                confirmButtonText: 'Aceptar',
-                timer: 1600,
-                timerProgressBar: true,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-              });
-              this.limpiarFiltroCompleto();
-            },
-            error: (err) => {
-              console.error('Error al cancelar pedido:', err);
-              Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: err.error?.mensaje || 'No se pudo cancelar el pedido'
-              });
-            }
-          });
+        // ...ya verificaste firma y armaste this.paraImpresion...
+        await preloadImage(logoUrl, 2500);
+
+        this.mostrarTicket = true;
+        this.cdr.detectChanges();
+        await whenDomStable();
+
+        await isolateAndPrint(this.ticketPedidoRef.nativeElement);
+
+        this.mostrarTicket = false;
+
+        const body = { folio: pedido.folio };
+        this.pedidosService.cancelarPedido(body).subscribe({
+          next: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Pedido cancelado correctamente',
+              timer: 1600,
+              timerProgressBar: true
+            });
+            this.limpiarFiltroCompleto();
+          },
+          error: (err) => {
+            console.error('Error al cancelar pedido:', err);
+            Swal.fire({ icon: 'error', title: 'Error', text: err.error?.mensaje || 'No se pudo cancelar el pedido' });
+          }
         });
+
       }
 
     }
@@ -448,14 +430,13 @@ export class PedidosComponent implements OnInit {
   }
 
   async surtirPedido(pedido: any) {
-
     this.pedidoDetalleAbiertoId = null;
+
     if (pedido.estado === 'entregado') {
-      Swal.fire({
+      await Swal.fire({
         icon: 'success',
         title: 'El pedido ya fue entregado',
-        html: `Fecha: ${this.formatearFecha(pedido.fechaEntrega)}<br><br>` +
-          `Entregado por: ${pedido.usuarioSurtio.nombre}`,
+        html: `Fecha: ${this.formatearFecha(pedido.fechaEntrega)}<br><br>Entregado por: ${pedido.usuarioSurtio.nombre}`,
         confirmButtonText: 'Aceptar',
         timer: 1600,
         timerProgressBar: true,
@@ -478,6 +459,7 @@ export class PedidosComponent implements OnInit {
     const pagoFaltante = await this.mostrarModalPago(pedido.resta, 'Captura del resto', 'Faltante', 'Guardar');
     if (!pagoFaltante) return;
 
+    // === Lo que ya tenías ===
     const body = {
       folio: pedido.folio,
       pagoResta: {
@@ -486,19 +468,23 @@ export class PedidosComponent implements OnInit {
         transferencia: pagoFaltante.transferencia,
         vale: pagoFaltante.vale
       }
-    }
+    };
 
     const pedidoParaTicket = {
       ...pedido,
       pagoResta: { ...body.pagoResta },
     };
 
+    // Logo absoluto para impresión
+    const logoUrl = resolveLogoForPrint(this.farmaciaImagen);
+
+    // Datos para el ticket (idéntico a tu versión, solo cambié farmaImagen = logoUrl)
     this.paraImpresion = {
       pedido: pedidoParaTicket,
       farmaNombre: this.farmaciaNombre,
       farmaDireccion: this.farmaciaDireccion,
       farmaTelefono: this.farmaciaTelefono,
-      farmaImagen: this.farmaciaImagen,
+      farmaImagen: logoUrl,
       farmaTitulo1: this.titulo1,
       farmaTitulo2: this.titulo2,
       userName: this.usuarioNombre,
@@ -506,104 +492,117 @@ export class PedidosComponent implements OnInit {
       movimiento: 'surtir'
     };
 
-    this.imprimirY(() => {
-      this.pedidosService.surtirPedido(body).subscribe({
-        next: async (resp) => {
-          await Swal.fire({
-            icon: 'success',
-            title: 'Éxito',
-            html: `<h3>Pedido surtido y registrado correctamente</h3>`,
-            confirmButtonText: 'Continuar',
-            timer: 1600,
-            timerProgressBar: true,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-          });
-          this.limpiarFiltroCompleto();
-        },
-        error: (err) => {
-          console.error('Error al surtir pedido:', err);
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: err.error?.mensaje || 'No se pudo surtir el pedido'
-          });
-        }
-      });
+
+    await preloadImage(logoUrl, 2500);
+
+    this.mostrarTicket = true;
+    this.cdr.detectChanges();
+    await whenDomStable();
+
+    await isolateAndPrint(this.ticketPedidoRef.nativeElement);
+
+    this.mostrarTicket = false;
+
+    this.pedidosService.surtirPedido(body).subscribe({
+      next: async () => {
+        await Swal.fire({
+          icon: 'success',
+          title: 'Éxito',
+          html: '<h3>Pedido surtido y registrado correctamente</h3>',
+          confirmButtonText: 'Continuar',
+          timer: 1600,
+          timerProgressBar: true,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        });
+        this.limpiarFiltroCompleto();
+      },
+      error: (err) => {
+        console.error('Error al surtir pedido:', err);
+        Swal.fire({ icon: 'error', title: 'Error', text: err.error?.mensaje || 'No se pudo surtir el pedido' });
+      }
     });
 
   }
 
+  private isPrinting = false;
+
   async agregarPedido() {
-    this.pedidoDetalleAbiertoId = null;
-    const cliente = await this.capturarCliente();
-    if (cliente === null) return;
+    if (this.isPrinting) return;
+    this.isPrinting = true;
+    try {
+      this.pedidoDetalleAbiertoId = null;
 
-    const clienteId = cliente === 'sin-cliente' ? null : cliente._id;
+      const cliente = await this.capturarCliente();
+      if (cliente === null) return;
 
-    if (cliente === 'sin-cliente') {
-      this.nombreCliente = 'Público general';
-      this.totalMonedero = 0;
-    } else {
-      this.nombreCliente = cliente.nombre;
-      this.totalMonedero = cliente.totalMonedero;
-    }
-
-    const datosPedido = await this.solicitarDatosPedido();
-    if (!datosPedido) return;
-
-    const { descripcion, total, anticipo } = datosPedido;
-
-    const pagoACuenta = await this.mostrarModalPago(anticipo, 'Captura del pago a cuenta', 'Anticipo', 'Imprimir');
-
-    if (!pagoACuenta) return;
-
-    const aCuenta = pagoACuenta.efectivo + pagoACuenta.tarjeta + pagoACuenta.transferencia + pagoACuenta.vale;
-
-    // Si ya hay un folio generado previamente, lo reutilizamos
-    const folio = this.folioGenerado || this.generarFolioLocal();
-    this.folioGenerado = folio; // guardarlo para futuros intentos
-
-    this.paraGuardar = {
-      folio: this.folioGenerado,
-      farmacia: this.farmaciaId,
-      clienteId,
-      usuarioPidio: this.usuarioId,
-      descripcion,
-      total,
-      aCuenta,
-      pagoACuenta,
-    };
-
-    this.paraImpresion = {
-      pedido: this.paraGuardar,
-      farmaNombre: this.farmaciaNombre,
-      farmaDireccion: this.farmaciaDireccion,
-      farmaImagen: this.farmaciaImagen,
-      farmaTitulo1: this.titulo1,
-      farmaTitulo2: this.titulo2,
-      farmaTelefono: this.farmaciaTelefono,
-      userName: this.usuarioNombre,
-      client: this.nombreCliente,
-      movimiento: 'agregar'
-    }
-
-    this.mostrarTicket = true;
-
-    // 🔄 Forzar render y ejecutar impresión segura
-    this.cdr.detectChanges(); // Asegura que <app-pedido-ticket> se renderice
-
-    setTimeout(() => {
-      const contenido = document.getElementById('ticketPedido');
-      if (contenido) {
-        window.print();
-        this.mostrarTicket = false;
-        this.guardarPedido();
+      const clienteId = cliente === 'sin-cliente' ? null : cliente._id;
+      if (cliente === 'sin-cliente') {
+        this.nombreCliente = 'Público general';
+        this.totalMonedero = 0;
       } else {
-        console.warn('❌ Ticket aún no está renderizado');
+        this.nombreCliente = cliente.nombre;
+        this.totalMonedero = cliente.totalMonedero;
       }
-    }, 300);
 
+      const datosPedido = await this.solicitarDatosPedido();
+      if (!datosPedido) return;
+
+      const { descripcion, total, anticipo } = datosPedido;
+      const pagoACuenta = await this.mostrarModalPago(anticipo, 'Captura del pago a cuenta', 'Anticipo', 'Imprimir');
+      if (!pagoACuenta) return;
+
+      const aCuenta = pagoACuenta.efectivo + pagoACuenta.tarjeta + pagoACuenta.transferencia + pagoACuenta.vale;
+
+      // folio estable entre reintentos
+      const folio = this.folioGenerado || this.generarFolioLocal();
+      this.folioGenerado = folio;
+
+      this.paraGuardar = {
+        folio,
+        farmacia: this.farmaciaId,
+        clienteId,
+        usuarioPidio: this.usuarioId,
+        descripcion,
+        total,
+        aCuenta,
+        pagoACuenta,
+      };
+
+      const logoUrl = resolveLogoForPrint(this.farmaciaImagen);
+
+      this.paraImpresion = {
+        pedido: this.paraGuardar,
+        farmaNombre: this.farmaciaNombre,
+        farmaDireccion: this.farmaciaDireccion,
+        farmaImagen: logoUrl,
+        farmaTitulo1: this.titulo1,
+        farmaTitulo2: this.titulo2,
+        farmaTelefono: this.farmaciaTelefono,
+        userName: this.usuarioNombre,
+        client: this.nombreCliente,
+        movimiento: 'agregar'
+      };
+
+      // ...después de armar this.paraImpresion...
+      await preloadImage(logoUrl, 2500);
+
+      // Asegura que el ticket esté en el DOM
+      this.mostrarTicket = true;
+      this.cdr.detectChanges();
+      await whenDomStable();
+
+      // ✅ Imprime el CLON aislado en <body>
+      await isolateAndPrint(this.ticketPedidoRef.nativeElement);
+
+      // Oculta el ticket y guarda
+      this.mostrarTicket = false;
+      this.guardarPedido();
+
+
+    } finally {
+      this.isPrinting = false;
+    }
   }
 
   guardarPedido() {

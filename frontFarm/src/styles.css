@@ -291,7 +291,7 @@ button {
 .tabla {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px; 
+  margin-top: 10px;
 }
 
 .tabla th,
@@ -429,45 +429,6 @@ button {
   font-size: 15px;
 }
 
-@media print {
-  @page {
-    size: 290pt auto;
-  }
-
-  html,
-  body {
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  body * {
-    visibility: hidden !important;
-  }
-
-  .logo-ticket {
-    display: block !important;
-    width: 40px !important;
-    height: auto !important;
-    visibility: visible !important;
-  }
-
-  .ticket-impresion,
-  .ticket-impresion * {
-    visibility: visible !important;
-  }
-
-  .ticket-impresion {
-    width: 270pt !important;
-    margin: 0vmin !important;
-    padding: 0 !important;
-    line-height: 1.4 !important;
-    position: absolute !important;
-    left: 5mm !important;
-    top: 0 !important;
-    font-family: "Roboto Condensed", Arial, sans-serif !important;
-  }
-}
-
 .productos {
   width: 100%;
   border-collapse: collapse;
@@ -508,34 +469,31 @@ body {
 }
 
 /* Fallback por si tu build no respeta los tokens anteriores */
-.cdk-overlay-container
-  .mat-mdc-select-panel
-  .mdc-list-item__primary-text {
+.cdk-overlay-container .mat-mdc-select-panel .mdc-list-item__primary-text {
   font-size: 1.3rem !important;
 }
 
 /* (opcional) más alto cada renglón del panel */
-.cdk-overlay-container
-  .mat-mdc-select-panel
-  .mat-mdc-option.mdc-list-item {
-  height: 50px; /* ajusta a gusto */
+.cdk-overlay-container .mat-mdc-select-panel .mat-mdc-option.mdc-list-item {
+  height: 50px;
+  /* ajusta a gusto */
 }
 
 /* ===== Panel del mat-select (global) ===== */
 .cdk-overlay-container .mat-mdc-select-panel .mat-mdc-option {
-  background: #fbdddd;           /* fondo normal */
+  background: #fbdddd;
+  /* fondo normal */
 }
 
 /* Hover con el mouse */
 .cdk-overlay-container .mat-mdc-select-panel .mat-mdc-option.mdc-list-item:hover {
   background-color: blueviolet;
-  color: aqua;         /* hover */
+  color: aqua;
+  /* hover */
 }
 
 /* Activo (mousedown) para cualquier opción */
-.cdk-overlay-container
-  .mat-mdc-select-panel
-  .mat-mdc-option.mdc-list-item:active {
+.cdk-overlay-container .mat-mdc-select-panel .mat-mdc-option.mdc-list-item:active {
   background-color: #dfeaff;
 }
 
@@ -545,15 +503,89 @@ body {
 /* ✅ Angular Material v15+ (MDC) */
 .mat-mdc-tooltip .mdc-tooltip__surface,
 .mat-mdc-tooltip .mat-mdc-tooltip-surface {
-  background: #ab2cfa;         /* fondo */
-  color: yellow;              /* texto */
+  background: #ab2cfa;
+  /* fondo */
+  color: yellow;
+  /* texto */
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .25);
   max-width: 360px;
-  white-space: pre-line;    /* permite saltos de línea \n */
+  white-space: pre-line;
+  /* permite saltos de línea \n */
 }
 
 /* (opcional) Subir el z-index si se queda detrás de modales */
-.cdk-overlay-container .mat-mdc-tooltip { z-index: 10000; }
+.cdk-overlay-container .mat-mdc-tooltip {
+  z-index: 10000;
+}
+
+
+/* @media print {
+  @page { size: 290pt auto; margin: 0; }
+
+  #ticketPedido, #ticketDevolucion {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 270pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .ticket-impresion, .ticket-impresion * {
+    visibility: visible !important;
+  }
+
+  .logo-ticket {
+    display: block !important;
+    width: 40px !important;
+    height: auto !important;
+    visibility: visible !important;
+  }
+} */
+
+@media print {
+  @page { size: 290pt auto; margin: 0; }
+
+  /* Oculta la app completa por defecto */
+  body * { visibility: hidden !important; }
+
+  /* Contenedores de tickets permitidos (venta, pedido, devolución) */
+  #ticketVenta,
+  #ticketPedido,
+  #ticketDevolucion {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 270pt !important;     /* deja tu ancho habitual */
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 999999 !important;
+    visibility: visible !important;   /* el contenedor */
+  }
+
+  /* Todo lo que esté dentro de un ticket es visible */
+  #ticketVenta * ,
+  #ticketPedido * ,
+  #ticketDevolucion * ,
+  .ticket-impresion,
+  .ticket-impresion * {
+    visibility: visible !important;
+  }
+
+  /* Logo dentro del ticket */
+  .logo-ticket {
+    display: block !important;
+    width: 40px !important;
+    height: auto !important;
+    visibility: visible !important;
+  }
+
+  /* Evita que modales/overlays ensucien la impresión */
+  .cdk-overlay-container,
+  .mat-mdc-dialog-container {
+    display: none !important;
+  }
+}
+
+

@@ -1,7 +1,7 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
 import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap, tap } from 'rxjs/operators';
-import { of, Observable, from, mergeMap, firstValueFrom, async } from 'rxjs';
+import { of, Observable, from, mergeMap, firstValueFrom } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -21,8 +21,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
 import { MatTooltip } from '@angular/material/tooltip';
-import { environment } from '../../../environments/environment';
 
+import { resolveLogoForPrint, preloadImage, printWithPreload } from '../../shared/utils/print-utils';
 
 @Component({
   selector: 'app-ventas',
@@ -1312,36 +1312,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     return /Edg\//.test(navigator.userAgent); // Edge (Chromium)
   }
 
-  private forceEdgeImageReady(containerId: string): void {
-    const root = document.getElementById(containerId);
-    if (!root) return;
-    const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
-    // Forzamos reflow/recarga (workaround conocido de Edge al imprimir)
-    imgs.forEach(img => {
-      const s = img.src;
-      img.src = '';
-      img.offsetHeight; // reflow
-      img.src = s;
-    });
-  }
-
-  private assetsBase(): string {
-    const base = (environment as any).assetsBase || (typeof window !== 'undefined' ? window.location.origin : '');
-    return String(base).replace(/\/+$/, '');
-  }
-
-  private resolveLogoForPrint(src?: string): string {
-    const fallback = '/assets/images/farmBienIcon.png'; // tu ruta
-    try {
-      const base = window.location.origin;              // https://farmbien.onrender.com
-      let s = (src && src.trim()) ? src.trim() : fallback;
-      if (/^https?:\/\//i.test(s)) return s;            // ya es absoluta
-      if (!s.startsWith('/')) s = '/' + s;              // fuerza /assets/...
-      return new URL(s, base).toString();
-    } catch {
-      return new URL(fallback, window.location.origin).toString();
-    }
-  }
 
   private whenDomStable(): Promise<void> {
     // 2 RAFs para asegurar que Angular ya pintó el ticket
@@ -1349,19 +1319,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => resolve()); // 👈 no pasamos resolve como callback directo
       });
-    });
-  }
-
-
-  private preloadImage(url: string, timeoutMs = 4000): Promise<void> {
-    return new Promise((res, rej) => {
-      const img = new Image();
-      let done = false;
-      const finish = (ok: boolean) => { if (!done) { done = true; ok ? res() : rej(); } };
-      const t = setTimeout(() => finish(false), timeoutMs);
-      img.onload = () => { clearTimeout(t); finish(true); };
-      img.onerror = () => { clearTimeout(t); finish(false); };
-      img.src = url;
     });
   }
 
@@ -1399,7 +1356,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.folioVentaGenerado = folio;
 
     // ✅ Resolver logo absoluto UNA vez
-    const logoUrl = this.resolveLogoForPrint(this.farmaciaImagen);
+    const logoAbs = resolveLogoForPrint(this.farmaciaImagen);
+    await preloadImage(logoAbs, 2500);
+    let logoForTicket = logoAbs;
+    try { logoForTicket = await this.logoToDataUrl(logoAbs); } catch { }
 
     const productos = this.carrito.map(p => ({
       producto: p.producto,
@@ -1415,10 +1375,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
       cadenaDescuento: p.cadDesc ?? '',
       monederoCliente: (p.almonedero ?? 0) * p.cantidad,
     }));
-
-    const absLogo = this.resolveLogoForPrint(this.farmaciaImagen);
-    let logoForTicket = absLogo;
-    try { logoForTicket = await this.logoToDataUrl(absLogo); } catch { }
 
     this.ventaParaImpresion = {
       folio: this.folioVentaGenerado,
@@ -1453,50 +1409,19 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.mostrarModalPago = false;
     this.cdRef.detectChanges();
 
-    // --- Limpieza/terminación
-    let finished = false;
-    const safeFinish = () => {
-      if (finished) return;
-      finished = true;
-      cleanup();
-      this.ngZone.run(() => {
+
+    await printWithPreload(
+      () => logoAbs,                 // qué imagen pre-cargar (puede ser la misma URL)
+      undefined,                     // beforeShow (ya mostramos arriba)
+      () => {                        // afterHide
         this.mostrarTicket = false;
-        this.hayCliente = false;
+      },
+      () => {                        // onAfterPrint -> guardar UNA sola vez
         this.guardarVentaDespuesDeImpresion(folio);
-      });
-    };
-    const cleanup = () => {
-      window.removeEventListener('afterprint', onAfterPrint);
-      mq?.removeEventListener?.('change', onMQ);
-      if (watchdog) clearTimeout(watchdog);
-    };
-    const onAfterPrint = () => safeFinish();
-    const mq = (window as any).matchMedia ? window.matchMedia('print') : null;
-    const onMQ = (e: any) => { if (!e?.matches) safeFinish(); };
-
-    window.addEventListener('afterprint', onAfterPrint);
-    mq?.addEventListener?.('change', onMQ);
-
-    const watchdog = setTimeout(safeFinish, 9000);
-
-    // --- Imprimir: espera DOM estable y logo cargado
-    setTimeout(async () => {
-      try {
-        // 1) asegura que el ticket ya está en el DOM
-        await this.whenDomStable();
-
-        // 2) precarga el logo (primera vez tras deploy puede tardar)
-        await this.preloadImage(logoUrl, 4000);
-
-        // 3) Edge es quisquilloso; pequeño respiro
-        if (this.isEdge?.()) await new Promise(r => setTimeout(r, 50));
-
-        window.print();
-      } catch {
-        // si algo falla, completa el flujo para no bloquear la venta
-        safeFinish();
-      }
-    }, 0);
+        this.hayCliente = false;
+      },
+      '#ticketVenta'                 // el contenedor que se imprime
+    );
 
   }
 

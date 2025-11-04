@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,6 +18,7 @@ import { DevolucionService } from '../../services/devolucion.service';
 import { DevolucionTicketComponent } from '../../impresiones/devolucion-ticket/devolucion-ticket.component';
 import { MatTooltip } from '@angular/material/tooltip';
 
+import { resolveLogoForPrint, preloadImage, whenDomStable, isolateAndPrint } from '../../shared/utils/print-utils';
 @Component({
   selector: 'app-devoluciones',
   standalone: true,
@@ -35,6 +36,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 
 export class DevolucionesComponent implements OnInit {
   @ViewChild('contenedorTicket', { static: false }) contenedorTicket!: ElementRef;
+  @ViewChild('ticketDevolucionRef') ticketDevolucionRef!: ElementRef<HTMLElement>;
 
   ventas: any[] = [];
   esCliente = false;
@@ -77,6 +79,7 @@ export class DevolucionesComponent implements OnInit {
     private devolucionService: DevolucionService,
     private clienteService: ClienteService,
     private FarmaciaService: FarmaciaService,
+    private cdr: ChangeDetectorRef,
     private library: FaIconLibrary, private authService: AuthService,) {
     this.library.addIcons(faPlus, faMinus, faTimes); // Registra íconos
   }
@@ -408,36 +411,39 @@ export class DevolucionesComponent implements OnInit {
       },
     };
 
-    console.log('Datos a imprimir', this.paraImpresion);
-    
+    // 9) Mostrar e imprimir con precarga de logo
+    const logoUrl = resolveLogoForPrint(this.farmaciaImagen);
 
-    // 9) Mostrar e imprimir
+    // Inyecta el logo resuelto en el objeto de impresión (por si el subcomponente lo usa)
+    this.paraImpresion.farmacia = this.paraImpresion.farmacia || {} as any;
+    this.paraImpresion.farmacia.imagen = logoUrl;
+
+    await preloadImage(logoUrl, 2500);
+
     this.mostrarTicket = true;
-    setTimeout(() => {
-      if (this.contenedorTicket) {
-        this.imprimirTicketReal();
-      }
-    }, 200);
-  }
+    this.cdr.detectChanges();
+    await whenDomStable();
 
-  imprimirTicketReal() {
-    window.print();
+    // ✅ Imprime en un CLON aislado (fuera del layout de la app)
+    await isolateAndPrint(this.ticketDevolucionRef.nativeElement);
 
+    // Oculta el ticket original de la vista
     this.mostrarTicket = false;
 
-    Swal.fire({
+    // Confirma si se imprimió bien y guarda
+    const r = await Swal.fire({
       icon: 'question',
       title: '¿Se imprimió correctamente el ticket?',
       showCancelButton: true,
       confirmButtonText: 'Sí, guardar devolución',
       cancelButtonText: 'No, reintentar'
-    }).then(result => {
-      if (result.isConfirmed) {
-        this.guardarDespuesDeImpresion();
-      } else {
-        Swal.fire('Atención', 'La devolución no ha sido registrada. Puedes reintentar la impresión.', 'info');
-      }
     });
+
+    if (r.isConfirmed) {
+      this.guardarDespuesDeImpresion();
+    } else {
+      await Swal.fire('Atención', 'La devolución no ha sido registrada. Puedes reintentar la impresión.', 'info');
+    }
   }
 
   guardarDespuesDeImpresion() {

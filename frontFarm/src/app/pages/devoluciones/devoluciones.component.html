@@ -115,10 +115,15 @@
   </p>
 </div>
 
-<div #contenedorTicket>
-  <app-devolucion-ticket
+<ng-container >
+  <div 
+    id="ticketDevolucion"
+    #ticketDevolucionRef
+    class="ticket-impresion"
     *ngIf="paraImpresion && mostrarTicket"
-    [venta]="paraImpresion"
-    class="ticket-impresion">
-  </app-devolucion-ticket>
-</div>
+  >
+    <app-devolucion-ticket
+      [venta]="paraImpresion">
+    </app-devolucion-ticket>
+  </div>
+</ng-container>
