@@ -19,7 +19,8 @@ import { firstValueFrom } from 'rxjs';
 
 import { trigger, state, style, transition, animate } from '@angular/animations';
 
-import { preloadImage, resolveLogoForPrint, whenDomStable, isolateAndPrint } from '../../shared/utils/print-utils';
+import { resolveLogoForPrint, logoToDataUrlSafe, isolateAndPrint, whenDomStable } from '../../shared/utils/print-utils';
+import { quickPrint } from '../../shared/utils/quick-print';
 
 type MovimientoPedido = 'agregar' | 'surtir' | 'cancelar';
 interface PedidoTicketData {
@@ -93,8 +94,6 @@ export class PedidosComponent implements OnInit {
   mostrarTicket = false;
   paraImpresion: PedidoTicketData | null = null;
 
-
-
   constructor(private library: FaIconLibrary,
     private pedidosService: PedidosService,
     private authService: AuthService,
@@ -106,7 +105,6 @@ export class PedidosComponent implements OnInit {
       faPlus, faMinus, faEyeSlash, faTimes
     );
   }
-
 
   ngOnInit(): void {
 
@@ -380,14 +378,16 @@ export class PedidosComponent implements OnInit {
 
         };
 
-        const logoUrl = resolveLogoForPrint(this.farmaciaImagen);
+        const absLogo = resolveLogoForPrint(this.farmaciaImagen);
+        let logoData = absLogo;
+        try { logoData = await logoToDataUrlSafe(absLogo); } catch { }
 
         this.paraImpresion = {
           pedido: pedidoParaTicket,
           farmaNombre: this.farmaciaNombre,
           farmaDireccion: this.farmaciaDireccion,
           farmaTelefono: this.farmaciaTelefono,
-          farmaImagen: logoUrl,
+          farmaImagen: logoData,
           farmaTitulo1: this.titulo1,
           farmaTitulo2: this.titulo2,
           userName: this.usuarioNombre,
@@ -395,33 +395,28 @@ export class PedidosComponent implements OnInit {
           movimiento: 'cancelar'
         };
 
-        // ...ya verificaste firma y armaste this.paraImpresion...
-        await preloadImage(logoUrl, 2500);
+        const after = () => {
+          const body = { folio: pedido.folio };
+          this.pedidosService.cancelarPedido(body).subscribe({
+            next: () => {
+              Swal.fire({ icon: 'success', title: 'Pedido cancelado correctamente', timer: 1600, timerProgressBar: true });
+              this.limpiarFiltroCompleto();
+            },
+            error: (err) => {
+              console.error('Error al cancelar pedido:', err);
+              Swal.fire({ icon: 'error', title: 'Error', text: err.error?.mensaje || 'No se pudo cancelar el pedido' });
+            }
+          });
+        };
 
-        this.mostrarTicket = true;
-        this.cdr.detectChanges();
+        (() => { this.mostrarTicket = true; this.cdr.detectChanges(); })();
         await whenDomStable();
-
-        await isolateAndPrint(this.ticketPedidoRef.nativeElement);
-
+        {
+          const el = document.getElementById('ticketPedido');
+          if (el) { await isolateAndPrint(el); }
+        }
         this.mostrarTicket = false;
-
-        const body = { folio: pedido.folio };
-        this.pedidosService.cancelarPedido(body).subscribe({
-          next: () => {
-            Swal.fire({
-              icon: 'success',
-              title: 'Pedido cancelado correctamente',
-              timer: 1600,
-              timerProgressBar: true
-            });
-            this.limpiarFiltroCompleto();
-          },
-          error: (err) => {
-            console.error('Error al cancelar pedido:', err);
-            Swal.fire({ icon: 'error', title: 'Error', text: err.error?.mensaje || 'No se pudo cancelar el pedido' });
-          }
-        });
+        after();
 
       }
 
@@ -475,8 +470,9 @@ export class PedidosComponent implements OnInit {
       pagoResta: { ...body.pagoResta },
     };
 
-    // Logo absoluto para impresión
-    const logoUrl = resolveLogoForPrint(this.farmaciaImagen);
+    const absLogo = resolveLogoForPrint(this.farmaciaImagen);
+    let logoData = absLogo;
+    try { logoData = await logoToDataUrlSafe(absLogo); } catch { }
 
     // Datos para el ticket (idéntico a tu versión, solo cambié farmaImagen = logoUrl)
     this.paraImpresion = {
@@ -484,7 +480,7 @@ export class PedidosComponent implements OnInit {
       farmaNombre: this.farmaciaNombre,
       farmaDireccion: this.farmaciaDireccion,
       farmaTelefono: this.farmaciaTelefono,
-      farmaImagen: logoUrl,
+      farmaImagen: logoData,
       farmaTitulo1: this.titulo1,
       farmaTitulo2: this.titulo2,
       userName: this.usuarioNombre,
@@ -492,36 +488,27 @@ export class PedidosComponent implements OnInit {
       movimiento: 'surtir'
     };
 
+    const after = () => {
+      this.pedidosService.surtirPedido(body).subscribe({
+        next: async () => {
+          await Swal.fire({ icon: 'success', title: 'Éxito', html: '<h3>Pedido surtido y registrado correctamente</h3>', timer: 1600, timerProgressBar: true, allowOutsideClick: false, allowEscapeKey: false });
+          this.limpiarFiltroCompleto();
+        },
+        error: (err) => {
+          console.error('Error al surtir pedido:', err);
+          Swal.fire({ icon: 'error', title: 'Error', text: err.error?.mensaje || 'No se pudo surtir el pedido' });
+        }
+      });
+    };
 
-    await preloadImage(logoUrl, 2500);
-
-    this.mostrarTicket = true;
-    this.cdr.detectChanges();
+    (() => { this.mostrarTicket = true; this.cdr.detectChanges(); })();
     await whenDomStable();
-
-    await isolateAndPrint(this.ticketPedidoRef.nativeElement);
-
+    {
+      const el = document.getElementById('ticketPedido');
+      if (el) { await isolateAndPrint(el); }
+    }
     this.mostrarTicket = false;
-
-    this.pedidosService.surtirPedido(body).subscribe({
-      next: async () => {
-        await Swal.fire({
-          icon: 'success',
-          title: 'Éxito',
-          html: '<h3>Pedido surtido y registrado correctamente</h3>',
-          confirmButtonText: 'Continuar',
-          timer: 1600,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-        });
-        this.limpiarFiltroCompleto();
-      },
-      error: (err) => {
-        console.error('Error al surtir pedido:', err);
-        Swal.fire({ icon: 'error', title: 'Error', text: err.error?.mensaje || 'No se pudo surtir el pedido' });
-      }
-    });
+    after();
 
   }
 
@@ -569,13 +556,15 @@ export class PedidosComponent implements OnInit {
         pagoACuenta,
       };
 
-      const logoUrl = resolveLogoForPrint(this.farmaciaImagen);
+      const absLogo = resolveLogoForPrint(this.farmaciaImagen);
+      let logoData = absLogo;
+      try { logoData = await logoToDataUrlSafe(absLogo); } catch { }
 
       this.paraImpresion = {
         pedido: this.paraGuardar,
         farmaNombre: this.farmaciaNombre,
         farmaDireccion: this.farmaciaDireccion,
-        farmaImagen: logoUrl,
+        farmaImagen: logoData,
         farmaTitulo1: this.titulo1,
         farmaTitulo2: this.titulo2,
         farmaTelefono: this.farmaciaTelefono,
@@ -584,20 +573,15 @@ export class PedidosComponent implements OnInit {
         movimiento: 'agregar'
       };
 
-      // ...después de armar this.paraImpresion...
-      await preloadImage(logoUrl, 2500);
-
-      // Asegura que el ticket esté en el DOM
-      this.mostrarTicket = true;
-      this.cdr.detectChanges();
+      const after = () => this.guardarPedido();
+      (() => { this.mostrarTicket = true; this.cdr.detectChanges(); })();
       await whenDomStable();
-
-      // ✅ Imprime el CLON aislado en <body>
-      await isolateAndPrint(this.ticketPedidoRef.nativeElement);
-
-      // Oculta el ticket y guarda
+      {
+        const el = document.getElementById('ticketPedido');
+        if (el) { await isolateAndPrint(el); }
+      }
       this.mostrarTicket = false;
-      this.guardarPedido();
+      after();
 
 
     } finally {

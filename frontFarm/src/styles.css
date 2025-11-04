@@ -521,50 +521,24 @@ body {
   z-index: 10000;
 }
 
-
-/* @media print {
-  @page { size: 290pt auto; margin: 0; }
-
-  #ticketPedido, #ticketDevolucion {
-    position: fixed !important;
-    top: 0; left: 0;
-    width: 270pt !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  .ticket-impresion, .ticket-impresion * {
-    visibility: visible !important;
-  }
-
-  .logo-ticket {
-    display: block !important;
-    width: 40px !important;
-    height: auto !important;
-    visibility: visible !important;
-  }
-} */
-
+/* 
 @media print {
   @page { size: 290pt auto; margin: 0; }
 
-  /* Oculta la app completa por defecto */
   body * { visibility: hidden !important; }
 
-  /* Contenedores de tickets permitidos (venta, pedido, devolución) */
   #ticketVenta,
   #ticketPedido,
   #ticketDevolucion {
     position: fixed !important;
     top: 0; left: 0;
-    width: 270pt !important;     /* deja tu ancho habitual */
+    width: 270pt !important;
     margin: 0 !important;
     padding: 0 !important;
     z-index: 999999 !important;
-    visibility: visible !important;   /* el contenedor */
+    visibility: visible !important;
   }
 
-  /* Todo lo que esté dentro de un ticket es visible */
   #ticketVenta * ,
   #ticketPedido * ,
   #ticketDevolucion * ,
@@ -573,7 +547,6 @@ body {
     visibility: visible !important;
   }
 
-  /* Logo dentro del ticket */
   .logo-ticket {
     display: block !important;
     width: 40px !important;
@@ -581,11 +554,51 @@ body {
     visibility: visible !important;
   }
 
-  /* Evita que modales/overlays ensucien la impresión */
   .cdk-overlay-container,
   .mat-mdc-dialog-container {
     display: none !important;
   }
 }
+ */
 
+/* === PRINT, SOLO EL TICKET, Y SIN “TRANSFORMS” DE ANCESTROS === */
+@media print {
+  @page { size: 290pt auto; margin: 0; }
 
+  /* 1) Oculta TODO por defecto */
+  body * { visibility: hidden !important; }
+
+  /* 2) Muestra SOLO el ticket y su árbol */
+  .ticket-impresion,
+  .ticket-impresion * { visibility: visible !important; }
+
+  /* 3) Coloca el ticket en la hoja, nada fuera de cuadro */
+  .ticket-impresion {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 270pt !important;     /* 74 mm aprox */
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 2147483647 !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  /* 4) Neutraliza transforms/overflows de ancestros comunes
+        (Angular Material, contenedores, etc.) */
+  html, body,
+  app-root, router-outlet, .router-outlet,
+  mat-sidenav-container, mat-sidenav-content,
+  .mat-drawer-content, .mat-sidenav-content,
+  .cdk-overlay-container, .cdk-global-scrollblock {
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  [data-print="1"], 
+  [data-print="1"] * {
+    visibility: visible !important;
+  }
+
+}

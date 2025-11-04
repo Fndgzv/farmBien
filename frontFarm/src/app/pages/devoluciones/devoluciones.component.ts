@@ -18,7 +18,8 @@ import { DevolucionService } from '../../services/devolucion.service';
 import { DevolucionTicketComponent } from '../../impresiones/devolucion-ticket/devolucion-ticket.component';
 import { MatTooltip } from '@angular/material/tooltip';
 
-import { resolveLogoForPrint, preloadImage, whenDomStable, isolateAndPrint } from '../../shared/utils/print-utils';
+import { resolveLogoForPrint, logoToDataUrlSafe, printWithPreload, whenDomStable, isolateAndPrint } from '../../shared/utils/print-utils';
+import { quickPrint } from '../../shared/utils/quick-print';
 @Component({
   selector: 'app-devoluciones',
   standalone: true,
@@ -412,38 +413,39 @@ export class DevolucionesComponent implements OnInit {
     };
 
     // 9) Mostrar e imprimir con precarga de logo
-    const logoUrl = resolveLogoForPrint(this.farmaciaImagen);
+    const absLogo = resolveLogoForPrint(this.farmaciaImagen);
+    let logoData = absLogo;
+    try { logoData = await logoToDataUrlSafe(absLogo); } catch { }
 
     // Inyecta el logo resuelto en el objeto de impresión (por si el subcomponente lo usa)
     this.paraImpresion.farmacia = this.paraImpresion.farmacia || {} as any;
-    this.paraImpresion.farmacia.imagen = logoUrl;
+    this.paraImpresion.farmacia.imagen = logoData;
 
-    await preloadImage(logoUrl, 2500);
+    const after = async () => {
+      const r = await Swal.fire({
+        icon: 'question',
+        title: '¿Se imprimió correctamente el ticket?',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, guardar devolución',
+        cancelButtonText: 'No, reintentar'
+      });
 
-    this.mostrarTicket = true;
-    this.cdr.detectChanges();
+      if (r.isConfirmed) {
+        this.guardarDespuesDeImpresion();
+      } else {
+        await Swal.fire('Atención', 'La devolución no ha sido registrada. Puedes reintentar la impresión.', 'info');
+      }
+    };
+
+    (() => { this.mostrarTicket = true; this.cdr.detectChanges(); })();
     await whenDomStable();
-
-    // ✅ Imprime en un CLON aislado (fuera del layout de la app)
-    await isolateAndPrint(this.ticketDevolucionRef.nativeElement);
-
-    // Oculta el ticket original de la vista
-    this.mostrarTicket = false;
-
-    // Confirma si se imprimió bien y guarda
-    const r = await Swal.fire({
-      icon: 'question',
-      title: '¿Se imprimió correctamente el ticket?',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, guardar devolución',
-      cancelButtonText: 'No, reintentar'
-    });
-
-    if (r.isConfirmed) {
-      this.guardarDespuesDeImpresion();
-    } else {
-      await Swal.fire('Atención', 'La devolución no ha sido registrada. Puedes reintentar la impresión.', 'info');
+    {
+      const el = document.getElementById('ticketDevolucion');
+      if (el) { await isolateAndPrint(el); }
     }
+    this.mostrarTicket = false;
+    await after();
+
   }
 
   guardarDespuesDeImpresion() {
