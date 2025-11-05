@@ -18,8 +18,8 @@ import { DevolucionService } from '../../services/devolucion.service';
 import { DevolucionTicketComponent } from '../../impresiones/devolucion-ticket/devolucion-ticket.component';
 import { MatTooltip } from '@angular/material/tooltip';
 
-import { resolveLogoForPrint, logoToDataUrlSafe, printWithPreload, whenDomStable, isolateAndPrint } from '../../shared/utils/print-utils';
-import { quickPrint } from '../../shared/utils/quick-print';
+import { resolveLogoForPrint, logoToDataUrlSafe, isolateAndPrint, whenDomStable } from '../../shared/utils/print-utils';
+
 @Component({
   selector: 'app-devoluciones',
   standalone: true,
@@ -34,6 +34,7 @@ import { quickPrint } from '../../shared/utils/quick-print';
   templateUrl: './devoluciones.component.html',
   styleUrls: ['./devoluciones.component.css']
 })
+
 
 export class DevolucionesComponent implements OnInit {
   @ViewChild('contenedorTicket', { static: false }) contenedorTicket!: ElementRef;
@@ -374,8 +375,25 @@ export class DevolucionesComponent implements OnInit {
       }),
     };
 
+    const rawLogo =
+      this.farmaciaImagen ||
+      (this as any).user_farmacia?.imagen ||
+      '';
 
-    // 8) Estructura para impresión (pre-save, cálculo gemelo al backend)
+    const absLogo = resolveLogoForPrint(rawLogo);   // URL absoluta mismo origen
+    let logoData = '';
+    try { logoData = await logoToDataUrlSafe(absLogo); } catch { logoData = absLogo; }
+
+    // ========= Bloque farmacia con dataURL =========
+    const farma = {
+      nombre: this.farmaciaNombre,
+      direccion: this.farmaciaDireccion,
+      telefono: this.farmaciaTelefono,
+      titulo1: this.farmaciaTitulo1,
+      titulo2: this.farmaciaTitulo2,
+      imagen: logoData,                // <<<<<< CLAVE: dataURL aquí
+    };
+
     this.paraImpresion = {
       devolucion: {
         folioVenta: venta.folio,
@@ -402,24 +420,10 @@ export class DevolucionesComponent implements OnInit {
       monederoCambioNeto,
 
       usuario: this.usuarioNombre,
-      farmacia: {
-        nombre: this.farmaciaNombre,
-        direccion: this.farmaciaDireccion,
-        telefono: this.farmaciaTelefono,
-        imagen: this.farmaciaImagen,
-        titulo1: this.farmaciaTitulo1,
-        titulo2: this.farmaciaTitulo2,
-      },
+      farmacia: farma,
     };
 
-    // 9) Mostrar e imprimir con precarga de logo
-    const absLogo = resolveLogoForPrint(this.farmaciaImagen);
-    let logoData = absLogo;
-    try { logoData = await logoToDataUrlSafe(absLogo); } catch { }
-
-    // Inyecta el logo resuelto en el objeto de impresión (por si el subcomponente lo usa)
-    this.paraImpresion.farmacia = this.paraImpresion.farmacia || {} as any;
-    this.paraImpresion.farmacia.imagen = logoData;
+    console.log('[DEVOLUCIÓN] header.logo startsWith(data:)?', this.paraImpresion.farmacia.imagen?.startsWith('data:'), this.paraImpresion.farmacia.imagen?.slice(0,50));
 
     const after = async () => {
       const r = await Swal.fire({

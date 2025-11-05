@@ -2,8 +2,7 @@ import { Component, Input, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TicketFooterComponent } from '../ticket-footer/ticket-footer.component';
 import { TicketHeaderComponent } from '../ticket-header/ticket-header.component';
-
-
+import { PedidoTicketData } from '../ticket-types';
 @Component({
   selector: 'app-pedido-ticket',
   imports: [CommonModule, TicketFooterComponent, TicketHeaderComponent],
@@ -11,24 +10,14 @@ import { TicketHeaderComponent } from '../ticket-header/ticket-header.component'
   styleUrls: ['./pedido-ticket.component.css']
 })
 export class PedidoTicketComponent {
-  @Input() pedido!: {
-    pedido: any,
-    farmaNombre: string,
-    farmaDireccion: string,
-    farmaTelefono: string,
-    farmaImagen: string,
-    farmaTitulo1: string,
-    farmaTitulo2: string,
-    userName: string,
-    client: string,
-    movimiento: 'agregar' | 'surtir' | 'cancelar'
-  };
-    fechaActual = new Date();
+  @Input({ required: true }) pedido!: PedidoTicketData;
 
-/*     ngOnChanges(changes: SimpleChanges): void {
-  if (changes['pedido']) {
-    console.log('🟢 Pedido recibido en ticket:', this.pedido);
-  }
-} */
-
+  // Atajos de lectura (evitas null checks en el HTML)
+  get header()  { return this.pedido.farmacia; }
+  get detalle() { return this.pedido.pedido;   }
+  get cliente() { return this.pedido.cliente;  }
+  get usuario() { return this.pedido.usuario;  }
+  get mov()     { return this.pedido.movimiento; }
+  
+  fechaActual = new Date();
 }

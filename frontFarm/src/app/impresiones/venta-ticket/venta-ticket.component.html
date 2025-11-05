@@ -1,14 +1,7 @@
 <div id="ticketVenta" class="ticket-impresion" style="font-family: Roboto Condensed, Arial, sans-serif;">
 
   <!-- Encabezado -->
-  <app-ticket-header
-          [nombreFarmacia]="venta.farmacia.nombre"
-          [titulo1]="venta.farmacia.titulo1"
-          [titulo2]="venta.farmacia.titulo2"
-          [imagen]="venta.farmacia.imagen"
-          [direccion]="venta.farmacia.direccion"
-          [telefono]="venta.farmacia.telefono">
-  </app-ticket-header>
+  <app-ticket-header [farmacia]="venta.farmacia"></app-ticket-header>
 
   <!-- Tabla de productos -->
   <table class="productos lineBottom">

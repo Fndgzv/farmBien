@@ -409,16 +409,11 @@
   </div>
 </form>
 
-<!-- <app-venta-ticket
-  *ngIf="ventaParaImpresion && mostrarTicket" [venta]="ventaParaImpresion"
-  class="ticket-impresion">
-</app-venta-ticket> -->
-
 <!-- ventas.component.html -->
 <div
   id="ticketVenta"
   class="ticket-impresion"
-  *ngIf="ventaParaImpresion && mostrarTicket"
+  *ngIf="mostrarTicket && ventaParaImpresion as data"
 >
-  <app-venta-ticket [venta]="ventaParaImpresion"></app-venta-ticket>
+  <app-venta-ticket [venta]="data"></app-venta-ticket>
 </div>

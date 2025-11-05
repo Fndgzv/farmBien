@@ -1,5 +1,29 @@
 // src/app/shared/print-utils.ts
 
+export async function buildFarmaciaForTicket(ctx: {
+    farmaciaNombre: string;
+    farmaciaDireccion: string;
+    farmaciaTelefono?: string;
+    farmaciaTitulo1?: string;
+    farmaciaTitulo2?: string;
+    farmaciaImagen?: string;
+}) {
+    // URL absoluta mismo origen
+    const abs = resolveLogoForPrint(ctx.farmaciaImagen);
+    // “rompe caché” SIEMPRE (Chrome/Edge en print son caprichosos)
+    const withBuster = abs + (abs.includes('?') ? '&' : '?') + 'v=' + Date.now();
+
+    return {
+        nombre: ctx.farmaciaNombre,
+        direccion: ctx.farmaciaDireccion,
+        telefono: ctx.farmaciaTelefono || '',
+        titulo1: ctx.farmaciaTitulo1 || '',
+        titulo2: ctx.farmaciaTitulo2 || '',
+        imagen: withBuster,      // 👈 ESTA es la que ve <app-ticket-header>
+    };
+}
+
+
 export async function whenDomStable(): Promise<void> {
     // 2 RAFs: garantiza que Angular terminó de pintar
     await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
@@ -183,32 +207,64 @@ export async function isolateAndPrint(
 
 export async function logoToDataUrlSafe(src: string, timeoutMs = 2500): Promise<string> {
     try {
-        if (!src || src.startsWith('data:')) return src;
-
-        // precarga
-        await preloadImage(src, timeoutMs);
-
-        // dibuja en canvas -> dataURL
-        return await new Promise<string>((res) => {
+        if (!src || src.startsWith('data:')) return src || '';
+        await new Promise<void>((resolve) => {
             const img = new Image();
             (img as any).crossOrigin = 'anonymous';
-            img.onload = () => {
-                try {
-                    const c = document.createElement('canvas');
-                    c.width = img.naturalWidth || 64;
-                    c.height = img.naturalHeight || 64;
-                    const ctx = c.getContext('2d')!;
-                    ctx.drawImage(img, 0, 0);
-                    res(c.toDataURL('image/png'));
-                } catch { res(src); }
-            };
-            img.onerror = () => res(src);
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
             img.src = src;
+            setTimeout(resolve, timeoutMs);
         });
-    } catch {
-        return src;
-    }
+        return await new Promise<string>((res) => {
+            try {
+                const img = new Image();
+                (img as any).crossOrigin = 'anonymous';
+                img.onload = () => {
+                    try {
+                        const c = document.createElement('canvas');
+                        c.width = img.naturalWidth || 64;
+                        c.height = img.naturalHeight || 64;
+                        const ctx = c.getContext('2d')!;
+                        ctx.drawImage(img, 0, 0);
+                        res(c.toDataURL('image/png'));
+                    } catch { res(src); }
+                };
+                img.onerror = () => res(src);
+                img.src = src;
+            } catch { res(src); }
+        });
+    } catch { return src; }
 }
+
+// --- LOGO: traer como dataURL, si falla regresa el src tal cual
+export async function toDataURL(src: string, timeoutMs = 2500): Promise<string> {
+    if (!src || src.startsWith('data:')) return src || '';
+    return new Promise<string>((resolve) => {
+        const img = new Image();
+        // mismo origen: OK; si algún día es CDN, manten esto
+        (img as any).crossOrigin = 'anonymous';
+        const t = setTimeout(() => resolve(src), timeoutMs);
+        img.onload = () => {
+            try {
+                const c = document.createElement('canvas');
+                c.width = img.naturalWidth || 64;
+                c.height = img.naturalHeight || 64;
+                c.getContext('2d')!.drawImage(img, 0, 0);
+                clearTimeout(t);
+                resolve(c.toDataURL('image/png'));
+            } catch {
+                clearTimeout(t);
+                resolve(src);
+            }
+        };
+        img.onerror = () => { clearTimeout(t); resolve(src); };
+        img.src = src;
+    });
+}
+
+
+
 
 
 

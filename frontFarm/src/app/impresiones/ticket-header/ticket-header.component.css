@@ -9,6 +9,13 @@
   height: auto;
 }
 
+.logo-ticket {
+  display: block;
+  width: 40px;    /* o lo que uses */
+  height: auto;
+}
+
+
 .titulos {
   flex: 1;                 /* ← ocupa todo el ancho restante */
   display: flex;

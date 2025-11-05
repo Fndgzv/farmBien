@@ -5,7 +5,7 @@
         [nombreFarmacia]="venta.farmacia.nombre"
         [direccion]="venta.farmacia.direccion"
         [telefono]="venta.farmacia.telefono"
-        [imagen]="venta.farmacia.imagen"
+        [imagen]="venta?.farmacia?.imagen || venta.farmaImagen || ''"
         [titulo1]="venta.farmacia.titulo1"
         [titulo2]="venta.farmacia.titulo2">
     </app-ticket-header>

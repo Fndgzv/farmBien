@@ -22,7 +22,8 @@ import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
 import { MatTooltip } from '@angular/material/tooltip';
 
-import { resolveLogoForPrint, preloadImage, printWithPreload } from '../../shared/utils/print-utils';
+import { quickPrint } from '../../shared/utils/quick-print';
+import { logoToDataUrlSafe, resolveLogoForPrint } from '../../shared/utils/print-utils';
 
 @Component({
   selector: 'app-ventas',
@@ -1285,52 +1286,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.focusBarcode(50);
   }
 
-  private async waitImagesLoaded(containerId: string, timeoutMs = 3000): Promise<void> {
-    const root = document.getElementById(containerId);
-    if (!root) return;
-    const imgs = Array.from(root.querySelectorAll('img')) as HTMLImageElement[];
-    if (imgs.length === 0) return;
-
-    const allLoaded = Promise.all(
-      imgs.map(img => new Promise<void>(res => {
-        if (img.complete && img.naturalWidth > 0) return res();
-        const onLoad = () => { cleanup(); res(); };
-        const onErr = () => { cleanup(); res(); }; // no bloqueamos si falla
-        const cleanup = () => {
-          img.removeEventListener('load', onLoad);
-          img.removeEventListener('error', onErr);
-        };
-        img.addEventListener('load', onLoad);
-        img.addEventListener('error', onErr);
-      }))
-    );
-
-    await Promise.race([allLoaded, new Promise<void>(r => setTimeout(r, timeoutMs))]);
-  }
-
-  private isEdge(): boolean {
-    return /Edg\//.test(navigator.userAgent); // Edge (Chromium)
-  }
-
-
-  private whenDomStable(): Promise<void> {
-    // 2 RAFs para asegurar que Angular ya pintó el ticket
-    return new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve()); // 👈 no pasamos resolve como callback directo
-      });
-    });
-  }
-
-  private async logoToDataUrl(absUrl: string): Promise<string> {
-    const resp = await fetch(absUrl, { cache: 'reload' });
-    const blob = await resp.blob();
-    return await new Promise<string>((res) => {
-      const r = new FileReader();
-      r.onload = () => res(String(r.result));
-      r.readAsDataURL(blob);
-    });
-  }
 
   async finalizarVenta() {
     // --- Normalizar pagos
@@ -1355,12 +1310,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const folio = this.folioVentaGenerado || this.generarFolioLocal();
     this.folioVentaGenerado = folio;
 
-    // ✅ Resolver logo absoluto UNA vez
-    const logoAbs = resolveLogoForPrint(this.farmaciaImagen);
-    await preloadImage(logoAbs, 2500);
-    let logoForTicket = logoAbs;
-    try { logoForTicket = await this.logoToDataUrl(logoAbs); } catch { }
-
     const productos = this.carrito.map(p => ({
       producto: p.producto,
       nombre: p.nombre,
@@ -1376,17 +1325,28 @@ export class VentasComponent implements OnInit, AfterViewInit {
       monederoCliente: (p.almonedero ?? 0) * p.cantidad,
     }));
 
+
+    // 1) Resuelve URL absoluta del logo
+    const absLogo = resolveLogoForPrint(this.farmaciaImagen);
+
+    // 2) Conviértelo a dataURL (misma-origin, no hay CORS)
+    let logoData = '';
+    try { logoData = await logoToDataUrlSafe(absLogo); } catch { logoData = absLogo; }
+
+    // 3) Construye el bloque de farmacia con la IMAGEN embebida
+    const farma = {
+      nombre: this.farmaciaNombre,
+      direccion: this.farmaciaDireccion,
+      telefono: this.farmaciaTelefono,
+      titulo1: this.farmaciaTitulo1,
+      titulo2: this.farmaciaTitulo2,
+      imagen: logoData,         // <<<<<< **AQUÍ VA EL DATAURL**
+    };
+
     this.ventaParaImpresion = {
       folio: this.folioVentaGenerado,
       cliente: this.nombreCliente,
-      farmacia: {
-        nombre: this.farmaciaNombre,
-        titulo1: this.farmaciaTitulo1,
-        titulo2: this.farmaciaTitulo2,
-        direccion: this.farmaciaDireccion,
-        telefono: this.farmaciaTelefono,
-        imagen: logoForTicket,
-      },
+      farmacia: farma,
       productos,
       cantidadProductos: this.totalArticulos,
       total: this.total,
@@ -1404,23 +1364,13 @@ export class VentasComponent implements OnInit, AfterViewInit {
       usuario: this.nombreUs
     };
 
-    // Mostrar ticket antes de imprimir
-    this.mostrarTicket = true;
-    this.mostrarModalPago = false;
-    this.cdRef.detectChanges();
+    console.log('VENTA → farmacia para imprimir:', this.ventaParaImpresion.farmacia);
 
-
-    await printWithPreload(
-      () => logoAbs,                 // qué imagen pre-cargar (puede ser la misma URL)
-      undefined,                     // beforeShow (ya mostramos arriba)
-      () => {                        // afterHide
-        this.mostrarTicket = false;
-      },
-      () => {                        // onAfterPrint -> guardar UNA sola vez
-        this.guardarVentaDespuesDeImpresion(folio);
-        this.hayCliente = false;
-      },
-      '#ticketVenta'                 // el contenedor que se imprime
+    const after = () => this.guardarVentaDespuesDeImpresion(folio);
+    quickPrint(
+      () => { this.mostrarTicket = true; this.cdRef.detectChanges(); },
+      () => { this.mostrarTicket = false; },
+      after
     );
 
   }

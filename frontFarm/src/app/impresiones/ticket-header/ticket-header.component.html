@@ -1,27 +1,24 @@
-<!-- src/app/impresiones/ticket-header/ticket-header.component.html -->
- 
-<div class="lineBottom">
+<div class="lineBottom ticket-header">
   <div class="encabezado-flex">
-
     <img
+      class="logo logo-ticket"
       [src]="safeLogoSrc"
       alt="Logo"
-      class="logo logo-ticket"
       loading="eager"
       decoding="sync"
       (load)="onLogoLoad()"
       (error)="onLogoError($event)"
     />
+
     <div class="titulos">
       <div class="titulo1">{{ titulo1 }}</div>
       <div class="titulo2">{{ titulo2 }}</div>
     </div>
   </div>
 
-  <div class="datos-farmacia" style="font-size: 16px;">
+  <div class="datos-farmacia" style="font-size:16px">
     Sucursal: {{ nombreFarmacia }}<br />
     {{ direccion }}<br />
-    <!-- solo si viene teléfono -->
     <ng-container *ngIf="telefono && telefono.trim()">
       Teléfono: {{ telefono }}
     </ng-container>

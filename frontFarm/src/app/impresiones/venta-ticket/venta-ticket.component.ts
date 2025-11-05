@@ -8,7 +8,7 @@ import { TicketFooterComponent } from "../ticket-footer/ticket-footer.component"
   selector: 'app-venta-ticket',
   imports: [CommonModule, TicketHeaderComponent, TicketFooterComponent],
   templateUrl: './venta-ticket.component.html',
-  styleUrl: './venta-ticket.component.css'
+  styleUrls: ['./venta-ticket.component.css']
 })
 export class VentaTicketComponent {
   @Input() venta: any;
