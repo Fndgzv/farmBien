@@ -205,6 +205,108 @@ export async function isolateAndPrint(
     });
 }
 
+export async function isolateAndPrintOnce(srcEl: HTMLElement): Promise<void> {
+  // 1) Ventana limpia
+  const w = window.open('', '_blank', 'noopener,noreferrer,width=780,height=900');
+  if (!w) throw new Error('No se pudo abrir la ventana de impresión');
+
+  const doc = w.document;
+
+  // 2) CSS mínimo (el tuyo de ticket) — NO dupliques HTML
+  doc.open();
+  doc.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8"/>
+        <title>Imprimir</title>
+        <style>
+          /* Tu CSS global de ticket */
+          @page { size: 80mm auto; margin: 0; }
+          body { margin: 0; }
+          .ticket-impresion { width: 276pt; margin-left: 8.5pt; }
+          /* agrega aquí el resto de reglas que ya usas para tickets */
+        </style>
+      </head>
+      <body>
+        ${srcEl.outerHTML}  <!-- 👈 SE ESCRIBE UNA SOLA VEZ -->
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  // 3) Espera a que carguen las imágenes (logo) antes de imprimir
+  await new Promise<void>(resolve => {
+    const imgs = Array.from(doc.images);
+    if (!imgs.length) return resolve();
+    let pend = imgs.length;
+    const done = () => (--pend <= 0) && resolve();
+    imgs.forEach(img => {
+      if (img.complete) return done();
+      img.onload = done;
+      img.onerror = done;
+    });
+    // “plan B” por si el onload no se dispara
+    setTimeout(resolve, 1000);
+  });
+
+  // 4) Imprime UNA sola vez y cierra
+  await new Promise<void>(resolve => {
+    w.onafterprint = () => { try { w.close(); } catch {} resolve(); };
+    // Chrome a veces necesita un tick para pintar
+    setTimeout(() => w.print(), 50);
+  });
+}
+
+// Fallback robusto: imprime un elemento en una ventana aislada y cierra.
+export async function printElementOnce(el: HTMLElement) {
+  if (!el) return;
+
+  // Asegura que el HTML a imprimir ya existe
+  const htmlTicket = el.outerHTML;
+
+  // CSS mínimo para ticket (ajusta si usas otras medidas)
+  const css = `
+    @page { size: 80mm auto; margin: 0; }
+    html, body { margin:0; padding:0; }
+    .ticket-impresion { width: 276pt; margin-left: 8.5pt; }
+  `;
+
+  const docHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ticket</title>
+  <style>${css}</style>
+</head>
+<body>${htmlTicket}</body>
+</html>`;
+
+  const w = window.open('', 'ticketWin', 'width=600,height=800,noopener,noreferrer');
+  if (!w) { alert('Habilita los pop-ups para imprimir.'); return; }
+
+  // Escribimos y esperamos onload
+  w.document.open();
+  w.document.write(docHtml);
+  w.document.close();
+
+  // Asegura un único disparo
+  let fired = false;
+  const doPrint = () => {
+    if (fired) return;
+    fired = true;
+    try { w.focus(); } catch {}
+    try { w.print(); } catch {}
+    // Cierra después de un pequeño delay (Edge/Chrome)
+    setTimeout(() => { try { w.close(); } catch {} }, 250);
+  };
+
+  // Cuando cargue el DOM, imprime
+  w.onload = doPrint;
+  // Fallback si onload no dispara por políticas del navegador
+  setTimeout(doPrint, 700);
+}
+
 export async function logoToDataUrlSafe(src: string, timeoutMs = 2500): Promise<string> {
     try {
         if (!src || src.startsWith('data:')) return src || '';
@@ -264,6 +366,76 @@ export async function toDataURL(src: string, timeoutMs = 2500): Promise<string> 
 }
 
 
+// print-utils.ts
+export async function printNodeInIframe(node: HTMLElement): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    try {
+      // 1) Crear iframe oculto
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
+      document.body.appendChild(iframe);
+
+      const win = iframe.contentWindow!;
+      const doc = win.document;
+
+      // 2) Copiar estilos globales (styles.css y <style> del head)
+      const head = document.head.cloneNode(true) as HTMLElement;
+
+      // 3) Clonar el ticket renderizado
+      const clone = node.cloneNode(true) as HTMLElement;
+
+      // 4) Escribir documento del iframe
+      doc.open();
+      doc.write('<!doctype html><html><head></head><body></body></html>');
+      doc.close();
+
+      // Insertar head y ticket
+      doc.head.innerHTML = head.innerHTML;
+      doc.body.appendChild(clone);
+
+      // 5) Esperar fuentes/imagenes
+      const whenReady = () =>
+        new Promise<void>(r => setTimeout(r, 50)); // pequeño respiro para layout
+      const waitImages = () =>
+        Promise.all(Array.from(doc.images).map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); });
+        })).then(() => undefined);
+
+      (async () => {
+        await waitImages();
+        await whenReady();
+
+        // 6) Imprimir una sola vez
+        win.onafterprint = () => {
+          try { document.body.removeChild(iframe); } catch {}
+          resolve();
+        };
+
+        // Edge fallback
+        setTimeout(() => {
+          try {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+              resolve();
+            }
+          } catch {}
+        }, 2000);
+
+        win.focus();
+        win.print();
+      })();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
 
 
 

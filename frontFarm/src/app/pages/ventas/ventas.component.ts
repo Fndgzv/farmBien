@@ -2,7 +2,7 @@
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
 import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap, tap } from 'rxjs/operators';
 import { of, Observable, from, mergeMap, firstValueFrom } from 'rxjs';
-import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule, NgForm } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
 import { VentasService } from '../../services/ventas.service';
@@ -22,8 +22,8 @@ import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
 import { MatTooltip } from '@angular/material/tooltip';
 
-import { quickPrint } from '../../shared/utils/quick-print';
-import { logoToDataUrlSafe, resolveLogoForPrint } from '../../shared/utils/print-utils';
+import { resolveLogoForPrint, logoToDataUrlSafe, whenDomStable, printNodeInIframe } from '../../shared/utils/print-utils';
+
 
 @Component({
   selector: 'app-ventas',
@@ -145,6 +145,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   thumbs: Record<string, string> = {};
   consultaEncontrado = false;
   consultaImgUrl: string = this.placeholderSrc;
+
+  public isPrinting = false;
 
   /* Configuración de la escala de la imagen en los renglones de la tabla */
   thumbScale = 2; scales = [1, 1.5, 2, 2.5, 3, 3.5, 4];
@@ -280,6 +282,20 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   }
 
+  onSubmitVenta(form: NgForm) {
+    this.finalizarVenta();
+  }
+
+  onEnterSubmit(ev: KeyboardEvent | Event) {
+    // si quieres usar Enter desde el form:
+    const e = ev as KeyboardEvent;
+    e.preventDefault();
+    (e as any).stopPropagation?.();
+    if (this.mostrarModalPago && this.totalPagado >= this.total) {
+      this.finalizarVenta();
+    }
+  }
+
 
   async cargarFarmacia() {
     try {
@@ -315,17 +331,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   ngOnDestroy(): void {
     if (this.carrito.length > 0) {
       this.pausarVenta();
-    }
-  }
-
-  // Permite disparar "Imprimir" con Enter cuando el modal está abierto y el total está cubierto
-  @HostListener('document:keydown.enter', ['$event'])
-  handleEnter(e: KeyboardEvent) {
-    if (this.mostrarModalPago) {
-      e.preventDefault();
-      if (this.pagoEfectivo + this.pagoTarjeta1 + this.pagoTransferencia1 + this.pagoVale1 >= this.total) {
-        this.finalizarVenta();
-      }
     }
   }
 
@@ -1286,9 +1291,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.focusBarcode(50);
   }
 
-
   async finalizarVenta() {
-    // --- Normalizar pagos
+    if (this.isPrinting) return;
+
+    // --- Validaciones/pagos (idénticas a las tuyas) ---
     this.efectivoRecibido = Math.max(0, this.pagoEfectivo);
     this.montoTarjeta = Math.max(0, this.pagoTarjeta1);
     this.montoTransferencia = Math.max(0, this.pagoTransferencia1);
@@ -1298,14 +1304,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const totalPagado = this.efectivoRecibido + this.montoTarjeta + this.montoTransferencia + this.montoVale;
     const pagosDigitales = this.montoTarjeta + this.montoTransferencia + this.montoVale;
 
-    if (pagosDigitales > this.total) {
-      Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error');
-      return;
-    }
-    if (totalPagado < this.total) {
-      Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning');
-      return;
-    }
+    if (pagosDigitales > this.total) { await Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error'); return; }
+    if (totalPagado < this.total) { await Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning'); return; }
 
     const folio = this.folioVentaGenerado || this.generarFolioLocal();
     this.folioVentaGenerado = folio;
@@ -1325,26 +1325,22 @@ export class VentasComponent implements OnInit, AfterViewInit {
       monederoCliente: (p.almonedero ?? 0) * p.cantidad,
     }));
 
-
-    // 1) Resuelve URL absoluta del logo
+    // Logo embebido
     const absLogo = resolveLogoForPrint(this.farmaciaImagen);
-
-    // 2) Conviértelo a dataURL (misma-origin, no hay CORS)
     let logoData = '';
     try { logoData = await logoToDataUrlSafe(absLogo); } catch { logoData = absLogo; }
 
-    // 3) Construye el bloque de farmacia con la IMAGEN embebida
     const farma = {
       nombre: this.farmaciaNombre,
       direccion: this.farmaciaDireccion,
       telefono: this.farmaciaTelefono,
       titulo1: this.farmaciaTitulo1,
       titulo2: this.farmaciaTitulo2,
-      imagen: logoData,         // <<<<<< **AQUÍ VA EL DATAURL**
+      imagen: logoData,
     };
 
     this.ventaParaImpresion = {
-      folio: this.folioVentaGenerado,
+      folio,
       cliente: this.nombreCliente,
       farmacia: farma,
       productos,
@@ -1364,16 +1360,30 @@ export class VentasComponent implements OnInit, AfterViewInit {
       usuario: this.nombreUs
     };
 
-    console.log('VENTA → farmacia para imprimir:', this.ventaParaImpresion.farmacia);
+    // --- Mostrar el ticket en el DOM (para clonar) ---
+    this.mostrarModalPago = false;
+    this.mostrarTicket = true;
+    this.cdRef.detectChanges();
+    await whenDomStable();
 
-    const after = () => this.guardarVentaDespuesDeImpresion(folio);
-    quickPrint(
-      () => { this.mostrarTicket = true; this.cdRef.detectChanges(); },
-      () => { this.mostrarTicket = false; },
-      after
-    );
+    this.isPrinting = true;
 
+try {
+  const el = document.getElementById('ticketVenta');
+  if (!el) throw new Error('ticketVenta no encontrado');
+
+  // 🔥 Imprime SOLO el ticket en un iframe oculto (sin tocar tu @media print global)
+  await printNodeInIframe(el);
+
+  // Guardar **después** de imprimir
+  this.guardarVentaDespuesDeImpresion(this.folioVentaGenerado!);
+} finally {
+  this.mostrarTicket = false;
+  this.isPrinting = false;
+  this.cdRef.detectChanges();
+}
   }
+
 
   limpiarVenta() {
     this.carrito = [];

@@ -306,7 +306,7 @@
 </div>
 
 <!-- Modal Método de Pago -->
-<form #payForm="ngForm" (ngSubmit)="finalizarVenta()">
+<form #payForm="ngForm" (ngSubmit)="onSubmitVenta(payForm)" (keydown.enter)="onEnterSubmit($any($event))">
   <div class="modal-overlay" *ngIf="mostrarModalPago">
     <div class="modal-content">
       <div class="modal-header bg-info-subtle text-blue">
@@ -320,7 +320,7 @@
         <div class="form-group row mb-2">
           <label for="efectivoRecibido" class="col-sm-4 col-form-label text-left">Efectivo:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input #efectivoRecibidoRef id="efectivoRecibido" name="efectivoRecibido" type="number"
+            <input #efectivoRecibidoRef id="efectivoRecibido" name="efectivoRecibido" type="number" (keydown.enter)="$event.preventDefault()"
               class="form-control text-end" [(ngModel)]="efectivoRecibido" (ngModelChange)="calculaCambio()" [min]="0"
               step="0.1" [disabled]="ocultarEfectivo" autocomplete="off" inputmode="decimal" [attr.autofocus]="true" />
           </div>
@@ -330,7 +330,7 @@
         <div class="form-group row mb-2">
           <label for="montoTarjeta" class="col-sm-4 col-form-label text-left">Tarjeta:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input id="montoTarjeta" name="montoTarjeta" type="number" class="form-control text-end"
+            <input id="montoTarjeta" name="montoTarjeta" type="number" class="form-control text-end" (keydown.enter)="$event.preventDefault()"
               [(ngModel)]="montoTarjeta" (ngModelChange)="pagoTarjeta()" [min]="0"
               [max]="total - pagoTransferencia1 - pagoVale1" step="0.1" [disabled]="ocultaTarjeta" autocomplete="off"
               inputmode="decimal" />
@@ -341,7 +341,7 @@
         <div class="form-group row mb-2">
           <label for="montoTransferencia" class="col-sm-4 col-form-label">Transferencia:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input id="montoTransferencia" name="montoTransferencia" type="number" class="form-control text-end"
+            <input id="montoTransferencia" name="montoTransferencia" type="number" class="form-control text-end" (keydown.enter)="$event.preventDefault()"
               [(ngModel)]="montoTransferencia" (ngModelChange)="pagoTransferencia()" [min]="0"
               [max]="total - pagoTarjeta1 - pagoVale1" step="0.1" [disabled]="ocultaTransferencia" autocomplete="off"
               inputmode="decimal" />
@@ -395,8 +395,8 @@
       <div class="btns-container">
         <button type="button" class="btn-rojo-tache" (click)="cancelarPago()">Cancelar</button>
         <button type="submit" class="btn-gris"
-          [disabled]="pagoEfectivo + pagoTarjeta1 + pagoTransferencia1 + pagoVale1 < total">
-          Imprimir
+          [disabled]="isPrinting || (pagoEfectivo + pagoTarjeta1 + pagoTransferencia1 + pagoVale1 < total)">
+          {{ isPrinting ? 'Imprimiendo…' : 'Imprimir' }}
         </button>
       </div>
 
