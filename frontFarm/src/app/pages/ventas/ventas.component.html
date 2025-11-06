@@ -118,7 +118,7 @@
 
       <div *ngIf="consultaEncontrado" class="row">
         <div class="consulta-img-wrap col-sm-7 text-center">
-          <img [src]="consultaImgUrl" (error)="consultaImgUrl = placeholderSrc" alt="Imagen de producto">
+        <img [src]="consultaImgUrl" (error)="onConsultaImgError($event)" alt="Imagen de producto">
         </div>
         <div *ngIf="productoConsultado" class="col-sm-5 text-center mt-4">
           <strong>Ubicación:</strong>
@@ -255,11 +255,10 @@
           <td class="col-img">
             <div class="img-cell">
               <button type="button" class="img-button" (click)="openPreviewVenta(p)">
-                <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt=""
-                  loading="lazy" decoding="async" matTooltip="Ver imagen" matTooltipPosition="right"
-                matTooltipClass="tip-tight"
-                />
-              </button>
+                <img [src]="thumbs[p.producto] || placeholderSrc"
+                  (error)="onThumbError($event, p)"
+                  alt="" loading="lazy" decoding="async">
+                </button>
             </div>
           </td>
 

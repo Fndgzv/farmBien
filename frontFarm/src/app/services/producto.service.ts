@@ -94,15 +94,6 @@ export class ProductoService {
   }
 
 
-  // opcional, ponlo abajito
-  private farmIconFallback(): string {
-    const api = environment.apiUrl;
-    const backendOrigin = new URL(api, window.location.origin).origin;
-    return `${backendOrigin}/browser/assets/images/farmBienIcon.png`;
-  }
-
-
-
   getImagenObjectUrl(id: string): Observable<string> {
     return this.http
       .get(`${this.apiUrl}/${id}/imagen`, { responseType: 'blob' })

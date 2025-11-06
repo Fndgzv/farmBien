@@ -24,6 +24,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 
 import { resolveLogoForPrint, logoToDataUrlSafe, whenDomStable, printNodeInIframe } from '../../shared/utils/print-utils';
 
+import { buildImgUrl } from '../../shared/img-url';
 
 @Component({
   selector: 'app-ventas',
@@ -43,6 +44,7 @@ import { resolveLogoForPrint, logoToDataUrlSafe, whenDomStable, printNodeInIfram
   styleUrl: './ventas.component.css'
 })
 export class VentasComponent implements OnInit, AfterViewInit {
+
   @ViewChild('codigoBarrasRef') codigoBarrasRef!: ElementRef<HTMLInputElement>;
   @ViewChild('efectivoRecibidoRef') efectivoRecibidoRef!: ElementRef<HTMLInputElement>; // <-- para enfocar el primer input del modal
 
@@ -141,6 +143,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
   clienteNombreCtrl = new FormControl<string | any>({ value: '', disabled: false });
   filteredClientes$: Observable<any[]> = of([]);
 
+  productosCargando = true;
+  pendingScan: string | null = null;
+
+  buildImgUrlRef = buildImgUrl;
   placeholderSrc = 'assets/images/farmBienIcon.png';
   thumbs: Record<string, string> = {};
   consultaEncontrado = false;
@@ -155,6 +161,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
   onScaleChange(v: number) {
     this.thumbScale = v;
     localStorage.setItem('thumbScale', String(v));
+  }
+
+  onImgError(ev: Event) {
+    const el = ev.target as HTMLImageElement | null;
+    if (el && !el.src.includes(this.placeholderSrc)) el.src = this.placeholderSrc;
   }
 
   private resetConsulta(): void {
@@ -728,6 +739,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   obtenerProductos() {
+    this.productosCargando = true;
+
     this.productoService.obtenerProductos().subscribe({
       next: (data) => {
         this.productos = data || [];
@@ -736,6 +749,15 @@ export class VentasComponent implements OnInit, AfterViewInit {
         // Inicial en placeholder
         for (const prod of this.productos) {
           this.thumbs[prod._id] = this.placeholderSrc;
+        }
+
+        this.productosCargando = false;
+
+        if (this.pendingScan) {
+          const code = this.pendingScan;
+          this.pendingScan = null;
+          this.codigoBarras = code;
+          this.agregarProductoPorCodigo();
         }
 
         // Cargar con auth solo los que tienen imagen
@@ -749,49 +771,80 @@ export class VentasComponent implements OnInit, AfterViewInit {
           }, 6)
         ).subscribe();
       },
-      error: (error) => console.error('Error al obtener productos', error)
+      error: (error) => {
+        console.error('Error al obtener productos', error);
+        this.productosCargando = false; // no te quedes “cargando” si falla
+      }
     });
   }
 
   onThumbError(ev: Event, p: any) {
     const img = ev.target as HTMLImageElement;
-    if (img && img.src !== this.placeholderSrc) img.src = this.placeholderSrc;
-
-  }
-
-  agregarProductoPorCodigo() {
-    if (this.codigoBarras.length === 0 && this.carrito.length > 0) {
-      this.abrirModalPago();
-    } else {
-      const producto = this.productos.find(p => p.codigoBarras === this.codigoBarras);
-      if (!producto) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Producto no encontrado',
-          text: 'Verifica el código de barras',
-          timer: 1300,
-          showConfirmButton: false,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false
-        }).then(() => this.focusBarcode(60)); // vuelve el foco al lector si quieres
-
-      } else {
-
-        this.existenciaProducto(this.farmaciaId, producto._id, 1).then(() => {
-          if (!this.hayProducto) {
-            this.codigoBarras = '';
-            return;
-          }
-          this.agregarProductoAlCarrito(producto);
-        }).catch((error: any) => {
-          console.error('Error en existenciaProducto: ', error);
-        });
-      }
-      this.codigoBarras = '';
-      this.focusBarcode();
+    if (!img) return;
+    if (img.src !== this.placeholderSrc) {
+      img.src = this.placeholderSrc;              // evita loop
+      this.thumbs[p.producto] = this.placeholderSrc; // cachea el placeholder
     }
   }
+
+  onConsultaImgError(ev: Event) {
+    const img = ev.target as HTMLImageElement;
+    if (!img) return;
+    if (img.src !== this.placeholderSrc) {
+      img.src = this.placeholderSrc;
+    }
+  }
+
+
+agregarProductoPorCodigo() {
+  // 0) Normaliza el input del lector
+  const code = (this.codigoBarras || '').trim();
+  this.codigoBarras = ''; // limpia SIEMPRE el input visible
+
+  // 1) Si aún no cargan productos, encola el escaneo y sal
+  if (this.productosCargando) {
+    if (code.length) this.pendingScan = code;
+    return;
+  }
+
+  // 2) Si viene vacío y ya hay carrito -> pregunta cobro
+  if (!code && this.carrito.length > 0) {
+    this.abrirModalPago();
+    // el focus lo manejamos abajo en finally
+    this.focusBarcode(60);
+    return;
+  }
+
+  // 3) Buscar el producto por código de barras
+  const producto = this.productos.find(p => String(p.codigoBarras) === code);
+
+  if (!producto) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Producto no encontrado',
+      text: 'Verifica el código de barras',
+      timer: 1300,
+      showConfirmButton: false,
+      timerProgressBar: true,
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    }).then(() => this.focusBarcode(60));
+    return;
+  }
+
+  // 4) Verificar existencia y agregar al carrito
+  this.existenciaProducto(this.farmaciaId, producto._id, 1)
+    .then(() => {
+      if (!this.hayProducto) return; // ya mostró alerta de existencia
+      this.agregarProductoAlCarrito(producto);
+    })
+    .catch((error: any) => {
+      console.error('Error en existenciaProducto: ', error);
+    })
+    .finally(() => {
+      this.focusBarcode(60);
+    });
+}
 
   async agregarProductoAlCarrito(producto: any) {
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
@@ -1368,20 +1421,20 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     this.isPrinting = true;
 
-try {
-  const el = document.getElementById('ticketVenta');
-  if (!el) throw new Error('ticketVenta no encontrado');
+    try {
+      const el = document.getElementById('ticketVenta');
+      if (!el) throw new Error('ticketVenta no encontrado');
 
-  // 🔥 Imprime SOLO el ticket en un iframe oculto (sin tocar tu @media print global)
-  await printNodeInIframe(el);
+      // 🔥 Imprime SOLO el ticket en un iframe oculto (sin tocar tu @media print global)
+      await printNodeInIframe(el);
 
-  // Guardar **después** de imprimir
-  this.guardarVentaDespuesDeImpresion(this.folioVentaGenerado!);
-} finally {
-  this.mostrarTicket = false;
-  this.isPrinting = false;
-  this.cdRef.detectChanges();
-}
+      // Guardar **después** de imprimir
+      this.guardarVentaDespuesDeImpresion(this.folioVentaGenerado!);
+    } finally {
+      this.mostrarTicket = false;
+      this.isPrinting = false;
+      this.cdRef.detectChanges();
+    }
   }
 
 
