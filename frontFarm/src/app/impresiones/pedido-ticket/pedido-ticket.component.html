@@ -28,7 +28,7 @@
         </div>
         <hr />
         <div class="info-general">
-            <div style="font-size: 15px;">Folio pedido: {{ pedido.pedido.folio }}</div>
+            <div class="folio-ticket">Folio pedido: {{ pedido.pedido.folio }}</div>
             Fecha: {{ fechaActual | date:'dd/MM/yyyy HH:mm' }} hrs.<br />
             Atendió: {{ pedido.usuario }}<br />
             Cliente: {{ pedido.cliente || 'Público general' }}

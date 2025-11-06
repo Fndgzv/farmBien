@@ -25,7 +25,8 @@
     </thead>
 
     <tbody>
-      <ng-container *ngFor="let p of venta.productos" style="font-size: 16px;">
+      <!-- <ng-container *ngFor="let p of venta.productos" style="font-size: 12px;"> -->
+      <ng-container *ngFor="let p of venta.productos">
         <tr>
           <td colspan="4">
             <span class="producto-nombre">
@@ -81,7 +82,7 @@
 
   <!-- Info general -->
   <div class="info-general lineBottom">
-    <div style="font-size: 18px;">Folio: {{ venta.folio }}</div>
+    <div class = "folio-ticket">Folio: {{ venta.folio }}</div>
     Fecha: {{ venta.fecha | date:'dd/MM/yyyy HH:mm' }} hrs.<br />
     Atendió: {{ venta.usuario }}<br />
     Cliente: {{ venta.cliente || 'Público general' }}

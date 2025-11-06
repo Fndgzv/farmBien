@@ -1,7 +1,7 @@
-<div class="lineBottom ticket-header">
+<div class="lineBottom">
   <div class="encabezado-flex">
     <img
-      class="logo logo-ticket"
+      class="logo"
       [src]="safeLogoSrc"
       alt="Logo"
       loading="eager"
@@ -16,7 +16,7 @@
     </div>
   </div>
 
-  <div class="datos-farmacia" style="font-size:16px">
+  <div class="datos-farmacia">
     Sucursal: {{ nombreFarmacia }}<br />
     {{ direccion }}<br />
     <ng-container *ngIf="telefono && telefono.trim()">

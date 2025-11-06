@@ -1,12 +1,8 @@
 .totales {
-  font-size: 17px !important;
+  font-size: 12px !important;
+  text-align: end;
   line-height: 1.5;
 }
-
-.totales {
-  text-align: end;
-}
-
 
 .producto-nombre {
   font-weight: bold;
@@ -22,7 +18,7 @@
 
 /* Tabla responsiva fija */
 .productos { width: 100%; table-layout: fixed; border-collapse: collapse; }
-.productos th, .productos td { padding: 1px 0; font-size: 17px; }
+.productos th, .productos td { padding: 1px 0; font-size: 11px; }
 
 /* Anchos ajustados para acercar PROMO al IMPORTE */
 .col-unit    { width: 24%; }
@@ -48,7 +44,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
-  font-size: 16px;
+  font-size: 12px;
   letter-spacing: -0.2px;
 }
 
@@ -57,9 +53,17 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 17px;
+  font-size: 13px;
   margin-top: 2px;
 }
 
 /* Asegura la alineación derecha cuando uses esta clase */
 .text-right { text-align: right !important; }
+
+.info-general {
+  font-size: 12px;
+}
+
+.folio-ticket {
+  font-size: 13px !important;
+}

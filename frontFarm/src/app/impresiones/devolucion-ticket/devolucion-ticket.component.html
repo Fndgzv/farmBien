@@ -10,11 +10,9 @@
         [titulo2]="venta.farmacia.titulo2">
     </app-ticket-header>
 
-    <hr />
-
-    <table class="productos">
+    <table class="mi-tabla">
         <thead>
-            <tr>
+            <tr class="productos-header">
                 <th colspan="3">PRODUCTO DEVUELTO</th>
             </tr>
             <tr class="productos-header-bottom">
@@ -23,7 +21,8 @@
                 <th style="text-align: right;">IMPORTE</th>
             </tr>
         </thead>
-        <tbody>
+        
+        <tbody class="productos">
             <ng-container *ngFor="let p of venta.devolucion.productos">
                 <!-- 1. cóg barras 3 digitos finales y Nombre del producto -->
                 <tr>
@@ -83,7 +82,7 @@
 
     <hr />
     <div class="info-general">
-        <div style="font-size: 15px;">Folio venta: {{ venta.devolucion.folioVenta }}</div>
+        <div class = "folio-ticket">Folio venta: {{ venta.devolucion.folioVenta }}</div>
         Fecha devolución: {{ fechaActual | date:'dd/MM/yyyy HH:mm' }} hrs.<br />
         Atendió: {{ venta.usuario }}<br />
         Cliente: {{ venta.cliente || 'Público general' }}
