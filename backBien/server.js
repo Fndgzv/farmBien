@@ -5,7 +5,8 @@ const mongoose = require('mongoose');
 const conectarDB = require('./config/db');
 const cors = require('cors');
 const path = require('path');
-
+const fs       = require('fs');
+const conectarDB = require('./config/db');
 const reportesRoutes = require('./routes/reportesRoutes');
 const clientesRoutes = require('./routes/api');
 
@@ -50,72 +51,89 @@ app.use('/api/labels', require('./routes/labels.products.routes'));
 
 app.use('/api/reportes', require('./routes/reportesPresupuestoRoutes'));
 
-// ---------- Archivos estáticos (uploads) ----------
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+// ───────────────── Archivos estáticos: UPLOADS ─────────────────
+// Usa disco persistente si está definido (Render Disk), si no, la carpeta local.
+const uploadsPath =
+  process.env.UPLOADS_DIR && fs.existsSync(process.env.UPLOADS_DIR)
+    ? process.env.UPLOADS_DIR
+    : path.join(__dirname, 'uploads');
+
+console.log('Sirviendo /uploads desde:', uploadsPath);
+
+app.use('/uploads', express.static(uploadsPath, {
   maxAge: '7d',
   etag: true,
 }));
 
-// ---------- Servir Angular build ----------
-//const angularPath = path.join(__dirname, 'public', 'browser');
-//const angularPath = path.join(__dirname, '..', 'frontFarm', 'dist', 'frontFarm', 'browser');
-const angularPath = path.join(__dirname, 'public');
+// Fallback de compatibilidad: /uploads/:file → intenta raíz y /productos
+app.get('/uploads/:file', (req, res, next) => {
+  const direct = path.join(uploadsPath, req.params.file.replace(/^uploads\//i, ''));
+  if (fs.existsSync(direct)) return res.sendFile(direct);
+
+  const inProductos = path.join(uploadsPath, 'productos', req.params.file);
+  if (fs.existsSync(inProductos)) return res.sendFile(inProductos);
+
+  return next(); // 404 normal si tampoco existe
+});
+
+// ───────────────── Servir Angular build (SPA) ─────────────────
+// Preferimos backBien/public/browser (Angular moderno). Si no existe, caemos a backBien/public.
+const browserPath = path.join(__dirname, 'public', 'browser');
+const publicPath  = path.join(__dirname, 'public');
+const angularPath = fs.existsSync(browserPath) ? browserPath : publicPath;
+
 console.log('Sirviendo Angular desde:', angularPath);
 
-/* app.use('/browser/uploads', express.static(path.join(__dirname, 'uploads'))); */
-
-// estáticos con cache largo (los archivos tienen hash en el nombre)
+// Assets con cache largo (inmutables); index.html sin cache lo servimos en el fallback
 app.use(express.static(angularPath, {
   etag: true,
   maxAge: '1y',
   setHeaders: (res, filePath) => {
-    // Asegurar tipo y cache correcto
     if (!filePath.endsWith('index.html')) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
   }
 }));
 
+// Service workers y similares sin cache agresivo
 app.get(['/ngsw.json','/ngsw-worker.js','/safety-worker.js','/worker-basic.min.js'], (req, res) => {
   res.setHeader('Cache-Control', 'no-store, must-revalidate');
   res.sendFile(path.join(angularPath, req.path.replace(/^\//,'')));
 });
 
+// SPA fallback: todo lo que no sea /api o /uploads va a index.html SIN cache
 app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
-    return next();
-  }
+  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
   res.removeHeader('ETag');
   res.setHeader('Cache-Control', 'no-store, must-revalidate');
   res.sendFile(path.join(angularPath, 'index.html'));
 });
 
-// ---------- Manejador de errores ----------
+// ───────────────── Manejador de errores ─────────────────
 app.use((err, req, res, next) => {
   console.error('[ERROR]', err);
   res.status(err.status || 500).json({ mensaje: err.message || 'Error en el servidor' });
 });
 
-// ---------- Arranque ----------
+// ───────────────── Arranque ─────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
 
-
-// ---------- Sincronizar índices (tras conectar a Mongo) ----------
-const Venta = require('./models/Venta'); // importa el modelo DESPUÉS de conectarDB si tu modelo no necesita la conexión aún
-const Producto = require('./models/Producto');
-const Pedido = require('./models/Pedido');
-const Devolucion = require('./models/Devolucion');
-const Cancelacion = require('./models/Cancelacion');
-const Cliente = require('./models/Cliente')
-const Compra = require('./models/Compra');
+// ───────────────── Sincronizar índices (tras conectar DB) ─────────────────
+const Venta              = require('./models/Venta');
+const Producto           = require('./models/Producto');
+const Pedido             = require('./models/Pedido');
+const Devolucion         = require('./models/Devolucion');
+const Cancelacion        = require('./models/Cancelacion');
+const Cliente            = require('./models/Cliente');
+const Compra             = require('./models/Compra');
 const InventarioFarmacia = require('./models/InventarioFarmacia');
-const CorteCaja = require('./models/CorteCaja');
+const CorteCaja          = require('./models/CorteCaja');
+
 mongoose.connection.once('open', async () => {
   try {
-    // Si quieres, sincroniza más colecciones aquí (agrega otros modelos al Promise.all)
     await Promise.all([
       Venta.syncIndexes(),
       Producto.syncIndexes(),
