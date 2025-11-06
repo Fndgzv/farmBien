@@ -167,83 +167,6 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
   }
 };
 
-// Obtener inventario con filtros en farmacia
-exports.obtenerInventarioFarmacia = async (req, res) => {
-  const {
-    farmacia,
-    nombre, codigoBarras, categoria, inapam, generico,
-    sortBy = 'existencia',          // 'existencia' | 'nombre'
-    sortDir = 'asc'                 // 'asc' | 'desc'
-  } = req.query;
-
-  if (!farmacia) {
-    return res.status(400).json({ mensaje: "Debe especificar una farmacia." });
-  }
-
-  try {
-    // 1) Armar filtro de Producto con "todas las palabras"
-    const filtrosProducto = construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, generico });
-    
-    // 2) Obtener IDs de productos que cumplen
-    const productos = await Producto.find(filtrosProducto).select('_id').lean();
-    const productosIds = productos.map(p => p._id);
-
-    if (productosIds.length === 0) {
-      return res.json([]); // nada que listar
-    }
-
-    // 3) Dirección de orden
-    const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
-
-    // 4) Pipeline inventario + producto
-    const pipe = [
-      { $match: { farmacia: new ObjectId(farmacia), producto: { $in: productosIds } } },
-      {
-        $lookup: {
-          from: 'productos',
-          localField: 'producto',
-          foreignField: '_id',
-          as: 'prod'
-        }
-      },
-      { $unwind: { path: '$prod', preserveNullAndEmptyArrays: true } },
-      // Orden dinámico
-      (String(sortBy) === 'nombre')
-        ? { $sort: { 'prod.nombre': dir, _id: 1 } }
-        : { $sort: { existencia: dir, _id: 1 } },
-      // Proyección con la forma que espera el front
-      {
-        $project: {
-          _id: 1,
-          farmacia: 1,
-          producto: {
-            _id: '$prod._id',
-            nombre: '$prod.nombre',
-            codigoBarras: '$prod.codigoBarras',
-            categoria: '$prod.categoria',
-            generico: '$prod.generico',
-            descuentoINAPAM: '$prod.descuentoINAPAM',
-            stockMinimo: '$prod.stockMinimo',
-            stockMaximo: '$prod.stockMaximo'
-          },
-          ubicacionEnFarmacia: 1,
-          existencia: 1,
-          stockMax: 1,
-          stockMin: 1,
-          precioVenta: 1
-        }
-      }
-    ];
-
-    const inventario = await InventarioFarmacia.aggregate(pipe).allowDiskUse(true);
-    return res.json(inventario);
-  } catch (error) {
-    console.error('[obtenerInventarioFarmacia][ERROR]', error);
-    return res.status(500).json({ mensaje: "Error al obtener inventario" });
-  }
-};
-
-
 // Actualización masiva en farmacia (existencia, stockMax y stockMin)
 exports.actualizarInventarioMasivo = async (req, res) => {
   const farmacia = req.params.farmaciaId;
@@ -284,8 +207,6 @@ exports.actualizarInventarioMasivo = async (req, res) => {
     res.status(500).json({ mensaje: "Error al actualizar masivamente", error });
   }
 };
-
-
 
 // Actualización individual de un producto en farmacia
 exports.actualizarInventarioIndividual = async (req, res) => {

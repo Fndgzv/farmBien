@@ -57,7 +57,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 }));
 
 // ---------- Servir Angular build ----------
-const angularPath = path.join(__dirname, 'public', 'browser');
+//const angularPath = path.join(__dirname, 'public', 'browser');
+//const angularPath = path.join(__dirname, '..', 'frontFarm', 'dist', 'frontFarm', 'browser');
+const angularPath = path.join(__dirname, 'public');
 console.log('Sirviendo Angular desde:', angularPath);
 
 /* app.use('/browser/uploads', express.static(path.join(__dirname, 'uploads'))); */
@@ -74,7 +76,11 @@ app.use(express.static(angularPath, {
   }
 }));
 
-// fallback SPA: devolver index.html SIN cache para evitar frontend viejo
+app.get(['/ngsw.json','/ngsw-worker.js','/safety-worker.js','/worker-basic.min.js'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, must-revalidate');
+  res.sendFile(path.join(angularPath, req.path.replace(/^\//,'')));
+});
+
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
     return next();

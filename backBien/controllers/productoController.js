@@ -12,6 +12,8 @@ const mime = require('mime-types');
 
 const escapeRegex = (s = '') => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const { toRelativeImage } = require('../utils/imagenes');
+
 // Convierte "12345" -> /1\D*2\D*3\D*4\D*5/i  (permite guiones/espacios entre dígitos)
 function digitsLooseRegex(digits) {
   const d = String(digits || '').replace(/\D/g, '');
@@ -98,6 +100,7 @@ function resolveImageAbs(dbPath) {
   return normAbs;
 }
 
+
 function makeNewName(mimetype) {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extFromMimetype(mimetype)}`;
 }
@@ -146,7 +149,7 @@ exports.actualizarImagenProducto = async (req, res) => {
     // Nuevo nombre (si quieres incluir el id)
     const newName = `${id}-${Date.now()}${extFromMimetype(req.file.mimetype)}`;
     const destAbs = path.join(UPLOADS_PROD_DIR, newName);
-    const destRel = path.posix.join('uploads', 'productos', newName); // esto se guarda en BD
+    const destRel = path.posix.join('productos', newName); // esto se guarda en BD
 
     // mover de /uploads/<tmpName> -> /uploads/productos/<id-timestamp.ext>
     await fsp.rename(req.file.path, destAbs);
