@@ -12,6 +12,13 @@ call npx ng build --configuration=production --output-path=..\backBien\public\br
 if errorlevel 1 goto :build_fail
 popd
 
+
+REM [0/5] Escribe version.txt con timestamp y corto del commit
+for /f %%i in ('git rev-parse --short HEAD') do set GIT_SHORT=%%i
+for /f "tokens=1-4 delims=/ " %%a in ("%date%") do set FECHA=%%d-%%b-%%c
+for /f "tokens=1-2 delims=: " %%a in ("%time%") do set HORA=%%a:%%b
+echo %FECHA% %HORA% - %GIT_SHORT%> backBien\public\browser\version.txt
+
 echo [2/5] Git add de bundle...
 git add backBien/public -A
 

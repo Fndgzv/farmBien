@@ -63,14 +63,24 @@ console.log('Sirviendo Angular desde:', angularPath);
 /* app.use('/browser/uploads', express.static(path.join(__dirname, 'uploads'))); */
 
 // estáticos con cache largo (los archivos tienen hash en el nombre)
-app.use(express.static(angularPath, { maxAge: '1y', etag: true }));
+app.use(express.static(angularPath, {
+  etag: true,
+  maxAge: '1y',
+  setHeaders: (res, filePath) => {
+    // Asegurar tipo y cache correcto
+    if (!filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 
 // fallback SPA: devolver index.html SIN cache para evitar frontend viejo
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
     return next();
   }
-  res.setHeader('Cache-Control', 'no-cache');
+  res.removeHeader('ETag');
+  res.setHeader('Cache-Control', 'no-store, must-revalidate');
   res.sendFile(path.join(angularPath, 'index.html'));
 });
 
