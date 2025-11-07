@@ -5,7 +5,6 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const ventaController = require("../controllers/ventaController");
 const devolucionController = require("../controllers/devolucionController")
 const pedidoController = require("../controllers/pedidoController")
-const clienteController = require("../controllers/clienteController");
 const isAmin = require("../middlewares/isAdmin")
 
 router.get('/ventasRecientes/:farmaciaId', devolucionController.obtenerVentasRecientes);
@@ -20,24 +19,6 @@ router.put("/pedidos/surtir", authMiddleware, pedidoController.surtirPedido);
 router.put("/pedidos/cancelar", authMiddleware, pedidoController.cancelarPedido);
 router.get("/pedidos", authMiddleware, pedidoController.obtenerPedidos);
 router.patch('/pedidos/actualizar-costo/:id', authMiddleware, isAmin, pedidoController.actualizarCostoPedido);
-
-router.get("/clientes/id/:clienteId", clienteController.obtenerClientePorId);
-router.get("/clientes", authMiddleware, clienteController.obtenerClientes);
-router.get("/clientes/telefono/:telefono", clienteController.buscarClientePorTelefono);
-router.get("/clientes/buscar", authMiddleware, clienteController.buscarClientesPorNombre);
-router.post("/clientes", authMiddleware, clienteController.crearClienteDesdeVenta);
-
-// LISTA / CRUD básico
-router.get('/', authMiddleware, clienteController.listarClientes);               // ?q=...&page=1&limit=20&sort=nombre:asc
-router.post('/', authMiddleware, clienteController.crearClienteBasico);          // { nombre, telefono, email?, domicilio? }
-router.patch('/:id', authMiddleware, clienteController.actualizarClienteInline); // { nombre?, telefono?, email?, domicilio? } (inline)
-// SUBTABLAS
-router.get('/:id/ventas', authMiddleware, isAmin, clienteController.subVentas);                 // ?page=1&limit=20&fechaIni&fechaFin&detalle=1
-router.get('/:id/pedidos', authMiddleware, isAmin, clienteController.subPedidos);               // mismos filtros
-router.get('/:id/devoluciones', authMiddleware, isAmin, clienteController.subDevoluciones);     // "
-router.get('/:id/cancelaciones', authMiddleware, isAmin, clienteController.subCancelaciones);   // "
-router.get('/:id/monedero', authMiddleware, isAmin, clienteController.subMonedero);             // ?page=1&limit=50
-
 
 //router.get("/ventas/historial/:clienteId/:productoId", ventaController.obtenerHistorialCompras);
 

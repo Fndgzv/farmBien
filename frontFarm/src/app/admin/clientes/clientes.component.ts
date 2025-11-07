@@ -131,6 +131,7 @@ export class ClientesComponent implements OnInit {
     const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 10);
   }
+  
   private setFechasPorDefecto(): void {
     const hoy = new Date();
     const primeroMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
@@ -142,12 +143,6 @@ export class ClientesComponent implements OnInit {
     if (!key) return false;
     const rows = this.subRows[key];
     return Array.isArray(rows) && rows.length === 1 && (rows[0] as any)?.__empty__ === true;
-  }
-
-
-  /** fechaFin inclusiva -> enviamos fin+1 para usar $lt en el backend */
-  private getFechaFinExclusiveISO(): string {
-    return this.fechaFin;
   }
 
   ngOnInit(): void {

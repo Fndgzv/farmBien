@@ -42,7 +42,8 @@ app.use('/api/compras', require('./routes/compraRoutes'));
 app.use('/api/inventario-farmacia', require('./routes/ajusteInventarioRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/reportes', reportesRoutes);
-app.use('/api', require('./routes/api')); // Rutas de: ventas, devoluciones, pedidos, clientes
+app.use('/api', require('./routes/api')); // Rutas de: ventas, devoluciones, pedidos
+app.use('/api/clientes', require('./routes/clientesRoutes'));
 app.use('/api/label-designs', require('./routes/labelDesigns.routes'));
 app.use('/api/labels', require('./routes/labels.products.routes'));
 

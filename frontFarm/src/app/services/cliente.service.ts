@@ -19,16 +19,6 @@ export class ClienteService {
 
   private apiUrl = `${environment.apiUrl}/clientes`;
 
-  private headers() {
-    return new HttpHeaders({ 'x-auth-token': localStorage.getItem('auth_token') || '' });
-  }
-
-  private toClienteLite = (x: any): ClienteLite => ({
-    _id: String(x?._id ?? x?.id ?? ''),
-    nombre: String(x?.nombre ?? ''),
-    telefono: x?.telefono ? String(x.telefono) : undefined,
-  });
-
   private withTz(params: any = {}) {
     return new HttpParams({ fromObject: { ...params, tz: String(new Date().getTimezoneOffset()) } });
   }
