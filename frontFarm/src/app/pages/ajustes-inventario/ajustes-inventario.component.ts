@@ -821,42 +821,12 @@ export class AjustesInventarioComponent implements OnInit {
   cargarProductos(borrarFiltros: boolean) {
     this.productoService.obtenerProductos().subscribe({
       next: (productos) => {
-        const needFallbackIds: string[] = [];
-
-        this.productos = (productos || []).map((p: any) => {
-          const prod: ProductoUI = { ...p, _imgSrc: this.placeholderSrc };
-
-          // 1) Si viene ruta en BD (p.imagen = "productos/xxx.ext" ó "uploads/...")
-          if (typeof p.imagen === 'string' && p.imagen.trim()) {
-            try {
-              const abs = this.productoService.getPublicImageUrl(p.imagen); // https://.../uploads/productos/xxx.ext
-              const ver = p.updatedAt ? new Date(p.updatedAt).getTime() : 0;
-              prod._imgSrc = ver ? `${abs}?t=${ver}` : abs;
-            } catch {
-              // si algo truena, mejor lo mandamos al fallback por id
-              needFallbackIds.push(p._id);
-            }
-          } else {
-            // 2) No trae imagen en BD → intentamos fallback por ID
-            needFallbackIds.push(p._id);
-          }
-
-          return prod;
-        });
-
-        // Fallback: obtenemos blob con auth por ID SOLO para los que lo necesitan
-        from(needFallbackIds).pipe(
-          mergeMap(id =>
-            this.productoService.getImagenObjectUrl(id).pipe(
-              tap(url => {
-                const item = this.productos.find(x => x._id === id);
-                if (item) item._imgSrc = url || this.placeholderSrc;
-              }),
-              catchError(() => of(null))
-            ),
-            6 // concurrencia
-          )
-        ).subscribe();
+        this.productos = (productos || []).map((p: any) => ({
+          ...p,
+          _imgSrc: p?.imagen
+            ? this.productoService.getPublicImageUrl(p.imagen)
+            : this.placeholderSrc,
+        }));
 
         this.cachearNorms();
         this.recomputarCBDuplicados();

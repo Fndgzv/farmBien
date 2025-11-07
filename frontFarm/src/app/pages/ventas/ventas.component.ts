@@ -146,6 +146,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   productosCargando = true;
   pendingScan: string | null = null;
 
+  isSwalOpen = false;
+
   buildImgUrlRef = buildImgUrl;
   placeholderSrc = 'assets/images/farmBienIcon.png';
   thumbs: Record<string, string> = {};
@@ -336,7 +338,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.montoMonederoCliente = Number(c.totalMonedero || 0);
     this.recalcularRenglones();
     this.hayCliente = true;
-    this.focusBarcode(60);
+    this.focusBarcode(60, true);
   }
 
   ngOnDestroy(): void {
@@ -352,13 +354,20 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
   }
 
-  private focusBarcode(delay = 60) {
+  private focusBarcode(delay = 60, force = false) {
     this.clearBarcodeFocusTimer();
     this.barcodeFocusTimer = setTimeout(() => {
+      // ❗ nunca robes el foco si hay Swal/otro modal
+      if (this.isSwalOpen || this.mostrarModalPago || this.mostrarModalConsultaPrecio) {
+        this.barcodeFocusTimer = null;
+        return;
+      }
       const ae = document.activeElement as HTMLElement | null;
-      const typing =
-        !!ae && (ae.tagName === 'INPUT' || ae.getAttribute('contenteditable') === 'true');
-      if (!this.mostrarModalPago && !typing && this.codigoBarrasRef) {
+      const typing = !!ae && (ae.tagName === 'INPUT' || ae.getAttribute('contenteditable') === 'true');
+
+      if (force) {
+        this.codigoBarrasRef?.nativeElement?.focus();
+      } else if (!typing && this.codigoBarrasRef) {
         this.codigoBarrasRef.nativeElement.focus();
       }
       this.barcodeFocusTimer = null;
@@ -462,7 +471,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
             this.recalcularRenglones();
 
-            this.focusBarcode();
+            this.focusBarcode(0, true);
           } else {
             this.mostrarModalCrearCliente();
           }
@@ -490,7 +499,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.abrirFormularioNuevoCliente();
       } else {
         this.limpiarCliente();
-        this.focusBarcode();
+        this.focusBarcode(0, true);
       }
     });
   }
@@ -517,7 +526,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.registrarNuevoCliente(result.value);
       } else if (result.dismiss === Swal.DismissReason.cancel) {
         this.limpiarCliente();
-        this.focusBarcode();
+        this.focusBarcode(0, true);
       }
     });
   }
@@ -601,7 +610,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.ventaForm.controls['cliente'].setValue('');
     this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
     this.recalcularRenglones();
-    this.focusBarcode(60);
+    this.focusBarcode(60, true);
   }
 
   limpiarBarras() {
@@ -616,7 +625,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.productosFiltradosPorCodigo = this.productos;
     this.filtrarProductos();
     this.filtrarPorCodigo();
-    this.focusBarcode();
+    this.focusBarcode(0, true);
   }
 
   filtrarProductos() {
@@ -651,7 +660,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         console.error('Error en existenciaProducto: ', error);
       });
     }
-    this.focusBarcode(100);
+    this.focusBarcode(100, true);
   }
 
   seleccionarPorCodigo(event: any) {
@@ -666,7 +675,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         console.error('Error en existenciaProducto: ', error);
       });
     }
-    this.focusBarcode(100);
+    this.focusBarcode(100, true);
   }
 
   displayNombre = (id?: string): string => {
@@ -714,7 +723,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.hayCliente = false;
 
     // this.syncClienteCtrlDisabled();
-    this.focusBarcode();
+    this.focusBarcode(0, true);
   }
 
   reanudarVenta(index: number) {
@@ -735,45 +744,38 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.ventasPausadas.splice(index, 1);
     this.ventaService.setVentasPausadas(this.ventasPausadas);
     //this.syncClienteCtrlDisabled();
-    this.focusBarcode(0);
+    this.focusBarcode(0, true);
   }
 
   obtenerProductos() {
-    this.productosCargando = true;
-
     this.productoService.obtenerProductos().subscribe({
       next: (data) => {
         this.productos = data || [];
-        this.thumbs = {}; // id -> objectURL
+        this.thumbs = {}; // id -> url
 
-        // Inicial en placeholder
         for (const prod of this.productos) {
-          this.thumbs[prod._id] = this.placeholderSrc;
+          this.thumbs[prod._id] = prod?.imagen
+            ? this.productoService.getPublicImageUrl(prod.imagen)
+            : this.placeholderSrc;
         }
 
+        // 🔧 FIN de carga: desbloquea y procesa el escaneo pendiente
         this.productosCargando = false;
 
         if (this.pendingScan) {
           const code = this.pendingScan;
           this.pendingScan = null;
           this.codigoBarras = code;
+          // dispara el flujo normal de escaneo
           this.agregarProductoPorCodigo();
+        } else {
+          // asegura foco en el lector
+          this.focusBarcode(60, true);
         }
-
-        // Cargar con auth solo los que tienen imagen
-        from(this.productos).pipe(
-          mergeMap(prod => {
-            if (!prod?.imagen) return of(null);
-            return this.productoService.getImagenObjectUrl(prod._id).pipe(
-              tap(url => { this.thumbs[prod._id] = url || this.placeholderSrc; }),
-              catchError(() => of(null))
-            );
-          }, 6)
-        ).subscribe();
       },
       error: (error) => {
         console.error('Error al obtener productos', error);
-        this.productosCargando = false; // no te quedes “cargando” si falla
+        this.productosCargando = false; // no lo dejes colgado en true
       }
     });
   }
@@ -796,55 +798,55 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
 
-agregarProductoPorCodigo() {
-  // 0) Normaliza el input del lector
-  const code = (this.codigoBarras || '').trim();
-  this.codigoBarras = ''; // limpia SIEMPRE el input visible
+  agregarProductoPorCodigo() {
+    // 0) Normaliza el input del lector
+    const code = (this.codigoBarras || '').trim();
+    this.codigoBarras = ''; // limpia SIEMPRE el input visible
 
-  // 1) Si aún no cargan productos, encola el escaneo y sal
-  if (this.productosCargando) {
-    if (code.length) this.pendingScan = code;
-    return;
+    // 1) Si aún no cargan productos, encola el escaneo y sal
+    if (this.productosCargando) {
+      if (code.length) this.pendingScan = code;
+      return;
+    }
+
+    // 2) Si viene vacío y ya hay carrito -> pregunta cobro
+    if (!code && this.carrito.length > 0) {
+      this.abrirModalPago();
+      // el focus lo manejamos abajo en finally
+      //this.focusBarcode(60, true);
+      return;
+    }
+
+    // 3) Buscar el producto por código de barras
+    const producto = this.productos.find(p => String(p.codigoBarras) === code);
+
+    if (!producto) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Producto no encontrado',
+        text: 'Verifica el código de barras',
+        timer: 1300,
+        showConfirmButton: false,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      }).then(() => this.focusBarcode(60, true));
+      return;
+    }
+
+    // 4) Verificar existencia y agregar al carrito
+    this.existenciaProducto(this.farmaciaId, producto._id, 1)
+      .then(() => {
+        if (!this.hayProducto) return; // ya mostró alerta de existencia
+        this.agregarProductoAlCarrito(producto);
+      })
+      .catch((error: any) => {
+        console.error('Error en existenciaProducto: ', error);
+      })
+      .finally(() => {
+        this.focusBarcode(60, true);
+      });
   }
-
-  // 2) Si viene vacío y ya hay carrito -> pregunta cobro
-  if (!code && this.carrito.length > 0) {
-    this.abrirModalPago();
-    // el focus lo manejamos abajo en finally
-    this.focusBarcode(60);
-    return;
-  }
-
-  // 3) Buscar el producto por código de barras
-  const producto = this.productos.find(p => String(p.codigoBarras) === code);
-
-  if (!producto) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Producto no encontrado',
-      text: 'Verifica el código de barras',
-      timer: 1300,
-      showConfirmButton: false,
-      timerProgressBar: true,
-      allowOutsideClick: false,
-      allowEscapeKey: false
-    }).then(() => this.focusBarcode(60));
-    return;
-  }
-
-  // 4) Verificar existencia y agregar al carrito
-  this.existenciaProducto(this.farmaciaId, producto._id, 1)
-    .then(() => {
-      if (!this.hayProducto) return; // ya mostró alerta de existencia
-      this.agregarProductoAlCarrito(producto);
-    })
-    .catch((error: any) => {
-      console.error('Error en existenciaProducto: ', error);
-    })
-    .finally(() => {
-      this.focusBarcode(60);
-    });
-}
 
   async agregarProductoAlCarrito(producto: any) {
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
@@ -930,24 +932,27 @@ agregarProductoPorCodigo() {
         icon: 'question',
         title: '¿Tiene credencial INAPAM vigente?',
         html: `<h4>Me la puede mostrar por favor</h4>
-                <p style="color: green;">Revisa que su credencial de INAPAM:</p>
-                <p style="color: green;"> * Pertenezca al cliente</p>
-                <p style="color: green;"> * No este vencida</p>`,
+              <p style="color: green;">Revisa que su credencial de INAPAM:</p>
+              <p style="color: green;"> * Pertenezca al cliente</p>
+              <p style="color: green;"> * No este vencida</p>`,
         showCancelButton: true,
         allowOutsideClick: false,
         allowEscapeKey: false,
         confirmButtonText: 'Sí cumple',
         cancelButtonText: 'No cumple',
         focusCancel: true,
-        /*         didOpen: (popup) => {
-                  popup.addEventListener('keydown', (e: KeyboardEvent) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      //Swal.getCancelButton()?.click(); // 👈 fuerza “No cumple”
-                    }
-                  });
-                } */
+        willOpen: () => { this.isSwalOpen = true; },  // 🔒 bloquea robo de foco
+        didOpen: () => {
+          const btn = Swal.getCancelButton();
+          btn?.focus();
+          setTimeout(() => btn?.focus(), 0);          // doble intento por si el browser mueve el foco
+        },
+        didClose: () => {
+          this.isSwalOpen = false;                    // 🔓 libera
+          this.focusBarcode(60);                      // vuelve al lector SI y solo SI ya no hay modal
+        }
       });
+
       this.aplicaInapam = result.isConfirmed;
     }
   }
@@ -1341,7 +1346,7 @@ agregarProductoPorCodigo() {
     this.cambio = 0;
     this.mostrarModalPago = false;
     //this.syncClienteCtrlDisabled();
-    this.focusBarcode(50);
+    this.focusBarcode(50, true);
   }
 
   async finalizarVenta() {
@@ -1517,7 +1522,7 @@ agregarProductoPorCodigo() {
           allowEscapeKey: false,
           didClose: () => {
             //this.syncClienteCtrlDisabled();
-            this.focusBarcode(50);
+            this.focusBarcode(50, true);
           }
         });
       },
@@ -1528,7 +1533,7 @@ agregarProductoPorCodigo() {
         if (!esErrorDeVale) {
           this.mostrarModalPago = false;
           this.limpiarVenta(); //this.syncClienteCtrlDisabled();
-          setTimeout(() => this.focusBarcode(50), 0);
+          setTimeout(() => this.focusBarcode(50, true), 0);
         }
       }
     });
@@ -1546,7 +1551,7 @@ agregarProductoPorCodigo() {
   cerrarModalConsultaPrecio() {
     this.resetConsulta();
     this.mostrarModalConsultaPrecio = false;
-    this.focusBarcode(50);
+    this.focusBarcode(50, true);
   }
 
   consultarPrecio() {
@@ -1604,9 +1609,11 @@ agregarProductoPorCodigo() {
         const prodId = data._id
           ?? (this.productos || []).find(pr => pr.codigoBarras === this.codigoConsulta)?._id;
 
-        this.consultaImgUrl = prodId
-          ? this.productoService.obtenerImagenProductoUrl(prodId)
+        const prod = prodId ? this.productos.find(pr => pr._id === prodId) : null;
+        this.consultaImgUrl = (prod && prod.imagen)
+          ? this.productoService.getPublicImageUrl(prod.imagen)
           : this.placeholderSrc;
+
 
       },
       error: (error) => {
