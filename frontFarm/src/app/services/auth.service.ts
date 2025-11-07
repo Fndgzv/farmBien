@@ -135,7 +135,8 @@ export class AuthService {
         telefono: farmacia.telefono,
         titulo1: farmacia.titulo1,
         titulo2: farmacia.titulo2,
-        imagen: farmacia.imagen
+        imagen: farmacia.imagen,
+        imagen2: farmacia.imagen2
       }
       : null;
 

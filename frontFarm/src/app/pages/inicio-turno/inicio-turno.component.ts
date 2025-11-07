@@ -27,6 +27,7 @@ export class InicioTurnoComponent implements OnInit {
   farmaciaDireccion: string | null = null;
   farmaciaTelefono: string | null = null;
   farmaciaImagen: string | null = null;
+  farmaciaImagen2: string | null = null;
   farmaciaTitulo1: string | null = null;
   farmaciaTitulo2: string | null = null;
 
@@ -58,6 +59,7 @@ export class InicioTurnoComponent implements OnInit {
       this.farmaciaDireccion = JSON.parse(farmacia).direccion;
       this.farmaciaTelefono = JSON.parse(farmacia).telefono;
       this.farmaciaImagen = JSON.parse(farmacia).imagen;
+      this.farmaciaImagen2 = JSON.parse(farmacia).imagen2;
       this.farmaciaTitulo1 = JSON.parse(farmacia).titulo1;
       this.farmaciaTitulo2 = JSON.parse(farmacia).titulo2;
 

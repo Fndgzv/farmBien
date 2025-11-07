@@ -1,6 +1,6 @@
 <div class="sidebar" [class.open]="open">
   <ul>
-    <img src="assets/images/farmBienLogo.png" alt="Farmacia del Bienestar" class="sidebar-image">
+    <img [src]="farmaciaImagen" alt="Farmacias del Bienestar" class="sidebar-image">
 
     <!-- Catálogos (solo admin) -->
     <li *ngIf="userRol === 'admin'" class="menu-title">

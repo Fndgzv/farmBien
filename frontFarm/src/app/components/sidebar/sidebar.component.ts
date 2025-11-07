@@ -29,6 +29,12 @@ export class SidebarComponent implements OnInit {
   userRol: string | null = null;
   isSidebarOpen: boolean = false;
 
+  farmaciaId: string | null = null;
+  farmaciaNombre: string = '';
+  farmaciaImagen: string = 'assets/images/farmBienLogo.png';
+  farmaciaTiulo1: string = 'Farmacias del Bienestar';
+  farmaciaTiulo2: string = 'para todos';
+
   expandedMenu: string | null = null;
   expandedSubMenu: string | null = null;
 
@@ -65,6 +71,23 @@ export class SidebarComponent implements OnInit {
         this.userRol = user.rol;
       }
     });
+
+    this.authService.farmacia$.subscribe(farmacia => {
+      if (farmacia) {
+        this.farmaciaId = farmacia._id;
+        this.farmaciaNombre = farmacia.nombre;
+        this.farmaciaImagen = farmacia.imagen2;
+        this.farmaciaTiulo1 = farmacia.titulo1;
+        this.farmaciaTiulo2 = farmacia.titulo2;
+      } else {
+        this.farmaciaId = null;
+        this.farmaciaNombre = '';
+        this.farmaciaImagen = 'assets/images/farmBienLogo.png';
+        this.farmaciaTiulo1 = 'Farmacias del Bienestar';
+        this.farmaciaTiulo2 = 'para todos';
+      }
+    });
+    
 
     this.router.events
       .pipe(filter(e => e instanceof NavigationEnd))

@@ -10,6 +10,7 @@ export interface Farmacia {
   titulo1: string;
   titulo2: string;
   imagen: string;
+  imagen2: string;
   direccion?: string;
   telefono?: string;
   firmaUpdatedAt?: string | Date;

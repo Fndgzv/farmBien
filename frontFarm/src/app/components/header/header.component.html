@@ -5,8 +5,8 @@
     <button class="toggle-sidebar-button" (click)="toggleSidebar.emit()">
       <mat-icon>{{ isSidebarOpen ? 'close' : 'menu' }}</mat-icon>
     </button>
-    <img src="assets/images/farmBienIcon.png" alt="Logo" class="header-logo" />
-    <span class="site-title">Farmacias del Bienestar para Todos</span>
+    <img [src]="farmaciaImagen" alt="Logo" class="header-logo" />
+    <span class="site-title">{{farmaciaTiulo1}} {{farmaciaTiulo2}}</span>
     <span *ngIf="farmaciaNombre" class="site-sucursal">{{farmaciaNombre}}</span>
   </div>
 

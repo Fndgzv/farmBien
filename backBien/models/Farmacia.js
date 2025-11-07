@@ -12,6 +12,7 @@ const FarmaciaSchema = new mongoose.Schema({
     firmaHash: { type: String, required: true },
     activo: { type: Boolean, default: true }, // 🟢 Eliminación lógica
     imagen:         { type: String, trim: true },
+    imagen2:         { type: String, trim: true },
     firmaUpdatedAt: { type: Date },
     firmaUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' },
     firmaVersion: { type: Number, default: 1 },

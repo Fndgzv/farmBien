@@ -5,11 +5,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { VentaService } from '../../services/venta.service';
-
 
 import { AuthService } from '../../services/auth.service';
-
 @Component({
   selector: 'app-header',
   standalone: true,
@@ -29,6 +26,9 @@ export class HeaderComponent implements OnInit {
 
   farmaciaId: string | null = null;
   farmaciaNombre: string = '';
+  farmaciaImagen: string = 'assets/images/farmBienIcon.png';
+  farmaciaTiulo1: string = 'Farmacias del Bienestar';
+  farmaciaTiulo2: string = 'para todos';
 
 
   isEditProfileVisible = false;
@@ -41,7 +41,7 @@ export class HeaderComponent implements OnInit {
 
   @Output() userLoggedOut = new EventEmitter<void>();
 
-  constructor(public authService: AuthService, public router: Router, private ventaService: VentaService) {
+  constructor(public authService: AuthService, public router: Router) {
     this.authService.userNombre$.subscribe(nombre => {
       this.userNombre = nombre;
     });
@@ -70,9 +70,15 @@ export class HeaderComponent implements OnInit {
       if (farmacia) {
         this.farmaciaId = farmacia._id;
         this.farmaciaNombre = farmacia.nombre;
+        this.farmaciaImagen = farmacia.imagen;
+        this.farmaciaTiulo1 = farmacia.titulo1;
+        this.farmaciaTiulo2 = farmacia.titulo2;
       } else {
         this.farmaciaId = null;
         this.farmaciaNombre = '';
+        this.farmaciaImagen = 'assets/images/farmBienIcon.png';
+        this.farmaciaTiulo1 = 'Farmacias del Bienestar';
+        this.farmaciaTiulo2 = 'para todos';
       }
     });
 
@@ -84,7 +90,7 @@ export class HeaderComponent implements OnInit {
     });
   }
 
-    actualizarVisibilidadInicio() {
+  actualizarVisibilidadInicio() {
     const rutaActual = this.router.url;
 
     // Ocultar si estamos en '/home'

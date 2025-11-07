@@ -110,6 +110,7 @@ exports.iniciarSesion = async (req, res) => {
           titulo1: farmaciaAsociada.titulo1,
           titulo2: farmaciaAsociada.titulo2,
           imagen: farmaciaAsociada.imagen,
+          imagen2: farmaciaAsociada.imagen2,
         } : null
       }
     });
