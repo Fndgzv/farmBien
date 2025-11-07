@@ -84,13 +84,20 @@ export class ProductoService {
     return `${this.apiUrl}/${id}/imagen`;
   }
 
-  getPublicImageUrl(pathOrUrl: string): string {
-    if (!pathOrUrl) return '';
-    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;      // ya es absoluta
-    const api = environment.apiUrl;                              // p.ej. https://back.onrender.com/api
-    const backendOrigin = new URL(api, window.location.origin).origin; // https://back.onrender.com
-    const clean = String(pathOrUrl).replace(/^\/+/, '');         // "uploads/xxx.jpg"
-    return `${backendOrigin}/${clean}`;
+  getPublicImageUrl(pathOrUrl?: string): string {
+    const placeholder = 'assets/images/farmBienIcon.png';
+    if (!pathOrUrl) return placeholder;
+
+    // 1) Si ya es URL absoluta, regresa tal cual
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+
+    // 2) Limpia encabezados repetidos y slashes
+    let clean = String(pathOrUrl).trim();
+    clean = clean.replace(/^\/+/, '');          // quita "/" inicial
+    clean = clean.replace(/^uploads\/+/i, '');  // quita "uploads/" si ya viene
+
+    // 3) Queda "/uploads/<lo-que-sea>"
+    return `/uploads/${clean}`;
   }
 
 

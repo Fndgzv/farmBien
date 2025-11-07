@@ -7,7 +7,6 @@ const cors = require('cors');
 const path = require('path');
 const fs       = require('fs');
 const reportesRoutes = require('./routes/reportesRoutes');
-const clientesRoutes = require('./routes/api');
 
 const app = express();
 
@@ -43,7 +42,6 @@ app.use('/api/compras', require('./routes/compraRoutes'));
 app.use('/api/inventario-farmacia', require('./routes/ajusteInventarioRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/reportes', reportesRoutes);
-app.use('/api/clientes', clientesRoutes);
 app.use('/api', require('./routes/api')); // Rutas de: ventas, devoluciones, pedidos, clientes
 app.use('/api/label-designs', require('./routes/labelDesigns.routes'));
 app.use('/api/labels', require('./routes/labels.products.routes'));
@@ -57,7 +55,9 @@ const uploadsPath =
     ? process.env.UPLOADS_DIR
     : path.join(__dirname, 'uploads');
 
-console.log('Sirviendo /uploads desde:', uploadsPath);
+    try { fs.mkdirSync(uploadsPath, { recursive: true }); } catch {}
+
+    console.log('Sirviendo /uploads desde:', uploadsPath);
 
 app.use('/uploads', express.static(uploadsPath, {
   maxAge: '7d',
@@ -76,37 +76,52 @@ app.get('/uploads/:file', (req, res, next) => {
 });
 
 // ───────────────── Servir Angular build (SPA) ─────────────────
-// Preferimos backBien/public/browser (Angular moderno). Si no existe, caemos a backBien/public.
-const browserPath = path.join(__dirname, 'public', 'browser');
-const publicPath  = path.join(__dirname, 'public');
-const angularPath = fs.existsSync(browserPath) ? browserPath : publicPath;
+// Candidatos: backBien/public/browser (Angular moderno) y backBien/public (legacy)
+const candidates = [
+  path.join(__dirname, 'public', 'browser'),
+  path.join(__dirname, 'public')
+];
 
-console.log('Sirviendo Angular desde:', angularPath);
+// Elegimos el primer candidato que SÍ tenga index.html
+const angularPath = candidates.find(p => fs.existsSync(path.join(p, 'index.html'))) || null;
 
-// Assets con cache largo (inmutables); index.html sin cache lo servimos en el fallback
-app.use(express.static(angularPath, {
-  etag: true,
-  maxAge: '1y',
-  setHeaders: (res, filePath) => {
-    if (!filePath.endsWith('index.html')) {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+// Permite forzar por ENV: SERVE_SPA=false para backend “puro API”
+const serveSpaEnv = String(process.env.SERVE_SPA || 'auto').toLowerCase(); // auto|true|false
+const SERVE_SPA = serveSpaEnv === 'true' || (serveSpaEnv === 'auto' && !!angularPath);
+
+console.log('SERVE_SPA =', SERVE_SPA, '  angularPath =', angularPath || '(no build)');
+
+if (SERVE_SPA && angularPath) {
+  // Estáticos con cache largo, menos index.html
+  app.use(express.static(angularPath, {
+    etag: true,
+    maxAge: '1y',
+    setHeaders: (res, filePath) => {
+      if (!filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
     }
-  }
-}));
+  }));
 
-// Service workers y similares sin cache agresivo
-app.get(['/ngsw.json','/ngsw-worker.js','/safety-worker.js','/worker-basic.min.js'], (req, res) => {
-  res.setHeader('Cache-Control', 'no-store, must-revalidate');
-  res.sendFile(path.join(angularPath, req.path.replace(/^\//,'')));
-});
+  // SW/archivos especiales sin cache agresivo
+  app.get(['/ngsw.json','/ngsw-worker.js','/safety-worker.js','/worker-basic.min.js'], (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, must-revalidate');
+    res.sendFile(path.join(angularPath, req.path.replace(/^\//,'')));
+  });
 
-// SPA fallback: todo lo que no sea /api o /uploads va a index.html SIN cache
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
-  res.removeHeader('ETag');
-  res.setHeader('Cache-Control', 'no-store, must-revalidate');
-  res.sendFile(path.join(angularPath, 'index.html'));
-});
+  // Catch-all de SPA: todo lo que no sea /api o /uploads → index.html sin cache
+  app.get(/^(?!\/api|\/uploads).*/, (req, res) => {
+    res.removeHeader('ETag');
+    res.setHeader('Cache-Control', 'no-store, must-revalidate');
+    res.sendFile(path.join(angularPath, 'index.html'));
+  });
+} else {
+  // No hay build o se desactivó: no intentes servir SPA (adiós ENOENT)
+  app.get(/^(?!\/api|\/uploads).*/, (_req, res) => {
+    res.status(404).send('Frontend no desplegado en este servicio.');
+  });
+}
+
 
 // ───────────────── Manejador de errores ─────────────────
 app.use((err, req, res, next) => {
