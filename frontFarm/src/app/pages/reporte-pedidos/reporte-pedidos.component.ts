@@ -6,7 +6,6 @@ import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 
 import { Pedido, PedidosService } from '../../services/pedidos.service';
 import { AuthService } from '../../services/auth.service';
-import { ClienteService } from '../../services/cliente.service';
 import { FarmaciaService } from '../../services/farmacia.service';
 
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -148,6 +147,9 @@ export class ReportePedidosComponent {
   public sortBy: SortField = 'fechaPedido';
   public sortDir: 'asc' | 'desc' = 'desc';
 
+
+  farmaciaId: any;
+
   ariaSortFor(field: SortField): 'ascending' | 'descending' | 'none' {
     return this.sortBy === field ? (this.sortDir === 'asc' ? 'ascending' : 'descending') : 'none';
   }
@@ -176,10 +178,7 @@ export class ReportePedidosComponent {
   constructor(private library: FaIconLibrary,
     private pedidosService: PedidosService,
     private authService: AuthService,
-    private clienteService: ClienteService,
-    private farmaciaService: FarmaciaService,
-    private cdr: ChangeDetectorRef,
-    private ngZone: NgZone) {
+    private farmaciaService: FarmaciaService) {
     // Registra íconos
     this.library.addIcons(
       faPlus, faMinus, faEyeSlash, faTimes
@@ -187,6 +186,19 @@ export class ReportePedidosComponent {
   }
 
   ngOnInit(): void {
+
+    const stored = localStorage.getItem('user_farmacia');
+    const farmacia = stored ? JSON.parse(stored) : null;
+
+    if (!farmacia) {
+      Swal.fire('Error', 'No se encontró la farmacia en localStorage', 'error');
+      return;
+    }
+
+    if (farmacia) {
+      this.farmaciaId = farmacia._id;
+    }
+
     // 1) Fechas por defecto = hoy
     const hoy = new Date();
     const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()); // 00:00:00
@@ -201,7 +213,7 @@ export class ReportePedidosComponent {
       this.farmacias = data || [];
       if (this.farmacias.length) {
         // value del <select>: usa el id real de tu API (_id o id)
-        this.filtroFarmaciaId = this.farmacias[0]._id ?? this.farmacias[0].id ?? '';
+        this.filtroFarmaciaId = this.farmaciaId;
       }
       // Lanza la búsqueda una vez que ya tienes fechas y farmacia
       this.buscarSinFolio();

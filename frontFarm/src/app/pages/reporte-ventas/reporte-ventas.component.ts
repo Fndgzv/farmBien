@@ -30,6 +30,9 @@ type ClienteIdx = { _id: string; nombre: string; norm: string; words: string[] }
 })
 export class ReporteVentasComponent implements OnInit {
 
+  farmaciaId: string | null = null;
+  farmaciaNombre: string = '';
+
   clienteSel: ClienteLite | null = null;
   clienteOpts: ClienteLite[] = [];
 
@@ -98,6 +101,18 @@ export class ReporteVentasComponent implements OnInit {
   }
 
   ngOnInit(): void {
+
+    const stored = localStorage.getItem('user_farmacia');
+    const farmacia = stored ? JSON.parse(stored) : null;
+
+    if (!farmacia) {
+      Swal.fire('Error', 'No se encontró la farmacia en localStorage', 'error');
+      return;
+    }
+
+    this.farmaciaId = farmacia._id;
+    this.farmaciaNombre = this.farmaciaNombre || '';
+
     const hoy = this.todayYMD();
     this.filtroForm = this.fb.group({
       farmaciaId: [''],
@@ -114,6 +129,7 @@ export class ReporteVentasComponent implements OnInit {
     this.filtroForm.get('clienteNombre')!.valueChanges
       .pipe(debounceTime(200), distinctUntilChanged())
       .subscribe(term => this.onClienteNombreChanged(term || ''));
+
     this.cargarCatalogos();
   }
 
@@ -176,28 +192,6 @@ export class ReporteVentasComponent implements OnInit {
     return { score, pos: firstPos };
   }
 
-  private tokenizeTerm(term: string): string[] {
-    return this.normalizeEs(term).split(/\s+/).filter(Boolean);
-  }
-
-  private scoreMatch(nombre: string, term: string): { score: number; pos: number } {
-    const haystack = this.normalizeEs(nombre);              // ej: "francisco diaz perez"
-    const tokens = this.normalizeEs(term).split(' ').filter(Boolean); // ej: ["franc", "di"]
-    if (!tokens.length) return { score: -1, pos: Infinity };
-
-    let score = 0;
-    let firstPos = Infinity;
-
-    for (const tok of tokens) {
-      const idx = haystack.indexOf(tok);
-      if (idx === -1) return { score: -1, pos: Infinity }; // token no está → descarta
-
-      const isWordStart = (idx === 0) || (haystack.charAt(idx - 1) === ' ');
-      score += isWordStart ? 2 : 1;                         // prefijo de palabra suma más
-      firstPos = Math.min(firstPos, idx);
-    }
-    return { score, pos: firstPos };
-  }
 
   onClienteNombreChanged(term: string) {
     const raw = (term || '').trim();
@@ -289,11 +283,20 @@ export class ReporteVentasComponent implements OnInit {
       next: (list) => {
         const ordenadas = this.sortByNombre(list || []);
         this.farmacias = [{ _id: '' as any, nombre: 'TODAS' } as any, ...ordenadas];
+
+        // Seleccionar la farmaciaId si está en la lista; si no, deja 'TODAS'
+        const ctrl = this.filtroForm.get('farmaciaId');
+        if (ctrl) {
+          const existe = ordenadas.some(f => f?._id === this.farmaciaId);
+          ctrl.setValue(existe ? this.farmaciaId : '');
+        }
+
         this.farmaciasCargadas = true;
         this.dispararInicialSiListos();
       },
       error: () => {
         this.farmacias = [{ _id: '' as any, nombre: 'TODAS' } as any];
+        this.filtroForm.get('farmaciaId')?.setValue('');
         this.farmaciasCargadas = true;
         this.dispararInicialSiListos();
       }

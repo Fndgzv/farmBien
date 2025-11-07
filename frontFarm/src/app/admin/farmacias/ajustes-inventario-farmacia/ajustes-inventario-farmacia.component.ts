@@ -25,6 +25,9 @@ import { faSpinner, faCheck, faSave, faPen, faTimes } from '@fortawesome/free-so
   styleUrl: './ajustes-inventario-farmacia.component.css'
 })
 export class AjustesInventarioFarmaciaComponent implements OnInit {
+
+  farmaciaId: string | null = null;
+
   formFiltros!: FormGroup;
   inventario: any[] = [];
   farmacias: any[] = [];
@@ -57,7 +60,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     private fb: FormBuilder,
     private inventarioService: InventarioFarmaciaService,
     private farmaciaService: FarmaciaService,
-    private library: FaIconLibrary
+    library: FaIconLibrary
   ) { library.addIcons(faSave, faSpinner, faCheck); }
 
   ngOnInit(): void {
@@ -70,24 +73,47 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       generico: ['']
     });
 
+    const stored = localStorage.getItem('user_farmacia');
+    const farmacia = stored ? JSON.parse(stored) : null;
+
+    if (!farmacia) {
+      Swal.fire('Error', 'No se encontró la farmacia en localStorage', 'error');
+      return;
+    }
+
+    if (farmacia) {
+      this.farmaciaId = farmacia._id;
+    }
+
     this.cargarFarmacias();
   }
 
   cargarFarmacias() {
     this.farmaciaService.obtenerFarmacias().subscribe({
       next: (resp) => {
-        this.farmacias = resp;
+        this.farmacias = Array.isArray(resp) ? resp : [];
 
-        if (this.farmacias.length > 0) {
-          const primera = this.farmacias[0]._id;
-          this.formFiltros.get('farmacia')?.setValue(primera);
-          this.buscar(); // Disparar búsqueda automáticamente
+        const ctrl = this.formFiltros.get('farmacia');
+        if (!ctrl) return;
+
+        if (this.farmacias.length === 0) {
+          ctrl.reset('');
+          return;
         }
+
+        // intenta seleccionar la que está en this.farmaciaId
+        const match = this.farmacias.find(f => f?._id === this.farmaciaId);
+        const valorInicial = match ? match._id : this.farmacias[0]._id;
+
+        ctrl.setValue(valorInicial);
+        this.buscar(); // dispara la búsqueda automáticamente
       },
-      error: () => this.farmacias = []
+      error: () => {
+        this.farmacias = [];
+        this.formFiltros.get('farmacia')?.reset('');
+      }
     });
   }
-
 
   buscar() {
     const filtros = this.formFiltros.value;

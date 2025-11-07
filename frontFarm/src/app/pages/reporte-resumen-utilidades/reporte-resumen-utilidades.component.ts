@@ -13,6 +13,10 @@ import { FarmaciaService, Farmacia } from '../../services/farmacia.service';
   styleUrl: './reporte-resumen-utilidades.component.css'
 })
 export class ReporteResumenUtilidadesComponent implements OnInit {
+
+  farmaciaId: string | null = null;
+  farmaciaNombre: string = '';
+
   filtroForm!: FormGroup;
 
   cargando = false;
@@ -29,17 +33,29 @@ export class ReporteResumenUtilidadesComponent implements OnInit {
 
   // totales
   totalCantidad = 0;
-  totalImporte  = 0;
-  totalCosto    = 0;
+  totalImporte = 0;
+  totalCosto = 0;
   totalUtilidad = 0;
 
   constructor(
     private fb: FormBuilder,
     private reportes: ReportesService,
     private farmaciaSrv: FarmaciaService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
+
+    const stored = localStorage.getItem('user_farmacia');
+    const farmacia = stored ? JSON.parse(stored) : null;
+
+    if (!farmacia) {
+      Swal.fire('Error', 'No se encontró la farmacia en localStorage', 'error');
+      return;
+    }
+
+    this.farmaciaId = farmacia._id;
+    this.farmaciaNombre = farmacia.nombre || '';
+
     const ini = this.monthStartYMD(); // 1º del mes (string)
     const fin = this.todayYMD();      // hoy (string)
 
@@ -57,6 +73,10 @@ export class ReporteResumenUtilidadesComponent implements OnInit {
     this.farmaciaSrv.obtenerFarmacias().subscribe({
       next: (list) => {
         this.farmacias = [{ _id: '' as any, nombre: 'TODAS' } as any, ...(list || [])];
+
+        const ctrl = this.filtroForm.get('farmaciaId');
+        if (ctrl) ctrl.setValue(this.farmaciaId);
+        
         this.farmaciasCargadas = true;
         this.buscar(); // primer load con defaults
       },
@@ -85,24 +105,24 @@ export class ReporteResumenUtilidadesComponent implements OnInit {
     return `${y}-${m}-01`;
   }
 
-limpiar() {
-  const ini = this.monthStartYMD(); // 1º del mes
-  const fin = this.todayYMD();      // hoy
+  limpiar() {
+    const ini = this.monthStartYMD(); // 1º del mes
+    const fin = this.todayYMD();      // hoy
 
-  // Asigna a los form controls (inputs se actualizan inmediatamente)
-  this.filtroForm.patchValue({
-    farmaciaId: '',
-    fechaIni: ini,
-    fechaFin: fin,
-  });
+    // Asigna a los form controls (inputs se actualizan inmediatamente)
+    this.filtroForm.patchValue({
+      farmaciaId: '',
+      fechaIni: ini,
+      fechaFin: fin,
+    });
 
-  // (Opcional) marcar como pristine/touched si quieres resetear estado visual
-  this.filtroForm.markAsPristine();
-  this.filtroForm.markAsUntouched();
+    // (Opcional) marcar como pristine/touched si quieres resetear estado visual
+    this.filtroForm.markAsPristine();
+    this.filtroForm.markAsUntouched();
 
-  // Vuelve a consultar
-  this.buscar();
-}
+    // Vuelve a consultar
+    this.buscar();
+  }
 
   buscar() {
     if (!this.farmaciasCargadas) return;
@@ -127,8 +147,8 @@ limpiar() {
           return {
             concepto,
             cantidad: safe(r.cantidad),
-            importe:  safe(r.importe),
-            costo:    safe(r.costo),
+            importe: safe(r.importe),
+            costo: safe(r.costo),
             utilidad: safe(r.utilidad),
           };
         };
@@ -142,8 +162,8 @@ limpiar() {
 
         // Totales
         this.totalCantidad = this.rows.reduce((a, r) => a + r.cantidad, 0);
-        this.totalImporte  = this.rows.reduce((a, r) => a + r.importe,  0);
-        this.totalCosto    = this.rows.reduce((a, r) => a + r.costo,    0);
+        this.totalImporte = this.rows.reduce((a, r) => a + r.importe, 0);
+        this.totalCosto = this.rows.reduce((a, r) => a + r.costo, 0);
         this.totalUtilidad = this.rows.reduce((a, r) => a + r.utilidad, 0);
 
         this.cargando = false;

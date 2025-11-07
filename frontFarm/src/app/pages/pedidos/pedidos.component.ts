@@ -35,15 +35,11 @@ interface PedidoTicketData {
   movimiento: MovimientoPedido;
   pedido: any;
 
-  // NUEVO: nombres consistentes
-  cliente: string;      // antes: client
-  usuario: string;      // antes: userName
-  farmacia: FarmaciaHeader; // antes: farma*
+  cliente: string;
+  usuario: string;
+  farmacia: FarmaciaHeader;
 }
 
-function isEdge() {
-  return /Edg\//.test(navigator.userAgent);
-}
 @Component({
   selector: 'app-pedidos',
   standalone: true,
