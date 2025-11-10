@@ -523,7 +523,7 @@ body {
 
 
 @media print {
-  @page { size: 72mm auto; margin: 0; }
+  @page { size: 75mm auto; margin: 0; }
 
   body * { visibility: hidden !important; }
 
@@ -534,8 +534,8 @@ body {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
-    width: 72mm !important;
-    padding: 0 0 0 2mm !important;
+    width: 75mm !important;
+    padding: 0 0 0 3mm !important;
     box-sizing: border-box !important; /* padding incluido en los 72mm */
     z-index: 2147483647 !important;
     overflow: visible !important;
@@ -562,9 +562,9 @@ body {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    width: 72mm !important;
+    width: 75mm !important;
     box-sizing: border-box !important;
-    padding: 0 0 0 2mm !important;
+    padding: 0 0 0 3mm !important;
     overflow: hidden !important;
 
     page-break-before: avoid !important;
