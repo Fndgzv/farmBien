@@ -141,9 +141,11 @@
         <!-- 🟢 Zona General -->
         <div class="container-masivos mb-1">
             <div>
-                <label class="tit-promo" style="margin-right: 1rem;">Datos básicos:</label>
+                <!-- <label class="tit-promo" style="margin-right: 1rem;">Datos básicos:</label> -->
                 <label style="margin-right: 10px;">Categoría:</label>
                 <input style="width: 100px; margin-right: 2rem;" type="text" formControlName="categoria">
+                <label style="margin-right: 10px;">Ubicación:</label>
+                <input style="width: 100px; margin-right: 2rem;" type="text" formControlName="ubicacion">
                 <label style="margin-right: 10px;">Stock Mínimo:</label>
                 <input style="width: 50px; margin-right: 2rem;" type="number" formControlName="stockMinimo">
                 <label style="margin-right: 10px;">Stock Máximo:</label>
@@ -157,7 +159,7 @@
             </div>
             <!-- 🟡 Zona Ajuste de Precios -->
             <div>
-                <label class="tit-promo" style="margin-right: 2rem;">Aumentar o disminuir Precios:</label>
+                <label class="tit-promo" style="margin-right: 2rem;">Sube/baja Precios:</label>
 
                 <label [ngClass]="{'selected-radio': formularioMasivo.get('ajustePrecioModo')?.value === 'porcentaje'}"
                     style="margin-right: 1rem;">

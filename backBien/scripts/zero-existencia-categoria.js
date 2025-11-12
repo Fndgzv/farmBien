@@ -38,8 +38,8 @@ const Producto = mongoose.model('Producto', ProductoSchema);
   await mongoose.connect(MONGO, { autoIndex: false });
 
   try {
-    // Filtro exacto: SOLO categoría "Antibiótico"
-    const filtro = { categoria: /^IV/i };
+    // Filtro exacto: SOLO categoría "a elegir
+    const filtro = { categoria: /^Antibió/i };
 
     // Nuevo estado deseado
     const nuevoLote = {
@@ -54,7 +54,7 @@ const Producto = mongoose.model('Producto', ProductoSchema);
 
     // Conteo previo
     const totalObjetivo = await Producto.countDocuments(filtro);
-    console.log(`> Documentos en categoría "IV": ${totalObjetivo}`);
+    console.log(`> Documentos en categoría "Antibió": ${totalObjetivo}`);
 
     // Muestra previa (debug)
     const muestraAntes = await Producto.find(filtro)

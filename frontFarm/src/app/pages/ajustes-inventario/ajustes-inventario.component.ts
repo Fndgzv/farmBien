@@ -144,7 +144,7 @@ export class AjustesInventarioComponent implements OnInit {
     });
 
     this.formularioMasivo = this.fb.group({
-      categoria: [null], descuentoINAPAM: [null], stockMinimo: [null], stockMaximo: [null],
+      categoria: [null], ubicacion: [null], descuentoINAPAM: [null], stockMinimo: [null], stockMaximo: [null],
       ajustePrecioModo: [null], ajustePrecioPorcentaje: [null], ajustePrecioCantidad: [null],
       promoCantidadRequerida: [null], inicioPromoCantidad: [null], finPromoCantidad: [null],
       promoDeTemporadaPorcentaje: [null], promoDeTemporadaInicio: [null], promoDeTemporadaFin: [null],
@@ -349,11 +349,11 @@ export class AjustesInventarioComponent implements OnInit {
 
   get cambiosMasivosValidos(): boolean {
     const form = this.formularioMasivo.value;
-    const { categoria, stockMinimo, stockMaximo, descuentoINAPAM, ajustePrecioModo, ajustePrecioPorcentaje, ajustePrecioCantidad,
+    const { categoria, ubicacion, stockMinimo, stockMaximo, descuentoINAPAM, ajustePrecioModo, ajustePrecioPorcentaje, ajustePrecioCantidad,
       promoCantidadRequerida, inicioPromoCantidad, finPromoCantidad,
       promoDeTemporadaPorcentaje, promoDeTemporadaInicio, promoDeTemporadaFin, promoDeTemporadaMonedero } = form;
 
-    const hayAlgunCambio = categoria != null || stockMinimo != null || stockMaximo != null || descuentoINAPAM != null || ajustePrecioModo != null ||
+    const hayAlgunCambio = categoria != null || ubicacion != null || stockMinimo != null || stockMaximo != null || descuentoINAPAM != null || ajustePrecioModo != null ||
       promoCantidadRequerida != null || inicioPromoCantidad != null || finPromoCantidad != null ||
       promoDeTemporadaPorcentaje != null || promoDeTemporadaInicio != null || promoDeTemporadaFin != null || promoDeTemporadaMonedero != null ||
       this.hayCambiosEnPromosPorDia();
