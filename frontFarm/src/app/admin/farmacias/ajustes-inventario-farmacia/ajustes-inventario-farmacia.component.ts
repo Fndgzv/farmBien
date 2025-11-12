@@ -145,7 +145,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           _id: item._id,
           farmacia: item.farmacia,
           producto: item.producto,
-          ubicacionEnFarmacia: item.ubicacionEnFarmacia,
+          ubicacion: item.ubicacion,
           existencia: item.existencia,
           stockMax: item.stockMax,
           stockMin: item.stockMin,
@@ -156,7 +156,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
             stockMax: item.stockMax,
             stockMin: item.stockMin,
             precioVenta: item.precioVenta,
-            ubicacionEnFarmacia: item.ubicacionEnFarmacia,
+            ubicacion: item.ubicacion,
           }
         }));
         this.paginaActual = 1;
@@ -306,20 +306,17 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       { campo: 'stockMax', valor: i.stockMax },
       { campo: 'stockMin', valor: i.stockMin },
       { campo: 'precioVenta', valor: i.precioVenta },
-      { campo: 'ubicacionEnFarmacia', valor: i.ubicacionEnFarmacia }
     ];
 
 
     for (const { campo, valor } of campos) {
-      if (campo !== 'ubicacionEnFarmacia') {
-        if (valor === null || valor === undefined || valor === '') {
-          Swal.fire('Campo vacío', `El campo "${campo}" es obligatorio.`, 'warning');
-          return;
-        }
-        if (isNaN(valor) || valor < 0) {
-          Swal.fire('Valor inválido', `El campo "${campo}" no puede ser negativo.`, 'warning');
-          return;
-        }
+      if (valor === null || valor === undefined || valor === '') {
+        Swal.fire('Campo vacío', `El campo "${campo}" es obligatorio.`, 'warning');
+        return;
+      }
+      if (isNaN(valor) || valor < 0) {
+        Swal.fire('Valor inválido', `El campo "${campo}" no puede ser negativo.`, 'warning');
+        return;
       }
     }
 
@@ -358,8 +355,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       i.existencia !== i.copiaOriginal.existencia ||
       i.stockMax !== i.copiaOriginal.stockMax ||
       i.stockMin !== i.copiaOriginal.stockMin ||
-      i.precioVenta !== i.copiaOriginal.precioVenta ||
-      i.ubicacionEnFarmacia !== i.copiaOriginal.ubicacionEnFarmacia;
+      i.precioVenta !== i.copiaOriginal.precioVenta;
 
     if (!cambios) {
       Swal.fire({
@@ -376,16 +372,14 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       existencia: i.existencia,
       stockMax: i.stockMax,
       stockMin: i.stockMin,
-      precioVenta: i.precioVenta,
-      ubicacionEnFarmacia: i.ubicacionEnFarmacia
+      precioVenta: i.precioVenta
     }).subscribe({
       next: () => {
         i.copiaOriginal = {
           existencia: i.existencia,
           stockMax: i.stockMax,
           stockMin: i.stockMin,
-          precioVenta: i.precioVenta,
-          ubicacionEnFarmacia: i.ubicacionEnFarmacia
+          precioVenta: i.precioVenta
         };
         this.estadoGuardado[id] = 'exito';
         setTimeout(() => {
@@ -454,7 +448,6 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       i.existencia !== i.copiaOriginal.existencia ||
       i.stockMax !== i.copiaOriginal.stockMax ||
       i.stockMin !== i.copiaOriginal.stockMin ||
-      i.ubicacionEnFarmacia !== i.copiaOriginal.ubicacionEnFarmacia ||
       i.precioVenta !== i.copiaOriginal.precioVenta;
 
     const valoresValidos =
@@ -505,7 +498,6 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     item.stockMax = item.copiaOriginal.stockMax;
     item.stockMin = item.copiaOriginal.stockMin;
     item.precioVenta = item.copiaOriginal.precioVenta;
-    item.ubicacionEnFarmacia = item.copiaOriginal.ubicacionEnFarmacia;
     this.estadoEdicion[item._id] = false;
     this.estadoGuardado[item._id] = 'idle';
   }

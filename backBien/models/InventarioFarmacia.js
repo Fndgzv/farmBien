@@ -7,7 +7,6 @@ const InventarioFarmaciaSchema = new mongoose.Schema({
     stockMax: { type: Number, default: 0 },
     stockMin: { type: Number, default: 0 },
     precioVenta: { type: Number, required: true },
-    ubicacionEnFarmacia: { type: String }
 }, { timestamps: true });
 
 InventarioFarmaciaSchema.index({ producto: 1 });

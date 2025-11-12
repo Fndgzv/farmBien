@@ -148,9 +148,9 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
             generico: '$prod.generico',
             descuentoINAPAM: '$prod.descuentoINAPAM',
             stockMinimo: '$prod.stockMinimo',
-            stockMaximo: '$prod.stockMaximo'
+            stockMaximo: '$prod.stockMaximo',
+            ubicacion: '$prod.ubicacion'
           },
-          ubicacionEnFarmacia: 1,
           existencia: 1,
           stockMax: 1,
           stockMin: 1,

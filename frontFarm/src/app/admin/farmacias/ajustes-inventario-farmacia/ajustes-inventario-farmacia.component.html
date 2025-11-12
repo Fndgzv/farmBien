@@ -160,10 +160,7 @@
                     <small class="codigo-mini">{{ i.producto?.codigoBarras || '—' }}</small>
                 </td>
 
-                <td class="col-ubicacion">
-                    <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.ubicacionEnFarmacia" type="text"
-                        class="form-control form-control-sm w-100">
-                </td>
+                <td>{{ i.producto?.ubicacion }}</td>
 
                 <td>{{ i.producto?.categoria }}</td>
 
