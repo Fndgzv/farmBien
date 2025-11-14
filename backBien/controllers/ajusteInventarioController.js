@@ -184,7 +184,7 @@ exports.actualizarInventarioMasivo = async (req, res) => {
 
       const updateData = {};
 
-      if (existencia > 0) updateData.existencia = existencia;
+      if (existencia >= 0) updateData.existencia = existencia;
       if (stockMax > 0) updateData.stockMax = stockMax;
       if (stockMin > 0) updateData.stockMin = stockMin;
 
@@ -211,7 +211,7 @@ exports.actualizarInventarioMasivo = async (req, res) => {
 // Actualización individual de un producto en farmacia
 exports.actualizarInventarioIndividual = async (req, res) => {
   const { id } = req.params;
-  const { existencia, stockMax, stockMin, precioVenta, ubicacionEnFarmacia } = req.body;
+  const { existencia, stockMax, stockMin, precioVenta } = req.body;
 
   try {
     const inventario = await InventarioFarmacia.findById(id);
@@ -223,7 +223,6 @@ exports.actualizarInventarioIndividual = async (req, res) => {
     if (stockMax !== undefined) inventario.stockMax = stockMax;
     if (stockMin !== undefined) inventario.stockMin = stockMin;
     if (precioVenta !== undefined) inventario.precioVenta = precioVenta;
-    if (ubicacionEnFarmacia !== undefined) inventario.ubicacionEnFarmacia = ubicacionEnFarmacia;
 
     await inventario.save();
     res.json({ mensaje: "Inventario actualizado", inventario });

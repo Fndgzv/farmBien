@@ -27,7 +27,7 @@
         <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Código de barras</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras"
+                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras" (keyup.enter)="aplicarFiltros()"
                     class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.codigoBarras" type="button" matTooltip="Limpiar cód. barras"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"

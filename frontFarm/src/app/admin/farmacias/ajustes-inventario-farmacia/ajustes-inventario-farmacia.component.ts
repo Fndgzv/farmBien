@@ -258,7 +258,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
         Swal.close();
 
         for (const p of productosAjustar) {
-          if (ajustarExistencia && existenciaNum > 0) {
+          if (ajustarExistencia && existenciaNum >= 0) {
             p.existencia = existenciaNum;
             p.copiaOriginal.existencia = existenciaNum;
           }
