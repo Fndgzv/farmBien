@@ -4,7 +4,7 @@
     <p class="titulo">Surtir Farmacias</p>
   </div>
 
-  <form [formGroup]="form" (ngSubmit)="onAceptar()" style="border-bottom:2px solid #0453b3; padding-bottom: 1rem;">
+  <form [formGroup]="form" (ngSubmit)="onAceptar()" style="border-bottom:2px solid #0453b3; padding-bottom: 1rem; display:flex; gap:.75rem; align-items:end; flex-wrap:wrap;">
     <label>
       <span class="subtitulo">Farmacia:</span>
       <select formControlName="farmaciaId">
@@ -14,11 +14,32 @@
         </option>
       </select>
     </label>
-    <button type="submit" class="btn-gris" [disabled]="form.invalid || cargando || pendientes.length > 0"
-      matTooltip="Buscar productos que requieren surtirse">
+
+    <!-- NUEVOS filtros -->
+    <label>
+      <span class="subtitulo">Categoría:</span>
+      <input type="text" formControlName="categoria"/>
+    </label>
+
+    <label>
+      <span class="subtitulo">Ubicación:</span>
+      <input type="text" formControlName="ubicacion"/>
+    </label>
+
+    <button type="submit" class="btn-gris"
+            [disabled]="form.get('farmaciaId')?.invalid || cargando || pendientes.length > 0"
+            matTooltip="Buscar productos que requieren surtirse">
       {{ cargando ? 'Cargando…' : 'Aceptar' }}
     </button>
+
+    <button type="button" class="btn-rojo-tache"
+            (click)="limpiarFiltros()"
+            [disabled]="form.get('farmaciaId')?.invalid || cargando || pendientes.length > 0"
+            matTooltip="Limpiar filtros">
+            <i class="fas fa-times"></i>
+    </button>
   </form>
+
 
   <div *ngIf="pendientes.length" class="toolbar" style="margin: .5rem 0; display:flex; gap:.5rem; align-items:center;">
     <button class="btn-gris" (click)="omitirTodos()" matTooltip="Marca todos como omitidos">Omitir todos</button>
@@ -48,6 +69,7 @@
         <th>Producto</th>
         <th>Cód. Barras</th>
         <th>Categoría</th>
+        <th>Ubicación</th>
         <th>Existencia</th>
         <th>Stock Mínimo</th>
         <th>Stock Máximo</th>
@@ -64,6 +86,7 @@
         <td>{{ p.nombre }}</td>
         <td>{{ p.codigoBarras }}</td>
         <td>{{ p.categoria }}</td>
+        <td>{{ p.ubicacion }}</td>
         <td>{{ p.existenciaActual }}</td>
         <td>{{ p.stockMin }}</td>
         <td>{{ p.stockMax }}</td>

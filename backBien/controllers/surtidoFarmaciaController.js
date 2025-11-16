@@ -6,13 +6,26 @@ const InventarioFarmacia = require('../models/InventarioFarmacia');
 
 const norm = (s) => (s ?? '')
   .toString()
-  .normalize('NFD')               // separa acentos
-  .replace(/[\u0300-\u036f]/g, '')// quita acentos
-  .toUpperCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/\s+/g, ' ')
   .trim();
 
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
+// --- helpers de matching por palabras (todas las palabras deben aparecer) ---
+function words(str) {
+  return norm(str).split(' ').filter(Boolean);
+}
+function containsAll(haystack, needle) {
+  const H = norm(haystack);
+  const ws = words(needle);
+  for (const w of ws) {
+    if (!H.includes(w)) return false;
+  }
+  return true;
+}
 
 exports.surtirFarmacia = async (req, res) => {
   try {
@@ -21,7 +34,14 @@ exports.surtirFarmacia = async (req, res) => {
       return res.status(403).json({ mensaje: 'Solo administradores pueden surtir farmacias' });
     }
 
-    const { farmaciaId, confirm = false, detalles = [] } = req.body;
+    // NUEVO: filtros opcionales
+    const {
+      farmaciaId,
+      confirm = false,
+      detalles = [],
+      categoria,     // opcional
+      ubicacion      // opcional
+    } = req.body;
 
     // Mapa de omisiones por producto (default false)
     const omitirMap = new Map();
@@ -35,8 +55,20 @@ exports.surtirFarmacia = async (req, res) => {
     const inventarios = await InventarioFarmacia.find({ farmacia: farmaciaId })
       .populate({ path: 'producto', model: Producto });
 
-    // 2) Filtrar los que están <= stockMin
-    const bajos = inventarios.filter(inv => (inv.existencia ?? 0) <= (inv.stockMin ?? 0));
+    // 1.1) Aplicar filtros opcionales por categoría/ubicación sobre el producto
+    const filtraProducto = (prod) => {
+      if (!prod) return false;
+      let ok = true;
+      if (categoria) ok = ok && containsAll(prod.categoria ?? '', categoria);
+      if (ubicacion) ok = ok && containsAll(prod.ubicacion ?? '', ubicacion);
+      return ok;
+    };
+
+    // 2) Filtrar los que están <= stockMin **y** cumplen filtros (si hay)
+    const bajos = inventarios.filter(inv =>
+      (inv.existencia ?? 0) <= (inv.stockMin ?? 0) &&
+      filtraProducto(inv.producto)
+    );
 
     // 3) Generar "pendientes" con disponible en almacén (suma lotes)
     const pendientes = bajos.map(inv => ({
@@ -61,10 +93,10 @@ exports.surtirFarmacia = async (req, res) => {
     pendientes.sort((a, b) =>
       cmp(norm(a.categoria), norm(b.categoria)) ||
       cmp(norm(a.ubicacion), norm(b.ubicacion)) ||
-      cmp(norm(a.nombre), norm(b.nombre))
+      cmp(norm(a.nombre),    norm(b.nombre))
     );
 
-    // 4) Si no confirman, solo devolvemos pendientes (marcando omitir calculado)
+    // 4) Si no confirman, solo devolvemos pendientes
     if (!confirm) {
       return res.json({ pendientes });
     }
@@ -93,7 +125,7 @@ exports.surtirFarmacia = async (req, res) => {
             : 0;
           if (disponible <= 0) continue;
 
-          // Orden por caducidad ASC (lotes más próximos primero)
+          // Orden por caducidad ASC
           prod.lotes.sort((a, b) => new Date(a.fechaCaducidad) - new Date(b.fechaCaducidad));
 
           let transferido = 0;
@@ -106,7 +138,7 @@ exports.surtirFarmacia = async (req, res) => {
             const tomo = Math.min(existLote, restante);
             if (tomo <= 0) continue;
 
-            lote.cantidad = existLote - tomo; // descuenta del almacén
+            lote.cantidad = existLote - tomo;
             restante -= tomo;
             transferido += tomo;
 
@@ -118,7 +150,6 @@ exports.surtirFarmacia = async (req, res) => {
             });
           }
 
-          // Si hubo transferencia, persistimos cambios
           if (transferido > 0) {
             await prod.save({ session });
             inv.existencia = Math.min((inv.existencia ?? 0) + transferido, inv.stockMax ?? Infinity);
@@ -127,11 +158,9 @@ exports.surtirFarmacia = async (req, res) => {
         }
 
         if (items.length === 0) {
-          // Nada que surtir: abortamos antes de guardar movimiento
           throw new Error('No hubo movimientos: sin existencia en almacén o todos marcados como "omitir".');
         }
 
-        // Guardar documento de surtido SOLO con los items realmente surtidos
         const [surtidoDoc] = await SurtidoFarmacia.create([{
           farmacia: farmaciaId,
           usuarioSurtio: req.usuario.id,
@@ -144,18 +173,18 @@ exports.surtirFarmacia = async (req, res) => {
       const surtido = await SurtidoFarmacia.findById(surtidoId)
         .populate({ path: 'items.producto', select: 'nombre codigoBarras categoria ubicacion' });
 
-      // Pasar a objeto plano y ordenar items por categoría -> nombre
       const sObj = surtido?.toObject ? surtido.toObject() : surtido;
       if (sObj?.items?.length) {
         sObj.items.sort((a, b) =>
           cmp(norm(a.producto?.categoria), norm(b.producto?.categoria)) ||
-          cmp(norm(a.producto?.nombre), norm(b.producto?.nombre))
+          cmp(norm(a.producto?.nombre),    norm(b.producto?.nombre))
         );
       }
-      // OK transacción
+
       return res.json({
         mensaje: 'Farmacia surtida correctamente (solo con cantidades disponibles y sin omitir).',
-        pendientes, // útil para UI
+        filtros: { categoria: categoria ?? null, ubicacion: ubicacion ?? null }, // útil para depurar
+        pendientes,
         surtido: sObj
       });
 
