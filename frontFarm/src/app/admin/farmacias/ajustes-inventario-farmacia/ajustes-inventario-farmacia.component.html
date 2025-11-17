@@ -7,15 +7,15 @@
 <form [formGroup]="formFiltros" (ngSubmit)="buscar()" class="filter-container">
     <div class="row">
 
-        <div class="col-md-2">
+        <div class="col-md-1">
             <label>Farmacia</label>
             <select class="form-control" formControlName="farmacia" required>
                 <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
             </select>
         </div>
 
-        <div class="col-md-3">
-            <label class="me-2 mb-0" style="white-space: nowrap;">Nombre</label>
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Nombre producto</label>
             <div class="position-relative">
                 <input type="text" formControlName="nombre" class="form-control pe-4 flex-grow-1">
                 <button *ngIf="formFiltros.get('nombre')?.value" type="button"
@@ -27,7 +27,7 @@
         </div>
 
         <div class="col-md-2">
-            <label class="me-2 mb-0" style="white-space: nowrap;">Código de Barras</label>
+            <label class="me-2 mb-0" style="white-space: nowrap;">Código barras</label>
             <div class="position-relative">
                 <input type="text" formControlName="codigoBarras" class="form-control pe-4 flex-grow-1">
                 <button *ngIf="formFiltros.get('codigoBarras')?.value" type="button"
@@ -48,6 +48,19 @@
                     <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
+        </div>
+
+        <!-- Dentro del <form [formGroup]="formFiltros"> -->
+        <div class="col-md-2">
+        <label class="me-2 mb-0" style="white-space: nowrap;">Ubicación en farmacia</label>
+        <div class="position-relative">
+            <input type="text" formControlName="ubicacionFarmacia" class="form-control pe-4 flex-grow-1">
+            <button *ngIf="formFiltros.get('ubicacionFarmacia')?.value" type="button"
+            class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+            (click)="limpiarFiltro('ubicacionFarmacia')">
+            <fa-icon [icon]="faTimes"></fa-icon>
+            </button>
+        </div>
         </div>
 
         <div class="col-md-1">

@@ -95,7 +95,7 @@ function construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, gene
 exports.obtenerInventarioFarmacia = async (req, res) => {
   const {
     farmacia,
-    nombre, codigoBarras, categoria, inapam, generico,
+    nombre, codigoBarras, categoria, inapam, generico, ubicacionFarmacia,
     sortBy = 'existencia',          // 'existencia' | 'nombre'
     sortDir = 'asc'                 // 'asc' | 'desc'
   } = req.query;
@@ -119,9 +119,25 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
     // 3) Dirección de orden
     const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
 
+    // 3.1) Filtro por ubicacionFarmacia (todas las palabras)
+    const andUbic = [];
+    if (ubicacionFarmacia) {
+      const ws = String(ubicacionFarmacia)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tolera acentos
+        .toLowerCase().trim().replace(/\s+/g, ' ')
+        .split(' ')
+        .filter(Boolean);
+      for (const w of ws) {
+        andUbic.push({ ubicacionFarmacia: { $regex: w, $options: 'i' } });
+      }
+    }
+
     // 4) Pipeline inventario + producto
+    const baseMatch = { farmacia: new ObjectId(farmacia), producto: { $in: productosIds } };
+    const matchInventario = andUbic.length ? { $and: [baseMatch, ...andUbic] } : baseMatch;
+
     const pipe = [
-      { $match: { farmacia: new ObjectId(farmacia), producto: { $in: productosIds } } },
+      { $match: matchInventario },
       {
         $lookup: {
           from: 'productos',
@@ -177,7 +193,7 @@ const hasStr = v =>
 
 exports.actualizarInventarioMasivo = async (req, res) => {
   const farmacia = req.params.farmaciaId;
-  const cambios  = req.body; // [{ id, existencia?, stockMax?, stockMin?, precioVenta?, ubicacionFarmacia?, clearUbicacion? }]
+  const cambios = req.body; // [{ id, existencia?, stockMax?, stockMin?, precioVenta?, ubicacionFarmacia?, clearUbicacion? }]
 
   if (!farmacia || !Array.isArray(cambios)) {
     return res.status(400).json({ mensaje: "Datos inválidos para actualización masiva." });
@@ -191,10 +207,10 @@ exports.actualizarInventarioMasivo = async (req, res) => {
 
       const $set = {};
 
-      if (hasNum(c.existencia))   $set.existencia    = Number(c.existencia);
-      if (hasNum(c.stockMax))     $set.stockMax      = Number(c.stockMax);
-      if (hasNum(c.stockMin))     $set.stockMin      = Number(c.stockMin);
-      if (hasNum(c.precioVenta))  $set.precioVenta   = Number(c.precioVenta);
+      if (hasNum(c.existencia)) $set.existencia = Number(c.existencia);
+      if (hasNum(c.stockMax)) $set.stockMax = Number(c.stockMax);
+      if (hasNum(c.stockMin)) $set.stockMin = Number(c.stockMin);
+      if (hasNum(c.precioVenta)) $set.precioVenta = Number(c.precioVenta);
 
       // Ubicación farmacia: solo setear si vino no-vacía
       if (hasStr(c.ubicacionFarmacia)) {
@@ -221,7 +237,7 @@ exports.actualizarInventarioMasivo = async (req, res) => {
     const resultado = await InventarioFarmacia.bulkWrite(ops, { ordered: false });
     return res.json({
       mensaje: "Ajuste masivo realizado con éxito",
-      matched:  resultado.matchedCount,
+      matched: resultado.matchedCount,
       modified: resultado.modifiedCount
     });
   } catch (error) {
@@ -239,10 +255,10 @@ exports.actualizarInventarioIndividual = async (req, res) => {
     const inv = await InventarioFarmacia.findById(id);
     if (!inv) return res.status(404).json({ mensaje: "Registro no encontrado" });
 
-    if (hasNum(existencia))   inv.existencia  = Number(existencia);
-    if (hasNum(stockMax))     inv.stockMax    = Number(stockMax);
-    if (hasNum(stockMin))     inv.stockMin    = Number(stockMin);
-    if (hasNum(precioVenta))  inv.precioVenta = Number(precioVenta);
+    if (hasNum(existencia)) inv.existencia = Number(existencia);
+    if (hasNum(stockMax)) inv.stockMax = Number(stockMax);
+    if (hasNum(stockMin)) inv.stockMin = Number(stockMin);
+    if (hasNum(precioVenta)) inv.precioVenta = Number(precioVenta);
 
     if (hasStr(ubicacionFarmacia)) inv.ubicacionFarmacia = String(ubicacionFarmacia).trim();
     else if (clearUbicacion === true) inv.ubicacionFarmacia = '';

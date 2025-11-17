@@ -22,6 +22,7 @@ export class InventarioFarmaciaService {
     if (filtros.categoria) params = params.set('categoria', filtros.categoria);
     if (filtros.inapam !== '') params = params.set('inapam', filtros.inapam);
     if (filtros.generico !== '') params = params.set('generico', filtros.generico);
+    if (filtros.ubicacionFarmacia) params = params.set('ubicacionFarmacia', filtros.ubicacionFarmacia);
 
     if (filtros.sortBy) params = params.set('sortBy', filtros.sortBy);
     if (filtros.sortDir) params = params.set('sortDir', filtros.sortDir);

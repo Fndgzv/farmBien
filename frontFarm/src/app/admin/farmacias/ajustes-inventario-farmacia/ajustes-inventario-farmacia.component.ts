@@ -71,7 +71,8 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       codigoBarras: [''],
       categoria: [''],
       inapam: [''],
-      generico: ['']
+      generico: [''],
+      ubicacionFarmacia: ['']
     });
 
     const stored = localStorage.getItem('user_farmacia');
@@ -190,136 +191,136 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     /* this.todosSeleccionados = checked; */
   }
 
-guardarAjusteMasivo() {
-  const farmacia = this.formFiltros.get('farmacia')?.value;
-  if (!farmacia) return;
+  guardarAjusteMasivo() {
+    const farmacia = this.formFiltros.get('farmacia')?.value;
+    if (!farmacia) return;
 
-  this.aplicandoCambiosMasivos = true;
+    this.aplicandoCambiosMasivos = true;
 
-  // 1) Lee valores crudos, sin convertir
-  const exRaw = this.ajusteMasivo.existencia;
-  const mxRaw = this.ajusteMasivo.stockMax;
-  const mnRaw = this.ajusteMasivo.stockMin;
-  const ubRaw = (this.ajusteMasivo.ubicacionFarmacia ?? '').toString().trim();
+    // 1) Lee valores crudos, sin convertir
+    const exRaw = this.ajusteMasivo.existencia;
+    const mxRaw = this.ajusteMasivo.stockMax;
+    const mnRaw = this.ajusteMasivo.stockMin;
+    const ubRaw = (this.ajusteMasivo.ubicacionFarmacia ?? '').toString().trim();
 
-  // 2) Detecta si el usuario realmente escribió algo
-  const hasEx = exRaw !== '' && exRaw !== null && exRaw !== undefined;
-  const hasMx = mxRaw !== '' && mxRaw !== null && mxRaw !== undefined;
-  const hasMn = mnRaw !== '' && mnRaw !== null && mnRaw !== undefined;
-  const hasUb = ubRaw.length > 0; // si quieres permitir vaciar explícitamente, lo vemos con un checkbox aparte
+    // 2) Detecta si el usuario realmente escribió algo
+    const hasEx = exRaw !== '' && exRaw !== null && exRaw !== undefined;
+    const hasMx = mxRaw !== '' && mxRaw !== null && mxRaw !== undefined;
+    const hasMn = mnRaw !== '' && mnRaw !== null && mnRaw !== undefined;
+    const hasUb = ubRaw.length > 0; // si quieres permitir vaciar explícitamente, lo vemos con un checkbox aparte
 
-  // 3) Si no hay ningún campo capturado, avisa y sal
-  if (!hasEx && !hasMx && !hasMn && !hasUb) {
-    this.aplicandoCambiosMasivos = false;
-    Swal.fire({
-      icon: 'info',
-      title: 'Aviso',
-      text: 'No hay productos seleccionados o no hay cambios para aplicar.',
-      timer: 1600,
-      timerProgressBar: true
-    });
-    return;
-  }
-
-  // 4) Convierte a número SOLO lo que sí capturó el usuario
-  const exNum = hasEx ? Number(exRaw) : NaN;
-  const mxNum = hasMx ? Number(mxRaw) : NaN;
-  const mnNum = hasMn ? Number(mnRaw) : NaN;
-
-  // 5) Validaciones solo sobre campos presentes
-  if (hasEx && (!Number.isInteger(exNum) || exNum < 0)) {
-    this.aplicandoCambiosMasivos = false;
-    Swal.fire('Valor inválido', 'La existencia debe ser entero no negativo.', 'warning');
-    return;
-  }
-  if (hasMx && (!Number.isInteger(mxNum) || mxNum <= 0)) {
-    this.aplicandoCambiosMasivos = false;
-    Swal.fire('Valor inválido', 'El stock máximo debe ser entero mayor a 0.', 'warning');
-    return;
-  }
-  if (hasMn && (!Number.isInteger(mnNum) || mnNum <= 0)) {
-    this.aplicandoCambiosMasivos = false;
-    Swal.fire('Valor inválido', 'El stock mínimo debe ser entero mayor a 0.', 'warning');
-    return;
-  }
-  if (hasMx && hasMn && mnNum > mxNum) {
-    this.aplicandoCambiosMasivos = false;
-    Swal.fire('Stock inválido', 'El stock mínimo no puede ser mayor que el stock máximo.', 'warning');
-    return;
-  }
-
-  // 6) Filtra seleccionados con diferencias REALES
-  const productosAjustar = this.inventario.filter(p => {
-    const difEx = hasEx && p.existencia !== exNum;
-    const difMx = hasMx && p.stockMax   !== mxNum;
-    const difMn = hasMn && p.stockMin   !== mnNum;
-    const difUb = hasUb && (p.ubicacionFarmacia ?? '') !== ubRaw;
-    return p.seleccionado && (difEx || difMx || difMn || difUb);
-  });
-
-  if (productosAjustar.length === 0) {
-    this.aplicandoCambiosMasivos = false;
-    Swal.fire({
-      icon: 'info',
-      title: 'Aviso',
-      text: 'No hay productos seleccionados o no hay cambios para aplicar.',
-      timer: 1600,
-      timerProgressBar: true
-    });
-    return;
-  }
-
-  // 7) Construye payload SOLO con campos presentes
-  const cambios = productosAjustar.map(p => {
-    const c: any = { id: p._id };
-    if (hasEx) c.existencia = exNum;
-    if (hasMx) c.stockMax   = mxNum;
-    if (hasMn) c.stockMin   = mnNum;
-    if (hasUb) c.ubicacionFarmacia = ubRaw;
-    return c;
-  });
-
-  // 8) UI
-  void Swal.fire({
-    title: 'Aplicando ajustes...',
-    html: 'Esto puede tardar unos segundos.',
-    allowOutsideClick: false,
-    allowEscapeKey: false,
-    didOpen: () => Swal.showLoading()
-  });
-
-  this.inventarioService.actualizarMasivo(farmacia, cambios).pipe(
-    finalize(() => { this.aplicandoCambiosMasivos = false; })
-  ).subscribe({
-    next: () => {
-      Swal.close();
-
-      // Reflejo en UI
-      for (const p of productosAjustar) {
-        if (hasEx) { p.existencia = exNum; p.copiaOriginal.existencia = exNum; }
-        if (hasMx) { p.stockMax   = mxNum; p.copiaOriginal.stockMax   = mxNum; }
-        if (hasMn) { p.stockMin   = mnNum; p.copiaOriginal.stockMin   = mnNum; }
-        if (hasUb) { p.ubicacionFarmacia = ubRaw; p.copiaOriginal.ubicacionFarmacia = ubRaw; }
-      }
-
-      // Reset a “vacío”
-      this.ajusteMasivo = { existencia: '', stockMax: '', stockMin: '', ubicacionFarmacia: '' };
-
+    // 3) Si no hay ningún campo capturado, avisa y sal
+    if (!hasEx && !hasMx && !hasMn && !hasUb) {
+      this.aplicandoCambiosMasivos = false;
       Swal.fire({
-        icon: 'success',
-        title: 'Actualizado',
-        text: 'Ajustes aplicados correctamente.',
+        icon: 'info',
+        title: 'Aviso',
+        text: 'No hay productos seleccionados o no hay cambios para aplicar.',
         timer: 1600,
         timerProgressBar: true
       });
-    },
-    error: (err) => {
-      console.error('Error en ajuste masivo', err);
-      Swal.close();
-      Swal.fire('Error', 'No se pudieron aplicar los ajustes.', 'error');
+      return;
     }
-  });
-}
+
+    // 4) Convierte a número SOLO lo que sí capturó el usuario
+    const exNum = hasEx ? Number(exRaw) : NaN;
+    const mxNum = hasMx ? Number(mxRaw) : NaN;
+    const mnNum = hasMn ? Number(mnRaw) : NaN;
+
+    // 5) Validaciones solo sobre campos presentes
+    if (hasEx && (!Number.isInteger(exNum) || exNum < 0)) {
+      this.aplicandoCambiosMasivos = false;
+      Swal.fire('Valor inválido', 'La existencia debe ser entero no negativo.', 'warning');
+      return;
+    }
+    if (hasMx && (!Number.isInteger(mxNum) || mxNum <= 0)) {
+      this.aplicandoCambiosMasivos = false;
+      Swal.fire('Valor inválido', 'El stock máximo debe ser entero mayor a 0.', 'warning');
+      return;
+    }
+    if (hasMn && (!Number.isInteger(mnNum) || mnNum <= 0)) {
+      this.aplicandoCambiosMasivos = false;
+      Swal.fire('Valor inválido', 'El stock mínimo debe ser entero mayor a 0.', 'warning');
+      return;
+    }
+    if (hasMx && hasMn && mnNum > mxNum) {
+      this.aplicandoCambiosMasivos = false;
+      Swal.fire('Stock inválido', 'El stock mínimo no puede ser mayor que el stock máximo.', 'warning');
+      return;
+    }
+
+    // 6) Filtra seleccionados con diferencias REALES
+    const productosAjustar = this.inventario.filter(p => {
+      const difEx = hasEx && p.existencia !== exNum;
+      const difMx = hasMx && p.stockMax !== mxNum;
+      const difMn = hasMn && p.stockMin !== mnNum;
+      const difUb = hasUb && (p.ubicacionFarmacia ?? '') !== ubRaw;
+      return p.seleccionado && (difEx || difMx || difMn || difUb);
+    });
+
+    if (productosAjustar.length === 0) {
+      this.aplicandoCambiosMasivos = false;
+      Swal.fire({
+        icon: 'info',
+        title: 'Aviso',
+        text: 'No hay productos seleccionados o no hay cambios para aplicar.',
+        timer: 1600,
+        timerProgressBar: true
+      });
+      return;
+    }
+
+    // 7) Construye payload SOLO con campos presentes
+    const cambios = productosAjustar.map(p => {
+      const c: any = { id: p._id };
+      if (hasEx) c.existencia = exNum;
+      if (hasMx) c.stockMax = mxNum;
+      if (hasMn) c.stockMin = mnNum;
+      if (hasUb) c.ubicacionFarmacia = ubRaw;
+      return c;
+    });
+
+    // 8) UI
+    void Swal.fire({
+      title: 'Aplicando ajustes...',
+      html: 'Esto puede tardar unos segundos.',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    this.inventarioService.actualizarMasivo(farmacia, cambios).pipe(
+      finalize(() => { this.aplicandoCambiosMasivos = false; })
+    ).subscribe({
+      next: () => {
+        Swal.close();
+
+        // Reflejo en UI
+        for (const p of productosAjustar) {
+          if (hasEx) { p.existencia = exNum; p.copiaOriginal.existencia = exNum; }
+          if (hasMx) { p.stockMax = mxNum; p.copiaOriginal.stockMax = mxNum; }
+          if (hasMn) { p.stockMin = mnNum; p.copiaOriginal.stockMin = mnNum; }
+          if (hasUb) { p.ubicacionFarmacia = ubRaw; p.copiaOriginal.ubicacionFarmacia = ubRaw; }
+        }
+
+        // Reset a “vacío”
+        this.ajusteMasivo = { existencia: '', stockMax: '', stockMin: '', ubicacionFarmacia: '' };
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Actualizado',
+          text: 'Ajustes aplicados correctamente.',
+          timer: 1600,
+          timerProgressBar: true
+        });
+      },
+      error: (err) => {
+        console.error('Error en ajuste masivo', err);
+        Swal.close();
+        Swal.fire('Error', 'No se pudieron aplicar los ajustes.', 'error');
+      }
+    });
+  }
 
 
   resetInputsMasivos() {
@@ -363,11 +364,11 @@ guardarAjusteMasivo() {
     }
 
     // Validación de ubicacionFarmacia (texto libre; permitir vacío para limpiar)
-/*     if (i.ubicacionFarmacia === null || i.ubicacionFarmacia === undefined) {
-      Swal.fire('Campo vacío', 'El campo "Ubicación (farmacia)" no puede ser nulo.', 'warning');
-      return;
-    }
- */
+    /*     if (i.ubicacionFarmacia === null || i.ubicacionFarmacia === undefined) {
+          Swal.fire('Campo vacío', 'El campo "Ubicación (farmacia)" no puede ser nulo.', 'warning');
+          return;
+        }
+     */
     // Detectar cambios
     const cambios =
       i.existencia !== i.copiaOriginal.existencia ||
