@@ -154,7 +154,8 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
           existencia: 1,
           stockMax: 1,
           stockMin: 1,
-          precioVenta: 1
+          precioVenta: 1,
+          ubicacionFarmacia: 1
         }
       }
     ];
@@ -167,66 +168,94 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
   }
 };
 
-// Actualización masiva en farmacia (existencia, stockMax y stockMin)
+// Actualización masiva en farmacia (existencia, stockMax, stockMin, precioVenta, ubicacionFarmacia)
+// helpers seguros
+const hasNum = v => typeof v === 'number' && !Number.isNaN(v);
+
+const hasStr = v =>
+  v !== undefined && v !== null && String(v).trim() !== '';
+
 exports.actualizarInventarioMasivo = async (req, res) => {
   const farmacia = req.params.farmaciaId;
-  const cambios = req.body; // Array con { id, existencia, stockMax, stockMin }
+  const cambios  = req.body; // [{ id, existencia?, stockMax?, stockMin?, precioVenta?, ubicacionFarmacia?, clearUbicacion? }]
 
   if (!farmacia || !Array.isArray(cambios)) {
     return res.status(400).json({ mensaje: "Datos inválidos para actualización masiva." });
   }
 
   try {
-    const resultados = [];
+    const ops = [];
 
-    for (const cambio of cambios) {
-      const { id, existencia, stockMax, stockMin } = cambio;
+    for (const c of cambios) {
+      if (!c || !c.id) continue;
 
-      const updateData = {};
+      const $set = {};
 
-      if (existencia >= 0) updateData.existencia = existencia;
-      if (stockMax > 0) updateData.stockMax = stockMax;
-      if (stockMin > 0) updateData.stockMin = stockMin;
+      if (hasNum(c.existencia))   $set.existencia    = Number(c.existencia);
+      if (hasNum(c.stockMax))     $set.stockMax      = Number(c.stockMax);
+      if (hasNum(c.stockMin))     $set.stockMin      = Number(c.stockMin);
+      if (hasNum(c.precioVenta))  $set.precioVenta   = Number(c.precioVenta);
 
-      if (Object.keys(updateData).length === 0) {
-        // No hay nada que actualizar
-        continue;
+      // Ubicación farmacia: solo setear si vino no-vacía
+      if (hasStr(c.ubicacionFarmacia)) {
+        $set.ubicacionFarmacia = String(c.ubicacionFarmacia).trim();
+      } else if (c.clearUbicacion === true) {
+        // si quieres permitir limpiar explícitamente:
+        $set.ubicacionFarmacia = '';
       }
 
-      const resUpdate = await InventarioFarmacia.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true }
-      );
-      resultados.push(resUpdate);
+      if (Object.keys($set).length === 0) continue;
+
+      ops.push({
+        updateOne: {
+          filter: { _id: c.id },
+          update: { $set }
+        }
+      });
     }
 
-    res.json({ mensaje: "Ajuste masivo realizado con éxito", resultados });
+    if (!ops.length) {
+      return res.json({ mensaje: "No hubo cambios que aplicar", matched: 0, modified: 0 });
+    }
+
+    const resultado = await InventarioFarmacia.bulkWrite(ops, { ordered: false });
+    return res.json({
+      mensaje: "Ajuste masivo realizado con éxito",
+      matched:  resultado.matchedCount,
+      modified: resultado.modifiedCount
+    });
   } catch (error) {
     console.error('Error en back al actualizar masivamente:', error);
-    res.status(500).json({ mensaje: "Error al actualizar masivamente", error });
+    return res.status(500).json({ mensaje: "Error al actualizar masivamente", error: error.message });
   }
 };
 
 // Actualización individual de un producto en farmacia
 exports.actualizarInventarioIndividual = async (req, res) => {
   const { id } = req.params;
-  const { existencia, stockMax, stockMin, precioVenta } = req.body;
+  const { existencia, stockMax, stockMin, precioVenta, ubicacionFarmacia, clearUbicacion } = req.body;
 
   try {
-    const inventario = await InventarioFarmacia.findById(id);
-    if (!inventario) {
-      return res.status(404).json({ mensaje: "Registro no encontrado" });
+    const inv = await InventarioFarmacia.findById(id);
+    if (!inv) return res.status(404).json({ mensaje: "Registro no encontrado" });
+
+    if (hasNum(existencia))   inv.existencia  = Number(existencia);
+    if (hasNum(stockMax))     inv.stockMax    = Number(stockMax);
+    if (hasNum(stockMin))     inv.stockMin    = Number(stockMin);
+    if (hasNum(precioVenta))  inv.precioVenta = Number(precioVenta);
+
+    if (hasStr(ubicacionFarmacia)) inv.ubicacionFarmacia = String(ubicacionFarmacia).trim();
+    else if (clearUbicacion === true) inv.ubicacionFarmacia = '';
+
+    if (inv.stockMin > inv.stockMax) {
+      return res.status(400).json({ mensaje: "stockMin no puede ser mayor a stockMax" });
     }
 
-    if (existencia !== undefined) inventario.existencia = existencia;
-    if (stockMax !== undefined) inventario.stockMax = stockMax;
-    if (stockMin !== undefined) inventario.stockMin = stockMin;
-    if (precioVenta !== undefined) inventario.precioVenta = precioVenta;
-
-    await inventario.save();
-    res.json({ mensaje: "Inventario actualizado", inventario });
+    await inv.save();
+    return res.json({ mensaje: "Inventario actualizado", inventario: inv });
   } catch (error) {
-    res.status(500).json({ mensaje: "Error en la actualización individual", error });
+    console.error('Error en la actualización individual:', error);
+    return res.status(500).json({ mensaje: "Error en la actualización individual", error: error.message });
   }
 };
+

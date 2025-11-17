@@ -96,7 +96,11 @@
             <tr style="color: blue;">
                 <th>AJUSTE MASIVO</th>
                 <th></th>
-                <th></th>
+                <th>
+                    <input [(ngModel)]="ajusteMasivo.ubicacionFarmacia"
+                            class="form-control form-control-sm"
+                            type="text">
+                </th>
                 <th></th>
                 <th></th>
                 <th></th>
@@ -108,6 +112,13 @@
                 </th>
                 <th>
                     <input [(ngModel)]="ajusteMasivo.stockMax" class="form-control form-control-sm" type="number">
+                </th>
+                <th>
+                    <button class="btn-icon-chico btn-rojo-chico" (click)="resetInputsMasivos()"
+                        matTooltip="Limpiar parámetros de ajustes masivos"
+                        [disabled]="deshabilitarBotonAplicar || aplicandoCambiosMasivos">
+                        <fa-icon [icon]="faTimes"></fa-icon>
+                    </button>
                 </th>
                 <th>
                     <button class="btn-verde-chico" (click)="guardarAjusteMasivo()"
@@ -160,7 +171,17 @@
                     <small class="codigo-mini">{{ i.producto?.codigoBarras || '—' }}</small>
                 </td>
 
-                <td>{{ i.producto?.ubicacion }}</td>
+                <td>
+                    <ng-container *ngIf="estadoEdicion[i._id]; else verUbicacionFarmacia">
+                        <input [(ngModel)]="i.ubicacionFarmacia"
+                            class="form-control form-control-sm"
+                            type="text"
+                            placeholder="Ubic farma">
+                    </ng-container>
+                    <ng-template #verUbicacionFarmacia>
+                        {{ i.ubicacionFarmacia || '—' }}
+                    </ng-template>
+                </td>
 
                 <td>{{ i.producto?.categoria }}</td>
 

@@ -32,10 +32,11 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   inventario: any[] = [];
   farmacias: any[] = [];
 
-  ajusteMasivo = {
-    existencia: 0,
-    stockMax: 0,
-    stockMin: 0
+  ajusteMasivo: { existencia: any; stockMax: any; stockMin: any; ubicacionFarmacia: string } = {
+    existencia: '',
+    stockMax: '',
+    stockMin: '',
+    ubicacionFarmacia: ''
   };
 
   estadoEdicion: { [key: string]: boolean } = {}; // clave: id del producto
@@ -145,18 +146,18 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           _id: item._id,
           farmacia: item.farmacia,
           producto: item.producto,
-          ubicacion: item.ubicacion,
           existencia: item.existencia,
           stockMax: item.stockMax,
           stockMin: item.stockMin,
           precioVenta: item.precioVenta,
+          ubicacionFarmacia: item.ubicacionFarmacia,
           seleccionado: false,
           copiaOriginal: {
             existencia: item.existencia,
             stockMax: item.stockMax,
             stockMin: item.stockMin,
             precioVenta: item.precioVenta,
-            ubicacion: item.ubicacion,
+            ubicacionFarmacia: item.ubicacionFarmacia,
           }
         }));
         this.paginaActual = 1;
@@ -189,202 +190,218 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     /* this.todosSeleccionados = checked; */
   }
 
-  guardarAjusteMasivo() {
-    const farmacia = this.formFiltros.get('farmacia')?.value;
-    if (!farmacia) return;
-    this.aplicandoCambiosMasivos = true;
+guardarAjusteMasivo() {
+  const farmacia = this.formFiltros.get('farmacia')?.value;
+  if (!farmacia) return;
 
-    const existenciaNum = Number(this.ajusteMasivo.existencia);
-    const stockMaxNum = Number(this.ajusteMasivo.stockMax);
-    const stockMinNum = Number(this.ajusteMasivo.stockMin);
+  this.aplicandoCambiosMasivos = true;
 
-    const ajustarExistencia = !isNaN(existenciaNum);
-    const ajustarStockMax = !isNaN(stockMaxNum);
-    const ajustarStockMin = !isNaN(stockMinNum);
+  // 1) Lee valores crudos, sin convertir
+  const exRaw = this.ajusteMasivo.existencia;
+  const mxRaw = this.ajusteMasivo.stockMax;
+  const mnRaw = this.ajusteMasivo.stockMin;
+  const ubRaw = (this.ajusteMasivo.ubicacionFarmacia ?? '').toString().trim();
 
+  // 2) Detecta si el usuario realmente escribió algo
+  const hasEx = exRaw !== '' && exRaw !== null && exRaw !== undefined;
+  const hasMx = mxRaw !== '' && mxRaw !== null && mxRaw !== undefined;
+  const hasMn = mnRaw !== '' && mnRaw !== null && mnRaw !== undefined;
+  const hasUb = ubRaw.length > 0; // si quieres permitir vaciar explícitamente, lo vemos con un checkbox aparte
 
-    // Filtrar productos a ajustar
-    const productosAjustar = this.inventario.filter(p =>
-      p.seleccionado &&
-      (
-        (ajustarExistencia && p.existencia !== existenciaNum) ||
-        (ajustarStockMax && p.stockMax !== stockMaxNum) ||
-        (ajustarStockMin && p.stockMin !== stockMinNum)
-      )
-    );
+  // 3) Si no hay ningún campo capturado, avisa y sal
+  if (!hasEx && !hasMx && !hasMn && !hasUb) {
+    this.aplicandoCambiosMasivos = false;
+    Swal.fire({
+      icon: 'info',
+      title: 'Aviso',
+      text: 'No hay productos seleccionados o no hay cambios para aplicar.',
+      timer: 1600,
+      timerProgressBar: true
+    });
+    return;
+  }
 
-    if (productosAjustar.length === 0) {
+  // 4) Convierte a número SOLO lo que sí capturó el usuario
+  const exNum = hasEx ? Number(exRaw) : NaN;
+  const mxNum = hasMx ? Number(mxRaw) : NaN;
+  const mnNum = hasMn ? Number(mnRaw) : NaN;
+
+  // 5) Validaciones solo sobre campos presentes
+  if (hasEx && (!Number.isInteger(exNum) || exNum < 0)) {
+    this.aplicandoCambiosMasivos = false;
+    Swal.fire('Valor inválido', 'La existencia debe ser entero no negativo.', 'warning');
+    return;
+  }
+  if (hasMx && (!Number.isInteger(mxNum) || mxNum <= 0)) {
+    this.aplicandoCambiosMasivos = false;
+    Swal.fire('Valor inválido', 'El stock máximo debe ser entero mayor a 0.', 'warning');
+    return;
+  }
+  if (hasMn && (!Number.isInteger(mnNum) || mnNum <= 0)) {
+    this.aplicandoCambiosMasivos = false;
+    Swal.fire('Valor inválido', 'El stock mínimo debe ser entero mayor a 0.', 'warning');
+    return;
+  }
+  if (hasMx && hasMn && mnNum > mxNum) {
+    this.aplicandoCambiosMasivos = false;
+    Swal.fire('Stock inválido', 'El stock mínimo no puede ser mayor que el stock máximo.', 'warning');
+    return;
+  }
+
+  // 6) Filtra seleccionados con diferencias REALES
+  const productosAjustar = this.inventario.filter(p => {
+    const difEx = hasEx && p.existencia !== exNum;
+    const difMx = hasMx && p.stockMax   !== mxNum;
+    const difMn = hasMn && p.stockMin   !== mnNum;
+    const difUb = hasUb && (p.ubicacionFarmacia ?? '') !== ubRaw;
+    return p.seleccionado && (difEx || difMx || difMn || difUb);
+  });
+
+  if (productosAjustar.length === 0) {
+    this.aplicandoCambiosMasivos = false;
+    Swal.fire({
+      icon: 'info',
+      title: 'Aviso',
+      text: 'No hay productos seleccionados o no hay cambios para aplicar.',
+      timer: 1600,
+      timerProgressBar: true
+    });
+    return;
+  }
+
+  // 7) Construye payload SOLO con campos presentes
+  const cambios = productosAjustar.map(p => {
+    const c: any = { id: p._id };
+    if (hasEx) c.existencia = exNum;
+    if (hasMx) c.stockMax   = mxNum;
+    if (hasMn) c.stockMin   = mnNum;
+    if (hasUb) c.ubicacionFarmacia = ubRaw;
+    return c;
+  });
+
+  // 8) UI
+  void Swal.fire({
+    title: 'Aplicando ajustes...',
+    html: 'Esto puede tardar unos segundos.',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    didOpen: () => Swal.showLoading()
+  });
+
+  this.inventarioService.actualizarMasivo(farmacia, cambios).pipe(
+    finalize(() => { this.aplicandoCambiosMasivos = false; })
+  ).subscribe({
+    next: () => {
+      Swal.close();
+
+      // Reflejo en UI
+      for (const p of productosAjustar) {
+        if (hasEx) { p.existencia = exNum; p.copiaOriginal.existencia = exNum; }
+        if (hasMx) { p.stockMax   = mxNum; p.copiaOriginal.stockMax   = mxNum; }
+        if (hasMn) { p.stockMin   = mnNum; p.copiaOriginal.stockMin   = mnNum; }
+        if (hasUb) { p.ubicacionFarmacia = ubRaw; p.copiaOriginal.ubicacionFarmacia = ubRaw; }
+      }
+
+      // Reset a “vacío”
+      this.ajusteMasivo = { existencia: '', stockMax: '', stockMin: '', ubicacionFarmacia: '' };
+
       Swal.fire({
-        icon: 'info',
-        title: 'Aviso',
-        text: 'No hay productos seleccionados o no hay cambios para aplicar.',
+        icon: 'success',
+        title: 'Actualizado',
+        text: 'Ajustes aplicados correctamente.',
         timer: 1600,
-        timerProgressBar: true,
-        allowOutsideClick: false,
-        allowEscapeKey: false
+        timerProgressBar: true
       });
-      this.aplicandoCambiosMasivos = false;
-      return;
+    },
+    error: (err) => {
+      console.error('Error en ajuste masivo', err);
+      Swal.close();
+      Swal.fire('Error', 'No se pudieron aplicar los ajustes.', 'error');
     }
+  });
+}
 
-    const cambios = productosAjustar.map(p => {
-      const cambio: any = { id: p._id };
-      if (ajustarExistencia) cambio.existencia = existenciaNum;
-      if (ajustarStockMax) cambio.stockMax = stockMaxNum;
-      if (ajustarStockMin) cambio.stockMin = stockMinNum;
-      this.aplicandoCambiosMasivos = false;
-      return cambio;
-    });
 
-    // 1) Abrir loader
-    void Swal.fire({
-      title: 'Aplicando ajustes...',
-      html: 'Esto puede tardar unos segundos.',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
-    });
-
-    this.inventarioService.actualizarMasivo(farmacia, cambios).pipe(
-      // 2) Siempre limpiar bandera al terminar
-      finalize(() => {
-        this.aplicandoCambiosMasivos = false;
-      })
-    ).subscribe({
-      next: () => {
-        // Cerrar loader antes de mostrar el success
-        Swal.close();
-
-        for (const p of productosAjustar) {
-          if (ajustarExistencia && existenciaNum >= 0) {
-            p.existencia = existenciaNum;
-            p.copiaOriginal.existencia = existenciaNum;
-          }
-          if (ajustarStockMax && stockMaxNum > 0) {
-            p.stockMax = stockMaxNum;
-            p.copiaOriginal.stockMax = stockMaxNum;
-          }
-          if (ajustarStockMin && stockMinNum > 0) {
-            p.stockMin = stockMinNum;
-            p.copiaOriginal.stockMin = stockMinNum;
-          }
-        }
-
-        // Reset de inputs del ajuste masivo
-        this.ajusteMasivo.existencia = 0;
-        this.ajusteMasivo.stockMax = 0;
-        this.ajusteMasivo.stockMin = 0;
-
-        // Aviso de éxito
-        Swal.fire({
-          icon: 'success',
-          title: 'Actualizado',
-          text: 'Ajustes aplicados correctamente.',
-          timer: 1600,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false
-        });
-      },
-      error: (err) => {
-        console.error('Error en ajuste masivo', err);
-        // Cerrar loader y avisar del error
-        Swal.close();
-        Swal.fire('Error', 'No se pudieron aplicar los ajustes.', 'error');
-      }
-    });
+  resetInputsMasivos() {
+    this.ajusteMasivo.existencia = '';
+    this.ajusteMasivo.stockMax = '';
+    this.ajusteMasivo.stockMin = '';
+    this.ajusteMasivo.ubicacionFarmacia = '';
   }
 
   guardarFila(i: any) {
     const id = i._id;
 
-    // Validaciones generales
-    const campos = [
-      { campo: 'existencia', valor: i.existencia },
-      { campo: 'stockMax', valor: i.stockMax },
-      { campo: 'stockMin', valor: i.stockMin },
-      { campo: 'precioVenta', valor: i.precioVenta },
+    // Validaciones numéricas
+    const camposNum = [
+      { campo: 'existencia', valor: i.existencia, entero: true },
+      { campo: 'stockMax', valor: i.stockMax, entero: true },
+      { campo: 'stockMin', valor: i.stockMin, entero: true },
+      { campo: 'precioVenta', valor: i.precioVenta, entero: false }
     ];
 
-
-    for (const { campo, valor } of campos) {
+    for (const { campo, valor, entero } of camposNum) {
       if (valor === null || valor === undefined || valor === '') {
-        Swal.fire('Campo vacío', `El campo "${campo}" es obligatorio.`, 'warning');
-        return;
+        Swal.fire('Campo vacío', `El campo "${campo}" es obligatorio.`, 'warning'); return;
       }
-      if (isNaN(valor) || valor < 0) {
-        Swal.fire('Valor inválido', `El campo "${campo}" no puede ser negativo.`, 'warning');
-        return;
+      if (isNaN(valor) || Number(valor) < 0) {
+        Swal.fire('Valor inválido', `El campo "${campo}" no puede ser negativo.`, 'warning'); return;
+      }
+      if (entero && !Number.isInteger(Number(valor))) {
+        Swal.fire('Valor inválido', `El campo "${campo}" debe ser entero.`, 'warning'); return;
       }
     }
 
-    // Validación: stockMin no mayor a stockMax
     if (i.stockMin > i.stockMax) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Stock mínimo inválido',
-        text: 'El stock mínimo no puede ser mayor que el stock máximo.'
-      });
+      Swal.fire({ icon: 'warning', title: 'Stock mínimo inválido', text: 'El stock mínimo no puede ser mayor que el stock máximo.' });
       return;
     }
 
-    if (
-      i.existencia == null ||
-      isNaN(i.existencia) ||
-      !Number.isInteger(i.existencia) ||
-      i.existencia < 0
-    ) {
-      Swal.fire('Valor inválido', 'La existencia debe ser un número entero y no negativo.', 'warning');
-      return;
-    }
-
-    if (
-      i.precioVenta == null ||
-      isNaN(i.precioVenta) ||
-      i.precioVenta <= 0 ||
-      !/^\d+(\.\d{1,2})?$/.test(i.precioVenta.toString())
-    ) {
+    if (!/^\d+(\.\d{1,2})?$/.test(i.precioVenta.toString())) {
       Swal.fire('Valor inválido', 'El precio de venta debe ser un número positivo con hasta 2 decimales.', 'warning');
       return;
     }
 
-    // Verificar si hubo cambios
+    // Validación de ubicacionFarmacia (texto libre; permitir vacío para limpiar)
+/*     if (i.ubicacionFarmacia === null || i.ubicacionFarmacia === undefined) {
+      Swal.fire('Campo vacío', 'El campo "Ubicación (farmacia)" no puede ser nulo.', 'warning');
+      return;
+    }
+ */
+    // Detectar cambios
     const cambios =
       i.existencia !== i.copiaOriginal.existencia ||
       i.stockMax !== i.copiaOriginal.stockMax ||
       i.stockMin !== i.copiaOriginal.stockMin ||
-      i.precioVenta !== i.copiaOriginal.precioVenta;
+      i.precioVenta !== i.copiaOriginal.precioVenta ||
+      (i.ubicacionFarmacia ?? '') !== (i.copiaOriginal.ubicacionFarmacia ?? '');  // ← NUEVO
 
     if (!cambios) {
-      Swal.fire({
-        icon: 'info',
-        title: 'Sin cambios',
-        text: 'No se detectaron cambios en este producto.'
-      });
+      Swal.fire({ icon: 'info', title: 'Sin cambios', text: 'No se detectaron cambios en este producto.' });
       return;
     }
 
     this.estadoGuardado[id] = 'guardando';
 
-    this.inventarioService.actualizarUno(id, {
+    const payload: any = {
       existencia: i.existencia,
       stockMax: i.stockMax,
       stockMin: i.stockMin,
-      precioVenta: i.precioVenta
-    }).subscribe({
+      precioVenta: i.precioVenta,
+      ubicacionFarmacia: (i.ubicacionFarmacia ?? '').toString().trim()   // ← NUEVO
+    };
+
+    this.inventarioService.actualizarUno(id, payload).subscribe({
       next: () => {
         i.copiaOriginal = {
           existencia: i.existencia,
           stockMax: i.stockMax,
           stockMin: i.stockMin,
-          precioVenta: i.precioVenta
+          precioVenta: i.precioVenta,
+          ubicacionFarmacia: (i.ubicacionFarmacia ?? '').toString().trim() // ← NUEVO
         };
         this.estadoGuardado[id] = 'exito';
-        setTimeout(() => {
-          this.estadoGuardado[id] = 'idle';
-        }, 1500);
+        setTimeout(() => this.estadoGuardado[id] = 'idle', 1500);
         Swal.fire({
           icon: 'success',
           title: 'Éxito',
@@ -400,11 +417,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       error: (err) => {
         console.error('Error al guardar fila:', err);
         this.estadoGuardado[id] = 'idle';
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudo guardar el producto.'
-        });
+        Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar el producto.' });
       }
     });
   }
@@ -460,34 +473,37 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   }
 
   get deshabilitarBotonAplicar(): boolean {
-    const { existencia, stockMax, stockMin } = this.ajusteMasivo;
+    const exRaw = this.ajusteMasivo.existencia;
+    const mxRaw = this.ajusteMasivo.stockMax;
+    const mnRaw = this.ajusteMasivo.stockMin;
+    const ubRaw = (this.ajusteMasivo.ubicacionFarmacia ?? '').toString();
 
-    // Convertimos explícitamente
-    const existenciaNum = Number(existencia);
-    const stockMaxNum = Number(stockMax);
-    const stockMinNum = Number(stockMin);
+    // Se considera “set” solo si el input no está vacío
+    const hasEx = exRaw !== '' && exRaw !== null && exRaw !== undefined;
+    const hasMx = mxRaw !== '' && mxRaw !== null && mxRaw !== undefined;
+    const hasMn = mnRaw !== '' && mnRaw !== null && mnRaw !== undefined;
+    const hasUb = ubRaw.trim().length > 0; // ← no habilita por estar vacío
 
-    const ajustarExistencia = !isNaN(existenciaNum);
-    const ajustarStockMax = !isNaN(stockMaxNum);
-    const ajustarStockMin = !isNaN(stockMinNum);
+    // Si no hay ningún campo capturado, botón deshabilitado
+    if (!hasEx && !hasMx && !hasMn && !hasUb) return true;
 
-    const stockMaxValido = ajustarStockMax && Number.isInteger(stockMaxNum) && stockMaxNum > 0;
-    const stockMinValido = ajustarStockMin && Number.isInteger(stockMinNum) && stockMinNum > 0;
-    const existenciaValida = ajustarExistencia && Number.isInteger(existenciaNum) && existenciaNum > 0;
+    // Validaciones individuales (solo si el usuario capturó el campo)
+    const exNum = hasEx ? Number(exRaw) : NaN;
+    const mxNum = hasMx ? Number(mxRaw) : NaN;
+    const mnNum = hasMn ? Number(mnRaw) : NaN;
 
-    // Solo evaluamos relación si ambos stocks son válidos
-    const stocksRelacionValidos = (stockMaxValido && stockMinValido)
-      ? stockMinNum <= stockMaxNum
-      : true;
+    const exVal = !hasEx || (Number.isInteger(exNum) && exNum >= 0);
+    const mxVal = !hasMx || (Number.isInteger(mxNum) && mxNum > 0);
+    const mnVal = !hasMn || (Number.isInteger(mnNum) && mnNum > 0);
 
-    // ✅ Botón se habilita si al menos un campo válido y coherente
-    const camposValidos =
-      (existenciaValida && stockMaxNum <= 0 && stockMinNum <= 0) || // Solo existencia
-      (stockMaxValido && stockMinValido && stocksRelacionValidos) || // Solo stocks
-      (existenciaValida && stockMaxValido && stockMinValido && stocksRelacionValidos); // Todos
+    if (!exVal || !mxVal || !mnVal) return true;
 
-    return !camposValidos;
+    // Consistencia de stocks si ambos fueron capturados
+    if (hasMx && hasMn && mnNum > mxNum) return true;
+
+    return false; // hay al menos un campo válido → botón habilitado
   }
+
 
   habilitarEdicion(id: string): void {
     this.estadoEdicion[id] = true;
@@ -498,6 +514,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     item.stockMax = item.copiaOriginal.stockMax;
     item.stockMin = item.copiaOriginal.stockMin;
     item.precioVenta = item.copiaOriginal.precioVenta;
+    item.ubicacionFarmacia = item.copiaOriginal.ubicacionFarmacia; // ← NUEVO
     this.estadoEdicion[item._id] = false;
     this.estadoGuardado[item._id] = 'idle';
   }

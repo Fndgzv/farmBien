@@ -335,7 +335,7 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
     const base = {
       nombre: producto.nombre,
       precioNormal: productoEnFarmacia.precioVenta,
-      ubicacionEnFarmacia: productoEnFarmacia?.ubicacionEnFarmacia ?? null,
+      ubicacionFarmacia: productoEnFarmacia?.ubicacionFarmacia ?? null,
     }
 
     // 🔹 Si el producto tiene día de descuento y esta vigente, mostrar la promo y calcular el precio con descuento
@@ -585,7 +585,7 @@ exports.obtenerExistenciaEnFarmacia = async (req, res) => {
         farmacia: nombreFarmacia,
         existencia: 0,
         precioVenta: null,
-        ubicacionEnFarmacia: null
+        ubicacionFarmacia: null
       });
     }
     return res.json({
@@ -593,7 +593,7 @@ exports.obtenerExistenciaEnFarmacia = async (req, res) => {
       farmacia: nombreFarmacia,
       existencia: inv.existencia,
       precioVenta: inv.precioVenta,
-      ubicacionEnFarmacia: inv.ubicacionEnFarmacia
+      ubicacionFarmacia: inv.ubicacionFarmacia
     });
   } catch (err) {
     console.error('Error al obtener existencia:', err);

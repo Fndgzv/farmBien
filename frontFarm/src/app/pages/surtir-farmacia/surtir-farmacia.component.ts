@@ -23,6 +23,7 @@ interface Pendiente {
   codigoBarras: string;
   categoria: string;
   ubicacion: string;
+  ubicacionFarmacia: string;
   existenciaActual: number;
   stockMin: number;
   stockMax: number;
@@ -483,7 +484,8 @@ exportarExcel(): void {
       'Código de barras'     : r.codigoBarras || '',
       'Producto'             : r.nombre || '',
       'Categoría'            : r.categoria || '',
-      'Ubicación'            : r.ubicacion || '',
+      'Ubicación almacén'    : r.ubicacion || '',
+      'Ubicación farmacia'   : r.ubicacionFarmacia || '',
       'Existencia actual'    : r.existenciaActual ?? 0,
       'Stock Mín'            : r.stockMin ?? 0,
       'Stock Máx'            : r.stockMax ?? 0,

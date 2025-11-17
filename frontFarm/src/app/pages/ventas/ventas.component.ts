@@ -849,6 +849,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async agregarProductoAlCarrito(producto: any) {
+
+console.log('El producto que se agregará al carrito es:', producto);
+
+
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
     if (existente) {
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
@@ -1571,6 +1575,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
           return;
         }
 
+        console.log('Datos recibidos en Consultar precio ', data);
+        
+
+
         if (!data || data.nombre === undefined) {
           this.productoConsultado = {
             nombre: "Producto no encontrado",
@@ -1600,7 +1608,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
             promo0: data.promo0, precioDomingo: data.precioDomingo, domingoMasInapam: data.domingoMasInapam,
             promo: data.promo, precioConDescuento: data.precioConDescuento, precioInapam: data.precioInapam, precioDescuentoMasInapam: data.precioDescuentoMasInapam,
             promoCliente: data.promoCliente,
-            ubicacionEnFarmacia: data.ubicacionEnFarmacia
+            ubicacionEnFarmacia: data.ubicacionFarmacia
           };
         }
 
@@ -1675,7 +1683,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       this.productoService.existenciaPorFarmaciaYProducto(idFarmacia, idProducto).subscribe({
         next: (data) => {
           this.precioEnFarmacia = data.precioVenta;
-          this.ubicacionEnFarmacia = data.ubicacionEnFarmacia;
+          this.ubicacionEnFarmacia = data.ubicacionFarmacia;
 
           if (data.existencia >= cantRequerida) {
             this.hayProducto = true;
