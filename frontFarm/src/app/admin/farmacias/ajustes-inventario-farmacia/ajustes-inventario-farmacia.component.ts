@@ -389,7 +389,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       stockMax: i.stockMax,
       stockMin: i.stockMin,
       precioVenta: i.precioVenta,
-      ubicacionFarmacia: (i.ubicacionFarmacia ?? '').toString().trim()   // ← NUEVO
+      ubicacionFarmacia: (i.ubicacionFarmacia ?? '').toString().trim()
     };
 
     this.inventarioService.actualizarUno(id, payload).subscribe({
@@ -399,7 +399,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           stockMax: i.stockMax,
           stockMin: i.stockMin,
           precioVenta: i.precioVenta,
-          ubicacionFarmacia: (i.ubicacionFarmacia ?? '').toString().trim() // ← NUEVO
+          ubicacionFarmacia: (i.ubicacionFarmacia ?? '').toString().trim()
         };
         this.estadoGuardado[id] = 'exito';
         setTimeout(() => this.estadoGuardado[id] = 'idle', 1500);
@@ -412,7 +412,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           allowOutsideClick: false,
           allowEscapeKey: false
         });
-        this.buscar();
+        // this.buscar();
         this.estadoEdicion[i._id] = false;
       },
       error: (err) => {
