@@ -206,25 +206,56 @@
                     {{ i.producto?.descuentoINAPAM ? 'Sí' : 'No' }}
                 </td>
 
-                <td>
+                <td class="text-end">
+                    <ng-container *ngIf="estadoEdicion[i._id]; else existenciaVista">
                     <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.existencia" type="number"
-                        class="form-control form-control-sm">
+                        class="form-control form-control-sm text-end">
+                    </ng-container>
+
+                    <ng-template #existenciaVista>
+                        <span>{{ i.existencia }}</span>
+                    </ng-template>
                 </td>
 
-                <td>
+                <td class="text-end">
+                    <ng-container *ngIf="estadoEdicion[i._id]; else stockMinVista">
                     <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMin" type="number"
-                        class="form-control form-control-sm">
+                        class="form-control form-control-sm text-end">
+                    </ng-container>
+
+                    <ng-template #stockMinVista>
+                        <span>{{ i.stockMin }}</span>
+                    </ng-template>
                 </td>
 
-                <td>
+                <td class="text-end">
+                    <ng-container *ngIf="estadoEdicion[i._id]; else stockMaxVista">
                     <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMax" type="number"
-                        class="form-control form-control-sm">
+                        class="form-control form-control-sm text-end">
+                    </ng-container>
+
+                    <ng-template #stockMaxVista>
+                        <span>{{ i.stockMax }}</span>
+                    </ng-template>
                 </td>
 
-                <td>
-                    <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.precioVenta" type="number"
-                        class="form-control form-control-sm" step="0.1">
+                <td class="text-end">
+                    <ng-container *ngIf="estadoEdicion[i._id]; else precioVista">
+                        <input
+                        [disabled]="!estadoEdicion[i._id]"
+                        [(ngModel)]="i.precioVenta"
+                        type="number"
+                        class="form-control form-control-sm text-end"
+                        step="0.01"
+                        >
+                    </ng-container>
+
+                    <ng-template #precioVista>
+                        <span>{{ i.precioVenta | currency:'MXN':'symbol-narrow':'1.2-2' }}</span>
+                    </ng-template>
+                    
                 </td>
+
 
                 <td>
                     <div class="d-flex justify-content-center">
