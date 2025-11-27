@@ -93,14 +93,14 @@ const finalizarCorte = async (req, res) => {
       fecha: RANGO,
     }).populate('productos.producto', 'categoria');
 
-    const ventasEfectivo       = ventas.reduce((a, v) => a + N(v.formaPago?.efectivo), 0);
-    const ventasTarjeta        = ventas.reduce((a, v) => a + N(v.formaPago?.tarjeta), 0);
-    const ventasTransferencia  = ventas.reduce((a, v) => a + N(v.formaPago?.transferencia), 0);
-    const ventasVale           = ventas.reduce((a, v) => a + N(v.formaPago?.vale), 0);
-    const abonosMonedero       = ventas.reduce((a, v) => a + N(v.totalMonederoCliente), 0);
-    const totalRecargas        = ventas.flatMap(v => v.productos || [])
-                                       .filter(d => d.producto?.categoria === 'Recargas')
-                                       .reduce((sum, d) => sum + N(d.totalRen), 0);
+    const ventasEfectivo = ventas.reduce((a, v) => a + N(v.formaPago?.efectivo), 0);
+    const ventasTarjeta = ventas.reduce((a, v) => a + N(v.formaPago?.tarjeta), 0);
+    const ventasTransferencia = ventas.reduce((a, v) => a + N(v.formaPago?.transferencia), 0);
+    const ventasVale = ventas.reduce((a, v) => a + N(v.formaPago?.vale), 0);
+    const abonosMonedero = ventas.reduce((a, v) => a + N(v.totalMonederoCliente), 0);
+    const totalRecargas = ventas.flatMap(v => v.productos || [])
+      .filter(d => d.producto?.categoria === 'Recargas')
+      .reduce((sum, d) => sum + N(d.totalRen), 0);
 
     // === Devoluciones ===
     const devoluciones = await Devolucion.find({
@@ -109,7 +109,7 @@ const finalizarCorte = async (req, res) => {
       fecha: RANGO,
     });
 
-    const devolucionesVale     = devoluciones.reduce((a, d) => a + N(d.valeDevuelto), 0);
+    const devolucionesVale = devoluciones.reduce((a, d) => a + N(d.valeDevuelto), 0);
     const devolucionesEfectivo = devoluciones.reduce((a, d) => a + N(d.dineroDevuelto), 0);
 
     // === Pedidos (anticipos por quien levantó, resto por quien surtió) ===
@@ -119,10 +119,10 @@ const finalizarCorte = async (req, res) => {
       fechaPedido: RANGO,
     });
 
-    const anticiposEfectivo     = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.efectivo), 0);
-    const anticiposTarjeta      = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.tarjeta), 0);
-    const anticiposTransferencia= anticipos.reduce((a, p) => a + N(p.pagoACuenta?.transferencia), 0);
-    const anticiposVale         = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.vale), 0);
+    const anticiposEfectivo = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.efectivo), 0);
+    const anticiposTarjeta = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.tarjeta), 0);
+    const anticiposTransferencia = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.transferencia), 0);
+    const anticiposVale = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.vale), 0);
 
     const entregas = await Pedido.find({
       farmacia: corte.farmacia,
@@ -131,10 +131,10 @@ const finalizarCorte = async (req, res) => {
       estado: 'entregado',
     });
 
-    const restoEfectivo         = entregas.reduce((a, p) => a + N(p.pagoResta?.efectivo), 0);
-    const restoTarjeta          = entregas.reduce((a, p) => a + N(p.pagoResta?.tarjeta), 0);
-    const restoTransferencia    = entregas.reduce((a, p) => a + N(p.pagoResta?.transferencia), 0);
-    const restoVale             = entregas.reduce((a, p) => a + N(p.pagoResta?.vale), 0);
+    const restoEfectivo = entregas.reduce((a, p) => a + N(p.pagoResta?.efectivo), 0);
+    const restoTarjeta = entregas.reduce((a, p) => a + N(p.pagoResta?.tarjeta), 0);
+    const restoTransferencia = entregas.reduce((a, p) => a + N(p.pagoResta?.transferencia), 0);
+    const restoVale = entregas.reduce((a, p) => a + N(p.pagoResta?.vale), 0);
 
     // === Cancelaciones ===
     const cancelaciones = await Cancelacion.find({
@@ -143,53 +143,53 @@ const finalizarCorte = async (req, res) => {
       fechaCancelacion: RANGO,
     });
 
-    const cancelacionesVale     = cancelaciones.reduce((a, c) => a + N(c.valeDevuelto), 0);
+    const cancelacionesVale = cancelaciones.reduce((a, c) => a + N(c.valeDevuelto), 0);
     const cancelacionesEfectivo = cancelaciones.reduce((a, c) => a + N(c.dineroDevuelto), 0);
 
     // === Totales ===
-    const pedidosEfectivo       = anticiposEfectivo + restoEfectivo;
-    const pedidosTarjeta        = anticiposTarjeta + restoTarjeta;
-    const pedidosTransferencia  = anticiposTransferencia + restoTransferencia;
-    const pedidosVale           = anticiposVale + restoVale;
+    const pedidosEfectivo = anticiposEfectivo + restoEfectivo;
+    const pedidosTarjeta = anticiposTarjeta + restoTarjeta;
+    const pedidosTransferencia = anticiposTransferencia + restoTransferencia;
+    const pedidosVale = anticiposVale + restoVale;
 
-    const totalTarjeta          = ventasTarjeta + pedidosTarjeta;
-    const totalTransferencia    = ventasTransferencia + pedidosTransferencia;
-    const totalVale             = ventasVale - devolucionesVale + pedidosVale - cancelacionesVale;
+    const totalTarjeta = ventasTarjeta + pedidosTarjeta;
+    const totalTransferencia = ventasTransferencia + pedidosTransferencia;
+    const totalVale = ventasVale - devolucionesVale + pedidosVale - cancelacionesVale;
 
-    const efectivoInicial       = N(corte.efectivoInicial);
-    const totalEfectivoEnCaja   = efectivoInicial
-                                  + ventasEfectivo - devolucionesEfectivo
-                                  + pedidosEfectivo - cancelacionesEfectivo;
+    const efectivoInicial = N(corte.efectivoInicial);
+    const totalEfectivoEnCaja = efectivoInicial
+      + ventasEfectivo - devolucionesEfectivo
+      + pedidosEfectivo - cancelacionesEfectivo;
 
     // === Guardar corte (fechaFin = fin) ===
-    corte.fechaFin               = fin;
+    corte.fechaFin = fin;
 
-    corte.ventasEfectivo         = ventasEfectivo;
-    corte.ventasTarjeta          = ventasTarjeta;
-    corte.ventasTransferencia    = ventasTransferencia;
-    corte.ventasVale             = ventasVale;
-    corte.devolucionesVale       = devolucionesVale;
-    corte.devolucionesEfectivo   = devolucionesEfectivo;
+    corte.ventasEfectivo = ventasEfectivo;
+    corte.ventasTarjeta = ventasTarjeta;
+    corte.ventasTransferencia = ventasTransferencia;
+    corte.ventasVale = ventasVale;
+    corte.devolucionesVale = devolucionesVale;
+    corte.devolucionesEfectivo = devolucionesEfectivo;
 
-    corte.pedidosEfectivo        = pedidosEfectivo;
-    corte.pedidosTarjeta         = pedidosTarjeta;
-    corte.pedidosTransferencia   = pedidosTransferencia;
-    corte.pedidosVale            = pedidosVale;
+    corte.pedidosEfectivo = pedidosEfectivo;
+    corte.pedidosTarjeta = pedidosTarjeta;
+    corte.pedidosTransferencia = pedidosTransferencia;
+    corte.pedidosVale = pedidosVale;
     corte.pedidosCanceladosEfectivo = cancelacionesEfectivo;
-    corte.pedidosCanceladosVale  = cancelacionesVale;
+    corte.pedidosCanceladosVale = cancelacionesVale;
 
-    corte.totalEfectivoEnCaja    = totalEfectivoEnCaja;
-    corte.totalTarjeta           = totalTarjeta;
-    corte.totalTransferencia     = totalTransferencia;
-    corte.totalVale              = totalVale;
-    corte.totalRecargas          = totalRecargas;
-    corte.abonosMonederos        = abonosMonedero;
+    corte.totalEfectivoEnCaja = totalEfectivoEnCaja;
+    corte.totalTarjeta = totalTarjeta;
+    corte.totalTransferencia = totalTransferencia;
+    corte.totalVale = totalVale;
+    corte.totalRecargas = totalRecargas;
+    corte.abonosMonederos = abonosMonedero;
 
-    corte.ventasRealizadas       = ventas.length;
+    corte.ventasRealizadas = ventas.length;
     corte.devolucionesRealizadas = devoluciones.length;
-    corte.pedidosLevantados      = anticipos.length;
-    corte.pedidosEntregados      = entregas.length;
-    corte.pedidosCancelados      = cancelaciones.length;
+    corte.pedidosLevantados = anticipos.length;
+    corte.pedidosEntregados = entregas.length;
+    corte.pedidosCancelados = cancelaciones.length;
 
     if (grabar) await corte.save();
 
@@ -225,8 +225,6 @@ const obtenerCorteActivo = async (req, res) => {
   }
 };
 
-
-
 const obtenerCortesFiltrados = async (req, res) => {
   try {
     const {
@@ -244,10 +242,10 @@ const obtenerCortesFiltrados = async (req, res) => {
     } = req.query;
 
     // ---------- paginación ----------
-    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-    const limitCap = 200;
-    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), limitCap);
-    const skip = (pageNum - 1) * limitNum;
+    const pageNum   = Math.max(parseInt(page, 10) || 1, 1);
+    const limitCap  = 200;
+    const limitNum  = Math.min(Math.max(parseInt(limit, 10) || 20, 1), limitCap);
+    const skip      = (pageNum - 1) * limitNum;
 
     // ---------- filtro base ----------
     const filtro = {};
@@ -257,18 +255,18 @@ const obtenerCortesFiltrados = async (req, res) => {
       const dStr = (fechaInicioDesde || fechaInicioHasta).slice(0, 10); // 'YYYY-MM-DD'
       const hStr = (fechaInicioHasta || fechaInicioDesde).slice(0, 10);
 
-      let startLocal = DateTime.fromISO(dStr, { zone: ZONE }).startOf('day');
+      let startLocal        = DateTime.fromISO(dStr, { zone: ZONE }).startOf('day');
       let endLocalExclusive = DateTime.fromISO(hStr, { zone: ZONE }).plus({ days: 1 }).startOf('day');
 
       if (endLocalExclusive < startLocal) {
         const tmp = startLocal;
-        startLocal = endLocalExclusive.minus({ days: 1 });
+        startLocal        = endLocalExclusive.minus({ days: 1 });
         endLocalExclusive = tmp.plus({ days: 1 });
       }
 
       filtro.fechaInicio = {
         $gte: startLocal.toUTC().toJSDate(),
-        $lt: endLocalExclusive.toUTC().toJSDate(),
+        $lt : endLocalExclusive.toUTC().toJSDate(),
       };
     }
 
@@ -304,11 +302,11 @@ const obtenerCortesFiltrados = async (req, res) => {
       totalTarjeta: 'totalTarjeta',
       totalTransferencia: 'totalTransferencia',
       totalVale: 'totalVale',
-      abonosMonederos: 'abonosMonederos',       // <-- NUEVO
+      abonosMonederos: 'abonosMonederos',       // NUEVO
       farmacia: 'farmaciaInfo.nombre',          // por nombre
       usuario: 'usuarioInfo.nombre',            // por nombre
     };
-    const dir = String(sortDir).toLowerCase() === 'asc' ? 1 : -1;
+    const dir       = String(sortDir).toLowerCase() === 'asc' ? 1 : -1;
     const sortField = sortMap[sortBy] || 'fechaInicio';
 
     // ---------- pipeline ----------
@@ -339,6 +337,7 @@ const obtenerCortesFiltrados = async (req, res) => {
       },
       { $addFields: { farmaciaInfo: { $arrayElemAt: ['$farmaciaInfo', 0] } } },
 
+      // normalización de numéricos base (y totalEfectivoEnCaja con fallback)
       {
         $addFields: {
           totalEfectivoEnCaja: {
@@ -348,24 +347,31 @@ const obtenerCortesFiltrados = async (req, res) => {
               { $ifNull: ['$totalEfectivoEnCaja', 0] }
             ]
           },
-          _efectivoInicial: { $toDouble: { $ifNull: ['$efectivoInicial', 0] } },
-          _efectivoCaja: { $toDouble: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
-          _totalTarjeta: { $toDouble: { $ifNull: ['$totalTarjeta', 0] } },
-          _totalTransferencia: { $toDouble: { $ifNull: ['$totalTransferencia', 0] } },
+          _efectivoInicial:     { $toDouble: { $ifNull: ['$efectivoInicial', 0] } },
+          _efectivoCaja:        { $toDouble: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
+          _totalTarjeta:        { $toDouble: { $ifNull: ['$totalTarjeta', 0] } },
+          _totalTransferencia:  { $toDouble: { $ifNull: ['$totalTransferencia', 0] } },
         }
       },
 
+      // 1) Primero calcula ingresoEfectivo
       {
         $addFields: {
           ingresoEfectivo: {
             $let: {
               vars: { diff: { $subtract: ['$_efectivoCaja', '$_efectivoInicial'] } },
-              in: { $cond: [{ $lt: ['$$diff', 0] }, 0, '$$diff'] } // nunca negativo
+              in:   { $cond: [{ $lt: ['$$diff', 0] }, 0, '$$diff'] } // nunca negativo
             }
-          },
+          }
+        }
+      },
+
+      // 2) Luego, usa ingresoEfectivo para ingresoTotal
+      {
+        $addFields: {
           ingresoTotal: {
             $add: [
-              { $ifNull: ['$ingresoEfectivo', 0] }, // 👈 evita null
+              { $ifNull: ['$ingresoEfectivo', 0] },
               '$_totalTarjeta',
               '$_totalTransferencia'
             ]
@@ -419,15 +425,15 @@ const obtenerCortesFiltrados = async (req, res) => {
             {
               $group: {
                 _id: null,
-                conteo: { $sum: 1 },
-                efectivoInicial: { $sum: { $ifNull: ['$efectivoInicial', 0] } },
-                totalEfectivoEnCaja: { $sum: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
-                totalTarjeta: { $sum: { $ifNull: ['$totalTarjeta', 0] } },
-                totalTransferencia: { $sum: { $ifNull: ['$totalTransferencia', 0] } },
-                totalVale: { $sum: { $ifNull: ['$totalVale', 0] } },
-                abonosMonederos: { $sum: { $ifNull: ['$abonosMonederos', 0] } },
-                ingresoEfectivo: { $sum: '$ingresoEfectivo' },
-                ingresoTotal: { $sum: '$ingresoTotal' },
+                conteo:               { $sum: 1 },
+                efectivoInicial:      { $sum: { $ifNull: ['$efectivoInicial', 0] } },
+                totalEfectivoEnCaja:  { $sum: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
+                totalTarjeta:         { $sum: { $ifNull: ['$totalTarjeta', 0] } },
+                totalTransferencia:   { $sum: { $ifNull: ['$totalTransferencia', 0] } },
+                totalVale:            { $sum: { $ifNull: ['$totalVale', 0] } },
+                abonosMonederos:      { $sum: { $ifNull: ['$abonosMonederos', 0] } },
+                ingresoEfectivo:      { $sum: '$ingresoEfectivo' },
+                ingresoTotal:         { $sum: '$ingresoTotal' },
               },
             },
             { $project: { _id: 0 } },
@@ -437,7 +443,7 @@ const obtenerCortesFiltrados = async (req, res) => {
     ];
 
     // collation para ordenar por texto en español (insensible a mayúsculas/acentos)
-    const agg = await CorteCaja.aggregate(pipeline).collation({ locale: 'es', strength: 1 });
+    const agg   = await CorteCaja.aggregate(pipeline).collation({ locale: 'es', strength: 1 });
     const facet = agg?.[0] || { rows: [], totalCount: [], totales: [] };
 
     const total = facet.totalCount?.[0]?.count || 0;
@@ -452,7 +458,7 @@ const obtenerCortesFiltrados = async (req, res) => {
         hasPrev: pageNum > 1 && pageNum <= pages,
         hasNext: pageNum < pages,
       },
-      cortes: facet.rows || [],
+      cortes:  facet.rows || [],
       totales: facet.totales?.[0] || totalesVacios(),
     });
   } catch (err) {
@@ -469,7 +475,22 @@ function totalesVacios() {
     totalTarjeta: 0,
     totalTransferencia: 0,
     totalVale: 0,
-    abonosMonederos: 0,   // <-- NUEVO
+    abonosMonederos: 0,
+    ingresoEfectivo: 0,
+    ingresoTotal: 0,
+  };
+}
+
+
+function totalesVacios() {
+  return {
+    conteo: 0,
+    efectivoInicial: 0,
+    totalEfectivoEnCaja: 0,
+    totalTarjeta: 0,
+    totalTransferencia: 0,
+    totalVale: 0,
+    abonosMonederos: 0,
     ingresoEfectivo: 0,
     ingresoTotal: 0,
   };
