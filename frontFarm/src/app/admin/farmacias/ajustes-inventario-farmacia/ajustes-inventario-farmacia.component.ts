@@ -32,7 +32,8 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   inventario: any[] = [];
   farmacias: any[] = [];
 
-  ajusteMasivo: { existencia: any; stockMax: any; stockMin: any; ubicacionFarmacia: string } = {
+  ajusteMasivo: { precioVenta: any, existencia: any; stockMax: any; stockMin: any; ubicacionFarmacia: string } = {
+    precioVenta: '',
     existencia: '',
     stockMax: '',
     stockMin: '',
@@ -150,6 +151,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           existencia: item.existencia,
           stockMax: item.stockMax,
           stockMin: item.stockMin,
+          costo: item.costo,
           precioVenta: item.precioVenta,
           ubicacionFarmacia: item.ubicacionFarmacia,
           seleccionado: false,
@@ -201,16 +203,18 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     const exRaw = this.ajusteMasivo.existencia;
     const mxRaw = this.ajusteMasivo.stockMax;
     const mnRaw = this.ajusteMasivo.stockMin;
+    const prRaw = this.ajusteMasivo.precioVenta;
     const ubRaw = (this.ajusteMasivo.ubicacionFarmacia ?? '').toString().trim();
 
     // 2) Detecta si el usuario realmente escribió algo
     const hasEx = exRaw !== '' && exRaw !== null && exRaw !== undefined;
     const hasMx = mxRaw !== '' && mxRaw !== null && mxRaw !== undefined;
     const hasMn = mnRaw !== '' && mnRaw !== null && mnRaw !== undefined;
+    const hasPr = prRaw !== '' && prRaw !== null && prRaw !== undefined;
     const hasUb = ubRaw.length > 0; // si quieres permitir vaciar explícitamente, lo vemos con un checkbox aparte
 
     // 3) Si no hay ningún campo capturado, avisa y sal
-    if (!hasEx && !hasMx && !hasMn && !hasUb) {
+    if (!hasEx && !hasMx && !hasMn && !hasUb && !hasPr) {
       this.aplicandoCambiosMasivos = false;
       Swal.fire({
         icon: 'info',
@@ -226,6 +230,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     const exNum = hasEx ? Number(exRaw) : NaN;
     const mxNum = hasMx ? Number(mxRaw) : NaN;
     const mnNum = hasMn ? Number(mnRaw) : NaN;
+    const prNum = hasPr ? Number(prRaw) : NaN;
 
     // 5) Validaciones solo sobre campos presentes
     if (hasEx && (!Number.isInteger(exNum) || exNum < 0)) {
@@ -243,6 +248,11 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       Swal.fire('Valor inválido', 'El stock mínimo debe ser entero mayor a 0.', 'warning');
       return;
     }
+    if (hasPr && prNum <= 0) {
+      this.aplicandoCambiosMasivos = false;
+      Swal.fire('Valor inválido', 'El precio debe ser mayor a 0.', 'warning');
+      return;
+    }
     if (hasMx && hasMn && mnNum > mxNum) {
       this.aplicandoCambiosMasivos = false;
       Swal.fire('Stock inválido', 'El stock mínimo no puede ser mayor que el stock máximo.', 'warning');
@@ -254,8 +264,9 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       const difEx = hasEx && p.existencia !== exNum;
       const difMx = hasMx && p.stockMax !== mxNum;
       const difMn = hasMn && p.stockMin !== mnNum;
+      const difPr = hasPr && p.precioVenta !== prNum;
       const difUb = hasUb && (p.ubicacionFarmacia ?? '') !== ubRaw;
-      return p.seleccionado && (difEx || difMx || difMn || difUb);
+      return p.seleccionado && (difEx || difMx || difMn || difUb || difPr);
     });
 
     if (productosAjustar.length === 0) {
@@ -276,6 +287,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       if (hasEx) c.existencia = exNum;
       if (hasMx) c.stockMax = mxNum;
       if (hasMn) c.stockMin = mnNum;
+      if (hasPr) c.precioVenta = prNum;
       if (hasUb) c.ubicacionFarmacia = ubRaw;
       return c;
     });
@@ -300,11 +312,12 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           if (hasEx) { p.existencia = exNum; p.copiaOriginal.existencia = exNum; }
           if (hasMx) { p.stockMax = mxNum; p.copiaOriginal.stockMax = mxNum; }
           if (hasMn) { p.stockMin = mnNum; p.copiaOriginal.stockMin = mnNum; }
+          if (hasPr) { p.precioVenta = prNum; p.copiaOriginal.precioVenta = prNum; }
           if (hasUb) { p.ubicacionFarmacia = ubRaw; p.copiaOriginal.ubicacionFarmacia = ubRaw; }
         }
 
         // Reset a “vacío”
-        this.ajusteMasivo = { existencia: '', stockMax: '', stockMin: '', ubicacionFarmacia: '' };
+        this.ajusteMasivo = { precioVenta: '', existencia: '', stockMax: '', stockMin: '', ubicacionFarmacia: '' };
 
         Swal.fire({
           icon: 'success',
@@ -328,6 +341,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     this.ajusteMasivo.stockMax = '';
     this.ajusteMasivo.stockMin = '';
     this.ajusteMasivo.ubicacionFarmacia = '';
+    this.ajusteMasivo.precioVenta = '';
   }
 
   guardarFila(i: any) {
@@ -477,27 +491,31 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     const exRaw = this.ajusteMasivo.existencia;
     const mxRaw = this.ajusteMasivo.stockMax;
     const mnRaw = this.ajusteMasivo.stockMin;
+    const prRaw = this.ajusteMasivo.precioVenta;
     const ubRaw = (this.ajusteMasivo.ubicacionFarmacia ?? '').toString();
 
     // Se considera “set” solo si el input no está vacío
     const hasEx = exRaw !== '' && exRaw !== null && exRaw !== undefined;
     const hasMx = mxRaw !== '' && mxRaw !== null && mxRaw !== undefined;
     const hasMn = mnRaw !== '' && mnRaw !== null && mnRaw !== undefined;
+    const hasPr = prRaw !== '' && prRaw !== null && prRaw !== undefined;
     const hasUb = ubRaw.trim().length > 0; // ← no habilita por estar vacío
 
     // Si no hay ningún campo capturado, botón deshabilitado
-    if (!hasEx && !hasMx && !hasMn && !hasUb) return true;
+    if (!hasEx && !hasMx && !hasMn && !hasUb && !hasPr) return true;
 
     // Validaciones individuales (solo si el usuario capturó el campo)
     const exNum = hasEx ? Number(exRaw) : NaN;
     const mxNum = hasMx ? Number(mxRaw) : NaN;
     const mnNum = hasMn ? Number(mnRaw) : NaN;
+    const prNum = hasPr ? Number(prRaw) : NaN;
 
     const exVal = !hasEx || (Number.isInteger(exNum) && exNum >= 0);
     const mxVal = !hasMx || (Number.isInteger(mxNum) && mxNum > 0);
     const mnVal = !hasMn || (Number.isInteger(mnNum) && mnNum > 0);
+    const prVal = !hasPr || prNum > 0;
 
-    if (!exVal || !mxVal || !mnVal) return true;
+    if (!exVal || !mxVal || !mnVal || !prVal) return true;
 
     // Consistencia de stocks si ambos fueron capturados
     if (hasMx && hasMn && mnNum > mxNum) return true;

@@ -118,13 +118,13 @@
                 <th></th>
                 <th></th>
                 <th>
-                    <input [(ngModel)]="ajusteMasivo.existencia" class="form-control form-control-sm" type="number">
+                    <input [(ngModel)]="ajusteMasivo.existencia" class="form-control form-control-sm" type="number" style="width: 60px;">
                 </th>
                 <th>
-                    <input [(ngModel)]="ajusteMasivo.stockMin" class="form-control form-control-sm" type="number">
+                    <input [(ngModel)]="ajusteMasivo.stockMin" class="form-control form-control-sm" type="number" style="width: 50px;">
                 </th>
                 <th>
-                    <input [(ngModel)]="ajusteMasivo.stockMax" class="form-control form-control-sm" type="number">
+                    <input [(ngModel)]="ajusteMasivo.stockMax" class="form-control form-control-sm" type="number" style="width: 50px;">
                 </th>
                 <th>
                     <button class="btn-icon-chico btn-rojo-chico" (click)="resetInputsMasivos()"
@@ -132,6 +132,9 @@
                         [disabled]="deshabilitarBotonAplicar || aplicandoCambiosMasivos">
                         <fa-icon [icon]="faTimes"></fa-icon>
                     </button>
+                </th>
+                <th>
+                    <input [(ngModel)]="ajusteMasivo.precioVenta" class="form-control form-control-sm" type="number" style="width: 70px;">
                 </th>
                 <th>
                     <button class="btn-verde-chico" (click)="guardarAjusteMasivo()"
@@ -156,10 +159,10 @@
                 </th>
                 <th>Ubicación</th>
                 <th>Categoria</th>
-                <th>Genérico</th>
-                <th>INAPAM</th>
+                <th title="Generico">Gen.</th>
+                <th title="INAPAM">INPM</th>
                 <th (click)="clickSortExistencia()" class="th-sort text-center" title="Ordenar por existencia">
-                    Existencia
+                    Exis.
                     <i class="bi" [ngClass]="{
                             'bi-caret-up-fill':   sortBy === 'existencia' && sortDir === 'asc',
                             'bi-caret-down-fill': sortBy === 'existencia' && sortDir === 'desc',
@@ -169,7 +172,10 @@
                 </th>
                 <th>Stock Mín</th>
                 <th>Stock Máx</th>
-                <th>Precio Venta</th>
+                <th>Costo</th>
+                <th>
+                    Precio Venta
+                </th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -238,7 +244,9 @@
                         <span>{{ i.stockMax }}</span>
                     </ng-template>
                 </td>
-
+                <td class="text-end">
+                    {{ i.producto.costo | currency:'MXN':'symbol-narrow':'1.2-2' }}
+                </td>
                 <td class="text-end">
                     <ng-container *ngIf="estadoEdicion[i._id]; else precioVista">
                         <input
