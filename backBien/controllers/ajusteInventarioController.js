@@ -186,43 +186,48 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
 };
 
 // Actualización masiva en farmacia (existencia, stockMax, stockMin, precioVenta, ubicacionFarmacia)
-const hasNum = v => v !== undefined && v !== null && !Number.isNaN(Number(v));
-const hasStr = v => v !== undefined && v !== null && String(v).trim() !== '';
+// helpers seguros
+const hasNum = v => typeof v === 'number' && !Number.isNaN(v);
+
+const hasStr = v =>
+  v !== undefined && v !== null && String(v).trim() !== '';
 
 exports.actualizarInventarioMasivo = async (req, res) => {
-  const farmaciaId = req.params.farmaciaId; // id de la farmacia en la ruta
-  const cambios = req.body; // [{ id: <productoId o invId>, existencia?, stockMax?, stockMin?, precioVenta?, ubicacionFarmacia?, clearUbicacion? }]
+  const farmacia = req.params.farmaciaId;
+  const cambios = req.body; // [{ id, existencia?, stockMax?, stockMin?, precioVenta?, ubicacionFarmacia?, clearUbicacion? }]
 
-  if (!farmaciaId || !Array.isArray(cambios)) {
+  if (!farmacia || !Array.isArray(cambios)) {
     return res.status(400).json({ mensaje: "Datos inválidos para actualización masiva." });
   }
 
+console.log('Parámetros recibidos para cambio masivo: ', cambios);
+
   try {
-    const farmaciaObjId = new Types.ObjectId(farmaciaId);
     const ops = [];
 
     for (const c of cambios) {
       if (!c || !c.id) continue;
 
       const $set = {};
-      if (hasNum(c.existencia))        $set.existencia   = Number(c.existencia);
-      if (hasNum(c.stockMax))          $set.stockMax     = Number(c.stockMax);
-      if (hasNum(c.stockMin))          $set.stockMin     = Number(c.stockMin);
-      if (hasNum(c.precioVenta))       $set.precioVenta  = Number(c.precioVenta);
-      // alias por si el front manda "precio"
-      else if (hasNum(c.precio))       $set.precioVenta  = Number(c.precio);
 
-      if (hasStr(c.ubicacionFarmacia)) $set.ubicacionFarmacia = String(c.ubicacionFarmacia).trim();
-      else if (c.clearUbicacion === true) $set.ubicacionFarmacia = '';
+      if (hasNum(c.existencia)) $set.existencia = Number(c.existencia);
+      if (hasNum(c.stockMax)) $set.stockMax = Number(c.stockMax);
+      if (hasNum(c.stockMin)) $set.stockMin = Number(c.stockMin);
+      if (hasNum(c.precioVenta)) $set.precioVenta = Number(c.precioVenta);
+
+      // Ubicación farmacia: solo setear si vino no-vacía
+      if (hasStr(c.ubicacionFarmacia)) {
+        $set.ubicacionFarmacia = String(c.ubicacionFarmacia).trim();
+      } else if (c.clearUbicacion === true) {
+        // si quieres permitir limpiar explícitamente:
+        $set.ubicacionFarmacia = '';
+      }
 
       if (Object.keys($set).length === 0) continue;
 
-      // ✅ Lo correcto es empatar por farmacia + producto (no por _id del doc de inventario)
-      const productoObjId = new Types.ObjectId(c.id);
-
       ops.push({
         updateOne: {
-          filter: { farmacia: farmaciaObjId, producto: productoObjId },
+          filter: { _id: c.id },
           update: { $set }
         }
       });
@@ -233,17 +238,18 @@ exports.actualizarInventarioMasivo = async (req, res) => {
     }
 
     const resultado = await InventarioFarmacia.bulkWrite(ops, { ordered: false });
-
     return res.json({
       mensaje: "Ajuste masivo realizado con éxito",
-      matched: resultado.matchedCount ?? 0,
-      modified: resultado.modifiedCount ?? 0
+      matched: resultado.matchedCount,
+      modified: resultado.modifiedCount
     });
   } catch (error) {
     console.error('Error en back al actualizar masivamente:', error);
     return res.status(500).json({ mensaje: "Error al actualizar masivamente", error: error.message });
   }
 };
+
+
 
 
 // Actualización individual de un producto en farmacia
