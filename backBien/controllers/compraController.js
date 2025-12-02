@@ -146,11 +146,11 @@ exports.crearCompra = async (req, res) => {
         // guarda cambios en productos
         await prodDB.save();
 
-        // 8) Sincronizar precio de venta en inventarios (si aplica en tu negocio)
-        await InventarioFarmacia.updateMany(
+        // 8) Sincronizar precio de venta en inventarios de farmacias
+        /* await InventarioFarmacia.updateMany(
           { producto: prodDB._id },
           { $set: { precioVenta: precio } }
-        );
+        ); */
       }
 
       total += costo * cant;

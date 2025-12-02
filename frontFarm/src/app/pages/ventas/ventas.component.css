@@ -55,9 +55,22 @@
   margin-right: 5rem;
 }
 
+.input-cantidad {
+  width: 50px;
+}
+
+.cantidad-ajustada {
+  animation: blinkStock 1s ease;
+}
+@keyframes blinkStock {
+  0% { background:#ffd6d6; }
+  100% { background:transparent; }
+}
+
+
 /* ► Anchos para los filtros */
 .wide-field {
-  width: 400px;
+  width: px;
 }
 
 .wider-field {

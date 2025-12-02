@@ -439,8 +439,7 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   guardarProductoEditado(productoActualizado: ProductoUI) {
-    console.log('producto actualizado en ajustes-inventario =====>', productoActualizado);
-
+    
     // 1) separa id y crea payload sin _id
     const id = (productoActualizado as any)._id;
     const payload: any = { ...productoActualizado };

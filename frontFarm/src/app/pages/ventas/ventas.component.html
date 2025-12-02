@@ -267,7 +267,19 @@
             <small class="prod-ubicacion">{{ p.ubicacionEnFarmacia }}</small>
           </td>
 
-          <td>{{ p.cantidad }}</td>
+          <td class="col-cantidad">
+            <input
+              class="input-cantidad"
+              #qty="ngModel"
+              type="number"
+              min="1"
+              [attr.max]="existencias[p.producto]"
+              [ngModel]="p.cantidad"
+              (ngModelChange)="onCantidadChange(i, $event)"
+              [class.cantidad-ajustada]="p._cantidadAjustada"
+            />
+          </td>
+
           <td>{{ p.precioOriginal | currency }}</td> <!-- precio unitario -->
           <td>{{ (p.precioOriginal * p.cantidad) | currency }}</td> <!-- importe sin descuento -->
           <td>{{ p.tipoDescuento !== 'Ninguno' ? p.tipoDescuento : '-' }}</td>

@@ -53,6 +53,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   opcionesClientes: any[] = [];
 
+  existencias: Record<string, number> = {};
+
   private pendingFocusEfectivo = false;
   barcodeFocusTimer: any = null;
 
@@ -63,6 +65,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   usarMonedero = false;
 
   hayProducto: boolean = false;
+  nombreDelProducto: string = '';
 
   ventaForm: FormGroup;
   carrito: any[] = [];
@@ -653,6 +656,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const producto = this.productos.find(p => p._id === productoId);
     if (producto) {
       this.busquedaProducto = producto.nombre;
+      this.nombreDelProducto = producto.nombre;
       this.existenciaProducto(this.farmaciaId, producto._id, 1).then(() => {
         if (!this.hayProducto) return;
         this.agregarProductoAlCarrito(producto);
@@ -668,6 +672,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const productoC = this.productos.find(p => p._id === productoId);
     if (productoC) {
       this.busquedaPorCodigo = productoC.codigoBarras;
+      this.nombreDelProducto = productoC.nombre
       this.existenciaProducto(this.farmaciaId, productoC._id, 1).then(() => {
         if (!this.hayProducto) return;
         this.agregarProductoAlCarrito(productoC);
@@ -834,6 +839,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
       return;
     }
 
+    this.nombreDelProducto = producto.nombre
+
     // 4) Verificar existencia y agregar al carrito
     this.existenciaProducto(this.farmaciaId, producto._id, 1)
       .then(() => {
@@ -850,11 +857,12 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   async agregarProductoAlCarrito(producto: any) {
 
-console.log('El producto que se agregará al carrito es:', producto);
-
-
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
     if (existente) {
+
+      console.log('producto existente en el carrito =====>', existente);
+      
+      this.nombreDelProducto = existente.nombre
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
         if (!this.hayProducto) return;
         existente.cantidad += 1;
@@ -912,6 +920,11 @@ console.log('El producto que se agregará al carrito es:', producto);
         farmacia: this.farmaciaId,
         promoCantidadRequerida: producto.promoCantidadRequerida,
       };
+
+      if (this.existencias[producto._id] == null) {
+        this.existencias[producto._id] = Math.max(1, Number.isFinite((producto as any)?.existencia) ? (producto as any).existencia : 1);
+      }
+
       this.carrito = [nuevo, ...this.carrito];
     }
 
@@ -1086,9 +1099,89 @@ console.log('El producto que se agregará al carrito es:', producto);
     this.calcularTotal();
   }
 
+  // Cantidad máxima PAGADA que puedes vender con stock `exist`
+  // si hay promo por cantidad con requisito `req` (2,3,4)
+  private maxPagablesConPromo(exist: number, req: number): number {
+    if (!Number.isFinite(exist) || exist <= 0) return 0;
+    if (!Number.isFinite(req) || req < 2) return exist;
+
+    // Búsqueda binaria: pagadas + floor(pagadas/(req-1)) <= exist
+    let lo = 0, hi = exist;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi + 1) / 2);
+      const totalNeces = mid + Math.floor(mid / (req - 1));
+      if (totalNeces <= exist) lo = mid; else hi = mid - 1;
+    }
+    return lo;
+  }
+
+  // Normaliza cantidad: entero >= 1
+  private clampCantidad(raw: any): number {
+    const n = Math.floor(Number(raw));
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  }
+
+  onCantidadBlur(index: number, raw: any) {
+    // Opcional: normaliza visualmente al salir del input
+    const item = this.carrito[index];
+    if (!item || item.esGratis) return;
+    const n = this.clampCantidad(raw);
+    if (n !== item.cantidad) {
+      // re-usa el flujo central para validar existencia y ajustar gratis
+      this.onCantidadChange(index, n);
+    }
+  }
+
+  onCantidadChange(index: number, raw: any) {
+    const item = this.carrito[index];
+    if (!item || item.esGratis) return; // el gratis no se edita
+
+    const solicitada = this.clampCantidad(raw);
+    const req = Number(item.promoCantidadRequerida) || 0;
+    const esPromoCant = this.esPromocionPorCantidad(item.tipoDescuento) && req >= 2;
+
+    // Pedimos existencia actual en modo silencioso
+    this.existenciaProducto(this.farmaciaId, item.producto, 1, /*quiet*/ true)
+      .then((existencia) => {
+        // Máximo que puedo poner en el input respetando stock (y promo)
+        const maxPagadas = esPromoCant
+          ? this.maxPagablesConPromo(existencia, req)
+          : existencia;
+
+        const nueva = Math.min(solicitada, Math.max(1, maxPagadas));
+
+        // Si pidió más de lo disponible, forzamos el valor permitido
+        if (solicitada > maxPagadas) {
+          item.cantidad = nueva;
+          // (opcional) marca visual 1s
+          (item as any)._cantidadAjustada = true;
+          setTimeout(() => { (item as any)._cantidadAjustada = false; this.cdRef.detectChanges(); }, 1000);
+        } else {
+          // Dentro del rango
+          if (nueva === item.cantidad) return;
+          item.cantidad = nueva;
+        }
+
+        // Mantén coherente el renglón gratis
+        if (this.esPromocionPorCantidad(item.tipoDescuento)) {
+          this.validarProductoGratis(item.producto);
+        } else {
+          const idxG = this.carrito.findIndex(p => p.producto === item.producto && p.esGratis);
+          if (idxG !== -1) this.carrito.splice(idxG, 1);
+        }
+
+        this.calcularTotal();
+        this.cdRef.detectChanges();
+        this.focusBarcode(60);
+      })
+      .catch(() => { /* silencio en error de red */ });
+  }
+
+
   incrementarCantidad(index: number) {
     const producto = this.carrito[index];
     if (!producto.esGratis) {
+      this.nombreDelProducto = producto.nombre
       this.existenciaProducto(this.farmaciaId, producto.producto, producto.cantidad + 1).then(() => {
         if (!this.hayProducto) return;
         producto.cantidad += 1;
@@ -1125,53 +1218,56 @@ console.log('El producto que se agregará al carrito es:', producto);
   }
 
   validarProductoGratis(productoId: string) {
-    const productoNormal = this.carrito.find(p => p.producto === productoId && !p.esGratis);
-    if (!productoNormal || !productoNormal.promoCantidadRequerida) return;
+    const prodPaid = this.carrito.find(p => p.producto === productoId && !p.esGratis);
+    if (!prodPaid || !prodPaid.promoCantidadRequerida) return;
 
-    const totalCantidad = productoNormal.cantidad;
-    const promoRequerida = productoNormal.promoCantidadRequerida;
-    const yaExisteGratis = this.carrito.some(p => p.producto === productoId && p.esGratis);
+    const req = prodPaid.promoCantidadRequerida;
+    const pagados = prodPaid.cantidad;
+    const gratisNecesarios = Math.floor(pagados / (req - 1));
 
-    if (totalCantidad >= (promoRequerida - 1)) {
-      const cantidadGratis = Math.floor(totalCantidad / (promoRequerida - 1));
-      this.existenciaProducto(this.farmaciaId, productoId, totalCantidad + cantidadGratis);
+    const idxGratis = this.carrito.findIndex(p => p.producto === productoId && p.esGratis);
+
+    if (gratisNecesarios > 0) {
+      // Revalida existencia total: pagados + gratis (ya lo hicimos antes en onCantidadChange,
+      // pero si llamas desde otros lugares, puedes mantener esta doble verificación)
+      this.nombreDelProducto = prodPaid.nombre
+      this.existenciaProducto(this.farmaciaId, productoId, pagados + gratisNecesarios);
       if (!this.hayProducto) return;
 
-      if (!yaExisteGratis) {
+      if (idxGratis === -1) {
+        // crea línea gratis
         this.carrito.push({
-          producto: productoNormal.producto,
-          nombre: productoNormal.nombre,
-          cantidad: 1,
+          producto: prodPaid.producto,
+          nombre: prodPaid.nombre,
+          cantidad: gratisNecesarios,
           precioFinal: 0,
-          precioOriginal: productoNormal.precioOriginal,
-          tipoDescuento: `${promoRequerida}x${promoRequerida - 1}-Gratis`,
+          precioOriginal: prodPaid.precioOriginal,
+          tipoDescuento: `${req}x${req - 1}-Gratis`,
           cadDesc: `100%`,
           alMonedero: 0,
-          descuentoUnitario: productoNormal.precioOriginal,
+          descuentoUnitario: prodPaid.precioOriginal,
           iva: 0,
-          lote: productoNormal.lote,
-          fechaCaducidad: productoNormal.fechaCaducidad,
           cantidadPagada: 0,
           esGratis: true,
           controlesDeshabilitados: true,
-          lotes: productoNormal.lotes,
+          lotes: prodPaid.lotes,
           farmacia: this.farmaciaId
         });
       } else {
-        const productoGratis = this.carrito.find(p => p.producto === productoId && p.esGratis);
-        if (productoGratis) {
-          productoGratis.cantidad = cantidadGratis;
-          productoGratis.cadDesc = "100%";
-          productoGratis.tipoDescuento = `${promoRequerida}x${promoRequerida - 1}-Gratis`;
+        // ajusta cantidad gratis si cambió
+        const g = this.carrito[idxGratis];
+        if (g.cantidad !== gratisNecesarios) {
+          g.cantidad = gratisNecesarios;
+          g.tipoDescuento = `${req}x${req - 1}-Gratis`;
+          g.cadDesc = '100%';
         }
       }
     } else {
-      const indexGratis = this.carrito.findIndex(p => p.producto === productoId && p.esGratis);
-      if (indexGratis !== -1) {
-        this.carrito.splice(indexGratis, 1);
-      }
+      // quitar línea gratis si ya no corresponde
+      if (idxGratis !== -1) this.carrito.splice(idxGratis, 1);
     }
   }
+
 
   calcularTotal() {
     this.total = this.round2(this.carrito.reduce((acc, p) => acc + (p.precioFinal * p.cantidad), 0));
@@ -1576,7 +1672,7 @@ console.log('El producto que se agregará al carrito es:', producto);
         }
 
         console.log('Datos recibidos en Consultar precio ', data);
-        
+
 
 
         if (!data || data.nombre === undefined) {
@@ -1678,40 +1774,42 @@ console.log('El producto que se agregará al carrito es:', producto);
     this.consultarPrecio();
   }
 
-  existenciaProducto(idFarmacia: string, idProducto: string, cantRequerida: number): Promise<void> {
+  existenciaProducto(
+    idFarmacia: string,
+    idProducto: string,
+    cantRequerida: number,
+    quiet = false
+  ): Promise<number> {
     return new Promise((resolve, reject) => {
       this.productoService.existenciaPorFarmaciaYProducto(idFarmacia, idProducto).subscribe({
         next: (data) => {
           this.precioEnFarmacia = data.precioVenta;
           this.ubicacionEnFarmacia = data.ubicacionFarmacia;
+          const existencia = Number(data.existencia ?? 0);
 
-          if (data.existencia >= cantRequerida) {
+          if (existencia >= cantRequerida) {
             this.hayProducto = true;
-            resolve();
           } else {
-            Swal.fire({
-              icon: 'error',
-              title: 'No hay suficiente existencia',
-              html: `Producto: ${data.nombre}<br>Cantidad disponible: ${data.existencia}<br>Cantidad requerida: ${cantRequerida}`,
-              confirmButtonText: 'OK',
-              allowOutsideClick: false,
-              allowEscapeKey: false,
-            });
             this.hayProducto = false;
-            resolve();
+            if (!quiet) {
+              Swal.fire({
+                icon: 'error',
+                title: 'No hay suficiente existencia',
+                html: `Producto: ${this.nombreDelProducto}<br>Cantidad disponible: ${existencia}<br>Cantidad requerida: ${cantRequerida}`,
+                confirmButtonText: 'OK',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+              });
+            }
           }
+          resolve(existencia);
         },
-        error: (error) => {
-          console.error('Error al obtener la existencia del producto:', error);
-          this.hayProducto = false;
-          reject(error);
-        }
+        error: (err) => { this.hayProducto = false; reject(err); }
       });
     });
   }
 
   // --- AUTOCOMPLETE FALLBACK (CLIENTE) ---
-
   clienteBoxVisible = false;
   clienteIndex = -1; // para flechas
 

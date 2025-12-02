@@ -96,8 +96,8 @@
 
             <label style="width: 10%;">Costo U.: <input type="number" formControlName="costoUnitario"
                     step="0.01" /></label>
-            <label style="width: 10%;">Precio U.: <input type="number" formControlName="precioUnitario"
-                    step="0.01" /></label>
+            <!-- <label style="width: 10%;">Precio U.: <input type="number" formControlName="precioUnitario"
+                    step="0.01" /></label> -->
             <label style="width: 10%;">Stock mínimo.: <input type="number" formControlName="stockMinimo"
                     step="1" /></label>
             <label style="width: 10%;">Stock máximo.: <input type="number" formControlName="stockMaximo"
@@ -120,7 +120,7 @@
                 <th>Lote</th>
                 <th>Caducidad</th>
                 <th>Costo U.</th>
-                <th>Precio U.</th>
+                <!-- <th>Precio U.</th> -->
                 <th>Stock Mín.</th>
                 <th>Stock Máx.</th>
                 <th>Subtotal</th>
@@ -143,7 +143,7 @@
                     <td>{{ it.lote }}</td>
                     <td>{{ it.fechaCaducidad | date:'dd/MM/yyyy' }}</td>
                     <td>{{ it.costoUnitario | currency }}</td>
-                    <td>{{ it.precioUnitario | currency }}</td>
+                    <!-- <td>{{ it.precioUnitario | currency }}</td> -->
                     <td>{{ it.stockMinimo }}</td>
                     <td>{{ it.stockMaximo }}</td>
                     <td>{{ (it.costoUnitario * it.cantidad) | currency }}</td>
@@ -179,17 +179,17 @@
                                 <input type="number" [(ngModel)]="it.costoUnitario" step="0.1"
                                     class="form-control form-control-sm">
                             </div>
-                            <div class="col-2">
+                            <!-- <div class="col-2">
                                 <label><strong>Precio:</strong></label>
                                 <input type="number" [(ngModel)]="it.precioUnitario"
                                     class="form-control form-control-sm">
-                            </div>
+                            </div> -->
                             <div class="col-1">
-                                <label><strong>Mín:</strong></label>
+                                <label><strong>Stock Mín:</strong></label>
                                 <input type="number" [(ngModel)]="it.stockMinimo" class="form-control form-control-sm">
                             </div>
                             <div class="col-1">
-                                <label><strong>Máx:</strong></label>
+                                <label><strong>Stock Máx:</strong></label>
                                 <input type="number" [(ngModel)]="it.stockMaximo" class="form-control form-control-sm">
                             </div>
                         </div>
@@ -344,7 +344,7 @@
 
         <tfoot>
             <tr>
-                <td colspan="10" class="total-label">Total:</td>
+                <td colspan="9" class="total-label">Total:</td>
                 <td colspan="2" style="text-align: start;">{{ total | currency }}</td>
             </tr>
         </tfoot>
