@@ -1,0 +1,18 @@
+<div class="contenedor">
+
+  <p class="subtitulo1">Elige dónde deseas realizar el inventario:</p>
+
+  <div class="tarjeta almacen" (click)="seleccionarAlmacen()">
+    🏬 <span>Inventario en ALMACÉN</span>
+  </div>
+
+  <!-- <h3 class="subtitulo">Farmacias disponibles</h3> -->
+
+  <div *ngFor="let f of farmacias" class="tarjeta farmacia" (click)="seleccionarFarmacia(f)">
+    🏥 <span>{{ f.nombre }}</span>
+  </div>
+
+  <button class="btn-salir" (click)="salir()">
+    Salir
+  </button>
+</div>

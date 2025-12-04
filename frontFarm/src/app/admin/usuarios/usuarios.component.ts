@@ -184,6 +184,16 @@ export class UsuariosComponent implements OnInit {
         if (!datos.farmacia) datos.farmacia = null;
         if (!datos.cedulaProfesional) datos.cedulaProfesional = undefined;
         break;
+
+      case 'ajustaAlmacen':
+        datos.farmacia = null;
+        datos.cedulaProfesional = undefined;
+        break;
+
+      case 'ajustaFarma':
+        if (!datos.farmacia) datos.farmacia = null;
+        datos.cedulaProfesional = undefined;
+        break;
     }
 
     // Valores vacíos en general también pueden limpiarse:

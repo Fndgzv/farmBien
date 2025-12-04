@@ -1,0 +1,75 @@
+.resultado {
+  padding: 10px;
+  margin-top: 10px;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 18px;
+}
+
+.buscador {
+  display: flex;
+  flex-direction: column;   /* uno arriba del otro */
+  align-items: center;      /* centrar todo */
+  margin-top: 15px;
+}
+
+.buscador input {
+  width: 90%;
+  max-width: 400px;
+  padding: 12px;
+  font-size: 18px;
+}
+
+.buscador button {
+  margin-top: 12px;         /* separación del input */
+  width: 150px;
+  padding: 10px;
+  font-size: 18px;
+}
+
+/* Contenedor principal */
+.buscador {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 15px;
+}
+
+/* Input centrado */
+.buscador input {
+  width: 90%;
+  max-width: 400px;
+  padding: 12px;
+  font-size: 18px;
+}
+
+/* Contenedor horizontal para los botones */
+.acciones-busqueda {
+  margin-top: 10px;
+  width: 90%;
+  max-width: 400px;
+
+  display: flex;
+  justify-content: space-between;   /* 🔥 Buscar a la izquierda, Salir a la derecha */
+  align-items: center;
+}
+
+/* Botón Buscar */
+.btn-buscar {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 18px;
+}
+
+/* Botón Salir */
+.btn-salir {
+  background: #c82333;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 18px;
+}

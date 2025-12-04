@@ -27,25 +27,23 @@
                 <label>Genérico:</label>
                 <input type="checkbox" formControlName="generico">
             </div>
-            <div class="edit-seccion">
-                <label>INAPAM:</label>
+            <div>
+                <label style="margin-right: 10px;">INAPAM:</label>
                 <input type="checkbox" formControlName="descuentoINAPAM">
-                <label>Costo:</label>
+                <label style="margin-left: 2rem; margin-right: 10px;">Costo:</label>
                 <input type="number" formControlName="costo" style="width: 5rem;" step="0.1">
-                <label>Precio:</label>
-                <input type="number" formControlName="precio" style="width: 5rem;" step="0.1"> 
+                <label style="margin-left: 2rem; margin-right: 10px;">Precio:</label>
+                <input type="number" formControlName="precio" style="width: 5rem;"> 
+                    <small *ngIf="utilPct !== null; else sinDato" [style.color]="utilColor" style="text-align: left;">
+                        Util. {{ utilPct | number:'1.0-2' }}%
+                    </small>
+                    <ng-template #sinDato>—</ng-template>
+                    <small *ngIf="utilAbs !== null" [style.color]="utilColor">
+                        ({{ utilAbs | currency }})
+                    </small>
 
-
-                <small *ngIf="utilPct !== null; else sinDato" [style.color]="utilColor">
-                    Util. {{ utilPct | number:'1.0-2' }}%
-                </small>
-                <ng-template #sinDato>—</ng-template>
-                <small *ngIf="utilAbs !== null" [style.color]="utilColor">
-                    ({{ utilAbs | currency }})
-                </small>
-
-                <label style="margin-left: 2rem;">Ubicación:</label>
-                <input type="text" formControlName="ubicacion" style="width: 13rem;">
+                    <label style="margin-left: 2rem; margin-right: 10px;">Ubicación:</label>
+                    <input type="text" formControlName="ubicacion" style="width: 11rem;">
             </div>
             <!-- Lotes -->
             <div formArrayName="lotes">

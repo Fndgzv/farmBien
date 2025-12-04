@@ -83,14 +83,41 @@ export class LoginComponent {
               response.user.domicilio
             );
 
-            if (response.user.rol === 'admin') {
-              // Admin elige farmacia
-              this.showFarmaciaSelector = true;
-            } else {
-              // Empleado/Medico ya traen farmacia
-              this.farmaciaId = response.user.farmacia?._id || '';
-              this.verificarCorteActivoYRedirigir();
+            // ⭐ Redirección según rol
+            const rol = response.user.rol;
+
+            // ---- 1) ajustaAlmacen: NO necesita farmacia ni corte ----
+            if (rol === 'ajustaAlmacen') {
+              localStorage.removeItem('inventarioUbicacion');
+              this.authService.hideLogin();
+              this.router.navigate(['/inventario-portatil/seleccionar']);
+              return;
             }
+
+            // ---- 2) ajustaFarma: va directo a su farmacia ----
+            if (rol === 'ajustaFarma') {
+              const farmacia = response.user.farmacia;
+              localStorage.setItem('inventarioUbicacion', JSON.stringify({
+                tipo: 'farmacia',
+                id: farmacia?._id,
+                nombre: farmacia?.nombre
+              }));
+
+              this.authService.hideLogin();
+              this.router.navigate(['/inventario-portatil/buscar', farmacia?._id]);
+              return;
+            }
+
+            // ---- 3) ADMIN: Selecciona farmacia ----
+            if (rol === 'admin') {
+              this.showFarmaciaSelector = true;
+              return;
+            }
+
+            // ---- 4) EMPLEADO / MEDICO: flujo normal ----
+            this.farmaciaId = response.user.farmacia?._id || '';
+            this.verificarCorteActivoYRedirigir();
+
           } else {
             this.showErrorAlert('Respuesta del servidor no válida');
           }
@@ -152,67 +179,67 @@ export class LoginComponent {
     });
   }
 
-verificarCorteActivoYRedirigir(): void {
-  const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
-  const token = localStorage.getItem('auth_token');
+  verificarCorteActivoYRedirigir(): void {
+    const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
+    const token = localStorage.getItem('auth_token');
 
-  if (!usuario || !usuario.id || !usuario.rol) {
-    console.error('Usuario no válido en localStorage');
-    this.router.navigate(['/home']);
-    return;
-  }
+    if (!usuario || !usuario.id || !usuario.rol) {
+      console.error('Usuario no válido en localStorage');
+      this.router.navigate(['/home']);
+      return;
+    }
 
-  const headers = new HttpHeaders({ 'x-auth-token': token || '' });
+    const headers = new HttpHeaders({ 'x-auth-token': token || '' });
 
-  this.http
-    .get(`${environment.apiUrl}/cortes/activo/${usuario.id}/${this.farmaciaId}`, { headers })
-    .subscribe({
-      next: (res: any) => {
-        if (res?.corte) {
-          // ✅ Turno activo → guardar y a /home
-          localStorage.setItem('corte_activo', res.corte._id);
+    this.http
+      .get(`${environment.apiUrl}/cortes/activo/${usuario.id}/${this.farmaciaId}`, { headers })
+      .subscribe({
+        next: (res: any) => {
+          if (res?.corte) {
+            // ✅ Turno activo → guardar y a /home
+            localStorage.setItem('corte_activo', res.corte._id);
 
-          const fecha = new Date(res.corte.fechaInicio).toLocaleString('es-MX', {
-            timeZone: 'America/Mexico_City'
-          });
-          const efectivo = Number(res.corte.efectivoInicial || 0).toFixed(2);
-          const recargasHtml =
-            res.corte.saldoInicialRecargas !== undefined
-              ? `<p><strong>Saldo inicial recargas:</strong> $${Number(res.corte.saldoInicialRecargas).toFixed(2)}</p>`
-              : '';
+            const fecha = new Date(res.corte.fechaInicio).toLocaleString('es-MX', {
+              timeZone: 'America/Mexico_City'
+            });
+            const efectivo = Number(res.corte.efectivoInicial || 0).toFixed(2);
+            const recargasHtml =
+              res.corte.saldoInicialRecargas !== undefined
+                ? `<p><strong>Saldo inicial recargas:</strong> $${Number(res.corte.saldoInicialRecargas).toFixed(2)}</p>`
+                : '';
 
-          Swal.fire({
-            title: 'Turno ya activo',
-            html: `
+            Swal.fire({
+              title: 'Turno ya activo',
+              html: `
               <p>Ya tienes un turno abierto.</p>
               <p><strong>Inicio:</strong> ${fecha}</p>
               <p><strong>Efectivo inicial:</strong> $${efectivo}</p>
               ${recargasHtml}
             `,
-            icon: 'info',
-            timer: 2000,
-            showConfirmButton: false,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-          }).then(() => {
+              icon: 'info',
+              timer: 2000,
+              showConfirmButton: false,
+              allowOutsideClick: false,
+              allowEscapeKey: false,
+            }).then(() => {
+              this.authService.hideLogin();
+              this.router.navigate(['/home']);
+            });
+          } else {
+            // 🚪 Sin turno activo → limpiar posible residuo y a /inicio-turno
+            localStorage.removeItem('corte_activo');
             this.authService.hideLogin();
-            this.router.navigate(['/home']);
-          });
-        } else {
-          // 🚪 Sin turno activo → limpiar posible residuo y a /inicio-turno
+            this.router.navigate(['/inicio-turno']);
+          }
+        },
+        error: (err) => {
+          console.error('Error al verificar corte activo:', err);
+          // En error tratamos como si no hubiera corte activo
           localStorage.removeItem('corte_activo');
           this.authService.hideLogin();
           this.router.navigate(['/inicio-turno']);
         }
-      },
-      error: (err) => {
-        console.error('Error al verificar corte activo:', err);
-        // En error tratamos como si no hubiera corte activo
-        localStorage.removeItem('corte_activo');
-        this.authService.hideLogin();
-        this.router.navigate(['/inicio-turno']);
-      }
-    });
-}
+      });
+  }
 
 }

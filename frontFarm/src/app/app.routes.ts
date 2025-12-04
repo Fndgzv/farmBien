@@ -24,6 +24,10 @@ import { ReporteComprasVentasComponent } from './pages/reporte-compras-ventas/re
 import { LabelDesignerComponent } from './pages/etiquetas/label-designer/label-designer.component';
 import { EtiquetasPrintComponent } from './pages/etiquetas/etiquetas-print/etiquetas-print.component';
 import { ReportePresupuestoComponent } from './pages/reporte-presupuesto/reporte-presupuesto.component';
+import { SeleccionarFarmaciaComponent } from './inventario-portatil/seleccionar-farmacia/seleccionar-farmacia.component';
+import { InventarioPortatilComponent } from './inventario-portatil/inventario-portatil.component';
+import { BuscarProductoComponent } from './inventario-portatil/buscar-producto/buscar-producto.component';
+import { AjustarExistenciaComponent } from './inventario-portatil/ajustar-existencia/ajustar-existencia.component';
 
 export const routes: Routes = [
   {
@@ -166,10 +170,18 @@ export const routes: Routes = [
       {
         path: 'etiquetas/design',
         component: LabelDesignerComponent
+      },
+
+      {
+        path: 'inventario-portatil',
+        component: InventarioPortatilComponent,
+        children: [
+          { path: '', redirectTo: 'seleccionar', pathMatch: 'full' },
+          { path: 'seleccionar', component: SeleccionarFarmaciaComponent },
+          { path: 'buscar/:farmaciaId', component: BuscarProductoComponent },
+          { path: 'ajustar/:farmaciaId/:productoId', component: AjustarExistenciaComponent }
+        ]
       }
-
-
-      // ... otras rutas protegidas
     ]
   },
   { path: 'login', component: LoginComponent } // fuera del layout

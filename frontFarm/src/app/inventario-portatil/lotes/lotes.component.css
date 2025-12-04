@@ -1,0 +1,76 @@
+.header-lotes {
+  text-align: center;
+  background: #004aad;
+  padding: 15px;
+  color: white;
+  font-size: 22px;
+}
+
+.btn-principal {
+  width: 100%;
+  padding: 18px;
+  font-size: 20px;
+  margin: 20px 0;
+}
+
+.lote-item {
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+}
+
+.lote-botones button {
+  display: block;
+  width: 90px;
+  padding: 10px;
+  margin-top: 6px;
+  font-size: 16px;
+}
+
+.btn-azul {
+  background: #187bcd;
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.btn-rojo {
+  background: #cc0000;
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+.formulario {
+  padding: 20px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+.btn-guardar {
+  width: 100%;
+  padding: 18px;
+  background: #0a8f08;
+  color: white;
+  font-size: 20px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+}
+
+.btn-cancelar {
+  width: 100%;
+  padding: 18px;
+  background: gray;
+  color: white;
+  font-size: 20px;
+  border-radius: 10px;
+}

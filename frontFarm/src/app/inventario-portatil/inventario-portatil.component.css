@@ -1,0 +1,13 @@
+:host {
+  display: block;
+  background: #f3f6fb;
+  height: 100vh;
+}
+
+/* Contenedor general para todas las vistas del inventario portátil */
+.inventario-wrapper {
+  max-width: 520px;      /* ancho ideal para móviles/tablets */
+  margin: 0 auto;        /* centrado horizontal */
+  padding: 10px;         /* separación interna */
+  width: 100%;           /* usa el 100% hasta llegar al max-width */
+}

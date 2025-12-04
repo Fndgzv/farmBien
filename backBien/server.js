@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 const fs       = require('fs');
 const reportesRoutes = require('./routes/reportesRoutes');
+const inventarioPortatilRoutes = require('./routes/inventario-portatil.routes');
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use('/api/label-designs', require('./routes/labelDesigns.routes'));
 app.use('/api/labels', require('./routes/labels.products.routes'));
 
 app.use('/api/reportes', require('./routes/reportesPresupuestoRoutes'));
+app.use('/api/inventario-portatil', inventarioPortatilRoutes);
 
 // ───────────────── Archivos estáticos: UPLOADS ─────────────────
 // Usa disco persistente si está definido (Render Disk), si no, la carpeta local.

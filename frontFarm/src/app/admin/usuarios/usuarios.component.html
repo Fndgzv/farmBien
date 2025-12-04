@@ -80,12 +80,18 @@
                                 <option value="admin">Admin</option>
                                 <option value="empleado">Empleado</option>
                                 <option value="medico">Médico</option>
+                                <option value="ajustaAlmacen">Ajusta almac. y farma</option>
+                                <option value="ajustaFarma">Ajusta farmacia</option>
                             </select>
                         </div>
 
                         <!-- Solo para empleado y médico -->
                         <div class="col-md-6 mb-2"
-                            *ngIf="formUsuario && (formUsuario.get('rol')?.value === 'empleado' || formUsuario.get('rol')?.value === 'medico')">
+                            *ngIf="formUsuario && (
+                                formUsuario.get('rol')?.value === 'empleado' ||
+                                formUsuario.get('rol')?.value === 'medico' ||
+                                formUsuario.get('rol')?.value === 'ajustaFarma'
+                                )">
                             <label>Farmacia asignada:</label>
                             <select class="form-control" formControlName="farmacia">
                                 <option value="">-- Selecciona una farmacia --</option>

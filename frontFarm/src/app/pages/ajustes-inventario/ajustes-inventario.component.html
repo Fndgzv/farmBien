@@ -323,7 +323,7 @@
                 </th>
                 <th>INAPAM</th>
                 <th>Costo</th>
-                <!-- <th>Precio</th> -->
+                <th title="Precio sugerido">Precio</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -384,7 +384,7 @@
                     <input type="checkbox" [checked]="p.descuentoINAPAM" disabled>
                 </td>
                 <td>{{ p.costo | currency }}</td>
-                <!-- <td>{{ p.precio |currency }}</td> -->
+                <td>{{ p.precio |currency }}</td>
                 <td>
                     <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)"
                         matTooltip="Editar producto">

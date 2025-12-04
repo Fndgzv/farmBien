@@ -1,0 +1,23 @@
+<div class="buscador">
+
+  <!-- INPUT -->
+  <input type="text"
+         [(ngModel)]="query"
+         (keyup.enter)="buscar()"
+         autofocus
+         placeholder="Escanear ...">
+
+  <!-- CONTENEDOR DE BOTONES -->
+  <div class="acciones-busqueda">
+    
+    <button class="btn-buscar" (click)="buscar()">Buscar</button>
+
+    <button class="btn-salir" (click)="salir()">{{ botonSalirTexto }}</button>
+
+  </div>
+</div>
+
+<div *ngFor="let p of resultados" class="resultado" (click)="seleccionar(p)">
+  <b>{{ p.nombre }}</b><br>
+  CB: {{ p.codigoBarras }}
+</div>

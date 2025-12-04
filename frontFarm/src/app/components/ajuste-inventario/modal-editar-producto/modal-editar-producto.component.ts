@@ -247,55 +247,27 @@ export class ModalEditarProductoComponent implements OnInit {
     return this.formulario.get('lotes') as FormArray;
   }
 
-  agregarLote() {
-    const nuevoLote: Lote = {
-      lote: '',
-      fechaCaducidad: new Date(),
-      cantidad: 0
-    };
-    this.lotesFormArray.push(this.crearLoteForm(nuevoLote));
-  }
+agregarLote() {
+
+  // Número de lote basado en cuántos existen
+  const nextNumber = this.lotesFormArray.length + 1;
+
+  // 2 dígitos → 01, 02, 03...
+  const padded = String(nextNumber).padStart(2, '0');
+
+  const nuevoLote: Lote = {
+    lote: `LOTE-${padded}`,
+    fechaCaducidad: new Date(),
+    cantidad: 0
+  };
+
+  this.lotesFormArray.push(this.crearLoteForm(nuevoLote));
+}
+
 
   eliminarLote(index: number) {
     this.lotesFormArray.removeAt(index);
   }
-
-  /*   guardarProducto() {
-      const v = this.formulario.value as any;
-  
-      const lotes = (v.lotes || [])
-        .map((l: any) => {
-          const fecha =
-            l?.fechaCaducidad && l.fechaCaducidad !== ''
-              ? new Date(l.fechaCaducidad)
-              : null;
-  
-          const cantidad =
-            l?.cantidad === '' || l?.cantidad === null || typeof l?.cantidad === 'undefined'
-              ? null
-              : Number(l.cantidad);
-  
-          const lote =
-            (l?.lote ?? '').toString().trim() === '' ? null : l.lote;
-  
-          return {
-            ...l,
-            lote,
-            fechaCaducidad: fecha,
-            cantidad
-          };
-        })
-     
-        .filter((l: any) => l.lote !== null || l.fechaCaducidad !== null || l.cantidad !== null);
-  
-      const productoActualizado: Producto = {
-        ...this.producto,
-        ...v,
-        lotes
-      };
-  
-      this.guardar.emit(productoActualizado);
-    } */
 
   guardarProducto() {
 

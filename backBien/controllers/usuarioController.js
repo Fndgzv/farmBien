@@ -88,6 +88,19 @@ exports.actualizarUsuario = async (req, res) => {
                 usuarioEncontrado.cedulaProfesional = undefined;
             }
 
+            if (rol === 'ajustaAlmacen') {
+                usuarioEncontrado.farmacia = null;
+                usuarioEncontrado.cedulaProfesional = undefined;
+            }
+
+            if (rol === 'ajustaFarma') {
+                if (!farmacia) {
+                    return res.status(400).json({ mensaje: "Un ajustador de farmacia debe tener una farmacia asignada." });
+                }
+                usuarioEncontrado.farmacia = farmacia;
+                usuarioEncontrado.cedulaProfesional = undefined;
+            }
+
             usuarioEncontrado.rol = rol;
         }
 
@@ -173,6 +186,21 @@ exports.registrarUsuario = async (req, res) => {
             }
         }
 
+        if (rol === 'ajustaAlmacen') {
+            // No requiere farmacia ni cédula
+            farmaciaAsignada = null;
+        }
+
+        if (rol === 'ajustaFarma') {
+            if (!farmacia) {
+                return res.status(400).json({ mensaje: "Un usuario ajustaFarma debe estar asignado a una farmacia." });
+            }
+            farmaciaAsignada = await Farmacia.findById(farmacia);
+
+            if (!farmaciaAsignada) {
+                return res.status(404).json({ mensaje: 'Farmacia no encontrada' });
+            }
+        }
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const nuevoUsuario = new Usuario({

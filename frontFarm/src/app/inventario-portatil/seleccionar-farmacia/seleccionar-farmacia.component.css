@@ -1,0 +1,63 @@
+.contenedor {
+  max-width: 480px;
+  margin: auto;
+  padding: 15px;
+}
+
+.titulo {
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #305aff;
+  margin-bottom: 20px;
+}
+
+.subtitulo {
+  margin-top: 20px;
+  color: #444;
+  font-size: 1.1rem;
+}
+
+.tarjeta {
+  background: #ffffff;
+  padding: 14px;
+  margin-top: 12px;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  border-left: 5px solid #4179ff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+  transition: transform .1s ease;
+}
+
+.tarjeta:hover {
+  transform: scale(1.02);
+}
+
+.almacen {
+  border-left-color: #e91e63;
+  background: #ffeaf1;
+}
+
+.farmacia {
+  background: #eef4ff;
+}
+
+.btn-salir {
+  width: 100%;
+  margin-top: 25px;
+  padding: 12px;
+  font-size: 1.1rem;
+  background: #b30000;
+  color: white;
+  border: none;
+  border-radius: 8px;
+}
+
+@media (max-width: 480px) {
+  .titulo { font-size: 1.4rem; }
+  .tarjeta { font-size: 1.1rem; }
+}

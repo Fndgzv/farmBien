@@ -1,0 +1,275 @@
+/* ============================================================
+   ESTILO GENERAL
+   ============================================================ */
+body, html {
+  font-family: Arial, sans-serif;
+}
+
+/* ============================================================
+   PRODUCTO INFO
+   ============================================================ */
+.producto-info {
+  background: #eef4ff;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.producto-info h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.cb {
+  margin: 2px 0;
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   SECCIÓN LOTES
+   ============================================================ */
+h4 {
+  margin-top: 10px;
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+.lote-card {
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  border-left: 4px solid #4179ff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.lote-card p {
+  margin: 2px 0;
+  font-size: 0.95rem;
+}
+
+/* ============================================================
+   BOTONES DE ACCIÓN EN LOTES (editar/eliminar)
+   ============================================================ */
+.acciones {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-editar {
+  background: #007bff;
+  border: none;
+  padding: 6px 14px;
+  color: white;
+  font-size: 0.9rem;
+  border-radius: 5px;
+  width: 48%;
+}
+
+.btn-eliminar {
+  background: #d9534f;
+  border: none;
+  padding: 6px 14px;
+  color: white;
+  font-size: 0.9rem;
+  border-radius: 5px;
+  width: 48%;
+}
+
+.btn-editar:active,
+.btn-eliminar:active {
+  transform: scale(0.96);
+}
+
+/* ============================================================
+   BOTÓN AGREGAR LOTE
+   ============================================================ */
+.btn-agregar {
+  width: 100%;
+  padding: 10px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  margin-bottom: 15px;
+}
+
+.btn-agregar:active {
+  transform: scale(0.97);
+}
+
+/* ============================================================
+   FORMULARIO DE LOTE (agregar / editar)
+   ============================================================ */
+.lote-form {
+  background: #f6f9ff;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd8ff;
+  margin-bottom: 20px;
+}
+
+.lote-form label {
+  margin-top: 8px;
+  font-size: 0.95rem;
+  display: block;
+  font-weight: bold;
+}
+
+.lote-form input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+  border-radius: 6px;
+  font-size: 1rem;
+  border: 1px solid #a9b7d0;
+}
+
+/* Botones guardar/cancelar */
+.lote-form .acciones {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.btn-guardar {
+  width: 50%;
+  background: #28a745;
+  border: none;
+  color: white;
+  padding: 10px;
+  font-size: 1rem;
+  border-radius: 6px;
+}
+
+.btn-cancelar {
+  width: 50%;
+  background: #6c757d;
+  border: none;
+  color: white;
+  padding: 10px;
+  font-size: 1rem;
+  border-radius: 6px;
+}
+
+/* ============================================================
+   BOTONES FINALES: SIGUIENTE + SALIR
+   ============================================================ */
+.acciones-finales {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 25px;
+  gap: 10px;
+}
+
+.btn-siguiente {
+  width: 100%;
+  background: #007bff;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  color: white;
+  border: none;
+}
+
+.btn-salir {
+  width: 100%;
+  background: #b30000;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  color: white;
+  border: none;
+}
+
+.btn-siguiente:active,
+.btn-salir:active {
+  transform: scale(0.96);
+}
+
+/* ============================================================
+   RESPONSIVE PARA PANTALLAS DE 4-5”
+   ============================================================ */
+@media (max-width: 480px) {
+  .titulo {
+    font-size: 1.2rem;
+  }
+
+  .producto-info h3 {
+    font-size: 1rem;
+  }
+
+  .btn-siguiente,
+  .btn-salir {
+    font-size: 1rem;
+    padding: 10px;
+  }
+}
+
+/* ============================================================
+   SECCIÓN EXISTENCIA FARMACIA
+   ============================================================ */
+
+.existencia-box {
+  background: #f6faff;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 10px;
+  border-left: 4px solid #0066ff;
+}
+
+.existencia-box h4 {
+  margin-bottom: 10px;
+}
+
+.existencia-edicion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 5px;
+}
+
+.existencia-edicion label {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.input-existencia {
+  width: 80px;               /* 🔥 justo para 3 dígitos */
+  font-size: 1.3rem;         /* 🔥 más grande */
+  text-align: center;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #7fa6ff;
+  background: white;
+}
+
+.btn-guardar-ex {
+  background: #28a745;       /* Verde, distinto del azul */
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.btn-guardar-ex:active {
+  transform: scale(0.96);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .existencia-edicion {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-guardar-ex {
+    width: 100%;
+    margin-top: 10px;
+  }
+}

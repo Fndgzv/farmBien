@@ -1,0 +1,46 @@
+<div class="header-lotes">
+  <h2>Lotes del Producto</h2>
+</div>
+
+<!-- MODO LISTAR -->
+<div *ngIf="modo === 'listar'">
+
+  <button class="btn-principal" (click)="nuevoLote()">+ Nuevo lote</button>
+
+  <div *ngFor="let l of lotes" class="lote-item">
+    <div class="lote-info">
+      <b>Lote:</b> {{ l.lote }}<br>
+      <b>Cad:</b> {{ l.fechaCaducidad | date:'MMM d, y':'America/Mexico_City' }}<br>
+      <b>Cantidad:</b> {{ l.cantidad }}
+    </div>
+
+    <div class="lote-botones">
+      <button class="btn-azul" (click)="editarLote(l)">Editar</button>
+      <button class="btn-rojo" (click)="eliminarLote(l)">Eliminar</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODO AGREGAR / EDITAR -->
+<div *ngIf="modo === 'agregar' || modo === 'editar'" class="formulario">
+
+  <label>Lote:</label>
+  <input type="text" [(ngModel)]="formLote.lote">
+
+  <label>Fecha de caducidad:</label>
+  <input type="date" [(ngModel)]="formLote.fechaCaducidad">
+
+  <label>Cantidad:</label>
+  <input type="number" [(ngModel)]="formLote.cantidad" min="0">
+
+  <button *ngIf="modo==='agregar'" class="btn-guardar" (click)="guardarNuevo()">
+    Guardar nuevo lote
+  </button>
+
+  <button *ngIf="modo==='editar'" class="btn-guardar" (click)="guardarEdicion()">
+    Guardar cambios
+  </button>
+
+  <button class="btn-cancelar" (click)="cancelar()">Cancelar</button>
+</div>
