@@ -1,23 +1,20 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, NgFor, NgIf } from '@angular/common';
-import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 
-import { debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
-
 import { FarmaciaService } from '../../services/farmacia.service';
 import { ReportesService } from '../../services/reportes.service';
-import { ProductoService } from '../../services/producto.service';
 
-import { ProductoLite } from '../../models/producto-lite.model';
 import {
   ResumenVentasResponse,
   VentaProductoResumen,
 } from '../../models/reportes.models';
+import Swal from 'sweetalert2';
 
 type SortCol = 'producto' | 'existencia' | 'cantidad' | 'importe' | 'costo' | 'utilidad' | 'margen';
 type SortKey =
@@ -96,11 +93,20 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
 
   constructor(
     private reportes: ReportesService,
-    private farmaciaService: FarmaciaService,
-    private productosSrv: ProductoService
-  ) { }
+    private farmaciaService: FarmaciaService  ) { }
 
   ngOnInit(): void {
+
+    const stored = localStorage.getItem('user_farmacia');
+    const farmacia = stored ? JSON.parse(stored) : null;
+
+    if (!farmacia) {
+      Swal.fire('Error', 'No se encontró la farmacia en localStorage', 'error');
+      return;
+    }
+
+    this.farmaciaId = farmacia._id;
+
     this.cargarFarmacias();
 
     this.buscar();

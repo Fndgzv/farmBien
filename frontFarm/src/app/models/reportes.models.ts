@@ -11,6 +11,7 @@ export interface VentaProductoResumen {
   farmacia: string;
   unidad?: string;
   categoria?: string;
+  ubicacionFarmacia?: string;
   cantidadVendida: number;
   importeVendido: number;
   costoTotal?: number;

@@ -82,6 +82,8 @@
 
           <th style="white-space:nowrap;">Categoría</th>
 
+          <th style="white-space:nowrap;">Ubic. farma</th>
+
           <th class="text-end sortable" (click)="setSort('cantidad')">
             Vendidos
             <mat-icon class="ms-1" inline>{{ sortIcon('cantidad') }}</mat-icon>
@@ -123,6 +125,7 @@
           <td>{{ r.nombre }}</td>
           <td>{{ r.codigoBarras || '—' }}</td>
           <td>{{ r.categoria || '—' }}</td>
+          <td>{{ r.ubicacionFarmacia || '—' }}</td>
           <td class="text-end">{{ r.cantidadVendida | number}}</td>
           <td class="text-end">{{ r.costoTotal | currency }}</td>
           <td class="text-end">{{ r.importeVendido | currency }}</td>
@@ -148,7 +151,7 @@
 
       <tfoot *ngIf="rows.length">
         <tr class="fw-bold">
-          <td colspan="4" class="text-end">Totales:</td>
+          <td colspan="5" class="text-end">Totales:</td>
           <td class="text-end">{{ totalCantidad | number}}</td>
           <td class="text-end">{{ totalCosto | currency }}</td>
           <td class="text-end">{{ totalImporte | currency }}</td>
@@ -156,7 +159,8 @@
           <td class="text-end">
             {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
           </td>
-          <td colspan="3" class="text-end">{{ totalExistencia | number}}</td>
+          <!-- <td colspan="3" class="text-end">{{ totalExistencia | number}}</td> -->
+          <td colspan="3"></td>
         </tr>
       </tfoot>
     </table>

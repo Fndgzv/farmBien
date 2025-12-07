@@ -45,8 +45,7 @@ const parseSortCanc = (orden = 'importe', dir = 'desc') =>
 
 
 const {
-  pipelineVentasProductoDetalle,
-  pipelineVentasPorFarmacia
+  pipelineVentasProductoDetalle
 } = require('../pipelines/reportesPipelines');
 
 
@@ -138,7 +137,7 @@ exports.resumenProductosVendidos = async (req, res) => {
       sortBy = 'producto',
       sortDir = 'asc',
       productoQ = '',
-      categoriaQ = ''     // 🔹 nuevo
+      categoriaQ = ''
     } = req.query;
 
     const { gte, lt } = dayRangeUtc(fechaIni, fechaFin);
@@ -181,7 +180,7 @@ exports.resumenProductosVendidos = async (req, res) => {
       pipe.push({
         $match: {
           $or: [
-            { 'prod.nombre':       { $regex: q, $options: 'i' } },
+            { 'prod.nombre': { $regex: q, $options: 'i' } },
             { 'prod.codigoBarras': { $regex: q, $options: 'i' } },
           ]
         }
@@ -211,8 +210,7 @@ exports.resumenProductosVendidos = async (req, res) => {
           from: 'inventariofarmacias',
           let: { fId: '$_id.farmacia', pId: '$_id.producto' },
           pipeline: [
-            { $match: { $expr: { $and: [ { $eq: ['$farmacia', '$$fId'] }, { $eq: ['$producto', '$$pId'] } ] } } },
-            { $project: { _id: 0, existencia: 1, stockMax: 1, stockMin: 1 } },
+            { $match: { $expr: { $and: [{ $eq: ['$farmacia', '$$fId'] }, { $eq: ['$producto', '$$pId'] }] } } },
           ],
           as: 'inv',
         },
@@ -220,13 +218,19 @@ exports.resumenProductosVendidos = async (req, res) => {
       {
         $addFields: {
           existencia: { $ifNull: [{ $arrayElemAt: ['$inv.existencia', 0] }, 0] },
-          stockMax  : { $ifNull: [{ $arrayElemAt: ['$inv.stockMax', 0] }, 0] },
-          stockMin  : { $ifNull: [{ $arrayElemAt: ['$inv.stockMin', 0] }, 0] },
-          utilidad  : { $subtract: ['$importeVendido', '$costoTotal'] },
-          margenPct : {
+          stockMax: { $ifNull: [{ $arrayElemAt: ['$inv.stockMax', 0] }, 0] },
+          stockMin: { $ifNull: [{ $arrayElemAt: ['$inv.stockMin', 0] }, 0] },
+          ubicacionFarmacia: {
+            $ifNull: [
+              { $arrayElemAt: ['$inv.ubicacionFarmacia', 0] },
+              ''
+            ]
+          },
+          utilidad: { $subtract: ['$importeVendido', '$costoTotal'] },
+          margenPct: {
             $cond: [
               { $gt: ['$importeVendido', 0] },
-              { $multiply: [ { $divide: [ { $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido' ] }, 100 ] },
+              { $multiply: [{ $divide: [{ $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido'] }, 100] },
               null
             ]
           }
@@ -249,6 +253,7 @@ exports.resumenProductosVendidos = async (req, res) => {
           existencia: 1,
           stockMax: 1,
           stockMin: 1,
+          ubicacionFarmacia: 1
         }
       }
     );
