@@ -39,8 +39,8 @@ exports.surtirFarmacia = async (req, res) => {
       farmaciaId,
       confirm = false,
       detalles = [],
-      categoria,     // filtra por categoria de Producto
-      ubicacion      // AHORA filtra por InventarioFarmacia.ubicacionFarmacia
+      categoria,     // filtra por Producto.categoria
+      ubicacion      // AHORA filtra por Producto.ubicacion (almacén)
     } = req.body;
 
     // Mapa de omisiones por producto (default false)
@@ -55,38 +55,43 @@ exports.surtirFarmacia = async (req, res) => {
     const inventarios = await InventarioFarmacia.find({ farmacia: farmaciaId })
       .populate({ path: 'producto', model: Producto });
 
-    // mapa productoId -> ubicacionFarmacia (lo usaremos para enriquecer la respuesta final)
+    // mapa productoId -> ubicacionFarmacia (solo para enriquecer respuesta/impresión)
     const ubicFarmaPorProd = new Map(
       inventarios
         .filter(inv => inv?.producto?._id)
         .map(inv => [ String(inv.producto._id), inv.ubicacionFarmacia || '' ])
     );
 
-    // 1.1) Aplicar filtros: categoria (Producto) y ubicacionFarmacia (InventarioFarmacia)
+    // helpers locales por si no existen en el archivo
+    const norm = (s) => String(s ?? '').toLowerCase().trim();
+    const containsAll = (txt, query) =>
+      norm(query).split(/\s+/).filter(Boolean).every(w => norm(txt).includes(w));
+    const cmp = (a, b) => (a > b) - (a < b);
+
+    // 1.1) Aplicar filtros: categoria (Producto) y ubicacion (Producto.ubicacion)
     const pasaFiltros = (inv) => {
       const prod = inv?.producto;
       if (!prod) return false;
 
       let ok = true;
       if (categoria) ok = ok && containsAll(prod.categoria ?? '', categoria);
-      if (ubicacion) ok = ok && containsAll(inv.ubicacionFarmacia ?? '', ubicacion);
+      if (ubicacion) ok = ok && containsAll(prod.ubicacion ?? '', ubicacion); // <- almacén
       return ok;
     };
 
     // 2) Filtrar los que están <= stockMin y cumplen filtros
     const bajos = inventarios.filter(inv =>
-      (inv.existencia ?? 0) <= (inv.stockMin ?? 0) &&
-      pasaFiltros(inv)
+      (inv.existencia ?? 0) <= (inv.stockMin ?? 0) && pasaFiltros(inv)
     );
 
-    // 3) Generar "pendientes" (incluye ubicacionFarmacia)
+    // 3) Generar "pendientes"
     const pendientes = bajos.map(inv => ({
       producto: inv.producto?._id,
       nombre: inv.producto?.nombre,
       codigoBarras: inv.producto?.codigoBarras,
       categoria: inv.producto?.categoria,
-      ubicacion: inv.producto?.ubicacion,                 // ubicación del almacén (central)
-      ubicacionFarmacia: inv.ubicacionFarmacia || '',     // ← NUEVO: ubicación en la farmacia
+      ubicacion: inv.producto?.ubicacion,               // <- ubicación en almacén (filtro)
+      ubicacionFarmacia: inv.ubicacionFarmacia || '',   // informativo
       existenciaActual: inv.existencia ?? 0,
       stockMin: inv.stockMin ?? 0,
       stockMax: inv.stockMax ?? 0,
@@ -99,17 +104,17 @@ exports.surtirFarmacia = async (req, res) => {
         : false
     }));
 
-    // === ORDENAR POR CATEGORÍA (luego ubicacionFarmacia y nombre) ===
+    // === ORDENAR POR categoría -> producto.ubicacion -> nombre ===
     pendientes.sort((a, b) =>
-      cmp(norm(a.categoria),          norm(b.categoria))          ||
-      cmp(norm(a.ubicacionFarmacia),  norm(b.ubicacionFarmacia))  ||
-      cmp(norm(a.nombre),             norm(b.nombre))
+      cmp(norm(a.categoria), norm(b.categoria)) ||
+      cmp(norm(a.ubicacion), norm(b.ubicacion)) ||
+      cmp(norm(a.nombre),    norm(b.nombre))
     );
 
     // 4) Si no confirman, solo devolvemos pendientes
     if (!confirm) {
       return res.json({
-        filtros: { categoria: categoria ?? null, ubicacionFarmacia: ubicacion ?? null },
+        filtros: { categoria: categoria ?? null, ubicacion: ubicacion ?? null }, // <- cambia etiqueta
         pendientes
       });
     }
@@ -159,7 +164,6 @@ exports.surtirFarmacia = async (req, res) => {
               lote: lote.lote || 'SIN-LOTE',
               cantidad: tomo,
               precioUnitario: inv.precioVenta ?? prod.precio ?? 0
-              // Nota: NO guardamos ubicacionFarmacia en Mongo (no está en el schema de items)
             });
           }
 
@@ -188,26 +192,25 @@ exports.surtirFarmacia = async (req, res) => {
       const surtido = await SurtidoFarmacia.findById(surtidoId)
         .populate({ path: 'items.producto', select: 'nombre codigoBarras categoria ubicacion' });
 
-      // Enriquecer la respuesta con ubicacionFarmacia por item (sin persistirla)
+      // Enriquecer con ubicacionFarmacia (informativo) y ordenar como pediste
       const sObj = surtido?.toObject ? surtido.toObject() : surtido;
       if (sObj?.items?.length) {
-        // agrega campo ubicacionFarmacia a cada item usando el mapa productoId->ubicacionFarmacia
         sObj.items = sObj.items.map(it => {
           const pid = it?.producto?._id ? String(it.producto._id) : null;
           const uf = pid ? (ubicFarmaPorProd.get(pid) || '') : '';
           return { ...it, ubicacionFarmacia: uf };
         });
 
-        // ordenar por categoría -> nombre (si quieres también por ubicacionFarmacia, agrega ese criterio)
         sObj.items.sort((a, b) =>
           cmp(norm(a.producto?.categoria), norm(b.producto?.categoria)) ||
+          cmp(norm(a.producto?.ubicacion), norm(b.producto?.ubicacion)) ||
           cmp(norm(a.producto?.nombre),    norm(b.producto?.nombre))
         );
       }
 
       return res.json({
         mensaje: 'Farmacia surtida correctamente (solo con cantidades disponibles y sin omitir).',
-        filtros: { categoria: categoria ?? null, ubicacionFarmacia: ubicacion ?? null },
+        filtros: { categoria: categoria ?? null, ubicacion: ubicacion ?? null }, // <- ahora refleja almacén
         pendientes,
         surtido: sObj
       });

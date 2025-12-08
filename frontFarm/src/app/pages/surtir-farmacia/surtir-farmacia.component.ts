@@ -249,33 +249,40 @@ onSurtir() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  // ===== impresión: muestra filtros en cabecera =====
-  private buildHTMLPrevia(): string {
-    const { farmaciaId, categoria, ubicacion } = this.form.getRawValue(); // getRawValue para leer aun deshabilitados
-    const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
-    const ahora = this.fmtFecha();
+// ===== Helpers =====
+private norm(s: any): string { return String(s ?? '').toLowerCase().trim(); }
+private cmp(a: string, b: string) { return (a > b ? 1 : a < b ? -1 : 0); }
 
-    const filtrosHtml = `
-      ${categoria ? `<div>Filtro categoría: <b>${categoria}</b></div>` : ''}
-      ${ubicacion ? `<div>Filtro ubicación: <b>${ubicacion}</b></div>` : ''}
-    `;
+// ===== Previa (usa this.rows) =====
+// ===== Previa (usa this.rows, filtra omitidos y disponible>0) =====
+private buildHTMLPrevia(): string {
+  const { farmaciaId, categoria, ubicacion } = this.form.getRawValue();
+  const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
+  const ahora = this.fmtFecha();
 
-    const filas = this.rows.map(r => {
-      const omit = r.omitir ? ' class="omitida"' : '';
-      const tagOmit = r.omitir ? '<span class="chip chip-omit">OMITIDO</span>' : '';
-      return `
-      <tr${omit}>
-        <td>${r.codigoBarras || ''}</td>
-        <td>${r.nombre || ''} ${tagOmit}</td>
-        <td style="text-align:right">${r.existenciaActual ?? 0}</td>
-        <td style="text-align:right">${r.stockMin ?? 0}</td>
-        <td style="text-align:right">${r.stockMax ?? 0}</td>
-        <td style="text-align:right">${r.falta ?? 0}</td>
-        <td style="text-align:right">${r.disponibleEnAlmacen ?? 0}</td>
-      </tr>`;
-    }).join('');
+  const filtrosHtml = `
+    ${categoria ? `<div>Filtro categoría: <b>${categoria}</b></div>` : ''}
+    ${ubicacion ? `<div>Filtro ubicación: <b>${ubicacion}</b></div>` : ''}
+  `;
 
-    return `
+  const filasData = this.rows
+    .filter(r => !r.omitir && (r.disponibleEnAlmacen ?? 0) > 0)
+    .sort((a, b) =>
+      this.cmp(this.norm(a.ubicacion), this.norm(b.ubicacion)) ||
+      this.cmp(this.norm(a.nombre),    this.norm(b.nombre))
+    );
+
+  const filas = filasData.map(r => `
+    <tr>
+      <td>${r.codigoBarras || ''}</td>
+      <td>${r.nombre || ''}</td>
+      <td class="num">${r.falta ?? 0}</td>
+      <td class="writein">&nbsp;</td>
+      <td>${r.ubicacion || '-'}</td>
+    </tr>
+  `).join('');
+
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -283,21 +290,29 @@ onSurtir() {
 <title>Hoja de Surtido - Previa</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; margin: 12px; }
-  .encabezado { text-align:center; margin-bottom: 8px; }
-  .titulo { font-size: 16px; margin: 0; font-weight: 700; }
-  .sub { font-size: 12px; margin: 0; color: #444; }
-  .meta { font-size: 11px; margin: 6px 0 12px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th, td { border-bottom: 1px solid #ddd; padding: 6px; }
+  body { font-family: Arial, Helvetica, sans-serif; margin: 10px; }
+  .encabezado { text-align:center; margin-bottom: 6px; }
+  .titulo { font-size: 14px; margin: 0; font-weight: 700; }
+  .sub { font-size: 11px; margin: 0; color: #444; }
+  .meta { font-size: 10px; margin: 4px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+  th, td { border-bottom: 1px solid #ddd; padding: 3px 6px; }
   th { background:#f6f6f6; text-align:left; }
-  tfoot td { border-top: 2px solid #000; font-weight: bold; }
-  .omitida { color: #777; }
-  .chip { display:inline-block; border:1px solid #aaa; padding:1px 5px; border-radius:8px; font-size:10px; margin-left:6px; }
-  .chip-omit { border-color:#b55; color:#b55; }
-  .leyenda { font-size:10px; color:#555; margin-top:8px; }
+  td.num { text-align: right; }
+  td.writein {
+    width: 110px;
+    border-bottom: 1px solid #999;
+    padding: 3px 6px;
+    line-height: 1.2;
+  }  
+  thead th.codigo { width: 110px; }
+  thead th.cant   { width: 110px; text-align: right; }
+  thead th.surt   { width: 78px; }
+  td.writein      { width: 70px; border-bottom: 1px solid #999; padding: 3px 6px; line-height: 1.2; text-align: center; }
+  thead th.ubic   { width: 180px; }
+  tfoot td { border-top: 2px solid #000; font-weight: bold; padding-top: 4px; }
   @media print {
-    @page { size: Letter portrait; margin: 10mm; }
+    @page { size: Letter portrait; margin: 8mm; }
     body { margin: 0; }
     .no-print { display:none !important; }
   }
@@ -317,61 +332,58 @@ onSurtir() {
   <table>
     <thead>
       <tr>
-        <th style="width:100px">Código</th>
+        <th class="codigo">Código</th>
         <th>Producto</th>
-        <th style="width:70px; text-align:right">Exist.</th>
-        <th style="width:70px; text-align:right">Stock Min</th>
-        <th style="width:70px; text-align:right">Stock Max</th>
-        <th style="width:90px; text-align:right">Cant. a Surtir</th>
-        <th style="width:100px; text-align:right">Disp. Almacén</th>
+        <th class="cant">Cant. a surtir</th>
+        <th class="surt">Cant. surtida</th>
+        <th class="ubic">Ubicación en almacén</th>
       </tr>
     </thead>
     <tbody>
-      ${filas}
+      ${filas || `<tr><td colspan="5">Sin items para surtir</td></tr>`}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="7">Registros: ${this.rows.length} — Omitidos: ${this.totalOmitidos}</td>
+        <td colspan="5">Registros: ${filasData.length}</td>
       </tr>
     </tfoot>
   </table>
 
-  <div class="no-print" style="margin-top:10px;">
+  <div class="no-print" style="margin-top:8px;">
     <button onclick="window.print()">Imprimir</button>
     <button onclick="window.close()">Cerrar</button>
   </div>
 </body>
 </html>`;
-  }
+}
 
-  private buildHTMLReal(surtido: any): string {
-    const { farmaciaId, categoria, ubicacion } = this.form.getRawValue(); // NUEVO
-    const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
-    const fecha = surtido?.fechaSurtido ? this.fmtFecha(new Date(surtido.fechaSurtido)) : this.fmtFecha();
-    const filtrosHtml = `
-      ${categoria ? `<div>Filtro categoría: <b>${categoria}</b></div>` : ''}
-      ${ubicacion ? `<div>Filtro ubicación: <b>${ubicacion}</b></div>` : ''}
-    `;
+// ===== Real (usa surtido.items) =====
+private buildHTMLReal(surtido: any): string {
+  const { farmaciaId, categoria, ubicacion } = this.form.getRawValue();
+  const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
+  const fecha = surtido?.fechaSurtido ? this.fmtFecha(new Date(surtido.fechaSurtido)) : this.fmtFecha();
 
-    const filas = (surtido?.items || []).map((it: any) => {
-      const nombre = it?.producto?.nombre || '';
-      const cod = it?.producto?.codigoBarras || '';
-      const lote = it?.lote || 'SIN-LOTE';
-      const cant = it?.cantidad ?? 0;
-      const categoriaP = it?.producto?.categoria || '-';
-      const ubicacionP = it?.producto?.ubicacion || '-';
-      return `
-      <tr>
-        <td>${cod}</td>
-        <td>${nombre}</td>
-        <td>${lote}</td>
-        <td style="text-align:right">${cant}</td>
-        <td>${categoriaP}</td>
-        <td>${ubicacionP}</td>
-      </tr>`;
-    }).join('');
+  const filtrosHtml = `
+    ${categoria ? `<div>Filtro categoría: <b>${categoria}</b></div>` : ''}
+    ${ubicacion ? `<div>Filtro ubicación: <b>${ubicacion}</b></div>` : ''}
+  `;
 
-    return `
+  const items = (surtido?.items || []).slice().sort((a: any, b: any) =>
+    this.cmp(this.norm(a?.producto?.ubicacion), this.norm(b?.producto?.ubicacion)) ||
+    this.cmp(this.norm(a?.producto?.nombre),    this.norm(b?.producto?.nombre))
+  );
+
+  const filas = items.map((it: any) => `
+    <tr>
+      <td>${it?.producto?.codigoBarras || ''}</td>
+      <td>${it?.producto?.nombre || ''}</td>
+      <td class="num">${it?.cantidad ?? 0}</td>
+      <td class="writein">&nbsp;</td>
+      <td>${it?.producto?.ubicacion || '-'}</td>
+    </tr>
+  `).join('');
+
+  return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -379,17 +391,24 @@ onSurtir() {
 <title>Hoja de Surtido - Final</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; margin: 12px; }
-  .encabezado { text-align:center; margin-bottom: 8px; }
-  .titulo { font-size: 16px; margin: 0; font-weight: 700; }
-  .sub { font-size: 12px; margin: 0; color: #444; }
-  .meta { font-size: 11px; margin: 6px 0 12px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th, td { border-bottom: 1px solid #ddd; padding: 6px; }
+  body { font-family: Arial, Helvetica, sans-serif; margin: 10px; }
+  .encabezado { text-align:center; margin-bottom: 6px; }
+  .titulo { font-size: 14px; margin: 0; font-weight: 700; }
+  .sub { font-size: 11px; margin: 0; color: #444; }
+  .meta { font-size: 10px; margin: 4px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  th, td { border-bottom: 1px solid #ddd; padding: 3px 6px; }
   th { background:#f6f6f6; text-align:left; }
-  tfoot td { border-top: 2px solid #000; font-weight: bold; }
+  td.num { text-align: right; }
+  td.writein { width: 110px; }
+  thead th.codigo { width: 110px; }
+  thead th.cant   { width: 110px; text-align: right; }
+  thead th.surt   { width: 78px; }
+  td.writein      { width: 70px; border-bottom: 1px solid #999; padding: 3px 6px; line-height: 1.2; text-align: center; }
+  thead th.ubic   { width: 180px; }
+  tfoot td { border-top: 2px solid #000; font-weight: bold; padding-top: 4px; }
   @media print {
-    @page { size: Letter portrait; margin: 10mm; }
+    @page { size: Letter portrait; margin: 8mm; }
     body { margin: 0; }
     .no-print { display:none !important; }
   }
@@ -410,31 +429,30 @@ onSurtir() {
   <table>
     <thead>
       <tr>
-        <th style="width:100px">Código</th>
+        <th class="codigo">Código</th>
         <th>Producto</th>
-        <th style="width:90px">Lote</th>
-        <th style="width:80px; text-align:right">Cantidad</th>
-        <th style="width:100px">Categoria</th>
-        <th style="width:100px">Ubicacion</th>
+        <th class="cant">Cant. a surtir</th>
+        <th class="surt">Cant. surtida</th>
+        <th class="ubic">Ubicación en almacén</th>
       </tr>
     </thead>
     <tbody>
-      ${filas || `<tr><td colspan="6">Sin items</td></tr>`}
+      ${filas || `<tr><td colspan="5">Sin items</td></tr>`}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="6">Productos surtidos: ${(surtido?.items || []).length}</td>
+        <td colspan="5">Productos surtidos: ${items.length}</td>
       </tr>
     </tfoot>
   </table>
 
-  <div class="no-print" style="margin-top:10px;">
+  <div class="no-print" style="margin-top:8px;">
     <button onclick="window.print()">Imprimir</button>
     <button onclick="window.close()">Cerrar</button>
   </div>
 </body>
 </html>`;
-  }
+}
 
   // ====== 2.3) Abrir ventana y disparar impresión ======
   private printHTML(html: string) {
