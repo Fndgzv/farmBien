@@ -46,7 +46,7 @@ exports.iniciarSesion = async (req, res) => {
        - admin: selecciona farmacia luego
        - ajustaAlmacen: inventario general
        ========================================================== */
-    if (rol === "admin" || rol === "ajustaAlmacen") {
+    if (rol === "admin" || rol === "ajustaAlmacen" || rol === "ajustaSoloAlmacen") {
 
       const token = jwt.sign(
         { id: usuarioExistente.id, rol: usuarioExistente.rol },

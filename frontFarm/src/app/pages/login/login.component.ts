@@ -94,6 +94,13 @@ export class LoginComponent {
               return;
             }
 
+            if (rol === 'ajustaSoloAlmacen') {
+              localStorage.removeItem('inventarioUbicacion');
+              this.authService.hideLogin();
+              this.router.navigate(['/inventario-portatil/buscar', 'almacen']);
+              return;
+            }
+
             // ---- 2) ajustaFarma: va directo a su farmacia ----
             if (rol === 'ajustaFarma') {
               const farmacia = response.user.farmacia;

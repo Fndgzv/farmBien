@@ -5,13 +5,12 @@
 <!-- MODO LISTAR -->
 <div *ngIf="modo === 'listar'">
 
-  <button class="btn-principal" (click)="nuevoLote()">+ Nuevo lote</button>
+  <button class="btn-nuevo" (click)="nuevoLote()">+ Nuevo lote</button>
 
   <div *ngFor="let l of lotes" class="lote-item">
     <div class="lote-info">
       <b>Lote:</b> {{ l.lote }}<br>
       <b>Cad:</b> {{ l.fechaCaducidad | date:'MMM d, y':'America/Mexico_City' }}<br>
-      <b>Cantidad:</b> {{ l.cantidad }}
     </div>
 
     <div class="lote-botones">
@@ -32,7 +31,14 @@
   <input type="date" [(ngModel)]="formLote.fechaCaducidad">
 
   <label>Cantidad:</label>
-  <input type="number" [(ngModel)]="formLote.cantidad" min="0">
+
+  <input
+    #inputCantidad
+    type="number"
+    [(ngModel)]="formLote.cantidad"
+    min="0"
+    placeholder="Cantidad a registrar"
+  />
 
   <button *ngIf="modo==='agregar'" class="btn-guardar" (click)="guardarNuevo()">
     Guardar nuevo lote

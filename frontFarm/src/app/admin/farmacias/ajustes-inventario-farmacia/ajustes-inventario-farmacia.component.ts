@@ -376,13 +376,6 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       Swal.fire('Valor inválido', 'El precio de venta debe ser un número positivo con hasta 2 decimales.', 'warning');
       return;
     }
-
-    // Validación de ubicacionFarmacia (texto libre; permitir vacío para limpiar)
-    /*     if (i.ubicacionFarmacia === null || i.ubicacionFarmacia === undefined) {
-          Swal.fire('Campo vacío', 'El campo "Ubicación (farmacia)" no puede ser nulo.', 'warning');
-          return;
-        }
-     */
     // Detectar cambios
     const cambios =
       i.existencia !== i.copiaOriginal.existencia ||
@@ -392,7 +385,9 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       (i.ubicacionFarmacia ?? '') !== (i.copiaOriginal.ubicacionFarmacia ?? '');  // ← NUEVO
 
     if (!cambios) {
-      Swal.fire({ icon: 'info', title: 'Sin cambios', text: 'No se detectaron cambios en este producto.' });
+      Swal.fire({ icon: 'info',
+        title: 'Sin cambios',
+        text: 'No se detectaron cambios en este producto.' });
       return;
     }
 
@@ -421,7 +416,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
           icon: 'success',
           title: 'Éxito',
           text: 'El producto fue actualizado correctamente.',
-          timer: 1600,
+          timer: 1200,
           timerProgressBar: true,
           allowOutsideClick: false,
           allowEscapeKey: false

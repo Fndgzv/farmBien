@@ -11,6 +11,23 @@ const {
 
 const router = express.Router();
 
+// 🔎 BUSCAR USUARIOS (autocomplete)
+router.get('/buscar', auth, async (req, res) => {
+    try {
+        const q = req.query.q || '';
+
+        const usuarios = await require('../models/Usuario').find({
+            nombre: { $regex: q, $options: 'i' }
+        }).select('nombre').limit(20);
+
+        res.json(usuarios);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: 'Error buscando usuarios' });
+    }
+});
+
 router.get('/', auth, isAdmin, obtenerUsuarios);
 
 

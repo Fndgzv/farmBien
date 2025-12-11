@@ -190,6 +190,11 @@ export class UsuariosComponent implements OnInit {
         datos.cedulaProfesional = undefined;
         break;
 
+      case 'ajustaSoloAlmacen':
+        datos.farmacia = null;
+        datos.cedulaProfesional = undefined;
+        break;
+
       case 'ajustaFarma':
         if (!datos.farmacia) datos.farmacia = null;
         datos.cedulaProfesional = undefined;

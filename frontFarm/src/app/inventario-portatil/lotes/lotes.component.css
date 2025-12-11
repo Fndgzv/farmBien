@@ -6,11 +6,13 @@
   font-size: 22px;
 }
 
-.btn-principal {
+.btn-nuevo {
   width: 100%;
   padding: 18px;
   font-size: 20px;
   margin: 20px 0;
+  background: #0a8f08;
+  color: white;
 }
 
 .lote-item {
@@ -57,13 +59,14 @@ input {
 }
 
 .btn-guardar {
-  width: 100%;
-  padding: 18px;
+  width: auto !important;
+  padding: 12px 20px;
   background: #0a8f08;
   color: white;
-  font-size: 20px;
+  font-size: 16px;
   border-radius: 10px;
   margin-bottom: 15px;
+  white-space: nowrap;
 }
 
 .btn-cancelar {

@@ -150,6 +150,14 @@ export const routes: Routes = [
           .then(m => m.ComprasPageComponent)
       },
       {
+        path: 'reporte/inventario-fisico',
+        loadComponent: () =>
+          import('./pages/reporte-inventario-fisico/reporte-inventario-fisico.component')
+            .then(m => m.ReporteInventarioFisicoComponent),
+        canActivate: [authGuard],
+        data: { rolesPermitidos: ['admin'] }
+      },
+      {
         path: 'reportes/compras-historial-producto',
         component: HistorialProductoPageComponent
       },

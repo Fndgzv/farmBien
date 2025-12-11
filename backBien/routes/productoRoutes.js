@@ -26,7 +26,7 @@ const {
 
 // --- búsquedas / consultas puntuales ---
 router.get('/search', authMiddleware,searchProductos);
-router.get('/buscar', authMiddleware, buscarProductos);
+router.get('/buscar', buscarProductos);
 router.get('/precio/:farmaciaId/:codigoBarras', authMiddleware,consultarPrecioPorCodigo);
 router.get('/inventario/:farmaciaId/:productoId', authMiddleware,obtenerExistenciaEnFarmacia);
 router.get('/ver-existencia/:id([0-9a-fA-F]{24})', authMiddleware,verificarExistenciaProducto);

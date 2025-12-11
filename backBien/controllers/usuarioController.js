@@ -88,7 +88,7 @@ exports.actualizarUsuario = async (req, res) => {
                 usuarioEncontrado.cedulaProfesional = undefined;
             }
 
-            if (rol === 'ajustaAlmacen') {
+            if (rol === 'ajustaAlmacen' || rol === 'ajustaSoloAlmacen') {
                 usuarioEncontrado.farmacia = null;
                 usuarioEncontrado.cedulaProfesional = undefined;
             }
@@ -186,7 +186,7 @@ exports.registrarUsuario = async (req, res) => {
             }
         }
 
-        if (rol === 'ajustaAlmacen') {
+        if (rol === 'ajustaAlmacen' || rol === 'ajustaSoloAlmacen') {
             // No requiere farmacia ni cédula
             farmaciaAsignada = null;
         }

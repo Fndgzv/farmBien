@@ -26,7 +26,7 @@ export class InventarioPortatilComponent implements OnInit {
     // 🔥 Fijar título inicial correcto según usuario
     const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
 
-    if (usuario.rol === 'ajustaAlmacen') {
+    if (usuario.rol === 'ajustaAlmacen' || usuario.rol === 'ajustaSoloAlmacen') {
       this.titleService.setTitulo('Inventario – Seleccionar ubicación');
     } else if (usuario.rol === 'ajustaFarma') {
       this.titleService.setTitulo(`Inventario – Farmacia ${usuario.farmacia?.nombre || ''}`);

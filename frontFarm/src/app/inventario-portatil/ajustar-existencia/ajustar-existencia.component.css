@@ -273,3 +273,21 @@ h4 {
     margin-top: 10px;
   }
 }
+
+/* =======================
+   INPUT ERROR (rojo)
+======================= */
+.input-error {
+  border: 2px solid #ff3b3b !important;
+  background: #ffe5e5;
+  animation: shake 0.2s ease-in-out 0s 2;
+}
+
+/* animación ligera al estilo iOS */
+@keyframes shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}

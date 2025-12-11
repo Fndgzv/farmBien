@@ -77,6 +77,17 @@ export class ReporteVentasProductoComponent {
     private productosSrv: ProductoService) { }
 
   ngOnInit(): void {
+
+    const stored = localStorage.getItem('user_farmacia');
+    const farmacia = stored ? JSON.parse(stored) : null;
+
+    if (!farmacia) {
+      Swal.fire('Error', 'No se encontró la farmacia en localStorage', 'error');
+      return;
+    }
+
+    this.farmaciaId = farmacia._id;
+    
     // Farmacias
     this.farmaciaService.obtenerFarmacias().subscribe({
       next: (data) => this.farmacias = data ?? [],
@@ -322,9 +333,9 @@ export class ReporteVentasProductoComponent {
   // Fechas helper
   // ======================
   private defaultIni(): string {
-/*     const d = new Date();
-    d.setDate(d.getDate() - 15);
-    return this.toLocalISO(d); */
+    /*     const d = new Date();
+        d.setDate(d.getDate() - 15);
+        return this.toLocalISO(d); */
     return this.toLocalISO(new Date());
   }
 

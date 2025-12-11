@@ -17,49 +17,49 @@ function soloRoles(...roles) {
 /* ==================== Rutas ====================== */
 
 // Buscar productos
-router.get("/buscar", auth, soloRoles("ajustaAlmacen", "ajustaFarma"), ctrl.buscarProducto);
+router.get("/buscar", auth, soloRoles("ajustaAlmacen", "ajustaFarma", "ajustaSoloAlmacen"), ctrl.buscarProducto);
 
 // Ajustar existencia farmacia
 router.put("/farmacia/:farmaciaId/producto/:productoId",
   auth,
-  soloRoles("ajustaAlmacen", "ajustaFarma"),
+  soloRoles("ajustaAlmacen", "ajustaFarma", "ajustaSoloAlmacen"),
   ctrl.ajustarExistenciaFarmacia
 );
 
 // Lotes (solo ajustaAlmacen)
 router.get("/lotes/:productoId",
   auth,
-  soloRoles("ajustaAlmacen"),
+  soloRoles("ajustaAlmacen", "ajustaSoloAlmacen"),
   ctrl.obtenerLotes
 );
 
 router.post("/lotes/:productoId",
   auth,
-  soloRoles("ajustaAlmacen"),
+  soloRoles("ajustaAlmacen", "ajustaSoloAlmacen"),
   ctrl.agregarLote
 );
 
 router.put("/lotes/:productoId/:loteId",
   auth,
-  soloRoles("ajustaAlmacen"),
+  soloRoles("ajustaAlmacen", "ajustaSoloAlmacen"),
   ctrl.editarLote
 );
 
 router.delete("/lotes/:productoId/:loteId",
   auth,
-  soloRoles("ajustaAlmacen"),
+  soloRoles("ajustaAlmacen", "ajustaSoloAlmacen"),
   ctrl.eliminarLote
 );
 
 router.get("/producto/:id",
   auth,
-  soloRoles("ajustaAlmacen", "ajustaFarma"),
+  soloRoles("ajustaAlmacen", "ajustaFarma", "ajustaSoloAlmacen"),
   ctrl.obtenerProductoPorId
 );
 
 router.get("/farmacia/:farmaciaId/producto/:productoId",
   auth,
-  soloRoles("ajustaAlmacen", "ajustaFarma"),
+  soloRoles("ajustaAlmacen", "ajustaFarma", "ajustaSoloAlmacen"),
   ctrl.obtenerInventarioFarmacia
 );
 

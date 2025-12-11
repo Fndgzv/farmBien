@@ -7,62 +7,31 @@
 
 <hr>
 
-<!-- LOTES (SOLO ALMACÉN) -->
+<!-- LOTES DEL ALMACÉN -->
 <div *ngIf="farmaciaId === 'almacen'">
-
-  <h4>Lotes</h4>
-
-  <div *ngFor="let l of lotes" class="lote-card">
-    <p><b>Lote:</b> {{ l.lote }}</p>
-    <p><b>Caducidad:</b> {{ l.fechaCaducidad | date:'MMM d, y':'America/Mexico_City' }}</p>
-    <p><b>Cantidad:</b> {{ l.cantidad }}</p>
-
-    <div class="acciones">
-      <button class="btn-editar" (click)="abrirEditarLote(l)">Editar</button>
-      <button class="btn-eliminar" (click)="eliminarLote(l)">Eliminar</button>
-    </div>
-  </div>
-
-  <button class="btn-agregar" (click)="abrirAgregarLote()">Agregar Lote</button>
-
-  <div *ngIf="modoLote" class="lote-form">
-    <label>Lote:</label>
-    <input type="text" [(ngModel)]="loteForm.lote">
-
-    <label>Fecha caducidad:</label>
-    <input type="date" [(ngModel)]="loteForm.fechaCaducidad">
-
-    <label>Cantidad:</label>
-    <input type="number" [(ngModel)]="loteForm.cantidad">
-
-    <div class="acciones">
-      <button class="btn-guardar" (click)="guardarLote()">Guardar</button>
-      <button class="btn-cancelar" (click)="modoLote = null">Cancelar</button>
-    </div>
-  </div>
-
+  <app-lotes [productoId]="productoId"></app-lotes>
 </div>
+
 
 <!-- EXISTENCIA (SOLO FARMACIA) -->
 <div *ngIf="farmaciaId !== 'almacen'" class="existencia-box">
-
-  <p><b>Existencia actual:</b> {{ existenciaActual }}</p>
-
   <div class="existencia-edicion">
-    <label>Nueva existencia:</label>
+    <label>Existencia física:</label>
 
     <input
+      #inputExistencia
       type="number"
       [(ngModel)]="nuevaExistencia"
       class="input-existencia"
+      [ngClass]="{ 'input-error': campoInvalido }"
       maxlength="3"
+      (keydown.enter)="guardar()"
+      (input)="campoInvalido = (nuevaExistencia === null || nuevaExistencia === undefined || nuevaExistencia < 0)"
     />
 
     <button class="btn-guardar-ex" (click)="guardar()">Guardar</button>
   </div>
-
 </div>
-
 
 <hr>
 

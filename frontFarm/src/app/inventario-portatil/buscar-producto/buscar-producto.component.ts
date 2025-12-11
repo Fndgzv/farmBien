@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { InventarioPortatilService } from '../inventario-portatil.service';
 import { CommonModule } from '@angular/common';
@@ -13,6 +13,8 @@ import { InventarioTitleService } from '../inventario-title.service';
   styleUrls: ['./buscar-producto.component.css']
 })
 export class BuscarProductoComponent implements OnInit {
+  @ViewChild('inputBuscar') inputBuscar!: ElementRef;
+
 
   farmaciaId = '';
   query = '';
@@ -27,6 +29,15 @@ export class BuscarProductoComponent implements OnInit {
     private invService: InventarioPortatilService,
     private titleService: InventarioTitleService
   ) { }
+
+  ngAfterViewInit() {
+    setTimeout(() => {
+      if (this.inputBuscar?.nativeElement) {
+        this.inputBuscar.nativeElement.focus();
+      }
+    }, 100);
+  }
+
 
   ngOnInit() {
     this.farmaciaId = this.route.snapshot.params['farmaciaId'];
@@ -53,9 +64,6 @@ export class BuscarProductoComponent implements OnInit {
 
     this.invService.buscar(q).subscribe({
       next: res => {
-
-        console.log('🔥 RESULTADOS:', res);
-
         this.resultados = res;
 
         // Si es coincidencia única → ir directo

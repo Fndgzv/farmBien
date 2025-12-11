@@ -1,0 +1,125 @@
+/* frontFarm\src\app\pages\reporte-inventario-fisico\reporte-inventario-fisico.component.css */
+.titulo {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.filtros {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+}
+
+.campo input[type="text"],
+.campo input[type="date"] {
+  padding: 6px;
+  width: 180px;
+}
+
+.btn-buscar,
+.btn-excel {
+  height: 38px;                /* igual que los inputs */
+  padding: 0 18px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  color: white;
+}
+
+.btn-buscar {
+  background: #007bff;
+}
+
+.btn-buscar:hover {
+  background: #0069d9;
+}
+
+.btn-excel {
+  background: #28a745;
+}
+
+.btn-excel:hover {
+  background: #218838;
+}
+
+.loader {
+  text-align: center;
+  font-size: 18px;
+  color: #666;
+}
+
+.neg {
+  color: red;
+  font-weight: bold;
+}
+.pos {
+  color: green;
+  font-weight: bold;
+}
+
+.perdida {
+  color: red;
+}
+
+.paginacion {
+  text-align: center;
+  margin-top: 15px;
+}
+
+/* Contenedor del autocomplete */
+.autocompletado {
+  position: relative;
+}
+
+/* Lista desplegable */
+.lista-autocomplete {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+
+  background: white;
+  border: 1px solid #ccc;
+  border-top: none;
+
+  z-index: 9999;  /* 🔥 SUPER IMPORTANTE */
+  max-height: 200px;
+  overflow-y: auto;
+
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Cada opción */
+.lista-autocomplete li {
+  padding: 6px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.lista-autocomplete li:hover {
+  background: #e8f0fe;
+}
+
+/* BOTONES DE LIMPIAR (X) */
+.autocompletado button {
+  position: absolute;
+  right: 8px;
+  top: 30px;
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: #555;
+}
+
+.autocompletado button:hover {
+  color: #000;
+}

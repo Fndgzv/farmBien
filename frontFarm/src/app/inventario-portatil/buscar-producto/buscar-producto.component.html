@@ -2,10 +2,10 @@
 
   <!-- INPUT -->
   <input type="text"
-         [(ngModel)]="query"
-         (keyup.enter)="buscar()"
-         autofocus
-         placeholder="Escanear ...">
+       #inputBuscar
+       [(ngModel)]="query"
+       (keyup.enter)="buscar()"
+       placeholder="Escanear ...">
 
   <!-- CONTENEDOR DE BOTONES -->
   <div class="acciones-busqueda">

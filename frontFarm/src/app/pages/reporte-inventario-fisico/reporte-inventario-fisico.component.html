@@ -1,0 +1,134 @@
+<h2 class="titulo">Reporte Inventario Físico</h2>
+
+<div class="filtros">
+
+  <!-- ⭐ SELECT DE FARMACIAS -->
+  <div class="campo">
+    <label>Farmacia:</label>
+    <select [(ngModel)]="filtros.farmacia" [disabled]="filtros.almacen">
+      <option *ngFor="let f of farmacias" [value]="f._id">
+        {{ f.nombre }}
+      </option>
+    </select>
+  </div>
+
+  <div class="campo">
+    <label>¿Almacén?</label>
+    <input type="checkbox" [(ngModel)]="filtros.almacen">
+  </div>
+
+  <!-- PRODUCTO AUTOCOMPLETE -->
+<div class="campo autocompletado" style="position:relative;">
+  <label>Producto:</label>
+
+  <input type="text"
+         [(ngModel)]="textoProducto"
+         (input)="buscarProductos(textoProducto)"
+         placeholder="Buscar producto">
+
+  <button *ngIf="textoProducto" (click)="limpiarProducto()">✖</button>
+
+  <!-- ESTA LISTA DEBE ESTAR DENTRO DEL DIV .autocompletado -->
+  <ul class="lista-autocomplete" *ngIf="productosFiltrados.length">
+    <li *ngFor="let p of productosFiltrados"
+        (click)="seleccionarProducto(p)">
+      {{ p.nombre }} — {{ p.codigoBarras }}
+    </li>
+  </ul>
+</div>
+
+  <!-- USUARIO AUTOCOMPLETE -->
+<div class="campo autocompletado" style="position:relative;">
+  <label>Usuario:</label>
+
+  <input type="text"
+         [(ngModel)]="textoUsuario"
+         (input)="buscarUsuarios(textoUsuario)"
+         placeholder="Nombre del usuario">
+
+  <button *ngIf="textoUsuario" (click)="limpiarUsuario()">✖</button>
+
+  <!-- TAMBIÉN AQUÍ -->
+  <ul class="lista-autocomplete" *ngIf="usuariosFiltrados.length">
+    <li *ngFor="let u of usuariosFiltrados"
+        (click)="seleccionarUsuario(u)">
+      {{ u.nombre }}
+    </li>
+  </ul>
+</div>
+
+  <!-- FECHAS -->
+  <div class="campo">
+    <label>Desde:</label>
+    <input type="date" [(ngModel)]="filtros.desde">
+  </div>
+
+  <div class="campo">
+    <label>Hasta:</label>
+    <input type="date" [(ngModel)]="filtros.hasta">
+  </div>
+
+  <button class="btn-buscar" (click)="buscar()">Buscar</button>
+  <button class="btn-excel" (click)="exportarExcel()">Excel</button>
+
+</div>
+
+<hr>
+
+<!-- TABLA -->
+<table class="tabla" *ngIf="registros.length">
+  <thead>
+    <tr>
+      <th>Fecha</th>
+      <th>Farmacia</th>
+      <th>Producto</th>
+      <th>Sistema</th>
+      <th>Físico</th>
+      <th>Diferencia</th>
+      <th>Perdida</th>
+      <th>Nombre usuario</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr *ngFor="let r of registros">
+
+      <td>{{ r.fechaInv | date:'MMM d, y HH:mm' }}</td>
+      <td>{{ r.farmaNombre }}</td>
+
+      <td>
+        {{ r.producto?.nombre }}
+        <br><small>CB: {{ r.producto?.codigoBarras }}</small>
+      </td>
+
+      <td>{{ r.existenciaSistema }}</td>
+      <td>{{ r.existenciaFisica }}</td>
+
+      <td [class.pos]="r.diferencia > 0"
+          [class.neg]="r.diferencia < 0">
+        {{ r.diferencia }}
+      </td>
+
+      <td class="perdida">
+        {{ r.perdida | currency:'MXN' }}
+      </td>
+
+      <td>{{ r.usuario?.nombre }}</td>
+
+    </tr>
+  </tbody>
+</table>
+
+<!-- PAGINADOR -->
+<div class="paginacion" *ngIf="registros.length">
+
+  <button (click)="primera()" [disabled]="page === 1">««</button>
+  <button (click)="anterior()" [disabled]="page === 1">«</button>
+
+  Registros: {{ total }} &nbsp; | &nbsp;
+  Página: {{ page }} / {{ totalPaginas }}
+
+  <button (click)="siguiente()" [disabled]="page === totalPaginas">»</button>
+  <button (click)="ultima()" [disabled]="page === totalPaginas">»»</button>
+
+</div>
