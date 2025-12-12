@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import Swal from 'sweetalert2';
 import { InventarioFisicoService } from '../../services/inventario-fisico.service';
+import { ProductoService } from '../../services/producto.service';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
     selector: 'app-reporte-inventario-fisico',
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, MatTooltipModule],
     templateUrl: './reporte-inventario-fisico.component.html',
     styleUrls: ['./reporte-inventario-fisico.component.css']
 })
@@ -41,10 +43,12 @@ export class ReporteInventarioFisicoComponent implements OnInit {
 
     constructor(
         private http: HttpClient,
-        private invFisicoService: InventarioFisicoService
+        private invFisicoService: InventarioFisicoService,
+        private productoService: ProductoService
     ) { }
 
     ngOnInit() {
+        document.addEventListener('click', this.cerrarListasClickFuera.bind(this));
         // ===============================
         // Cargar farmacia del localStorage
         // ===============================
@@ -78,12 +82,21 @@ export class ReporteInventarioFisicoComponent implements OnInit {
         this.buscar();
     }
 
+    cerrarListasClickFuera(event: MouseEvent) {
+        const target = event.target as HTMLElement;
+
+        // Si el click NO fue dentro de los contenedores .autocompletado, se cierran
+        const dentroProducto = target.closest('.autocompletado.producto');
+        const dentroUsuario = target.closest('.autocompletado.usuario');
+
+        if (!dentroProducto) this.productosFiltrados = [];
+        if (!dentroUsuario) this.usuariosFiltrados = [];
+    }
+
     // ======================================
     // PRODUCTOS AUTOCOMPLETE
     // ======================================
     buscarProductos(query: string) {
-
-        console.log("Producto buscando:", query);
 
         this.textoProducto = query;
 
@@ -93,12 +106,19 @@ export class ReporteInventarioFisicoComponent implements OnInit {
         }
 
         this.http.get('/api/productos/buscar', { params: { q: query } })
-            .subscribe((resp: any) => this.productosFiltrados = resp);
+            .subscribe((resp: any) => {
+
+                console.log("RESPUESTA PRODUCTOS ===> ", resp);
+
+                // 🔥 TU API REGRESA resp.rows, NO resp directamente
+                this.productosFiltrados = resp.rows || [];
+
+            });
     }
 
     seleccionarProducto(p: any) {
         this.filtros.producto = p._id;
-        this.textoProducto = `${p.nombre} (${p.codigoBarras})`;
+        this.textoProducto = `${p.nombre}`;
         this.productosFiltrados = [];
     }
 
@@ -106,6 +126,7 @@ export class ReporteInventarioFisicoComponent implements OnInit {
         this.filtros.producto = '';
         this.textoProducto = '';
         this.productosFiltrados = [];
+        this.buscar();
     }
 
     // ======================================
@@ -136,6 +157,7 @@ export class ReporteInventarioFisicoComponent implements OnInit {
         this.filtros.usuario = '';
         this.textoUsuario = '';
         this.usuariosFiltrados = [];
+        this.buscar();
     }
 
     // ======================================

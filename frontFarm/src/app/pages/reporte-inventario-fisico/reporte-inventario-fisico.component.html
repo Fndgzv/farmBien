@@ -18,7 +18,7 @@
   </div>
 
   <!-- PRODUCTO AUTOCOMPLETE -->
-<div class="campo autocompletado" style="position:relative;">
+<div class="campo autocompletado producto" style="position:relative;">
   <label>Producto:</label>
 
   <input type="text"
@@ -26,7 +26,7 @@
          (input)="buscarProductos(textoProducto)"
          placeholder="Buscar producto">
 
-  <button *ngIf="textoProducto" (click)="limpiarProducto()">✖</button>
+  <button *ngIf="textoProducto" (click)="limpiarProducto()" class="btn-clear">✖</button>
 
   <!-- ESTA LISTA DEBE ESTAR DENTRO DEL DIV .autocompletado -->
   <ul class="lista-autocomplete" *ngIf="productosFiltrados.length">
@@ -38,7 +38,7 @@
 </div>
 
   <!-- USUARIO AUTOCOMPLETE -->
-<div class="campo autocompletado" style="position:relative;">
+<div class="campo autocompletado usuario" style="position:relative;">
   <label>Usuario:</label>
 
   <input type="text"
@@ -46,7 +46,7 @@
          (input)="buscarUsuarios(textoUsuario)"
          placeholder="Nombre del usuario">
 
-  <button *ngIf="textoUsuario" (click)="limpiarUsuario()">✖</button>
+  <button *ngIf="textoUsuario" (click)="limpiarUsuario()" class="btn-clear">✖</button>
 
   <!-- TAMBIÉN AQUÍ -->
   <ul class="lista-autocomplete" *ngIf="usuariosFiltrados.length">
@@ -68,8 +68,8 @@
     <input type="date" [(ngModel)]="filtros.hasta">
   </div>
 
-  <button class="btn-buscar" (click)="buscar()">Buscar</button>
-  <button class="btn-excel" (click)="exportarExcel()">Excel</button>
+  <button class="btn-gris" (click)="buscar()">Buscar</button>
+  <button class="btn-verde" (click)="exportarExcel()">Excel</button>
 
 </div>
 
@@ -85,7 +85,7 @@
       <th>Sistema</th>
       <th>Físico</th>
       <th>Diferencia</th>
-      <th>Perdida</th>
+      <th>Difer. $</th>
       <th>Nombre usuario</th>
     </tr>
   </thead>
@@ -104,12 +104,13 @@
       <td>{{ r.existenciaSistema }}</td>
       <td>{{ r.existenciaFisica }}</td>
 
-      <td [class.pos]="r.diferencia > 0"
+      <td [class.pos]="r.diferencia >= 0"
           [class.neg]="r.diferencia < 0">
         {{ r.diferencia }}
       </td>
 
-      <td class="perdida">
+      <td [class.pos]="r.perdida >= 0"
+          [class.neg]="r.perdida < 0">
         {{ r.perdida | currency:'MXN' }}
       </td>
 
@@ -122,13 +123,21 @@
 <!-- PAGINADOR -->
 <div class="paginacion" *ngIf="registros.length">
 
-  <button (click)="primera()" [disabled]="page === 1">««</button>
-  <button (click)="anterior()" [disabled]="page === 1">«</button>
+  <button (click)="primera()" [disabled]="page === 1" matTooltip="Primera página">
+    <i class="fa fa-angle-double-left"></i>
+  </button>
+  <button (click)="anterior()" [disabled]="page === 1" matTooltip="Anterior">
+    <i class="fa fa-angle-left"></i>
+  </button>
 
   Registros: {{ total }} &nbsp; | &nbsp;
   Página: {{ page }} / {{ totalPaginas }}
 
-  <button (click)="siguiente()" [disabled]="page === totalPaginas">»</button>
-  <button (click)="ultima()" [disabled]="page === totalPaginas">»»</button>
+  <button (click)="siguiente()" [disabled]="page === totalPaginas" matTooltip="Siguiente">
+    <i class="fa fa-angle-right"></i>
+  </button>
+  <button (click)="ultima()" [disabled]="page === totalPaginas" matTooltip="Última página">
+    <i class="fa fa-angle-double-right"></i>
+  </button>
 
 </div>

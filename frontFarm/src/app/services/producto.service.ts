@@ -125,5 +125,10 @@ export class ProductoService {
     this.imgCache.clear();
   }
 
+buscarProductoNombre(term: string) {
+  const params = new HttpParams().set('q', term);
+  return this.http.get<any[]>(`${this.apiUrl}/buscar`, { params });
+}
+
 }
 
