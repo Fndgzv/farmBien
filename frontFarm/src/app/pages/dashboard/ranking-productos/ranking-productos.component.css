@@ -1,0 +1,148 @@
+.card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 6px;
+}
+
+.filtros {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: end;
+}
+
+
+.utilidad {
+  font-weight: bold;
+  color: #2e7d32;
+}
+
+/* ====== TABLA BASE ====== */
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.tabla th,
+.tabla td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tabla thead {
+  background: #f5f5f5;
+}
+
+.tabla tbody tr:hover {
+  background: #f9f9f9;
+}
+
+/* ====== BADGES ABC ====== */
+.badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 12px;
+  color: #fff;
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+}
+
+.badge.A {
+  background-color: #2e7d32; /* verde */
+}
+
+.badge.B {
+  background-color: #f9a825; /* amarillo */
+  color: #000;
+}
+
+.badge.C {
+  background-color: #ef6c00; /* naranja */
+}
+
+.badge.D {
+  background-color: #c62828; /* rojo */
+}
+
+/* ====== UTILIDAD DESTACADA ====== */
+td.utilidad {
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+/* ====== FILTROS ====== */
+.filtros {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.filtros label {
+  font-size: 13px;
+}
+
+.filtros input,
+.filtros select {
+  padding: 4px 6px;
+}
+
+.filtros button {
+  padding: 6px 12px;
+  background: #1e88e5;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filtros button:hover {
+  background: #1565c0;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.kpi {
+  background: #f9f9f9;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border-left: 4px solid #1e88e5;
+}
+
+.kpi .label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.kpi .value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.kpi .value.green {
+  color: #2e7d32;
+}
+
+.kpi.estrella {
+  border-left-color: #2e7d32;
+  background: #eef7ee;
+}
+
+.kpi small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #555;
+}

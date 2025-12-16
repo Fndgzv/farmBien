@@ -26,7 +26,7 @@
             {{ c.nombre }}
             <small *ngIf="c.telefono"> — {{ c.telefono }}</small>
           </mat-option>
-          <!-- <mat-option *ngIf="(filteredClientes$ | async)?.length === 0" disabled> -->
+          
           <mat-option *ngIf="(filteredClientes$ | async)?.length === 0">
             Sin coincidencias
           </mat-option>

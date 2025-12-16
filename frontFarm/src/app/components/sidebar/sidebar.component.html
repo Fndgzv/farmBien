@@ -2,6 +2,24 @@
   <ul>
     <img [src]="farmaciaImagen" alt="Farmacias del Bienestar" class="sidebar-image">
 
+    <li *ngIf="userRol === 'admin'" class="menu-title">
+      <span (click)="toggleMenu('dashboard')">
+        Dashboard {{ expandedMenu === 'dashboard' ? '▲' : '▶' }}
+      </span>
+    </li>
+
+    <ul *ngIf="expandedMenu === 'dashboard'" class="submenu">
+      <li [routerLink]="'/dashboard/ventas-tiempo'"
+          routerLinkActive="active">Visión general
+          <fa-icon [icon]="'chart-line'" class="menu-icon"></fa-icon>
+      </li>
+
+      <li [routerLink]="'/dashboard/ranking-productos'" 
+          routerLinkActive="active">Ranking productos
+      </li>
+    </ul>
+    
+    
     <!-- Catálogos (solo admin) -->
     <li *ngIf="userRol === 'admin'" class="menu-title">
       <span (click)="toggleMenu('catalogs')">

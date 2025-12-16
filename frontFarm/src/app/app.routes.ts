@@ -28,6 +28,8 @@ import { SeleccionarFarmaciaComponent } from './inventario-portatil/seleccionar-
 import { InventarioPortatilComponent } from './inventario-portatil/inventario-portatil.component';
 import { BuscarProductoComponent } from './inventario-portatil/buscar-producto/buscar-producto.component';
 import { AjustarExistenciaComponent } from './inventario-portatil/ajustar-existencia/ajustar-existencia.component';
+import { DashboardComponent } from './pages/dashboard/dashboard.component';
+import { RankingProductosComponent } from './pages/dashboard/ranking-productos/ranking-productos.component';
 
 export const routes: Routes = [
   {
@@ -189,9 +191,32 @@ export const routes: Routes = [
           { path: 'buscar/:farmaciaId', component: BuscarProductoComponent },
           { path: 'ajustar/:farmaciaId/:productoId', component: AjustarExistenciaComponent }
         ]
+      },
+      {
+        path: 'dashboard',
+        component: DashboardComponent,
+        children: [
+          {
+            path: '',
+            redirectTo: 'ventas-tiempo',
+            pathMatch: 'full'
+          },
+          {
+            path: 'ventas-tiempo',
+            loadComponent: () =>
+              import('./pages/dashboard/ventas-tiempo-chart/ventas-tiempo-chart.component')
+                .then(m => m.VentasTiempoChartComponent)
+          },
+          {
+            path: 'ranking-productos',
+            component: RankingProductosComponent
+          }
+        ]
       }
+
     ]
   },
+  
   { path: 'login', component: LoginComponent } // fuera del layout
 ];
 

@@ -1,0 +1,84 @@
+<h3 class="subtitulo">Visión General</h3>
+<div class="filtros">
+    <label>Farmacia</label>
+    <select [(ngModel)]="farmaciaSeleccionada" (change)="cargar()">
+        <option value="ALL">Todas</option>
+        <option *ngFor="let f of farmacias" [value]="f._id">
+            {{ f.nombre }}
+        </option>
+    </select>
+
+    <label>Desde</label>
+    <input type="date" [(ngModel)]="desde" (change)="cargar()">
+
+    <label>Hasta</label>
+    <input type="date" [(ngModel)]="hasta" (change)="cargar()">
+
+    <select [(ngModel)]="escala" (change)="cargar()">
+        <option value="hora">Por hora</option>
+        <option value="dia">Por día</option>
+        <option value="mes">Por mes</option>
+        <option value="anio">Por año</option>
+    </select>
+</div>
+
+<div class="kpis">
+    <div class="kpi-card ventas">
+        <div class="kpi-title">Total vendido</div>
+        <div class="kpi-value">
+            {{ kpiTotalVentas | currency:'MXN':'symbol-narrow' }}
+        </div>
+    </div>
+
+    <div class="kpi-card utilidad">
+        <div class="kpi-title">Utilidad</div>
+        <div class="kpi-value">
+            {{ kpiUtilidad | currency:'MXN':'symbol-narrow' }}
+        </div>
+    </div>
+
+    <div class="kpi-card margen">
+        <div class="kpi-title">Margen</div>
+        <div class="kpi-value">
+            {{ kpiMargen | number:'1.1-2' }} %
+        </div>
+    </div>
+
+    <div class="kpi-card ventas-num">
+        <div class="kpi-title">Ventas</div>
+        <div class="kpi-value">
+            {{ kpiVentas }}
+        </div>
+    </div>
+</div>
+
+<div class="horas-clave" *ngIf="horaPico && horaMuerta">
+    <div class="pico">
+        🟢 <strong>Hora pico:</strong>
+        {{ horaPico.periodo }} –
+        ${{ horaPico.totalVentas | number:'1.2-2' }}
+        ({{ horaPico.numeroVentas }} ventas)
+    </div>
+
+    <div class="muerta">
+        🔴 <strong>Hora muerta:</strong>
+        {{ horaMuerta.periodo }} –
+        ${{ horaMuerta.totalVentas | number:'1.2-2' }}
+        ({{ horaMuerta.numeroVentas }} ventas)
+    </div>
+</div>
+
+<apx-chart
+  *ngIf="chartReady"
+  #chart
+  [series]="chartOptions.series"
+  [chart]="chartOptions.chart"
+  [xaxis]="chartOptions.xaxis"
+  [yaxis]="chartOptions.yaxis"
+  [stroke]="chartOptions.stroke"
+  [tooltip]="chartOptions.tooltip"
+  [markers]="chartOptions.markers"
+  [colors]="chartOptions.colors"
+  [dataLabels]="chartOptions.dataLabels">
+</apx-chart>
+

@@ -484,6 +484,14 @@ export class VentasComponent implements OnInit, AfterViewInit {
           this.mostrarModalCrearCliente();
         }
       });
+    } else {
+        this.cliente = '';
+        this.nombreCliente = '';
+        this.montoMonederoCliente = 0;
+        this.hayCliente = false;
+        this.ventaForm.controls['cliente'].setValue('');
+        this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
+        this.recalcularRenglones();
     }
   }
 
@@ -501,8 +509,13 @@ export class VentasComponent implements OnInit, AfterViewInit {
       if (result.isConfirmed) {
         this.abrirFormularioNuevoCliente();
       } else {
-        this.limpiarCliente();
-        this.focusBarcode(0, true);
+        this.cliente = '';
+        this.nombreCliente = '';
+        this.montoMonederoCliente = 0;
+        this.hayCliente = false;
+        this.ventaForm.controls['cliente'].setValue('');
+        this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
+        this.recalcularRenglones();
       }
     });
   }
@@ -861,7 +874,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (existente) {
 
       console.log('producto existente en el carrito =====>', existente);
-      
+
       this.nombreDelProducto = existente.nombre
       this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
         if (!this.hayProducto) return;

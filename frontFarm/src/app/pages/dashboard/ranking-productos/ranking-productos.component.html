@@ -1,0 +1,132 @@
+<h3 class="subtitulo">Ranking de productos por utilidad</h3>
+
+<!-- KPIs -->
+<div class="kpis" *ngIf="data.length">
+
+    <div class="kpi">
+        <span class="label">Utilidad total</span>
+        <span class="value green">
+            $ {{ kpiUtilidadTotal | number:'1.2-2' }}
+        </span>
+    </div>
+
+    <div class="kpi">
+        <span class="label">Ventas totales</span>
+        <span class="value">
+            $ {{ kpiVentasTotales | number:'1.2-2' }}
+        </span>
+    </div>
+
+    <div class="kpi">
+        <span class="label">Margen promedio</span>
+        <span class="value">
+            {{ kpiMargenPromedio | number:'1.1-1' }} %
+        </span>
+    </div>
+
+    <div class="kpi">
+        <span class="label">Productos analizados</span>
+        <span class="value">
+            {{ kpiProductos }}
+        </span>
+    </div>
+
+    <div class="kpi estrella" *ngIf="kpiTopProducto">
+        <span class="label">Producto estrella</span>
+        <span class="value">
+            {{ kpiTopProducto.producto }}
+        </span>
+        <small>
+            $ {{ kpiTopProducto.utilidad | number:'1.2-2' }}
+        </small>
+    </div>
+
+</div>
+
+<!-- FILTROS -->
+<div class="filtros">
+    <label>
+        Desde:
+        <input type="date" [(ngModel)]="desde">
+    </label>
+
+    <label>
+        Hasta:
+        <input type="date" [(ngModel)]="hasta">
+    </label>
+
+    <label>
+        Farmacia:
+        <select [(ngModel)]="farmaciaSeleccionada">
+            <option value="ALL">Todas</option>
+            <option *ngFor="let f of farmacias" [value]="f._id">
+                {{ f.nombre }}
+            </option>
+        </select>
+    </label>
+
+    <button class="btn-gris" (click)="cargar()">Consultar</button>
+</div>
+
+<!-- TABLA -->
+<table class="tabla" *ngIf="data.length">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Producto</th>
+            <th>Categoría</th>
+            <th>Cant.</th>
+            <th>Ventas</th>
+            <th>Costo</th>
+            <th>Clase</th>
+            <th>Utilidad</th>
+            <th>Margen %</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr *ngFor="let r of data; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>{{ r.producto }}</td>
+            <td>{{ r.categoria }}</td>
+            <td>{{ r.cantidadVendida }}</td>
+            <td>$ {{ r.ventas | number:'1.2-2' }}</td>
+            <td>$ {{ r.costo | number:'1.2-2' }}</td>
+            <td>
+                <span class="badge" [ngClass]="r.clase">
+                    {{ r.clase }}
+                </span>
+            </td>
+            <td class="utilidad">
+                $ {{ r.utilidad | number:'1.2-2' }}
+            </td>
+            <td>{{ r.margen | number:'1.1-1' }}%</td>
+        </tr>
+    </tbody>
+</table>
+
+<div *ngIf="!data.length && !cargando">
+    No hay datos para el rango seleccionado
+</div>
+
+<div class="paginacion" *ngIf="totalPages > 1">
+
+    <button (click)="irInicio()" [disabled]="page === 1" matTooltip="Inicio">
+        <i class="fa fa-angle-double-left"></i>
+    </button>
+    <button (click)="irAnterior()" [disabled]="page === 1" matTooltip="Anterior">
+        <i class="fa fa-angle-left"></i>
+    </button>
+
+    <span class="info">
+        Página {{ page }} de {{ totalPages }} —
+        Total {{ total }} productos
+    </span>
+
+    <button (click)="irSiguiente()" [disabled]="page === totalPages" matTooltip="Siguiente">
+        <i class="fa fa-angle-right"></i>
+    </button>
+    <button (click)="irFinal()" [disabled]="page === totalPages" matTooltip="Fin">
+        <i class="fa fa-angle-double-right"></i>
+    </button>
+
+</div>
