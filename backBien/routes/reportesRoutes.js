@@ -5,6 +5,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const isAdmin = require("../middlewares/isAdmin")
 const { ventasPorTiempo } = require('../controllers/reportesVentas.controller');
 const { rankingProductosPorFarmacia, rankingProductosPorFarmaciaCount } = require('../controllers/reportesRankingProductos.controller')
+const { rankingProductosKPIs } = require('../controllers/reportesRankingProductosKPIs.controller')
 const { reporteComprasConVentas } = require('../controllers/reportesComprasVentas.controller');
 
 const {
@@ -75,5 +76,6 @@ router.get('/cancelaciones-cliente',  authMiddleware, isAdmin, cancelacionesPorC
 router.get('/ventas-tiempo', authMiddleware, isAdmin, ventasPorTiempo);
 router.get('/ranking-productos', authMiddleware, isAdmin, rankingProductosPorFarmacia);
 router.get('/ranking-productos/count', authMiddleware, isAdmin, rankingProductosPorFarmaciaCount);
+router.get('/ranking-productos-kpis', authMiddleware, isAdmin, rankingProductosKPIs);
 
 module.exports = router;

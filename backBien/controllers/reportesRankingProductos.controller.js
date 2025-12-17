@@ -1,32 +1,24 @@
+// backBien/controllers/reportesRankingProductos.controller.js
 const Venta = require('../models/Venta');
 const mongoose = require('mongoose');
 
 const rankingProductosPorFarmacia = async (req, res) => {
   try {
-    const {
-      desde,
-      hasta,
-      farmacia,
-      clasificacion,
-      page = 1,
-      limit = 20
-    } = req.query;
+    const { desde, hasta, farmacia, clasificacion, page = 1, limit = 20 } = req.query;
 
     if (!desde || !hasta) {
-      return res.status(400).json({
-        msg: 'Debe enviar desde y hasta'
-      });
+      return res.status(400).json({ msg: 'Debe enviar desde y hasta' });
     }
 
-    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-    const limitNum = Math.min(parseInt(limit, 10) || 20, 200);
+    const pageNum = Math.max(+page || 1, 1);
+    const limitNum = Math.min(+limit || 20, 200);
     const skip = (pageNum - 1) * limitNum;
 
-    const fechaDesde = new Date(`${desde}T00:00:00.000`);
-    const fechaHasta = new Date(`${hasta}T23:59:59.999`);
-
     const match = {
-      fecha: { $gte: fechaDesde, $lte: fechaHasta }
+      fecha: {
+        $gte: new Date(`${desde}T00:00:00.000`),
+        $lte: new Date(`${hasta}T23:59:59.999`)
+      }
     };
 
     if (farmacia && farmacia !== 'ALL') {
@@ -37,7 +29,7 @@ const rankingProductosPorFarmacia = async (req, res) => {
       { $match: match },
       { $unwind: '$productos' },
 
-      // 🔥 JOIN catálogo productos
+      // 🧠 JOIN catálogo
       {
         $lookup: {
           from: 'productos',
@@ -46,85 +38,57 @@ const rankingProductosPorFarmacia = async (req, res) => {
           as: 'productoInfo'
         }
       },
-      {
-        $unwind: {
-          path: '$productoInfo',
-          preserveNullAndEmptyArrays: true
-        }
-      },
+      { $unwind: { path: '$productoInfo', preserveNullAndEmptyArrays: true } },
 
-      // 💰 Cálculos por renglón
-      {
-        $addFields: {
-          ingresoRen: {
-            $multiply: ['$productos.precio', '$productos.cantidad']
-          },
-          costoRen: {
-            $multiply: ['$productos.costo', '$productos.cantidad']
-          }
-        }
-      },
-
-      // 📦 Agrupar por producto
+      // 📦 Agrupar por producto (USANDO totalRen)
       {
         $group: {
           _id: '$productos.producto',
           producto: { $first: '$productoInfo.nombre' },
-          categoria: { $first: '$productoInfo.categoria' },
+          categoria: { $first: '$productos.categoria' },
           cantidadVendida: { $sum: '$productos.cantidad' },
-          ventas: { $sum: '$ingresoRen' },
-          costo: { $sum: '$costoRen' }
+          ventas: { $sum: '$productos.totalRen' },
+          costo: {
+            $sum: {
+              $multiply: ['$productos.costo', '$productos.cantidad']
+            }
+          }
         }
       },
 
-      // 📈 Utilidad y margen
+      // 💰 Utilidad y margen REAL
       {
         $addFields: {
           utilidad: { $subtract: ['$ventas', '$costo'] },
           margen: {
             $cond: [
               { $gt: ['$ventas', 0] },
-              { $multiply: [{ $divide: ['$utilidad', '$ventas'] }, 100] },
+              { $round: [{ $multiply: [{ $divide: ['$utilidad', '$ventas'] }, 100] }, 2] },
               0
             ]
           }
         }
       },
 
-      // 🔢 Orden global por utilidad
+      // 🔢 Orden GLOBAL
       { $sort: { utilidad: -1 } },
 
-      // 🧮 Total utilidad global
+      // 🧮 Ventanas Pareto
       {
         $setWindowFields: {
           sortBy: { utilidad: -1 },
           output: {
-            utilidadTotalGlobal: {
-              $sum: '$utilidad',
-              window: { documents: ['unbounded', 'unbounded'] }
-            },
-            utilidadAcumulada: {
-              $sum: '$utilidad',
-              window: { documents: ['unbounded', 'current'] }
-            }
+            utilidadTotal: { $sum: '$utilidad', window: { documents: ['unbounded', 'unbounded'] } },
+            utilidadAcumulada: { $sum: '$utilidad', window: { documents: ['unbounded', 'current'] } }
           }
         }
       },
 
-      // 🅰️🅱️🅲🅳 Clasificación Pareto REAL
+      // 🅰️🅱️🅲🅳
       {
         $addFields: {
           porcentajeAcumulado: {
-            $cond: [
-              { $gt: ['$utilidadTotalGlobal', 0] },
-              {
-                $multiply: [
-                  { $divide: ['$utilidadAcumulada', '$utilidadTotalGlobal'] },
-                  100
-                ]
-              },
-              0
-            ]
+            $multiply: [{ $divide: ['$utilidadAcumulada', '$utilidadTotal'] }, 100]
           }
         }
       },
@@ -143,12 +107,10 @@ const rankingProductosPorFarmacia = async (req, res) => {
         }
       },
 
-      // 🔍 Filtro por clase (opcional)
       ...(clasificacion && clasificacion !== 'ALL'
         ? [{ $match: { clase: clasificacion } }]
         : []),
 
-      // 🧾 Proyección final
       {
         $project: {
           _id: 0,
@@ -159,34 +121,38 @@ const rankingProductosPorFarmacia = async (req, res) => {
           ventas: { $round: ['$ventas', 2] },
           costo: { $round: ['$costo', 2] },
           utilidad: { $round: ['$utilidad', 2] },
-          margen: { $round: ['$margen', 2] },
+          margen: {
+            $cond: [
+              { $gt: ['$ventas', 0] },
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      { $divide: ['$utilidad', '$ventas'] },
+                      100
+                    ]
+                  },
+                  1
+                ]
+              },
+              0
+            ]
+          },
           clase: 1
         }
       },
 
-      // 🧭 Orden definitivo
-      { $sort: { clase: 1, utilidad: -1 } },
-
-      // 📄 Paginación (AL FINAL)
       { $skip: skip },
       { $limit: limitNum }
     ];
 
-    const data = await Venta.aggregate(pipeline);
-    res.json(data);
+    res.json(await Venta.aggregate(pipeline));
 
-  } catch (error) {
-    console.error('rankingProductosPorFarmacia:', error);
-    res.status(500).json({
-      msg: 'Error ranking productos'
-    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ msg: 'Error ranking productos' });
   }
 };
-
-module.exports = {
-  rankingProductosPorFarmacia
-};
-
 
 const rankingProductosPorFarmaciaCount = async (req, res) => {
   try {
@@ -231,11 +197,18 @@ const rankingProductosPorFarmaciaCount = async (req, res) => {
       {
         $addFields: {
           ingresoRen: {
-            $multiply: ['$productos.precio', '$productos.cantidad']
+            $multiply: [
+              { $toDouble: { $ifNull: ['$productos.precio', 0] } },
+              '$productos.cantidad'
+            ]
           },
           costoRen: {
-            $multiply: ['$productos.costo', '$productos.cantidad']
+            $multiply: [
+              { $toDouble: { $ifNull: ['$productos.costo', 0] } },
+              '$productos.cantidad'
+            ]
           }
+
         }
       },
 

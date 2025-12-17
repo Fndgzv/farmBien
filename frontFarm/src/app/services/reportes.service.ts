@@ -249,19 +249,25 @@ export class ReportesService {
     });
   }
 
-rankingProductos(params: any) {
-  return this.http.get<any[]>(
-    `${this.url}/ranking-productos`,
-    { params }
-  );
+  rankingProductos(params: any) {
+    return this.http.get<any[]>(
+      `${this.url}/ranking-productos`,
+      { params }
+    );
+  }
+
+  rankingProductosCount(params: any) {
+    return this.http.get<{ total: number }>(
+      `${this.url}/ranking-productos/count`,
+      { params }
+    );
+  }
+
+rankingProductosKPIs(params: any) {
+  return this.http.get<any>(`${this.url}/ranking-productos-kpis`, { params });
 }
 
-rankingProductosCount(params: any) {
-  return this.http.get<{ total: number }>(
-    `${this.url}/ranking-productos/count`,
-    { params }
-  );
-}
+
 
 }
 

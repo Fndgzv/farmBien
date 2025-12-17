@@ -2,13 +2,13 @@
   <ul>
     <img [src]="farmaciaImagen" alt="Farmacias del Bienestar" class="sidebar-image">
 
-    <li *ngIf="userRol === 'admin'" class="menu-title">
+    <li *ngIf="userRol === 'admin'" class="menu-dashboard">
       <span (click)="toggleMenu('dashboard')">
         Dashboard {{ expandedMenu === 'dashboard' ? '▲' : '▶' }}
       </span>
     </li>
 
-    <ul *ngIf="expandedMenu === 'dashboard'" class="submenu">
+    <ul *ngIf="expandedMenu === 'dashboard'" class="submenu-dashboard">
       <li [routerLink]="'/dashboard/ventas-tiempo'"
           routerLinkActive="active">Visión general
           <fa-icon [icon]="'chart-line'" class="menu-icon"></fa-icon>

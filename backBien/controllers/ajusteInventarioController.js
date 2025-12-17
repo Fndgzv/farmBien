@@ -200,8 +200,6 @@ exports.actualizarInventarioMasivo = async (req, res) => {
     return res.status(400).json({ mensaje: "Datos inválidos para actualización masiva." });
   }
 
-console.log('Parámetros recibidos para cambio masivo: ', cambios);
-
   try {
     const ops = [];
 

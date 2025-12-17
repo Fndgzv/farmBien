@@ -26,11 +26,12 @@ export class RankingProductosComponent implements OnInit {
     total = 0;
     totalPages = 0;
 
-    kpiUtilidadTotal = 0;
-    kpiVentasTotales = 0;
-    kpiMargenPromedio = 0;
+    kpiTotalUtilidad = 0;
+    kpiTotalVentas = 0;
     kpiProductos = 0;
-    kpiTopProducto: any = null;
+    kpiMargenPromedio = 0;
+    kpis: any = null;
+    clasificacion: string = 'ALL';
 
     constructor(
         private reportesService: ReportesService,
@@ -76,55 +77,41 @@ export class RankingProductosComponent implements OnInit {
             desde: this.desde,
             hasta: this.hasta,
             farmacia: this.farmaciaSeleccionada,
-            clasificacion: 'ALL', // o la que elijas
+            clasificacion: this.clasificacion,
             page: this.page,
             limit: this.limit
         };
 
-        // 🔹 1) Datos paginados
+        // 1️⃣ Tabla paginada
         this.reportesService.rankingProductos(params).subscribe(res => {
             this.data = res;
-            this.calcularKPIs();
             this.cargando = false;
         });
 
-        // 🔹 2) Conteo total (para paginador)
+        // 2️⃣ Conteo total (paginador)
         this.reportesService.rankingProductosCount(params).subscribe(res => {
             this.total = res.total;
             this.totalPages = Math.ceil(this.total / this.limit);
         });
+
+        // 3️⃣ KPIs (🔥 SIN PAGE NI LIMIT)
+        this.reportesService.rankingProductosKPIs({
+            desde: this.desde,
+            hasta: this.hasta,
+            farmacia: this.farmaciaSeleccionada,
+            clasificacion: this.clasificacion
+        }).subscribe(kpis => {
+            this.kpis = kpis;
+            this.kpiTotalVentas = kpis.ventasTotales ?? 0;
+            this.kpiTotalUtilidad = kpis.utilidadTotal ?? 0;
+            this.kpiMargenPromedio = kpis.margenPromedio ?? 0;
+            this.kpiProductos = kpis.productosAnalizados ?? 0;
+        });
     }
 
-    calcularKPIs() {
-  if (!this.data.length) {
-    this.kpiUtilidadTotal = 0;
-    this.kpiVentasTotales = 0;
-    this.kpiMargenPromedio = 0;
-    this.kpiProductos = 0;
-    this.kpiTopProducto = null;
-    return;
-  }
-
-  this.kpiUtilidadTotal = this.data.reduce(
-    (acc, p) => acc + (p.utilidad || 0),
-    0
-  );
-
-  this.kpiVentasTotales = this.data.reduce(
-    (acc, p) => acc + (p.ventas || 0),
-    0
-  );
-
-  this.kpiProductos = this.data.length;
-
-  this.kpiMargenPromedio =
-    this.kpiVentasTotales > 0
-      ? (this.kpiUtilidadTotal / this.kpiVentasTotales) * 100
-      : 0;
-
-  this.kpiTopProducto = [...this.data]
-    .sort((a, b) => b.utilidad - a.utilidad)[0];
-}
+    trackByProducto(index: number, item: any) {
+        return item.productoId;
+    }
 
 
     /* Paginación */

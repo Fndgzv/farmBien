@@ -1,46 +1,26 @@
 <h3 class="subtitulo">Ranking de productos por utilidad</h3>
 
 <!-- KPIs -->
-<div class="kpis" *ngIf="data.length">
-
+<div class="kpis" *ngIf="kpis">
     <div class="kpi">
-        <span class="label">Utilidad total</span>
-        <span class="value green">
-            $ {{ kpiUtilidadTotal | number:'1.2-2' }}
-        </span>
+        <span>Utilidad total: </span>
+        <strong>$ {{ kpis.utilidadTotal | number:'1.2-2' }}</strong>
     </div>
 
     <div class="kpi">
-        <span class="label">Ventas totales</span>
-        <span class="value">
-            $ {{ kpiVentasTotales | number:'1.2-2' }}
-        </span>
+        <span>Ventas totales: </span>
+        <strong>$ {{ kpis.ventasTotales | number:'1.2-2' }}</strong>
     </div>
 
     <div class="kpi">
-        <span class="label">Margen promedio</span>
-        <span class="value">
-            {{ kpiMargenPromedio | number:'1.1-1' }} %
-        </span>
+        <span>Margen promedio: </span>
+        <strong>{{ kpis.margenPromedio | number:'1.1-1' }} %</strong>
     </div>
 
     <div class="kpi">
-        <span class="label">Productos analizados</span>
-        <span class="value">
-            {{ kpiProductos }}
-        </span>
+        <span>Productos analizados: </span>
+        <strong>{{ kpis.productosAnalizados }}</strong>
     </div>
-
-    <div class="kpi estrella" *ngIf="kpiTopProducto">
-        <span class="label">Producto estrella</span>
-        <span class="value">
-            {{ kpiTopProducto.producto }}
-        </span>
-        <small>
-            $ {{ kpiTopProducto.utilidad | number:'1.2-2' }}
-        </small>
-    </div>
-
 </div>
 
 <!-- FILTROS -->
@@ -84,8 +64,8 @@
         </tr>
     </thead>
     <tbody>
-        <tr *ngFor="let r of data; let i = index">
-            <td>{{ i + 1 }}</td>
+        <tr *ngFor="let r of data; let i = index; trackBy: trackByProducto">
+            <td>{{ (page - 1) * limit + i + 1 }}</td>
             <td>{{ r.producto }}</td>
             <td>{{ r.categoria }}</td>
             <td>{{ r.cantidadVendida }}</td>
@@ -99,7 +79,12 @@
             <td class="utilidad">
                 $ {{ r.utilidad | number:'1.2-2' }}
             </td>
-            <td>{{ r.margen | number:'1.1-1' }}%</td>
+            <td>
+                {{ r.margen !== null && r.margen !== undefined
+                ? (r.margen | number:'1.1-1') + '%'
+                : '0.0%' }}
+            </td>
+
         </tr>
     </tbody>
 </table>
