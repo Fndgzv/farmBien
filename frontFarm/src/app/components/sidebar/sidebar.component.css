@@ -59,7 +59,6 @@ li:hover {
 }
 
 .menu-icon {
-  color: rgb(1, 14, 38);
   font-size: 16px;
   margin-left: 10px;
 }
@@ -125,8 +124,8 @@ li:hover {
 }
 
 .submenu li:hover {
-  color: rgb(66, 66, 2);
-  background-color: blanchedalmond;
+  color: white;
+  background-color: black;
 }
 
 /* nuevos estilos */

@@ -445,7 +445,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
         this.tipoDescuento = this.limpiarPromocion(this.tipoDescuento);
 
-        if (this.captionButtomReanudar === '') this.captionButtomReanudar = productoE.nombre;
+        //if (this.captionButtomReanudar === '') this.captionButtomReanudar = productoE.nombre;
 
         this.carrito[i].precioFinal = precioFinal;
         this.carrito[i].tipoDescuento = this.tipoDescuento;
@@ -1330,6 +1330,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.montoVale = null;
         this.efectivoRecibido = null;
         this.cambio = 0;
+
+        this.habilitarInputs();
 
         // 1) Evita focos pendientes al lector
         this.clearBarcodeFocusTimer();

@@ -664,7 +664,7 @@
     <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     <tr mat-row *matRowDef="let row; columns: ['detail']; when: isDetailRow"></tr>
 
-    <tr *ngIf="!cargando && (clientes?.length || 0) === 0">
+    <tr *ngIf="!cargando && (clientes.length || 0) === 0">
         <td [attr.colspan]="displayedColumns.length" class="text-center text-muted p-2">
             Sin resultados
         </td>
@@ -672,11 +672,6 @@
 
 
 </table>
-
-<!-- Mensaje vacío -->
-<!-- <div *ngIf="!cargando && (!dataSource || dataSource.data?.length === 0)" class="text-center text-muted py-3">
-    Sin resultados
-</div> -->
 
 <mat-paginator class="paginator-custom" [length]="paginacion.total || 0" [pageSize]="limit" [pageIndex]="(page - 1)"
     [pageSizeOptions]="[10, 20, 50, 100]" (page)="cambioPagina($event)" [showFirstLastButtons]="true">
