@@ -288,7 +288,7 @@ exports.subVentas = async (req, res) => {
 
     const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
 
-    const match = { cliente: mongoose.Types.ObjectId(id), fecha: { $gte: gte, $lt: lt } };
+    const match = { cliente: new mongoose.Types.ObjectId(id), fecha: { $gte: gte, $lt: lt } };
 
     const pipeline = [
       { $match: match },
@@ -622,7 +622,7 @@ exports.subCancelaciones = async (req, res) => {
     if (!okId(id)) return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
 
     const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
-    const oid = mongoose.Types.ObjectId(id);
+    const oid = new mongoose.Types.ObjectId(id);
 
     const [agg] = await Cancelacion.aggregate([
       { $match: { fechaCancelacion: { $gte: gte, $lt: lt } } },
@@ -697,7 +697,7 @@ exports.subMonedero = async (req, res) => {
     if (!okId(id)) return res.status(400).json({ ok: false, mensaje: 'clienteId inválido' });
 
     const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
-    const oid = mongoose.Types.ObjectId(id);
+    const oid = new mongoose.Types.ObjectId(id);
 
     const [agg] = await Cliente.aggregate([
       { $match: { _id: oid } },

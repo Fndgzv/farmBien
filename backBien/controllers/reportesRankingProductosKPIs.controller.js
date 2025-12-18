@@ -18,7 +18,7 @@ const rankingProductosKPIs = async (req, res) => {
     };
 
     if (farmacia && farmacia !== 'ALL') {
-      match.farmacia = mongoose.Types.ObjectId(farmacia);
+      match.farmacia = new mongoose.Types.ObjectId(farmacia);
     }
 
     const pipeline = [

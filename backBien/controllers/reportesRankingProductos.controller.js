@@ -21,7 +21,7 @@ const rankingProductosPorFarmacia = async (req, res) => {
     };
 
     if (farmacia && farmacia !== 'ALL') {
-      match.farmacia = mongoose.Types.ObjectId(farmacia);
+      match.farmacia = new mongoose.Types.ObjectId(farmacia);
     }
 
     const pipeline = [
@@ -171,7 +171,7 @@ const rankingProductosPorFarmaciaCount = async (req, res) => {
 
 
     if (farmacia && farmacia !== 'ALL') {
-      match.farmacia = mongoose.Types.ObjectId(farmacia);
+      match.farmacia = new mongoose.Types.ObjectId(farmacia);
     }
 
     const pipeline = [

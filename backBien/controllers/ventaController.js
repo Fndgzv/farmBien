@@ -448,7 +448,7 @@ function dayRangeUtcFromQuery(fechaInicial, fechaFinal) {
 
 // helper seguro para castear ids
 function castId(id) {
-  return (id && mongoose.isValidObjectId(id)) ? mongoose.Types.ObjectId(id) : undefined;
+  return (id && mongoose.isValidObjectId(id)) ? new mongoose.Types.ObjectId(id) : undefined;
 }
 
 const consultarVentas = async (req, res) => {

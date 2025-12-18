@@ -19,7 +19,7 @@ const ventasPorTiempo = async (req, res) => {
     };
 
     if (farmacia !== 'ALL') {
-      match.farmacia = mongoose.Types.ObjectId(farmacia);
+      match.farmacia = new mongoose.Types.ObjectId(farmacia);
     }
 
     let groupId = {};
