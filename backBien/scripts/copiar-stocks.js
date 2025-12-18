@@ -38,7 +38,7 @@ const Inventario = require('../models/InventarioFarmacia'); // colección: inven
 // const Producto = require('../models/Producto');
 
 // Helpers
-const oid = (s) => new mongoose.Types.ObjectId(s);
+const oid = (s) => mongoose.Types.ObjectId(s);
 const src = oid(SRC_ID);
 const dst = oid(DST_ID);
 

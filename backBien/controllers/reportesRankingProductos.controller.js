@@ -1,17 +1,7 @@
 // backBien/controllers/reportesRankingProductos.controller.js
 const Venta = require('../models/Venta');
 const mongoose = require('mongoose');
-
-const inicioDiaLocal = (fechaStr) => {
-  const [y, m, d] = fechaStr.split('-').map(Number);
-  return new Date(y, m - 1, d, 0, 0, 0, 0);
-};
-
-const finDiaLocal = (fechaStr) => {
-  const [y, m, d] = fechaStr.split('-').map(Number);
-  return new Date(y, m - 1, d, 23, 59, 59, 999);
-};
-
+const { dayRangeUtc } = require('../utils/fechas')
 
 const rankingProductosPorFarmacia = async (req, res) => {
   try {
@@ -21,20 +11,17 @@ const rankingProductosPorFarmacia = async (req, res) => {
       return res.status(400).json({ msg: 'Debe enviar desde y hasta' });
     }
 
+    const { gte, lt } = dayRangeUtc(desde, hasta);
     const pageNum = Math.max(+page || 1, 1);
     const limitNum = Math.min(+limit || 20, 200);
     const skip = (pageNum - 1) * limitNum;
 
-    const fechaDesde = inicioDiaLocal(desde);
-    const fechaHasta = finDiaLocal(hasta);
-
     const match = {
-      fecha: { $gte: fechaDesde, $lte: fechaHasta }
+      fecha: { $gte: gte, $lt: lt }
     };
 
-
     if (farmacia && farmacia !== 'ALL') {
-      match.farmacia = new mongoose.Types.ObjectId(farmacia);
+      match.farmacia = mongoose.Types.ObjectId(farmacia);
     }
 
     const pipeline = [
@@ -170,26 +157,21 @@ const rankingProductosPorFarmaciaCount = async (req, res) => {
   try {
     const { desde, hasta, farmacia, clasificacion } = req.query;
 
-    console.log('BACK DESDE:', req.query.desde);
-    console.log('BACK HASTA:', req.query.hasta);
-
-
     if (!desde || !hasta) {
       return res.status(400).json({
         msg: 'Debe enviar desde y hasta'
       });
     }
 
-    const fechaDesde = inicioDiaLocal(desde);
-    const fechaHasta = finDiaLocal(hasta);
+    const { gte, lt } = dayRangeUtc(desde, hasta);
 
     const match = {
-      fecha: { $gte: fechaDesde, $lte: fechaHasta }
+      fecha: { $gte: gte, $lt: lt }
     };
 
 
     if (farmacia && farmacia !== 'ALL') {
-      match.farmacia = new mongoose.Types.ObjectId(farmacia);
+      match.farmacia = mongoose.Types.ObjectId(farmacia);
     }
 
     const pipeline = [

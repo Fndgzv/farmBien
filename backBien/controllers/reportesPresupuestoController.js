@@ -228,7 +228,7 @@ const grabarPresupuestoStock = async (req, res) => {
 
       ops.push({
         updateOne: {
-          filter: { _id: new mongoose.Types.ObjectId(id) },
+          filter: { _id: mongoose.Types.ObjectId(id) },
           update: {
             $set: {
               stockMaximo,
