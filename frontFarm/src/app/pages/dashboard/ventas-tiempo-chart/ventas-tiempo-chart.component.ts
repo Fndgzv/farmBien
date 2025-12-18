@@ -174,15 +174,6 @@ export class VentasTiempoChartComponent implements OnInit {
 
     cargar() {
 
-
-        console.log('📌 cargar() llamado', {
-            desde: this.desde,
-            hasta: this.hasta,
-            escala: this.escala,
-            farmacia: this.farmaciaSeleccionada
-        });
-
-
         const desdeISO = this.desde?.slice(0, 10);
         const hastaISO = this.hasta?.slice(0, 10);
 

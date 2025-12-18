@@ -2,6 +2,17 @@
 const Venta = require('../models/Venta');
 const mongoose = require('mongoose');
 
+const inicioDiaLocal = (fechaStr) => {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+};
+
+const finDiaLocal = (fechaStr) => {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+};
+
+
 const rankingProductosKPIs = async (req, res) => {
   try {
     const { desde, hasta, farmacia } = req.query;
@@ -12,12 +23,13 @@ const rankingProductosKPIs = async (req, res) => {
       });
     }
 
+    const fechaDesde = inicioDiaLocal(desde);
+    const fechaHasta = finDiaLocal(hasta);
+
     const match = {
-      fecha: {
-        $gte: new Date(`${desde}T00:00:00.000`),
-        $lte: new Date(`${hasta}T23:59:59.999`)
-      }
+      fecha: { $gte: fechaDesde, $lte: fechaHasta }
     };
+
 
     if (farmacia && farmacia !== 'ALL') {
       match.farmacia = new mongoose.Types.ObjectId(farmacia);

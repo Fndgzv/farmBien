@@ -1,5 +1,6 @@
 // backBien/models/InventarioFarmacia.js
 const mongoose = require("mongoose");
+require('./Producto');
 const InventarioFisico = require("./InventarioFisico");
 const Producto = require("./Producto");
 

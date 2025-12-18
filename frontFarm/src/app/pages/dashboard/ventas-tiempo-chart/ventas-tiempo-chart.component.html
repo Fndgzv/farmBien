@@ -24,31 +24,31 @@
 
 <div class="kpis">
     <div class="kpi-card ventas">
-        <div class="kpi-title">Total vendido</div>
-        <div class="kpi-value">
+        <span class="kpi-title">Importe de ventas: </span>
+        <span class="kpi-value">
             {{ kpiTotalVentas | currency:'MXN':'symbol-narrow' }}
-        </div>
+        </span>
     </div>
 
     <div class="kpi-card utilidad">
-        <div class="kpi-title">Utilidad</div>
-        <div class="kpi-value">
+        <span class="kpi-title">Utilidad: </span>
+        <span class="kpi-value">
             {{ kpiUtilidad | currency:'MXN':'symbol-narrow' }}
-        </div>
+        </span>
     </div>
 
     <div class="kpi-card margen">
-        <div class="kpi-title">Margen</div>
-        <div class="kpi-value">
+        <span class="kpi-title">Margen: </span>
+        <span class="kpi-value">
             {{ kpiMargen | number:'1.1-2' }} %
-        </div>
+        </span>
     </div>
 
     <div class="kpi-card ventas-num">
-        <div class="kpi-title">Ventas</div>
-        <div class="kpi-value">
+        <span class="kpi-title">Ventas: </span>
+        <span class="kpi-value">
             {{ kpiVentas }}
-        </div>
+        </span>
     </div>
 </div>
 

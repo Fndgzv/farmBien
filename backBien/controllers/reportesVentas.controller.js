@@ -1,6 +1,17 @@
 const Venta = require('../models/Venta');
 const mongoose = require('mongoose');
 
+const inicioDiaLocal = (fechaStr) => {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+};
+
+const finDiaLocal = (fechaStr) => {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+};
+
+
 const ventasPorTiempo = async (req, res) => {
   try {
     const { desde, hasta, escala = 'dia', farmacia = 'ALL' } = req.query;
@@ -10,8 +21,8 @@ const ventasPorTiempo = async (req, res) => {
     }
 
     const tz = 'America/Mexico_City';
-    const fechaDesde = new Date(`${desde}T00:00:00.000`);
-    const fechaHasta = new Date(`${hasta}T23:59:59.999`);
+    const fechaDesde = inicioDiaLocal(desde);
+    const fechaHasta = finDiaLocal(hasta);
 
     const match = {
       fecha: { $gte: fechaDesde, $lte: fechaHasta }

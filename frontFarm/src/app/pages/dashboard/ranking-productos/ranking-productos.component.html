@@ -3,17 +3,17 @@
 <!-- KPIs -->
 <div class="kpis" *ngIf="kpis">
     <div class="kpi">
-        <span>Utilidad total: </span>
-        <strong>$ {{ kpis.utilidadTotal | number:'1.2-2' }}</strong>
-    </div>
-
-    <div class="kpi">
-        <span>Ventas totales: </span>
+        <span>Importe de ventas: </span>
         <strong>$ {{ kpis.ventasTotales | number:'1.2-2' }}</strong>
     </div>
 
     <div class="kpi">
-        <span>Margen promedio: </span>
+        <span>Utilidad: </span>
+        <strong>$ {{ kpis.utilidadTotal | number:'1.2-2' }}</strong>
+    </div>
+
+    <div class="kpi">
+        <span>Margen: </span>
         <strong>{{ kpis.margenPromedio | number:'1.1-1' }} %</strong>
     </div>
 
