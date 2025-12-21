@@ -54,10 +54,11 @@ const storage = multer.diskStorage({
 
 // Tipos permitidos (opcional)
 const fileFilter = (_req, file, cb) => {
-  const ok = /^image\/(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.mimetype);
+  const ok = /^image\/(png|jpe?g|webp|gif|bmp|tiff|avif)$/i.test(file.mimetype);
   if (!ok) return cb(new Error('Tipo de imagen no permitido'));
   cb(null, true);
 };
+
 
 const upload = multer({
   storage,

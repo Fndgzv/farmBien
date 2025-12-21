@@ -1,28 +1,26 @@
-import { Component, OnInit, AfterViewInit, ViewChild } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { ReportesService } from '../../../services/reportes.service';
-import { FarmaciaService } from '../../../services/farmacia.service';
+import { FormsModule } from '@angular/forms';
 
 import {
     NgApexchartsModule,
-    ApexAxisChartSeries,
     ApexChart,
     ApexXAxis,
     ApexYAxis,
     ApexStroke,
     ApexTooltip,
     ApexDataLabels,
-    ChartComponent,
     ApexMarkers
 } from 'ng-apexcharts';
 
+import { ReportesService } from '../../../services/reportes.service';
+import { FarmaciaService } from '../../../services/farmacia.service';
 
 export type ChartOptions = {
-    series: ApexAxisChartSeries;
+    series: any[];
     chart: ApexChart;
     xaxis: ApexXAxis;
-    yaxis: ApexYAxis | ApexYAxis[];
+    yaxis: ApexYAxis[];
     stroke: ApexStroke;
     tooltip: ApexTooltip;
     dataLabels: ApexDataLabels;
@@ -33,19 +31,11 @@ export type ChartOptions = {
 @Component({
     selector: 'app-ventas-tiempo-chart',
     standalone: true,
-    imports: [
-        CommonModule,
-        FormsModule,
-        ReactiveFormsModule,
-        NgApexchartsModule
-    ],
+    imports: [CommonModule, FormsModule, NgApexchartsModule],
     templateUrl: './ventas-tiempo-chart.component.html',
     styleUrls: ['./ventas-tiempo-chart.component.css']
 })
-
 export class VentasTiempoChartComponent implements OnInit {
-
-    @ViewChild('chart') chart!: ChartComponent;
 
     data: any[] = [];
 
@@ -53,10 +43,8 @@ export class VentasTiempoChartComponent implements OnInit {
     desde!: string;
     hasta!: string;
 
-    chartOptions!: ChartOptions;
-
     farmacias: any[] = [];
-    farmaciaSeleccionada: string = 'ALL';
+    farmaciaSeleccionada = 'ALL';
 
     kpiTotalVentas = 0;
     kpiUtilidad = 0;
@@ -66,279 +54,245 @@ export class VentasTiempoChartComponent implements OnInit {
     horaPico: any = null;
     horaMuerta: any = null;
 
-    chartReady = false;
+    chartOptions: ChartOptions = {
+        series: [],
+        chart: { type: 'line', height: 360 },
+        xaxis: { categories: [] },
+        yaxis: [],
+        stroke: { curve: 'smooth' },
+        tooltip: { shared: true },
+        dataLabels: { enabled: false },
+        markers: { size: 4 },
+        colors: ['#1E88E5', '#2E7D32', '#F57C00']
+    };
 
-    constructor(private reportesService: ReportesService,
-        private farmaciaService: FarmaciaService) { }
-
+    constructor(
+        private reportesService: ReportesService,
+        private farmaciaService: FarmaciaService
+    ) { }
 
     ngOnInit() {
-
-        this.initChart();
-
         const hoy = new Date();
-
         const yyyy = hoy.getFullYear();
         const mm = String(hoy.getMonth() + 1).padStart(2, '0');
         const dd = String(hoy.getDate()).padStart(2, '0');
 
-        const hoyLocal = `${yyyy}-${mm}-${dd}`;
+        const fechaLocal = `${yyyy}-${mm}-${dd}`;
 
-        this.desde = hoyLocal;
-        this.hasta = hoyLocal;
-
-        this.escala = 'hora';
-
-        // 🏥 farmacia desde localStorage
+        this.desde = fechaLocal;
+        this.hasta = fechaLocal;
         const stored = localStorage.getItem('user_farmacia');
         const farmacia = stored ? JSON.parse(stored) : null;
-
-        this.farmaciaSeleccionada = farmacia._id ?? 'ALL';
+        this.farmaciaSeleccionada = farmacia?._id ?? 'ALL';
 
         this.cargarFarmacias();
         this.cargar();
-
     }
 
-
-    initChart() {
-        this.chartOptions = {
-            series: [],
-            chart: {
-                type: 'line',
-                height: 350,
-                toolbar: { show: false }
-            },
-            colors: ['#1E88E5', '#2E7D32', '#F57C00'],
-            stroke: {
-                width: [3, 3, 2],
-                curve: 'smooth'
-            },
-            dataLabels: {
-                enabled: false
-            },
-
-            markers: {          // 🔥 ESTO FALTABA
-                size: [0, 4, 0],
-                strokeWidth: 0,
-                hover: {
-                    size: 6
-                }
-            },
-            xaxis: {
-                categories: []
-            },
-            yaxis: [
-                {
-                    title: { text: 'Importes ($)' },
-                    labels: {
-                        show: true,
-                        formatter: (val: number) =>
-                            `$${val.toLocaleString()}`
-                    }
-                },
-                {
-                    opposite: true,
-                    title: { text: 'Número de ventas' },
-                    decimalsInFloat: 0,
-                    forceNiceScale: true,
-
-                    labels: {
-                        show: true,
-                        formatter: (val: number) => Math.round(val).toString()
-                    }
-                }
-
-            ],
-            tooltip: {
-                shared: true,
-                intersect: false,
-                y: {
-                    formatter: (val: number) =>
-                        typeof val === 'number'
-                            ? val.toLocaleString()
-                            : ''
-                }
-            }
-
-        };
-
-    }
-
+    /* =========================
+       FARMACIAS
+       ========================= */
     cargarFarmacias() {
         this.farmaciaService.obtenerFarmacias().subscribe(res => {
-            this.farmacias = res;
+            this.farmacias = res || [];
         });
     }
 
-
+    /* =========================
+       DATOS
+       ========================= */
     cargar() {
-
-        const desdeISO = this.desde?.slice(0, 10);
-        const hastaISO = this.hasta?.slice(0, 10);
-
         this.reportesService.ventasPorTiempo({
-            desde: desdeISO,
-            hasta: hastaISO,
+            desde: this.desde,
+            hasta: this.hasta,
             escala: this.escala,
             farmacia: this.farmaciaSeleccionada
         }).subscribe(res => {
-            this.data = res;
-            this.actualizarGrafica();
+            this.data = res || [];
+            this.buildChart();
         });
     }
 
-    actualizarGrafica() {
-        const categorias = this.data.map(d => d.periodo);
-        const ventas = this.data.map(d => Number(d.totalVentas));
-        const utilidades = this.data.map(d => Number(d.utilidad));
-        const conteo = this.data.map(d => Number(d.numeroVentas));
+    buildChart() {
 
-        const maxVentas = Math.max(...ventas, 1);
-        const maxUtilidad = Math.max(...utilidades, 1);
-        const maxConteo = Math.max(...conteo, 1);
+        this.data = this.ordenarData(this.data);
+        const hasData = this.data.length > 0;
 
-        this.chartReady = false;
+        /* ================= KPIs ================= */
+        this.kpiTotalVentas = hasData ? this.data.reduce((a, d) => a + d.totalVentas, 0) : 0;
+        this.kpiUtilidad = hasData ? this.data.reduce((a, d) => a + d.utilidad, 0) : 0;
+        this.kpiVentas = hasData ? this.data.reduce((a, d) => a + d.numeroVentas, 0) : 0;
+        this.kpiMargen = this.kpiTotalVentas
+            ? (this.kpiUtilidad / this.kpiTotalVentas) * 100
+            : 0;
 
+        /* ================= DATA ================= */
+        const categorias = hasData
+            ? this.data.map(d => this.formatearPeriodo(d.periodo))
+            : [];
+
+        const ventas = hasData ? this.data.map(d => d.totalVentas) : [];
+        const utilidad = hasData ? this.data.map(d => d.utilidad) : [];
+        const conteo = hasData ? this.data.map(d => d.numeroVentas) : [];
+
+        const maxVentas = ventas.length ? Math.max(...ventas) : 0;
+        const maxConteo = conteo.length ? Math.max(...conteo) : 0;
+
+        /* ================= CHART ================= */
         this.chartOptions = {
-            ...this.chartOptions,
+            chart: {
+                type: 'line',
+                height: 360,
+                toolbar: { show: false },
+                animations: { enabled: false }
+            },
 
             series: [
                 {
                     name: 'Total ventas ($)',
-                    type: 'line',
-                    data: ventas
+                    data: ventas,
+                    yAxisIndex: 0
                 },
                 {
                     name: 'Utilidad ($)',
-                    type: 'line',
-                    data: utilidades
+                    data: utilidad,
+                    yAxisIndex: 0
                 },
                 {
                     name: 'Número de ventas',
-                    type: 'line',
-                    data: conteo
+                    data: conteo,
+                    yAxisIndex: 1
                 }
             ],
 
             xaxis: {
+                type: 'category',
                 categories: categorias,
                 labels: {
                     rotate: -45,
-                    hideOverlappingLabels: true
+                    style: { fontSize: '12px' }
                 }
             },
 
-            stroke: {
-                width: [3, 3, 2],
-                curve: 'smooth'
-            },
-
-            markers: {
-                size: [0, 0, 0], // ❌ SIN NODOS EN NINGUNA
-                hover: { size: 5 }
-            },
-
             yaxis: [
-                // 💰 Ventas
                 {
                     min: 0,
                     max: Math.ceil(maxVentas * 1.15),
-                    title: { text: 'Ventas ($)' },
+                    title: { text: 'Ventas / Utilidad ($)' },
                     labels: {
-                        formatter: (val: number) => `$${val.toLocaleString()}`
+                        formatter: v => `$${Math.round(v)}`
                     }
                 },
-
-                // 🟢 Utilidad (SU PROPIO EJE)
-                {
-                    min: 0,
-                    max: Math.ceil(maxUtilidad * 2),
-                    title: { text: 'Utilidad ($)' },
-                    labels: {
-                        formatter: (val: number) => `$${val.toLocaleString()}`
-                    }
-                },
-
-                // 🔢 Número de ventas
                 {
                     opposite: true,
                     min: 0,
-                    max: Math.ceil(maxConteo * 1.2),
+                    max: maxConteo,
+                    tickAmount: maxConteo || 1,
                     title: { text: 'Número de ventas' },
                     labels: {
-                        formatter: (val: number) => Math.round(val).toString()
+                        formatter: v => Math.round(v).toString()
                     }
                 }
             ],
 
+            stroke: {
+                curve: 'smooth',
+                width: [3, 3, 2]
+            },
+
+            markers: {
+                size: 4
+            },
+
             tooltip: {
-                shared: true,
-                intersect: false,
-                y: {
-                    formatter: (val: number, { seriesIndex }) =>
-                        seriesIndex === 2
-                            ? `${Math.round(val)} ventas`
-                            : `$${val.toLocaleString()}`
-                }
-            }
+                shared: true
+            },
+
+            dataLabels: {
+                enabled: false
+            },
+
+            colors: ['#1E88E5', '#2E7D32', '#F57C00']
         };
 
-        setTimeout(() => {
-            this.chartReady = true;
-        }, 0);
-
-        this.calcularKPIs();
         this.calcularHorasClave();
     }
 
-
-    calcularKPIs() {
-        this.kpiTotalVentas = this.data.reduce(
-            (acc, d) => acc + (d.totalVentas || 0),
-            0
-        );
-
-        this.kpiUtilidad = this.data.reduce(
-            (acc, d) => acc + (d.utilidad || 0),
-            0
-        );
-
-        this.kpiVentas = this.data.reduce(
-            (acc, d) => acc + (d.numeroVentas || 0),
-            0
-        );
-
-        this.kpiMargen =
-            this.kpiTotalVentas > 0
-                ? (this.kpiUtilidad / this.kpiTotalVentas) * 100
-                : 0;
-    }
-
-
+    /* =========================
+       HORAS CLAVE
+       ========================= */
     calcularHorasClave() {
-        if (!this.data || this.data.length === 0) {
-            this.horaPico = null;
-            this.horaMuerta = null;
-            return;
-        }
-
-        // Solo horas con ventas reales
         const validos = this.data.filter(d => d.totalVentas > 0);
 
-        if (validos.length === 0) {
+        if (!validos.length) {
             this.horaPico = null;
             this.horaMuerta = null;
             return;
         }
 
-        this.horaPico = validos.reduce((max, curr) =>
-            curr.totalVentas > max.totalVentas ? curr : max
+        this.horaPico = validos.reduce((a, b) =>
+            b.totalVentas > a.totalVentas ? b : a
         );
 
-        this.horaMuerta = validos.reduce((min, curr) =>
-            curr.totalVentas < min.totalVentas ? curr : min
+        this.horaMuerta = validos.reduce((a, b) =>
+            b.totalVentas < a.totalVentas ? b : a
         );
     }
+
+    formatearPeriodo(periodo: string): string {
+        if (!periodo) return '';
+
+        switch (this.escala) {
+
+            case 'hora':
+                return `${periodo}:00`; // 👈 SOLO HORA
+
+            case 'dia': {
+                const [yyyy, mm, dd] = periodo.split('-');
+                return `${dd}/${mm}/${yyyy}`;
+            }
+
+            case 'mes': {
+                const [yyyy, mm] = periodo.split('-');
+                return `${mm}/${yyyy}`;
+            }
+
+            case 'anio':
+                return periodo;
+
+            default:
+                return periodo;
+        }
+    }
+
+    get etiquetaAlta(): string {
+        switch (this.escala) {
+            case 'hora': return 'Hora pico';
+            case 'dia': return 'Día más alto';
+            case 'mes': return 'Mes más alto';
+            case 'anio': return 'Año más alto';
+            default: return 'Máximo';
+        }
+    }
+
+    get etiquetaBaja(): string {
+        switch (this.escala) {
+            case 'hora': return 'Hora muerta';
+            case 'dia': return 'Día más bajo';
+            case 'mes': return 'Mes más bajo';
+            case 'anio': return 'Año más bajo';
+            default: return 'Mínimo';
+        }
+    }
+
+    ordenarData(data: any[]): any[] {
+        return [...data].sort((a, b) => {
+            if (this.escala === 'hora') {
+                return Number(a.periodo) - Number(b.periodo);
+            }
+            return a.periodo.localeCompare(b.periodo);
+        });
+    }
+
 
 }

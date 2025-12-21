@@ -52,33 +52,34 @@
     </div>
 </div>
 
-<div class="horas-clave" *ngIf="horaPico && horaMuerta">
-    <div class="pico">
-        🟢 <strong>Hora pico:</strong>
-        {{ horaPico.periodo }} –
-        ${{ horaPico.totalVentas | number:'1.2-2' }}
-        ({{ horaPico.numeroVentas }} ventas)
-    </div>
-
-    <div class="muerta">
-        🔴 <strong>Hora muerta:</strong>
-        {{ horaMuerta.periodo }} –
-        ${{ horaMuerta.totalVentas | number:'1.2-2' }}
-        ({{ horaMuerta.numeroVentas }} ventas)
-    </div>
+<div *ngIf="horaPico">
+  🟢 {{ etiquetaAlta }}:
+  {{ formatearPeriodo(horaPico.periodo) }} –
+  ${{ horaPico.totalVentas }}
+  ({{ horaPico.numeroVentas }} ventas)
 </div>
 
-<apx-chart
-  *ngIf="chartReady"
-  #chart
-  [series]="chartOptions.series"
-  [chart]="chartOptions.chart"
-  [xaxis]="chartOptions.xaxis"
-  [yaxis]="chartOptions.yaxis"
-  [stroke]="chartOptions.stroke"
-  [tooltip]="chartOptions.tooltip"
-  [markers]="chartOptions.markers"
-  [colors]="chartOptions.colors"
-  [dataLabels]="chartOptions.dataLabels">
-</apx-chart>
+<div *ngIf="horaMuerta">
+  🔴 {{ etiquetaBaja }}:
+  {{ formatearPeriodo(horaMuerta.periodo) }} –
+  ${{ horaMuerta.totalVentas }}
+  ({{ horaMuerta.numeroVentas }} ventas)
+</div>
+
+
+<div class="chart-wrapper">
+  <apx-chart
+    [series]="chartOptions.series"
+    [chart]="chartOptions.chart"
+    [xaxis]="chartOptions.xaxis"
+    [yaxis]="chartOptions.yaxis"
+    [stroke]="chartOptions.stroke"
+    [tooltip]="chartOptions.tooltip"
+    [dataLabels]="chartOptions.dataLabels"
+    [markers]="chartOptions.markers"
+    [colors]="chartOptions.colors">
+  </apx-chart>
+</div>
+
+
 

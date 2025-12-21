@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require("../middlewares/authMiddleware");
 const isAdmin = require("../middlewares/isAdmin")
-const { ventasPorTiempo } = require('../controllers/reportesVentas.controller');
+const { ingresosPorTiempo } = require('../controllers/reportesVentas.controller');
 const { rankingProductosPorFarmacia, rankingProductosPorFarmaciaCount } = require('../controllers/reportesRankingProductos.controller')
 const { rankingProductosKPIs } = require('../controllers/reportesRankingProductosKPIs.controller')
 const { reporteComprasConVentas } = require('../controllers/reportesComprasVentas.controller');
@@ -73,7 +73,7 @@ router.get('/cancelaciones-usuario',  authMiddleware, isAdmin, cancelacionesPorU
 router.get('/cancelaciones-farmacia', authMiddleware, isAdmin, cancelacionesPorFarmacia);
 router.get('/cancelaciones-cliente',  authMiddleware, isAdmin, cancelacionesPorCliente);
 
-router.get('/ventas-tiempo', authMiddleware, isAdmin, ventasPorTiempo);
+router.get('/ingresos-por-tiempo', authMiddleware, isAdmin, ingresosPorTiempo);
 router.get('/ranking-productos', authMiddleware, isAdmin, rankingProductosPorFarmacia);
 router.get('/ranking-productos/count', authMiddleware, isAdmin, rankingProductosPorFarmaciaCount);
 router.get('/ranking-productos-kpis', authMiddleware, isAdmin, rankingProductosKPIs);
