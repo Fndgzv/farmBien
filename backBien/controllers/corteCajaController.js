@@ -50,7 +50,13 @@ const crearCorte = async (req, res) => {
       usuario: usuario._id,
       farmacia: farmaciaId,
       efectivoInicial: efectivo,
-      saldoInicialRecargas: saldoRecargas
+      saldoInicialRecargas: saldoRecargas,
+
+      recargas: {
+        saldoInicial: saldoRecargas,
+        vendidas: 0,
+        saldoTeoricoFinal: saldoRecargas
+      }
     });
 
     await corte.save();
@@ -98,7 +104,7 @@ const finalizarCorte = async (req, res) => {
     const ventasTransferencia = ventas.reduce((a, v) => a + N(v.formaPago?.transferencia), 0);
     const ventasVale = ventas.reduce((a, v) => a + N(v.formaPago?.vale), 0);
     const abonosMonedero = ventas.reduce((a, v) => a + N(v.totalMonederoCliente), 0);
-    const totalRecargas = ventas.flatMap(v => v.productos || [])
+    const recargasVendidas = ventas.flatMap(v => v.productos || [])
       .filter(d => d.producto?.categoria === 'Recargas')
       .reduce((sum, d) => sum + N(d.totalRen), 0);
 
@@ -182,7 +188,7 @@ const finalizarCorte = async (req, res) => {
     corte.totalTarjeta = totalTarjeta;
     corte.totalTransferencia = totalTransferencia;
     corte.totalVale = totalVale;
-    corte.totalRecargas = totalRecargas;
+    corte.totalRecargas = recargasVendidas;
     corte.abonosMonederos = abonosMonedero;
 
     corte.ventasRealizadas = ventas.length;
@@ -190,6 +196,17 @@ const finalizarCorte = async (req, res) => {
     corte.pedidosLevantados = anticipos.length;
     corte.pedidosEntregados = entregas.length;
     corte.pedidosCancelados = cancelaciones.length;
+
+    // 🔒 BACKWARD COMPATIBILITY PARA CORTES ANTIGUOS
+    if (!corte.recargas) {
+      corte.recargas = {
+        saldoInicial: N(corte.saldoInicialRecargas),
+        vendidas: 0,
+        saldoTeoricoFinal: N(corte.saldoInicialRecargas),
+      };
+    } else if (typeof corte.recargas.saldoInicial !== 'number') {
+      corte.recargas.saldoInicial = N(corte.saldoInicialRecargas);
+    }
 
     if (grabar) await corte.save();
 
@@ -242,10 +259,10 @@ const obtenerCortesFiltrados = async (req, res) => {
     } = req.query;
 
     // ---------- paginación ----------
-    const pageNum   = Math.max(parseInt(page, 10) || 1, 1);
-    const limitCap  = 200;
-    const limitNum  = Math.min(Math.max(parseInt(limit, 10) || 20, 1), limitCap);
-    const skip      = (pageNum - 1) * limitNum;
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitCap = 200;
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), limitCap);
+    const skip = (pageNum - 1) * limitNum;
 
     // ---------- filtro base ----------
     const filtro = {};
@@ -255,18 +272,18 @@ const obtenerCortesFiltrados = async (req, res) => {
       const dStr = (fechaInicioDesde || fechaInicioHasta).slice(0, 10); // 'YYYY-MM-DD'
       const hStr = (fechaInicioHasta || fechaInicioDesde).slice(0, 10);
 
-      let startLocal        = DateTime.fromISO(dStr, { zone: ZONE }).startOf('day');
+      let startLocal = DateTime.fromISO(dStr, { zone: ZONE }).startOf('day');
       let endLocalExclusive = DateTime.fromISO(hStr, { zone: ZONE }).plus({ days: 1 }).startOf('day');
 
       if (endLocalExclusive < startLocal) {
         const tmp = startLocal;
-        startLocal        = endLocalExclusive.minus({ days: 1 });
+        startLocal = endLocalExclusive.minus({ days: 1 });
         endLocalExclusive = tmp.plus({ days: 1 });
       }
 
       filtro.fechaInicio = {
         $gte: startLocal.toUTC().toJSDate(),
-        $lt : endLocalExclusive.toUTC().toJSDate(),
+        $lt: endLocalExclusive.toUTC().toJSDate(),
       };
     }
 
@@ -306,7 +323,7 @@ const obtenerCortesFiltrados = async (req, res) => {
       farmacia: 'farmaciaInfo.nombre',          // por nombre
       usuario: 'usuarioInfo.nombre',            // por nombre
     };
-    const dir       = String(sortDir).toLowerCase() === 'asc' ? 1 : -1;
+    const dir = String(sortDir).toLowerCase() === 'asc' ? 1 : -1;
     const sortField = sortMap[sortBy] || 'fechaInicio';
 
     // ---------- pipeline ----------
@@ -347,10 +364,10 @@ const obtenerCortesFiltrados = async (req, res) => {
               { $ifNull: ['$totalEfectivoEnCaja', 0] }
             ]
           },
-          _efectivoInicial:     { $toDouble: { $ifNull: ['$efectivoInicial', 0] } },
-          _efectivoCaja:        { $toDouble: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
-          _totalTarjeta:        { $toDouble: { $ifNull: ['$totalTarjeta', 0] } },
-          _totalTransferencia:  { $toDouble: { $ifNull: ['$totalTransferencia', 0] } },
+          _efectivoInicial: { $toDouble: { $ifNull: ['$efectivoInicial', 0] } },
+          _efectivoCaja: { $toDouble: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
+          _totalTarjeta: { $toDouble: { $ifNull: ['$totalTarjeta', 0] } },
+          _totalTransferencia: { $toDouble: { $ifNull: ['$totalTransferencia', 0] } },
         }
       },
 
@@ -360,7 +377,7 @@ const obtenerCortesFiltrados = async (req, res) => {
           ingresoEfectivo: {
             $let: {
               vars: { diff: { $subtract: ['$_efectivoCaja', '$_efectivoInicial'] } },
-              in:   { $cond: [{ $lt: ['$$diff', 0] }, 0, '$$diff'] } // nunca negativo
+              in: { $cond: [{ $lt: ['$$diff', 0] }, 0, '$$diff'] } // nunca negativo
             }
           }
         }
@@ -425,15 +442,15 @@ const obtenerCortesFiltrados = async (req, res) => {
             {
               $group: {
                 _id: null,
-                conteo:               { $sum: 1 },
-                efectivoInicial:      { $sum: { $ifNull: ['$efectivoInicial', 0] } },
-                totalEfectivoEnCaja:  { $sum: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
-                totalTarjeta:         { $sum: { $ifNull: ['$totalTarjeta', 0] } },
-                totalTransferencia:   { $sum: { $ifNull: ['$totalTransferencia', 0] } },
-                totalVale:            { $sum: { $ifNull: ['$totalVale', 0] } },
-                abonosMonederos:      { $sum: { $ifNull: ['$abonosMonederos', 0] } },
-                ingresoEfectivo:      { $sum: '$ingresoEfectivo' },
-                ingresoTotal:         { $sum: '$ingresoTotal' },
+                conteo: { $sum: 1 },
+                efectivoInicial: { $sum: { $ifNull: ['$efectivoInicial', 0] } },
+                totalEfectivoEnCaja: { $sum: { $ifNull: ['$totalEfectivoEnCaja', 0] } },
+                totalTarjeta: { $sum: { $ifNull: ['$totalTarjeta', 0] } },
+                totalTransferencia: { $sum: { $ifNull: ['$totalTransferencia', 0] } },
+                totalVale: { $sum: { $ifNull: ['$totalVale', 0] } },
+                abonosMonederos: { $sum: { $ifNull: ['$abonosMonederos', 0] } },
+                ingresoEfectivo: { $sum: '$ingresoEfectivo' },
+                ingresoTotal: { $sum: '$ingresoTotal' },
               },
             },
             { $project: { _id: 0 } },
@@ -443,7 +460,7 @@ const obtenerCortesFiltrados = async (req, res) => {
     ];
 
     // collation para ordenar por texto en español (insensible a mayúsculas/acentos)
-    const agg   = await CorteCaja.aggregate(pipeline).collation({ locale: 'es', strength: 1 });
+    const agg = await CorteCaja.aggregate(pipeline).collation({ locale: 'es', strength: 1 });
     const facet = agg?.[0] || { rows: [], totalCount: [], totales: [] };
 
     const total = facet.totalCount?.[0]?.count || 0;
@@ -458,7 +475,7 @@ const obtenerCortesFiltrados = async (req, res) => {
         hasPrev: pageNum > 1 && pageNum <= pages,
         hasNext: pageNum < pages,
       },
-      cortes:  facet.rows || [],
+      cortes: facet.rows || [],
       totales: facet.totales?.[0] || totalesVacios(),
     });
   } catch (err) {

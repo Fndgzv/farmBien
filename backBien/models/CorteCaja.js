@@ -12,6 +12,39 @@ const CorteCajaSchema = new mongoose.Schema({
   efectivoInicial: { type: Number, required: true },
   saldoInicialRecargas: { type: Number, required: true },
 
+  tarjetas: [{
+    origen: { type: String, enum: ['venta', 'pedido'], required: true },
+    referencia: String,          // folio venta o pedido
+    monto: Number,
+    comision: Number,            // 4%
+    neto: Number,
+    fecha: Date
+  }],
+
+  transferencias: [{
+    origen: { type: String, enum: ['venta', 'pedido'], required: true },
+    referencia: String,
+    monto: Number,
+    fecha: Date
+  }],
+
+  efectivoMovimientos: [{
+    origen: {
+      type: String,
+      enum: ['venta', 'pedido', 'devolucion', 'cancelacion'],
+      required: true
+    },
+    referencia: String,
+    monto: Number,       // positivo o negativo
+    fecha: Date
+  }],
+
+  recargas: {
+    saldoInicial: { type: Number, required: true },
+    vendidas: { type: Number, default: 0 },
+    saldoTeoricoFinal: { type: Number, default: 0 }
+  },
+
   // ventas
   ventasEfectivo: { type: Number, default: 0 },
   ventasTarjeta: { type: Number, default: 0 },
