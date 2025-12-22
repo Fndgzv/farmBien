@@ -80,35 +80,79 @@ const finalizarCorte = async (req, res) => {
     const usuarioId = String(corte.usuario);
 
     // ===== RANGOS CONSISTENTES =====
-    // inicio = la fechaInicio guardada (la tomamos tal cual)
-    // fin = "ahora" en zona local y convertida a UTC
     const inicio = new Date(corte.fechaInicio);
     const finLocal = DateTime.now().setZone(ZONE);
     const fin = finLocal.toUTC().toJSDate();
-
-    // Construye un único filtro por rango medio-abierto [inicio, fin)
     const RANGO = { $gte: inicio, $lt: fin };
 
-    // Helper numérico robusto
     const N = v => (typeof v === 'number' ? v : Number(v)) || 0;
 
-    // === Ventas (del usuario y farmacia) ===
+    // Limpieza defensiva (por si se reintenta finalizar)
+    corte.tarjetas = [];
+    corte.transferencias = [];
+
+    /* =========================
+       VENTAS
+    ========================== */
     const ventas = await Venta.find({
       farmacia: corte.farmacia,
       usuario: usuarioId,
       fecha: RANGO,
     }).populate('productos.producto', 'categoria');
 
-    const ventasEfectivo = ventas.reduce((a, v) => a + N(v.formaPago?.efectivo), 0);
-    const ventasTarjeta = ventas.reduce((a, v) => a + N(v.formaPago?.tarjeta), 0);
-    const ventasTransferencia = ventas.reduce((a, v) => a + N(v.formaPago?.transferencia), 0);
-    const ventasVale = ventas.reduce((a, v) => a + N(v.formaPago?.vale), 0);
-    const abonosMonedero = ventas.reduce((a, v) => a + N(v.totalMonederoCliente), 0);
-    const recargasVendidas = ventas.flatMap(v => v.productos || [])
-      .filter(d => d.producto?.categoria === 'Recargas')
-      .reduce((sum, d) => sum + N(d.totalRen), 0);
+    let ventasEfectivo = 0;
+    let ventasTarjeta = 0;
+    let ventasTransferencia = 0;
+    let ventasVale = 0;
+    let abonosMonedero = 0;
+    let recargasVendidas = 0;
 
-    // === Devoluciones ===
+    ventas.forEach(v => {
+      const efectivo = N(v.formaPago?.efectivo);
+      const tarjeta = N(v.formaPago?.tarjeta);
+      const transferencia = N(v.formaPago?.transferencia);
+      const vale = N(v.formaPago?.vale);
+
+      ventasEfectivo += efectivo;
+      ventasTarjeta += tarjeta;
+      ventasTransferencia += transferencia;
+      ventasVale += vale;
+      abonosMonedero += N(v.totalMonederoCliente);
+
+      // 🔹 DESGLOSE TARJETA (VENTA)
+      if (tarjeta > 0) {
+        const comision = +(tarjeta * 0.04).toFixed(2);
+        corte.tarjetas.push({
+          origen: 'venta',
+          referencia: v.folio,
+          monto: tarjeta,
+          comision,
+          neto: +(tarjeta - comision).toFixed(2),
+          fecha: v.fecha
+        });
+      }
+
+      // 🔹 DESGLOSE TRANSFERENCIA (VENTA)
+      if (transferencia > 0) {
+        corte.transferencias.push({
+          origen: 'venta',
+          referencia: v.folio,
+          monto: transferencia,
+          fecha: v.fecha
+        });
+      }
+
+      // 🔹 RECARGAS (INFORMATIVO, SIN IMPORTAR FORMA DE PAGO)
+      (v.productos || []).forEach(d => {
+        if (d.producto?.categoria === 'Recargas') {
+          recargasVendidas += N(d.totalRen);
+        }
+      });
+    });
+
+    /* =========================
+       DEVOLUCIONES
+    ========================== */
     const devoluciones = await Devolucion.find({
       farmacia: corte.farmacia,
       usuario: usuarioId,
@@ -118,18 +162,56 @@ const finalizarCorte = async (req, res) => {
     const devolucionesVale = devoluciones.reduce((a, d) => a + N(d.valeDevuelto), 0);
     const devolucionesEfectivo = devoluciones.reduce((a, d) => a + N(d.dineroDevuelto), 0);
 
-    // === Pedidos (anticipos por quien levantó, resto por quien surtió) ===
+    /* =========================
+       PEDIDOS - ANTICIPOS
+    ========================== */
     const anticipos = await Pedido.find({
       farmacia: corte.farmacia,
       usuarioPidio: usuarioId,
       fechaPedido: RANGO,
     });
 
-    const anticiposEfectivo = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.efectivo), 0);
-    const anticiposTarjeta = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.tarjeta), 0);
-    const anticiposTransferencia = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.transferencia), 0);
-    const anticiposVale = anticipos.reduce((a, p) => a + N(p.pagoACuenta?.vale), 0);
+    let anticiposEfectivo = 0;
+    let anticiposTarjeta = 0;
+    let anticiposTransferencia = 0;
+    let anticiposVale = 0;
 
+    anticipos.forEach(p => {
+      const ef = N(p.pagoACuenta?.efectivo);
+      const tj = N(p.pagoACuenta?.tarjeta);
+      const tr = N(p.pagoACuenta?.transferencia);
+      const vl = N(p.pagoACuenta?.vale);
+
+      anticiposEfectivo += ef;
+      anticiposTarjeta += tj;
+      anticiposTransferencia += tr;
+      anticiposVale += vl;
+
+      if (tj > 0) {
+        const comision = +(tj * 0.04).toFixed(2);
+        corte.tarjetas.push({
+          origen: 'pedido',
+          referencia: p.folio,
+          monto: tj,
+          comision,
+          neto: +(tj - comision).toFixed(2),
+          fecha: p.fechaPedido
+        });
+      }
+
+      if (tr > 0) {
+        corte.transferencias.push({
+          origen: 'pedido',
+          referencia: p.folio,
+          monto: tr,
+          fecha: p.fechaPedido
+        });
+      }
+    });
+
+    /* =========================
+       PEDIDOS - RESTO
+    ========================== */
     const entregas = await Pedido.find({
       farmacia: corte.farmacia,
       usuarioSurtio: usuarioId,
@@ -137,12 +219,47 @@ const finalizarCorte = async (req, res) => {
       estado: 'entregado',
     });
 
-    const restoEfectivo = entregas.reduce((a, p) => a + N(p.pagoResta?.efectivo), 0);
-    const restoTarjeta = entregas.reduce((a, p) => a + N(p.pagoResta?.tarjeta), 0);
-    const restoTransferencia = entregas.reduce((a, p) => a + N(p.pagoResta?.transferencia), 0);
-    const restoVale = entregas.reduce((a, p) => a + N(p.pagoResta?.vale), 0);
+    let restoEfectivo = 0;
+    let restoTarjeta = 0;
+    let restoTransferencia = 0;
+    let restoVale = 0;
 
-    // === Cancelaciones ===
+    entregas.forEach(p => {
+      const ef = N(p.pagoResta?.efectivo);
+      const tj = N(p.pagoResta?.tarjeta);
+      const tr = N(p.pagoResta?.transferencia);
+      const vl = N(p.pagoResta?.vale);
+
+      restoEfectivo += ef;
+      restoTarjeta += tj;
+      restoTransferencia += tr;
+      restoVale += vl;
+
+      if (tj > 0) {
+        const comision = +(tj * 0.04).toFixed(2);
+        corte.tarjetas.push({
+          origen: 'pedido',
+          referencia: p.folio,
+          monto: tj,
+          comision,
+          neto: +(tj - comision).toFixed(2),
+          fecha: p.fechaEntrega
+        });
+      }
+
+      if (tr > 0) {
+        corte.transferencias.push({
+          origen: 'pedido',
+          referencia: p.folio,
+          monto: tr,
+          fecha: p.fechaEntrega
+        });
+      }
+    });
+
+    /* =========================
+       CANCELACIONES
+    ========================== */
     const cancelaciones = await Cancelacion.find({
       farmacia: corte.farmacia,
       usuario: usuarioId,
@@ -152,22 +269,14 @@ const finalizarCorte = async (req, res) => {
     const cancelacionesVale = cancelaciones.reduce((a, c) => a + N(c.valeDevuelto), 0);
     const cancelacionesEfectivo = cancelaciones.reduce((a, c) => a + N(c.dineroDevuelto), 0);
 
-    // === Totales ===
+    /* =========================
+       TOTALES
+    ========================== */
     const pedidosEfectivo = anticiposEfectivo + restoEfectivo;
     const pedidosTarjeta = anticiposTarjeta + restoTarjeta;
     const pedidosTransferencia = anticiposTransferencia + restoTransferencia;
     const pedidosVale = anticiposVale + restoVale;
 
-    const totalTarjeta = ventasTarjeta + pedidosTarjeta;
-    const totalTransferencia = ventasTransferencia + pedidosTransferencia;
-    const totalVale = ventasVale - devolucionesVale + pedidosVale - cancelacionesVale;
-
-    const efectivoInicial = N(corte.efectivoInicial);
-    const totalEfectivoEnCaja = efectivoInicial
-      + ventasEfectivo - devolucionesEfectivo
-      + pedidosEfectivo - cancelacionesEfectivo;
-
-    // === Guardar corte (fechaFin = fin) ===
     corte.fechaFin = fin;
 
     corte.ventasEfectivo = ventasEfectivo;
@@ -184,29 +293,37 @@ const finalizarCorte = async (req, res) => {
     corte.pedidosCanceladosEfectivo = cancelacionesEfectivo;
     corte.pedidosCanceladosVale = cancelacionesVale;
 
-    corte.totalEfectivoEnCaja = totalEfectivoEnCaja;
-    corte.totalTarjeta = totalTarjeta;
-    corte.totalTransferencia = totalTransferencia;
-    corte.totalVale = totalVale;
-    corte.totalRecargas = recargasVendidas;
-    corte.abonosMonederos = abonosMonedero;
+    const efectivoInicial = N(corte.efectivoInicial);
+    corte.totalEfectivoEnCaja =
+      efectivoInicial +
+      ventasEfectivo -
+      devolucionesEfectivo +
+      pedidosEfectivo -
+      cancelacionesEfectivo;
 
+    corte.totalTarjeta = ventasTarjeta + pedidosTarjeta;
+    corte.totalTransferencia = ventasTransferencia + pedidosTransferencia;
+    corte.totalVale = ventasVale - devolucionesVale + pedidosVale - cancelacionesVale;
+
+    // 🔹 RECARGAS (OBJETO NUEVO)
+    if (!corte.recargas) {
+      corte.recargas = {
+        saldoInicial: N(corte.saldoInicialRecargas),
+        vendidas: recargasVendidas,
+        saldoTeoricoFinal: N(corte.saldoInicialRecargas) - recargasVendidas
+      };
+    } else {
+      corte.recargas.vendidas = recargasVendidas;
+      corte.recargas.saldoTeoricoFinal =
+        N(corte.recargas.saldoInicial) - recargasVendidas;
+    }
+
+    corte.abonosMonederos = abonosMonedero;
     corte.ventasRealizadas = ventas.length;
     corte.devolucionesRealizadas = devoluciones.length;
     corte.pedidosLevantados = anticipos.length;
     corte.pedidosEntregados = entregas.length;
     corte.pedidosCancelados = cancelaciones.length;
-
-    // 🔒 BACKWARD COMPATIBILITY PARA CORTES ANTIGUOS
-    if (!corte.recargas) {
-      corte.recargas = {
-        saldoInicial: N(corte.saldoInicialRecargas),
-        vendidas: 0,
-        saldoTeoricoFinal: N(corte.saldoInicialRecargas),
-      };
-    } else if (typeof corte.recargas.saldoInicial !== 'number') {
-      corte.recargas.saldoInicial = N(corte.saldoInicialRecargas);
-    }
 
     if (grabar) await corte.save();
 
@@ -216,6 +333,7 @@ const finalizarCorte = async (req, res) => {
     return res.status(500).json({ mensaje: 'Error al finalizar corte' });
   }
 };
+
 
 const obtenerCorteActivo = async (req, res) => {
   const { usuarioId, farmaciaId } = req.params;

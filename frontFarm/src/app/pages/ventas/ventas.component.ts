@@ -1486,7 +1486,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const productos = this.carrito.map(p => ({
       producto: p.producto,
       nombre: p.nombre,
-      barrasYNombre: `${p.codBarras.slice(-3)} ${p.nombre}`,
+      barrasYNombre: `${(p.codBarras ?? '').slice(-3)} ${p.nombre}`,
       cantidad: p.cantidad,
       precio: p.precioFinal,
       totalRen: p.precioFinal * p.cantidad,

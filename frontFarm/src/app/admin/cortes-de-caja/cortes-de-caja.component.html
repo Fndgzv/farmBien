@@ -167,17 +167,17 @@
                     <td colspan="2" class="text-end fw-bold">Totales:</td>
 
                     <!-- Columnas numéricas en el mismo orden que el thead -->
-                    <td class="text-end fw-bold">{{ (totales?.efectivoInicial || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales?.totalEfectivoEnCaja || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales?.ingresoEfectivo || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales?.totalTarjeta || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales?.totalTransferencia || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales?.totalVale || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales?.ingresoTotal || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales?.abonosMonederos || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.efectivoInicial || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.totalEfectivoEnCaja || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.ingresoEfectivo || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.totalTarjeta || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.totalTransferencia || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.totalVale || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.ingresoTotal || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.abonosMonederos || 0) | currency }}</td>
 
                     <!-- Fechas + acciones no aplican (vacías) -->
-                    <td colspan="3" class="text-muted">Cortes de caja: {{ totales?.conteo || 0 }}</td>
+                    <td colspan="3" class="text-muted">Cortes de caja: {{ totales.conteo || 0 }}</td>
                 </tr>
             </tfoot>
 
@@ -185,7 +185,7 @@
 
     </div>
     <div class="paginacion my-2"
-        *ngIf="paginacion?.pages">
+        *ngIf="paginacion.pages">
         <button (click)="cambiarPagina(1)" [disabled]="paginacion.page <= 1"
             matTooltip="Inicio">
             <i class="fa fa-angle-double-left"></i>
