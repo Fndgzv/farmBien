@@ -101,6 +101,13 @@ export const routes: Routes = [
         canActivate: [authGuard]
       },
       {
+        path: 'ajuste-stocks-farmacias',
+        loadComponent: () =>
+          import('./admin/farmacias/ajuste-stock-auto/ajuste-stock-auto.component').then(m => m.AjusteStockAutoComponent),
+        data: { rolesPermitidos: ['admin'] },
+        canActivate: [authGuard]
+      },
+      {
         path: 'usuarios',
         loadComponent: () =>
           import('./admin/usuarios/usuarios.component').then(n => n.UsuariosComponent),

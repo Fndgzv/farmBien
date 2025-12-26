@@ -23,7 +23,6 @@ export class FarmaciaSelectorComponent implements OnInit {
   constructor(private farmaciaService: FarmaciaService, private http: HttpClient) { }
 
   ngOnInit(): void {
-    const token = localStorage.getItem('token');
 
     this.farmaciaService.obtenerFarmacias().subscribe({
       next: (data) => (this.farmacias = data),

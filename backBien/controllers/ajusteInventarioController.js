@@ -1,5 +1,6 @@
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 const Producto = require('../models/Producto');
+const Venta = require('../models/Venta');
 const mongoose = require('mongoose');
 const { Types } = mongoose;
 const ObjectId = Types.ObjectId;
@@ -247,9 +248,6 @@ exports.actualizarInventarioMasivo = async (req, res) => {
   }
 };
 
-
-
-
 // Actualización individual de un producto en farmacia
 exports.actualizarInventarioIndividual = async (req, res) => {
   const { id } = req.params;
@@ -279,3 +277,307 @@ exports.actualizarInventarioIndividual = async (req, res) => {
   }
 };
 
+exports.stockPropuesto = async (req, res) => {
+  try {
+    const {
+      farmaciaId,
+      desde,
+      hasta,
+      diasSurtir,
+      categoria,
+      productoNombre
+    } = req.query;
+
+    /* ================= VALIDACIONES ================= */
+
+    if (!farmaciaId || !desde || !hasta || !diasSurtir) {
+      return res.status(400).json({ msg: 'Faltan parámetros obligatorios' });
+    }
+
+    const dias = Number(diasSurtir);
+    if (!Number.isFinite(dias) || dias <= 0) {
+      return res.status(400).json({ msg: 'diasSurtir inválido' });
+    }
+
+    if (!Types.ObjectId.isValid(farmaciaId)) {
+      return res.status(400).json({ msg: 'farmaciaId inválido' });
+    }
+
+    const fId = new Types.ObjectId(farmaciaId);
+    const fechaIni = new Date(`${desde}T00:00:00.000Z`);
+    const fechaFin = new Date(`${hasta}T23:59:59.999Z`);
+
+    const diasPeriodo = Math.max(
+      Math.ceil((fechaFin - fechaIni) / (1000 * 60 * 60 * 24)),
+      1
+    );
+
+    /* ================= HELPERS ================= */
+
+    const norm = (s) =>
+      String(s ?? '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const splitWords = (s) => norm(s).split(' ').filter(Boolean);
+
+    const escapeRegex = (s) =>
+      String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    /* ================= FILTRO PRODUCTO (AND) ================= */
+
+    const andProducto = [];
+
+    if (categoria) {
+      for (const w of splitWords(categoria)) {
+        andProducto.push({
+          'producto.categoriaNorm': { $regex: `^${escapeRegex(w)}` }
+        });
+      }
+    }
+
+    if (productoNombre) {
+      for (const w of splitWords(productoNombre)) {
+        andProducto.push({
+          'producto.nombreNorm': { $regex: escapeRegex(w) }
+        });
+      }
+    }
+
+    /* ================= PIPELINE ================= */
+
+    const pipeline = [
+      {
+        $match: {
+          farmacia: fId,
+          fecha: { $gte: fechaIni, $lte: fechaFin }
+        }
+      },
+      { $unwind: '$productos' },
+
+      {
+        $group: {
+          _id: '$productos.producto',
+          cantidadVendida: { $sum: '$productos.cantidad' }
+        }
+      },
+
+      // 🔗 join con productos
+      {
+        $lookup: {
+          from: 'productos',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'producto'
+        }
+      },
+      { $unwind: '$producto' },
+
+      // 🔍 filtros AND por nombre/categoría
+      ...(andProducto.length
+        ? [{ $match: { $and: andProducto } }]
+        : [])
+    ];
+
+    const ventasAgrupadas = await Venta.aggregate(pipeline);
+    if (!ventasAgrupadas.length) return res.json([]);
+
+    const productoIds = ventasAgrupadas.map(v => v._id);
+
+    /* ================= INVENTARIO FARMACIA ================= */
+
+    const inventarios = await InventarioFarmacia.find({
+      farmacia: fId,
+      producto: { $in: productoIds }
+    }).populate('producto', 'nombre codigoBarras categoria');
+
+    const mapInventario = new Map(
+      inventarios.map(i => [String(i.producto._id), i])
+    );
+
+    /* ================= TABLA FINAL ================= */
+
+    const tabla = ventasAgrupadas.map(v => {
+      const inv = mapInventario.get(String(v._id));
+
+      const productosPorDia = Number(
+        (v.cantidadVendida / diasPeriodo).toFixed(2)
+      );
+
+      const stockMaxPropuesto = Math.ceil(productosPorDia * dias * 1.1);
+      const stockMinPropuesto = Math.round(stockMaxPropuesto / 3);
+
+      const existencia = inv?.existencia ?? 0;
+      return {
+        productoId: v._id,
+        productoNombre: v.producto.nombre,
+        codigoBarras: v.producto.codigoBarras || '',
+        categoria: v.producto.categoria || '',
+        cantidadVendida: v.cantidadVendida,
+        existencia: inv?.existencia ?? 0,
+        stockMinActual: inv?.stockMin ?? 0,
+        stockMaxActual: inv?.stockMax ?? 0,
+        productosPorDia,
+        stockMinPropuesto,
+        stockMaxPropuesto,
+        faltanSobran: stockMaxPropuesto - existencia,
+        aplicar: false
+      };
+    });
+
+    res.json(tabla);
+
+  } catch (err) {
+    console.error('❌ Error stockPropuesto:', err);
+    res.status(500).json({ msg: 'Error calculando stock propuesto' });
+  }
+
+  exports.aplicarCambiosStockAuto = async (req, res) => {
+    try {
+      const { farmaciaId, productos } = req.body;
+
+      /* ================= VALIDACIONES ================= */
+
+      if (!farmaciaId || !Types.ObjectId.isValid(farmaciaId)) {
+        return res.status(400).json({ msg: 'farmaciaId inválido' });
+      }
+
+      if (!Array.isArray(productos) || productos.length === 0) {
+        return res.status(400).json({ msg: 'No hay productos para actualizar' });
+      }
+
+      /* ================= NORMALIZAR ================= */
+
+      const fId = new Types.ObjectId(farmaciaId);
+
+      const operaciones = productos.map(p => {
+        if (
+          !p.productoId ||
+          !Types.ObjectId.isValid(p.productoId)
+        ) {
+          return null;
+        }
+
+        const stockMin = Number(p.stockMin);
+        const stockMax = Number(p.stockMax);
+
+        if (
+          !Number.isFinite(stockMin) ||
+          !Number.isFinite(stockMax) ||
+          stockMin < 0 ||
+          stockMax < 0
+        ) {
+          return null;
+        }
+
+        return {
+          updateOne: {
+            filter: {
+              farmacia: fId,
+              producto: new Types.ObjectId(p.productoId)
+            },
+            update: {
+              $set: {
+                stockMin,
+                stockMax
+              }
+            }
+          }
+        };
+      }).filter(Boolean);
+
+      if (!operaciones.length) {
+        return res.status(400).json({ msg: 'No hay operaciones válidas' });
+      }
+
+      /* ================= BULK UPDATE ================= */
+
+      const resultado = await InventarioFarmacia.bulkWrite(operaciones);
+
+      res.json({
+        ok: true,
+        modificados: resultado.modifiedCount
+      });
+
+    } catch (err) {
+      console.error('❌ Error aplicarCambiosStockAuto:', err);
+      res.status(500).json({ msg: 'Error aplicando cambios de stock' });
+    }
+  };
+
+};
+
+exports.aplicarCambiosStockAuto = async (req, res) => {
+  try {
+    const { farmaciaId, productos } = req.body;
+
+    /* ================= VALIDACIONES ================= */
+
+    if (!farmaciaId || !Types.ObjectId.isValid(farmaciaId)) {
+      return res.status(400).json({ msg: 'farmaciaId inválido' });
+    }
+
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({ msg: 'No hay productos para actualizar' });
+    }
+
+    /* ================= NORMALIZAR ================= */
+
+    const fId = new Types.ObjectId(farmaciaId);
+
+    const operaciones = productos.map(p => {
+      if (
+        !p.productoId ||
+        !Types.ObjectId.isValid(p.productoId)
+      ) {
+        return null;
+      }
+
+      const stockMin = Number(p.stockMin);
+      const stockMax = Number(p.stockMax);
+
+      if (
+        !Number.isFinite(stockMin) ||
+        !Number.isFinite(stockMax) ||
+        stockMin < 0 ||
+        stockMax < 0
+      ) {
+        return null;
+      }
+
+      return {
+        updateOne: {
+          filter: {
+            farmacia: fId,
+            producto: new Types.ObjectId(p.productoId)
+          },
+          update: {
+            $set: {
+              stockMin,
+              stockMax
+            }
+          }
+        }
+      };
+    }).filter(Boolean);
+
+    if (!operaciones.length) {
+      return res.status(400).json({ msg: 'No hay operaciones válidas' });
+    }
+
+    /* ================= BULK UPDATE ================= */
+
+    const resultado = await InventarioFarmacia.bulkWrite(operaciones);
+
+    res.json({
+      ok: true,
+      modificados: resultado.modifiedCount
+    });
+
+  } catch (err) {
+    console.error('❌ Error aplicarCambiosStockAuto:', err);
+    res.status(500).json({ msg: 'Error aplicando cambios de stock' });
+  }
+};

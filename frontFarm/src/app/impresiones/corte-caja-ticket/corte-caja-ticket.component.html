@@ -28,10 +28,108 @@
     
     <p style="font-style: italic;">Recargas telefónicas</p>
     Saldo inicial: <strong>${{ datosCorte.saldoInicialRecargas }} </strong><br>
-    <!-- Total Recargas: <strong>${{ datosCorte.totalRecargas }} </strong><br> -->
     Saldo final: <strong>${{ datosCorte.saldoInicialRecargas - datosCorte.totalRecargas }} </strong>
   </div>
 
   <hr>
   <app-ticket-footer></app-ticket-footer>
 </div>
+
+
+<!-- VERSIÓN CHINGONA, DESCOMENTAR CUANDO LA PIDAN -->
+<!-- 
+<div class="ticket-corteCaja" style="font-family: Roboto Condensed, Arial, sans-serif; font-size: 12px;">
+
+  <app-ticket-header [nombreFarmacia]="datosCorte.nomFarm" [direccion]="datosCorte.dirFarm"
+    [telefono]="datosCorte.telFarm" [imagen]="datosCorte.imgFarm" [titulo1]="datosCorte.ti1Farm"
+    [titulo2]="datosCorte.ti2Farm">
+  </app-ticket-header>
+
+  <div style="text-align:center; margin:6px 0;">
+    <strong style="font-size:14px;">CORTE DE CAJA</strong><br>
+    <strong>{{ datosCorte.responsable }}</strong><br>
+    Inicio: {{ datosCorte.fechaInicio | date:'dd/MM/yyyy HH:mm' }}<br>
+    Fin: {{ datosCorte.fechaFin | date:'dd/MM/yyyy HH:mm' }}
+  </div>
+
+  <hr>
+
+  <div>
+    <strong>Movimientos</strong><br>
+    Ventas realizadas: {{ datosCorte.ventasRealizadas }}<br>
+    Devoluciones: {{ datosCorte.devolucionesRealizadas }}<br>
+    Pedidos levantados: {{ datosCorte.pedidosLevantados }}<br>
+    Pedidos entregados: {{ datosCorte.pedidosEntregados }}<br>
+    Pedidos cancelados: {{ datosCorte.pedidosCancelados }}
+  </div>
+
+  <hr>
+
+  <div>
+    <strong>Efectivo</strong><br>
+    Inicial: ${{ datosCorte.efectivoInicial | number:'1.2-2' }}<br>
+
+    Ingresos efectivo:
+    ${{ (datosCorte.ventasEfectivo + datosCorte.pedidosEfectivo) | number:'1.2-2' }}<br>
+
+    Egresos efectivo:
+    ${{ (datosCorte.devolucionesEfectivo + datosCorte.pedidosCanceladosEfectivo) | number:'1.2-2' }}<br>
+
+    <strong>
+      Efectivo final en caja:
+      ${{ datosCorte.totalEfectivoEnCaja | number:'1.2-2' }}
+    </strong>
+  </div>
+
+  <hr>
+
+  <div *ngIf="datosCorte.totalTarjeta > 0">
+    <strong>Pagos con tarjeta</strong><br>
+    Total: ${{ datosCorte.totalTarjeta | number:'1.2-2' }}<br>
+
+    <div *ngIf="datosCorte.tarjetas?.length">
+      <em>Detalle de vouchers:</em><br>
+      <div *ngFor="let t of datosCorte.tarjetas; let i = index">
+        {{ i + 1 }}.
+        {{ t.referencia }}
+        ${{ t.monto | number:'1.2-2' }}
+      </div>
+    </div>
+  </div>
+
+  <hr *ngIf="datosCorte.totalTarjeta > 0">
+
+  <div *ngIf="datosCorte.totalTransferencia > 0">
+    <strong>Transferencias</strong><br>
+    Total: ${{ datosCorte.totalTransferencia | number:'1.2-2' }}<br>
+
+    <div *ngIf="datosCorte.transferencias?.length">
+      <em>Detalle:</em><br>
+      <div *ngFor="let tr of datosCorte.transferencias; let i = index">
+        {{ i + 1 }}.
+        {{ tr.referencia }}
+        ${{ tr.monto | number:'1.2-2' }}
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <div>
+    <strong>Recargas telefónicas</strong><br>
+    Saldo inicial:
+    ${{ datosCorte.recargas?.saldoInicial | number:'1.2-2' }}<br>
+
+    Recargas vendidas:
+    ${{ datosCorte.recargas?.vendidas | number:'1.2-2' }}<br>
+
+    <strong>
+      Saldo teórico final:
+      ${{ datosCorte.recargas?.saldoTeoricoFinal | number:'1.2-2' }}
+    </strong>
+  </div>
+
+  <hr>
+
+  <app-ticket-footer></app-ticket-footer>
+</div> -->

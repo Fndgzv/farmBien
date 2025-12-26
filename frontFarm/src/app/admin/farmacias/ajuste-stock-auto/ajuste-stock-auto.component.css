@@ -1,0 +1,139 @@
+/* Contenedor principal de filtros */
+.filtros-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+/* Cada campo */
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Labels */
+.campo label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Inputs y select */
+.campo input,
+.campo select {
+  height: 42px;              /* 👈 misma altura que botón */
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid #bfc5cc;
+  outline: none;
+}
+
+/* Focus */
+.campo input:focus,
+.campo select:focus {
+  border-color: #3f51b5;
+  box-shadow: 0 0 0 1px rgba(63, 81, 181, 0.15);
+}
+
+/* Campo del botón */
+.campo.accion {
+  justify-content: flex-end;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: center;
+}
+
+thead {
+  background: #f5f5f5;
+}
+
+button {
+  margin-top: 10px;
+}
+
+/* Nombre + código en dos líneas compactas */
+.nombre-cell .nombre-text {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.nombre-cell .codigo-mini {
+  display: block;
+  font-size: 11px;
+  color: #6c757d; /* gris suave */
+  margin-top: 2px;
+}
+
+td.faltan {
+  color: #c62828;
+  font-weight: bold;
+}
+
+td.sobran {
+  color: #ef6c00;
+  font-weight: bold;
+}
+
+td.ok {
+  color: #2e7d32;
+  font-weight: bold;
+}
+
+.acciones-stock {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.input-stock {
+  width: 70px;
+  height: 32px;
+  text-align: center;
+}
+
+.btn-naranja {
+  background: #ff9800;
+  color: #000;
+}
+
+.btn-naranja:hover {
+  background: linear-gradient(45deg, #ff9800, #fcd25f);
+  box-shadow: 0 4px 8px rgba(255, 204, 0, 0.5);
+  color: red;
+}
+
+
+.btn-azul {
+  background: #93f5fc;
+  color: #000;
+}
+
+.btn-azul:hover {
+  background: linear-gradient(45deg, #93f5fc, #dc77fd);
+  box-shadow: 0 4px 8px rgba(17, 0, 255, 0.5);
+  color: red;
+}
+
+.btn-negro {
+  background: #111d1d;
+  color: #c8f407;
+}
+
+.btn-negro:hover {
+  background: linear-gradient(45deg, #111d1d, #eab3fc);
+  box-shadow: 0 4px 8px rgba(106, 96, 253, 0.5);
+  color: #edfab6;
+}

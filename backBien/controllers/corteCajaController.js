@@ -325,7 +325,7 @@ const finalizarCorte = async (req, res) => {
     corte.pedidosEntregados = entregas.length;
     corte.pedidosCancelados = cancelaciones.length;
 
-    if (grabar) await corte.save();
+    if (grabar) await corte.save(); console.log('Ya se calculó, no se graba todavía');
 
     return res.status(200).json({ mensaje: 'Corte finalizado', corte });
   } catch (error) {

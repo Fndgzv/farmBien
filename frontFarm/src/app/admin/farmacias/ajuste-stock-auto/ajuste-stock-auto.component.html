@@ -1,0 +1,166 @@
+<h3 class="titulo" style="text-align: center;">Ajuste automático de stock</h3>
+
+<div class="filtros-grid">
+
+    <div class="campo">
+        <label>Farmacia</label>
+        <select [(ngModel)]="farmaciaId">
+            <option *ngFor="let f of farmacias" [ngValue]="f._id">
+                {{ f.nombre }}
+            </option>
+        </select>
+    </div>
+
+    <div class="campo">
+        <label>Producto</label>
+        <input type="text" placeholder="Nombre opcional" [(ngModel)]="nombre">
+    </div>
+
+    <div class="campo">
+        <label>Categoría</label>
+        <input type="text" placeholder="Opcional" [(ngModel)]="categoria">
+    </div>
+
+    <div class="campo">
+        <label>Desde</label>
+        <input type="date" [(ngModel)]="desde">
+    </div>
+
+    <div class="campo">
+        <label>Hasta</label>
+        <input type="date" [(ngModel)]="hasta">
+    </div>
+
+    <div class="campo">
+        <label>Días a surtir</label>
+        <input type="number" min="1" [(ngModel)]="diasSurtir">
+    </div>
+
+    <div class="campo accion">
+        <label>&nbsp;</label>
+        <button class="btn-gris" (click)="buscar()">
+            Calcular
+        </button>
+    </div>
+
+</div>
+
+<div class="acciones-stock" *ngIf="tabla.length">
+
+    <button class="btn-negro" matTooltip="Marca / desmarca página actual" (click)="togglePaginaActual()">
+        Seleccionar página
+    </button>
+
+    <button class="btn-amarillo" matTooltip="Marca / desmarca prod. existencia < stock" (click)="toggleFaltantes()">
+        Solo faltantes
+    </button>
+
+    <button class="btn-naranja" (click)="toggleSobran()" matTooltip="Marca / desmarca prod. existencia > stock">
+        Solo sobrantes
+    </button>
+
+    <button class="btn-verde" matTooltip="Actualizar stocks de productos marcados" (click)="aplicarCambios()">
+        Aplicar stocks propuestos
+    </button>
+
+    <button class="btn-azul"
+        (click)="exportarExcel()">
+        Exportar Excel
+    </button>
+
+</div>
+
+<table class="tabla" *ngIf="tabla.length">
+    <thead>
+        <tr>
+            <th matTooltip="Marcar - desmarcar todos los productos">
+                <input type="checkbox" [(ngModel)]="seleccionarTodos" (change)="toggleTodos()">
+            </th>
+            <th (click)="ordenar('productoNombre')" class=" sortable">
+                Producto
+                <i class="fa" [ngClass]="iconoOrden('productoNombre')"></i>
+            </th>
+            <th>Categoría</th>
+            <th (click)="ordenar('cantidadVendida')" class="sortable text-end">
+                Cant.Vend.
+                <i class="fa" [ngClass]="iconoOrden('cantidadVendida')"></i>
+            </th>
+            <th>Stock Min</th>
+            <th>Stock Max</th>
+            <th>Exist.</th>
+            <th (click)="ordenar('productosPorDia')" class="sortable text-end">
+                Prod/Día
+                <i class="fa" [ngClass]="iconoOrden('productosPorDia')"></i>
+            </th>
+            <th>Stock Min Propuesto</th>
+            <th>Stock Max Propuesto</th>
+            <th (click)="ordenar('faltanSobran')" class="sortable">
+                Faltan / Sobran
+                <i class="fa" [ngClass]="iconoOrden('faltanSobran')"></i>
+            </th>
+        </tr>
+    </thead>
+
+    <tbody>
+        <tr *ngFor="let r of tablaPaginada">
+            <td>
+                <input #chk type="checkbox" [checked]="seleccionados.has(r.productoId)"
+                    (change)="toggleFila(r.productoId, chk.checked)">
+            </td>
+            <td class="nombre-cell">
+                <div class="nombre-text">{{ r.productoNombre }}</div>
+                <small class="codigo-mini">{{ r.codigoBarras || '—' }}</small>
+            </td>
+            <td>{{ r.categoria }}</td>
+            <td>{{ r.cantidadVendida }}</td>
+            <td>{{ r.stockMinActual }}</td>
+            <td>{{ r.stockMaxActual }}</td>
+            <td>{{ r.existencia }}</td>
+            <td>{{ r.productosPorDia }}</td>
+            <td>
+                <input
+                    class="input-stock"
+                    type="number"
+                    min="0"
+                    [(ngModel)]="r.stockMinPropuesto"
+                    name="stockMinPropuesto_{{ r.productoId }}"
+                />
+            </td>
+            <td>
+                <input
+                    class="input-stock"
+                    type="number"
+                    min="0"
+                    [(ngModel)]="r.stockMaxPropuesto"
+                    name="stockMaxPropuesto_{{ r.productoId }}"
+                />
+            </td>
+            <td [ngClass]="{
+                'faltan': r.faltanSobran > 0,
+                'sobran': r.faltanSobran < 0,
+                'ok': r.faltanSobran === 0}">
+                {{ r.faltanSobran }}
+            </td>
+
+        </tr>
+    </tbody>
+</table>
+
+<div class="paginacion" *ngIf="totalPages > 1">
+    <button (click)="page = 1" [disabled]="page === 1" matTooltip="Primera página">
+        <i class="fa fa-angle-double-left"></i>
+    </button>
+    <button (click)="page = page - 1" [disabled]="page === 1" matTooltip="Anterior">
+        <i class="fa fa-angle-left"></i>
+    </button>
+
+    <span>Página {{ page }} de {{ totalPages }}</span>
+    <span class="total-registros">({{ tabla.length }} productos)</span>
+
+    <button (click)="page = page + 1" [disabled]="page === totalPages" matTooltip="Siguiente">
+        <i class="fa fa-angle-right"></i>
+    </button>
+    <button (click)="page = totalPages" [disabled]="page === totalPages" matTooltip="Última página">
+        <i class="fa fa-angle-double-right"></i>
+    </button>
+</div>

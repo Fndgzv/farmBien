@@ -167,6 +167,6 @@ ProductoSchema.index({ nombre: 1 });
 ProductoSchema.index({ categoria: 1 });       // opcional, útil para orden/lookup
 ProductoSchema.index({ nombreNorm: 1 });      // clave para búsquedas sin acentos
 ProductoSchema.index({ categoriaNorm: 1 });   // clave para búsquedas sin acentos
-// ProductoSchema.index({ generico: 1, descuentoINAPAM: 1 }); // opcional
+ProductoSchema.index({ categoriaNorm: 1, nombreNorm: 1 });
 
 module.exports = mongoose.models.Producto || mongoose.model("Producto", ProductoSchema);

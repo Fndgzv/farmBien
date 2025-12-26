@@ -120,11 +120,11 @@ export class CorteDetalleDialogComponent {
   }
 
   private num(v: any): number { return v == null ? 0 : Number(v); }
+
   get totales() {
     const src = this.data?.modo === 'cerrado'
       ? (this.data?.corte ?? {})
       : (this.data?.cortePreview ?? {});
-
     return {
       ventasEfectivo: this.num(src.ventasEfectivo),
       ventasTarjeta: this.num(src.ventasTarjeta),

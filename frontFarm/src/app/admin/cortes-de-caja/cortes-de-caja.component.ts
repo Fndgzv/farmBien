@@ -227,9 +227,6 @@ export class CortesDeCajaComponent implements OnInit {
     this.cargando = true;
     this.http.get(`${environment.apiUrl}/cortes/filtrados`, { headers, params }).subscribe({
       next: (resp: any) => {
-
-        console.log('Cortes de caja', resp);
-
         this.cortes = resp?.cortes || [];
         this.paginacion = resp?.paginacion || { page: 0, limit: this.limit, total: 0, pages: 0, hasPrev: false, hasNext: false };
         this.totales = resp?.totales || defaultTotales();
