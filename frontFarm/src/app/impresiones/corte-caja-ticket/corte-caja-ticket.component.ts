@@ -5,7 +5,7 @@ import { TicketHeaderComponent } from '../ticket-header/ticket-header.component'
 
 @Component({
   selector: 'app-corte-caja-ticket',
-  imports: [CommonModule, TicketHeaderComponent],
+  imports: [CommonModule, TicketHeaderComponent, TicketFooterComponent],
   templateUrl: './corte-caja-ticket.component.html',
   styleUrl: './corte-caja-ticket.component.css',
   encapsulation: ViewEncapsulation.None
