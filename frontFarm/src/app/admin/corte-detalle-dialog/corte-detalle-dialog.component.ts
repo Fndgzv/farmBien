@@ -1,5 +1,5 @@
 import { Router } from '@angular/router';
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, OnInit } from '@angular/core';
 import { DatePipe, CurrencyPipe, CommonModule } from '@angular/common';
 import {
   MAT_DIALOG_DATA, MatDialogRef,
@@ -29,7 +29,7 @@ type ModoDialog = 'cerrado' | 'previo';
 })
 
 
-export class CorteDetalleDialogComponent {
+export class CorteDetalleDialogComponent implements OnInit{
   cargando = false;
 
   constructor(
@@ -46,6 +46,11 @@ export class CorteDetalleDialogComponent {
     private dialogRef: MatDialogRef<CorteDetalleDialogComponent>,
     private router: Router
   ) { }
+
+
+  ngOnInit(): void {
+    console.log('Corte de caja en detalle', this.data.corte);    
+  }
 
   salir() {
     this.dialogRef.close(false);

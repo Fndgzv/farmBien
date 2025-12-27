@@ -1,5 +1,5 @@
 <!-- corte-caja-ticket.component.html -->
-<div class="ticket-corteCaja" style="font-family: Roboto Condensed, Arial, sans-serif;">
+<!-- <div class="ticket-corteCaja" style="font-family: Roboto Condensed, Arial, sans-serif;">
   <app-ticket-header
     [nombreFarmacia]="datosCorte.nomFarm"
     [direccion]="datosCorte.dirFarm"
@@ -34,10 +34,10 @@
   <hr>
   <app-ticket-footer></app-ticket-footer>
 </div>
-
+ -->
 
 <!-- VERSIÓN CHINGONA, DESCOMENTAR CUANDO LA PIDAN -->
-<!-- 
+
 <div class="ticket-corteCaja" style="font-family: Roboto Condensed, Arial, sans-serif; font-size: 12px;">
 
   <app-ticket-header [nombreFarmacia]="datosCorte.nomFarm" [direccion]="datosCorte.dirFarm"
@@ -52,9 +52,7 @@
     Fin: {{ datosCorte.fechaFin | date:'dd/MM/yyyy HH:mm' }}
   </div>
 
-  <hr>
-
-  <div>
+  <div class="lineBottomGray">
     <strong>Movimientos</strong><br>
     Ventas realizadas: {{ datosCorte.ventasRealizadas }}<br>
     Devoluciones: {{ datosCorte.devolucionesRealizadas }}<br>
@@ -63,9 +61,7 @@
     Pedidos cancelados: {{ datosCorte.pedidosCancelados }}
   </div>
 
-  <hr>
-
-  <div>
+  <div class="lineBottomGray">
     <strong>Efectivo</strong><br>
     Inicial: ${{ datosCorte.efectivoInicial | number:'1.2-2' }}<br>
 
@@ -75,17 +71,17 @@
     Egresos efectivo:
     ${{ (datosCorte.devolucionesEfectivo + datosCorte.pedidosCanceladosEfectivo) | number:'1.2-2' }}<br>
 
-    <strong>
-      Efectivo final en caja:
-      ${{ datosCorte.totalEfectivoEnCaja | number:'1.2-2' }}
-    </strong>
+    <div style="text-align: end;">
+      <strong>
+        Efectivo final en caja:
+        ${{ datosCorte.totalEfectivoEnCaja | number:'1.2-2' }}
+      </strong>
+    </div>
+
   </div>
 
-  <hr>
-
-  <div *ngIf="datosCorte.totalTarjeta > 0">
-    <strong>Pagos con tarjeta</strong><br>
-    Total: ${{ datosCorte.totalTarjeta | number:'1.2-2' }}<br>
+  <div class="lineBottomGray" *ngIf="datosCorte.totalTarjeta > 0">
+    <strong>Pagos con tarjeta</strong>
 
     <div *ngIf="datosCorte.tarjetas?.length">
       <em>Detalle de vouchers:</em><br>
@@ -95,14 +91,14 @@
         ${{ t.monto | number:'1.2-2' }}
       </div>
     </div>
+    <div style="text-align: end;">
+      Total: ${{ datosCorte.totalTarjeta | number:'1.2-2' }}
+    </div>
+    
   </div>
 
-  <hr *ngIf="datosCorte.totalTarjeta > 0">
-
-  <div *ngIf="datosCorte.totalTransferencia > 0">
-    <strong>Transferencias</strong><br>
-    Total: ${{ datosCorte.totalTransferencia | number:'1.2-2' }}<br>
-
+  <div class="lineBottomGray" *ngIf="datosCorte.totalTransferencia > 0">
+    <strong>Transferencias</strong>
     <div *ngIf="datosCorte.transferencias?.length">
       <em>Detalle:</em><br>
       <div *ngFor="let tr of datosCorte.transferencias; let i = index">
@@ -111,11 +107,12 @@
         ${{ tr.monto | number:'1.2-2' }}
       </div>
     </div>
+    <div style="text-align: end;">
+      Total: ${{ datosCorte.totalTransferencia | number:'1.2-2' }}
+    </div>
   </div>
 
-  <hr>
-
-  <div>
+  <div class="lineBottomGray">
     <strong>Recargas telefónicas</strong><br>
     Saldo inicial:
     ${{ datosCorte.recargas?.saldoInicial | number:'1.2-2' }}<br>
@@ -123,13 +120,76 @@
     Recargas vendidas:
     ${{ datosCorte.recargas?.vendidas | number:'1.2-2' }}<br>
 
-    <strong>
-      Saldo teórico final:
-      ${{ datosCorte.recargas?.saldoTeoricoFinal | number:'1.2-2' }}
-    </strong>
+    <div style="text-align: end;">
+      <strong>
+        Saldo telefónico final:
+        ${{ datosCorte.recargas?.saldoTeoricoFinal | number:'1.2-2' }}
+      </strong>  
+    </div>
+
   </div>
 
-  <hr>
+  <div class="desglose-efectivo">
+    <div style="text-align: center;">
+      <strong>Desglose de efectivo en caja</strong>
+    </div>
 
-  <app-ticket-footer></app-ticket-footer>
-</div> -->
+    <strong>Monedas</strong>
+
+    <table style="width:100%; border-collapse:collapse; margin-top:4px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Denom.</th>
+          <th style="text-align:left;">Cant.</th>
+          <th style="text-align:left;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>50 c</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$1</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$2</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$5</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$10</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$20</td><td>_____</td><td>$__________</td></tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:4px; text-align: end;" >
+      <strong>Total en monedas:</strong> $______________
+    </div>
+
+    <strong>Billetes</strong>
+
+    <table style="width:100%; border-collapse:collapse; margin-top:4px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;">Denom.</th>
+          <th style="text-align:left;">Cant.</th>
+          <th style="text-align:left;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>$20</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$50</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$100</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$200</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$500</td><td>_____</td><td>$__________</td></tr>
+        <tr><td>$1,000</td><td>_____</td><td>$__________</td></tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:4px; text-align: end;">
+      <strong>Total en billetes:</strong> $______________
+    </div>
+
+    <div style="margin-top:4px; text-align: end;">
+      <strong>Monedas + billetes:</strong> $______________
+    </div>
+
+  </div>
+
+  <div style="text-align:center; margin-top:10px; font-size:11px;">
+    <em>{{ fraseSeleccionada }}</em>
+  </div>
+
+</div>

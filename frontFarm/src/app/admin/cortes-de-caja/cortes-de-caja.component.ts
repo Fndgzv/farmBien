@@ -59,6 +59,12 @@ interface CorteCaja {
 
   // total de abonos al monedero los clientes 
   abonosMonederos: number;
+
+  recargas?: {
+    saldoInicial: number;
+    vendidas: number;
+    saldoTeoricoFinal: number;
+  };
 }
 
 // ===== TIPOS =====
@@ -231,6 +237,8 @@ export class CortesDeCajaComponent implements OnInit {
         this.paginacion = resp?.paginacion || { page: 0, limit: this.limit, total: 0, pages: 0, hasPrev: false, hasNext: false };
         this.totales = resp?.totales || defaultTotales();
 
+        console.log('Respuesta en cortes de caja al buscar', resp);
+
         // sincroniza limit si el backend lo normalizó
         if (this.paginacion?.limit && this.paginacion.limit !== this.limit) {
           this.limit = this.paginacion.limit;
@@ -282,6 +290,9 @@ export class CortesDeCajaComponent implements OnInit {
 
     // Caso 1: corte con fechaFin -> mostrar datos cerrados
     if (corte.fechaFin) {
+
+      console.log('Corte cerrado en cortesDeCaja', corte);
+
       this.dialog.open(CorteDetalleDialogComponent, {
         width: '720px',
         disableClose: true,
