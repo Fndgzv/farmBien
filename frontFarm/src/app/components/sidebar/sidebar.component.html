@@ -9,20 +9,15 @@
     </li>
 
     <ul *ngIf="expandedMenu === 'dashboard'" class="submenu-dashboard">
-      <li>Visión general
-          <fa-icon [icon]="'chart-line'"></fa-icon>
-      </li>
-
-      <li>Ranking productos
-      </li>
-<!--       <li [routerLink]="'/dashboard/ventas-tiempo'"
-          routerLinkActive="active">Visión general
+      <li [routerLink]="'/dashboard/ventas-tiempo'"
+          routerLinkActive="active">Ingresos por tiempo
           <fa-icon [icon]="'chart-line'"></fa-icon>
       </li>
 
       <li [routerLink]="'/dashboard/ranking-productos'" 
           routerLinkActive="active">Ranking productos
-      </li> -->
+          <fa-icon [icon]="'ranking-star'"></fa-icon>
+      </li>
     </ul>
     
     

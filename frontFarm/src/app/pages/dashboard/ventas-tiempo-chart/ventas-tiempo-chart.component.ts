@@ -119,9 +119,17 @@ export class VentasTiempoChartComponent implements OnInit {
         const hasData = this.data.length > 0;
 
         /* ================= KPIs ================= */
-        this.kpiTotalVentas = hasData ? this.data.reduce((a, d) => a + d.totalVentas, 0) : 0;
-        this.kpiUtilidad = hasData ? this.data.reduce((a, d) => a + d.utilidad, 0) : 0;
-        this.kpiVentas = hasData ? this.data.reduce((a, d) => a + d.numeroVentas, 0) : 0;
+        this.kpiTotalVentas = hasData
+            ? this.data.reduce((a, d) => a + (d.ingresos ?? 0), 0)
+            : 0;
+
+        this.kpiUtilidad = hasData
+            ? this.data.reduce((a, d) => a + (d.utilidad ?? 0), 0)
+            : 0;
+
+        this.kpiVentas = hasData
+            ? this.data.reduce((a, d) => a + (d.ventas ?? 0), 0)
+            : 0;
         this.kpiMargen = this.kpiTotalVentas
             ? (this.kpiUtilidad / this.kpiTotalVentas) * 100
             : 0;
@@ -131,12 +139,20 @@ export class VentasTiempoChartComponent implements OnInit {
             ? this.data.map(d => this.formatearPeriodo(d.periodo))
             : [];
 
-        const ventas = hasData ? this.data.map(d => d.totalVentas) : [];
-        const utilidad = hasData ? this.data.map(d => d.utilidad) : [];
-        const conteo = hasData ? this.data.map(d => d.numeroVentas) : [];
+        const ventas = hasData ? this.data.map(d => d.ingresos ?? 0) : [];
+        const utilidad = hasData ? this.data.map(d => d.utilidad ?? 0) : [];
+        const conteo = hasData ? this.data.map(d => d.ventas ?? 0) : [];
 
         const maxVentas = ventas.length ? Math.max(...ventas) : 0;
         const maxConteo = conteo.length ? Math.max(...conteo) : 0;
+
+        const safeMaxConteo = Math.max(1, maxConteo);
+
+        const tickConteo =
+            safeMaxConteo <= 5
+                ? safeMaxConteo
+                : 5;
+
 
         /* ================= CHART ================= */
         this.chartOptions = {
@@ -156,12 +172,12 @@ export class VentasTiempoChartComponent implements OnInit {
                 {
                     name: 'Utilidad ($)',
                     data: utilidad,
-                    yAxisIndex: 0
+                    yAxisIndex: 1
                 },
                 {
                     name: 'Número de ventas',
                     data: conteo,
-                    yAxisIndex: 1
+                    yAxisIndex: 2
                 }
             ],
 
@@ -177,8 +193,16 @@ export class VentasTiempoChartComponent implements OnInit {
             yaxis: [
                 {
                     min: 0,
-                    max: Math.ceil(maxVentas * 1.15),
-                    title: { text: 'Ventas / Utilidad ($)' },
+                    max: Math.ceil(maxVentas * 1),
+                    title: { text: 'Ventas ($)' },
+                    labels: {
+                        formatter: v => `$${Math.round(v)}`
+                    }
+                },
+                {
+                    min: 0,
+                    max: Math.ceil(Math.max(...utilidad) * 1.6),
+                    title: { text: 'Utilidad ($)' },
                     labels: {
                         formatter: v => `$${Math.round(v)}`
                     }
@@ -186,11 +210,12 @@ export class VentasTiempoChartComponent implements OnInit {
                 {
                     opposite: true,
                     min: 0,
-                    max: maxConteo,
-                    tickAmount: maxConteo || 1,
+                    max: Math.ceil(maxConteo * 1.2),
+                    tickAmount: tickConteo,
+                    forceNiceScale: true,
                     title: { text: 'Número de ventas' },
                     labels: {
-                        formatter: v => Math.round(v).toString()
+                        formatter: v => `${Math.round(v)}`
                     }
                 }
             ],
@@ -222,7 +247,7 @@ export class VentasTiempoChartComponent implements OnInit {
        HORAS CLAVE
        ========================= */
     calcularHorasClave() {
-        const validos = this.data.filter(d => d.totalVentas > 0);
+        const validos = this.data.filter(d => d.ingresos > 0);
 
         if (!validos.length) {
             this.horaPico = null;
@@ -231,11 +256,11 @@ export class VentasTiempoChartComponent implements OnInit {
         }
 
         this.horaPico = validos.reduce((a, b) =>
-            b.totalVentas > a.totalVentas ? b : a
+            b.ingresos > a.ingresos ? b : a
         );
 
         this.horaMuerta = validos.reduce((a, b) =>
-            b.totalVentas < a.totalVentas ? b : a
+            b.ingresos < a.ingresos ? b : a
         );
     }
 
@@ -245,7 +270,7 @@ export class VentasTiempoChartComponent implements OnInit {
         switch (this.escala) {
 
             case 'hora':
-                return `${periodo}:00`; // 👈 SOLO HORA
+                return periodo;
 
             case 'dia': {
                 const [yyyy, mm, dd] = periodo.split('-');

@@ -1,4 +1,4 @@
-<h3 class="subtitulo">Visión General</h3>
+<h3 class="subtitulo">Ingresos por tiempo</h3>
 <div class="filtros">
     <label>Farmacia</label>
     <select [(ngModel)]="farmaciaSeleccionada" (change)="cargar()">
@@ -55,20 +55,21 @@
 <div *ngIf="horaPico">
   🟢 {{ etiquetaAlta }}:
   {{ formatearPeriodo(horaPico.periodo) }} –
-  ${{ horaPico.totalVentas }}
-  ({{ horaPico.numeroVentas }} ventas)
+  ${{ horaPico.ingresos }}
+  ({{ horaPico.ventas }} ventas)
 </div>
 
 <div *ngIf="horaMuerta">
   🔴 {{ etiquetaBaja }}:
   {{ formatearPeriodo(horaMuerta.periodo) }} –
-  ${{ horaMuerta.totalVentas }}
-  ({{ horaMuerta.numeroVentas }} ventas)
+  ${{ horaMuerta.ingresos }}
+  ({{ horaMuerta.ventas }} ventas)
 </div>
 
 
 <div class="chart-wrapper">
   <apx-chart
+    style="width: 100%; height: 100%; display: block"
     [series]="chartOptions.series"
     [chart]="chartOptions.chart"
     [xaxis]="chartOptions.xaxis"

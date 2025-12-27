@@ -244,7 +244,7 @@ export class ReportesService {
       httpParams = httpParams.set(k, v);
     });
 
-    return this.http.get<any[]>(`${this.url}/ventas-tiempo`, {
+    return this.http.get<any[]>(`${this.url}/ingresos-por-tiempo`, {
       params: httpParams
     });
   }

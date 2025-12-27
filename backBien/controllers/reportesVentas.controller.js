@@ -12,30 +12,30 @@ const buildGroupId = (escala) => {
   if (escala === 'hora') {
     return {
       year: { $year: { date: '$fecha', timezone: TZ } },
-      month:{ $month:{ date:'$fecha', timezone: TZ } },
-      day:  { $dayOfMonth:{ date:'$fecha', timezone: TZ } },
-      hour: { $hour:{ date:'$fecha', timezone: TZ } }
+      month: { $month: { date: '$fecha', timezone: TZ } },
+      day: { $dayOfMonth: { date: '$fecha', timezone: TZ } },
+      hour: { $hour: { date: '$fecha', timezone: TZ } }
     };
   }
 
   if (escala === 'dia') {
     return {
-      year: { $year:{ date:'$fecha', timezone: TZ } },
-      month:{ $month:{ date:'$fecha', timezone: TZ } },
-      day:  { $dayOfMonth:{ date:'$fecha', timezone: TZ } }
+      year: { $year: { date: '$fecha', timezone: TZ } },
+      month: { $month: { date: '$fecha', timezone: TZ } },
+      day: { $dayOfMonth: { date: '$fecha', timezone: TZ } }
     };
   }
 
   if (escala === 'mes') {
     return {
-      year:{ $year:{ date:'$fecha', timezone: TZ } },
-      month:{ $month:{ date:'$fecha', timezone: TZ } }
+      year: { $year: { date: '$fecha', timezone: TZ } },
+      month: { $month: { date: '$fecha', timezone: TZ } }
     };
   }
 
   // año
   return {
-    year:{ $year:{ date:'$fecha', timezone: TZ } }
+    year: { $year: { date: '$fecha', timezone: TZ } }
   };
 };
 
@@ -195,7 +195,19 @@ const ingresosPorTiempo = async (req, res) => {
       {
         $project: {
           _id: 0,
-          periodo: '$fecha',
+          periodo: {
+            $dateToString: {
+              date: '$fecha',
+              timezone: TZ,
+              format: escala === 'hora'
+                ? '%Y-%m-%d %H:00'
+                : escala === 'dia'
+                  ? '%Y-%m-%d'
+                  : escala === 'mes'
+                    ? '%Y-%m'
+                    : '%Y'
+            }
+          },
           ingresos: { $round: ['$ingresos', 2] },
           egresos: { $round: ['$egresos', 2] },
           utilidad: {

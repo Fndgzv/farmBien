@@ -6,7 +6,7 @@ import {
   faScaleBalanced, faSackDollar, faUser, faHospital, faUserDoctor, faCapsules, faUsers, faReceipt,
   faTruck, faShoppingCart, faCashRegister, faUndo, faPrescription,
   faFileSignature, faStethoscope, faClipboardList, faWarehouse, faChartLine, faDiagramProject,
-  faTags, faPrint, faPenRuler
+  faTags, faPrint, faPenRuler, faRankingStar
 } from '@fortawesome/free-solid-svg-icons';
 import { AuthService } from '../../services/auth.service';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
@@ -60,6 +60,7 @@ export class SidebarComponent implements OnInit {
       faUsers, faTruck, faShoppingCart, faCashRegister,
       faUndo, faFileSignature, faStethoscope, faPrescription,
       faClipboardList, faWarehouse, faChartLine, faDiagramProject,
+      faRankingStar
     );
 
   }
