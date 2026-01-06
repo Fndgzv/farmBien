@@ -1,170 +1,170 @@
 // src/app/shared/print-utils.ts
 
 export async function buildFarmaciaForTicket(ctx: {
-    farmaciaNombre: string;
-    farmaciaDireccion: string;
-    farmaciaTelefono?: string;
-    farmaciaTitulo1?: string;
-    farmaciaTitulo2?: string;
-    farmaciaImagen?: string;
+  farmaciaNombre: string;
+  farmaciaDireccion: string;
+  farmaciaTelefono?: string;
+  farmaciaTitulo1?: string;
+  farmaciaTitulo2?: string;
+  farmaciaImagen?: string;
 }) {
-    // URL absoluta mismo origen
-    const abs = resolveLogoForPrint(ctx.farmaciaImagen);
-    // “rompe caché” SIEMPRE (Chrome/Edge en print son caprichosos)
-    const withBuster = abs + (abs.includes('?') ? '&' : '?') + 'v=' + Date.now();
+  // URL absoluta mismo origen
+  const abs = resolveLogoForPrint(ctx.farmaciaImagen);
+  // “rompe caché” SIEMPRE (Chrome/Edge en print son caprichosos)
+  const withBuster = abs + (abs.includes('?') ? '&' : '?') + 'v=' + Date.now();
 
-    return {
-        nombre: ctx.farmaciaNombre,
-        direccion: ctx.farmaciaDireccion,
-        telefono: ctx.farmaciaTelefono || '',
-        titulo1: ctx.farmaciaTitulo1 || '',
-        titulo2: ctx.farmaciaTitulo2 || '',
-        imagen: withBuster,      // 👈 ESTA es la que ve <app-ticket-header>
-    };
+  return {
+    nombre: ctx.farmaciaNombre,
+    direccion: ctx.farmaciaDireccion,
+    telefono: ctx.farmaciaTelefono || '',
+    titulo1: ctx.farmaciaTitulo1 || '',
+    titulo2: ctx.farmaciaTitulo2 || '',
+    imagen: withBuster,      // 👈 ESTA es la que ve <app-ticket-header>
+  };
 }
 
 
 export async function whenDomStable(): Promise<void> {
-    // 2 RAFs: garantiza que Angular terminó de pintar
-    await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+  // 2 RAFs: garantiza que Angular terminó de pintar
+  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 }
 
 export async function waitForTicket(selector: string, timeoutMs = 1500): Promise<HTMLElement> {
-    const t0 = Date.now();
-    for (; ;) {
-        const el = document.querySelector(selector) as HTMLElement | null;
-        if (el && el.offsetWidth > 0 && el.offsetHeight > 0) return el;
-        if (Date.now() - t0 > timeoutMs) throw new Error(`Ticket "${selector}" no está listo`);
-        await new Promise(r => setTimeout(r, 50));
-    }
+  const t0 = Date.now();
+  for (; ;) {
+    const el = document.querySelector(selector) as HTMLElement | null;
+    if (el && el.offsetWidth > 0 && el.offsetHeight > 0) return el;
+    if (Date.now() - t0 > timeoutMs) throw new Error(`Ticket "${selector}" no está listo`);
+    await new Promise(r => setTimeout(r, 50));
+  }
 }
 
 export async function printWithPreload(
-    getLogoSrc: () => string,
-    beforeShow?: () => void | Promise<void>,
-    afterHide?: () => void,
-    onAfterPrint?: () => void,
-    container?: string | HTMLElement,
-    watchdogMs = 9000
+  getLogoSrc: () => string,
+  beforeShow?: () => void | Promise<void>,
+  afterHide?: () => void,
+  onAfterPrint?: () => void,
+  container?: string | HTMLElement,
+  watchdogMs = 9000
 ): Promise<void> {
-    const logo = getLogoSrc?.() ?? '';
-    try { await preloadImage(logo, 2500); } catch { }
+  const logo = getLogoSrc?.() ?? '';
+  try { await preloadImage(logo, 2500); } catch { }
 
-    if (beforeShow) await beforeShow();
-    await whenDomStable();
+  if (beforeShow) await beforeShow();
+  await whenDomStable();
 
-    // Espera a que el ticket exista y tenga tamaño
-    try {
-        if (container) {
-            if (typeof container === 'string') {
-                await waitForTicket(container, 1500);
+  // Espera a que el ticket exista y tenga tamaño
+  try {
+    if (container) {
+      if (typeof container === 'string') {
+        await waitForTicket(container, 1500);
 
-                const el = typeof container === 'string'
-                    ? document.querySelector(container) as HTMLElement | null
-                    : container as HTMLElement | null;
+        const el = typeof container === 'string'
+          ? document.querySelector(container) as HTMLElement | null
+          : container as HTMLElement | null;
 
-                console.log('PRINT DEBUG → listo?', !!el, el?.offsetWidth, el?.offsetHeight, el?.innerText?.slice(0, 120));
+        console.log('PRINT DEBUG → listo?', !!el, el?.offsetWidth, el?.offsetHeight, el?.innerText?.slice(0, 120));
 
 
-            } else {
-                await waitForElementReady(container, 1500);
-            }
-        }
-    } catch {
-        // si no está listo, igual intentamos imprimir; no bloqueamos
+      } else {
+        await waitForElementReady(container, 1500);
+      }
     }
+  } catch {
+    // si no está listo, igual intentamos imprimir; no bloqueamos
+  }
 
-    // Orquestación
-    return new Promise<void>((resolve) => {
-        let finished = false;
+  // Orquestación
+  return new Promise<void>((resolve) => {
+    let finished = false;
 
-        const finish = () => {
-            if (finished) return;
-            finished = true;
-            try { afterHide?.(); } finally {
-                try { onAfterPrint?.(); } catch { }
-            }
-            window.removeEventListener('afterprint', onAfterPrintEvt);
-            mq?.removeEventListener?.('change', onMQ);
-            if (wd) clearTimeout(wd);
-            resolve();
-        };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      try { afterHide?.(); } finally {
+        try { onAfterPrint?.(); } catch { }
+      }
+      window.removeEventListener('afterprint', onAfterPrintEvt);
+      mq?.removeEventListener?.('change', onMQ);
+      if (wd) clearTimeout(wd);
+      resolve();
+    };
 
-        const onAfterPrintEvt = () => finish();
-        const mq = typeof window !== 'undefined' && 'matchMedia' in window
-            ? window.matchMedia('print')
-            : null;
-        const onMQ = (e: MediaQueryListEvent) => { if (!e?.matches) finish(); };
+    const onAfterPrintEvt = () => finish();
+    const mq = typeof window !== 'undefined' && 'matchMedia' in window
+      ? window.matchMedia('print')
+      : null;
+    const onMQ = (e: MediaQueryListEvent) => { if (!e?.matches) finish(); };
 
-        window.addEventListener('afterprint', onAfterPrintEvt);
-        mq?.addEventListener?.('change', onMQ);
+    window.addEventListener('afterprint', onAfterPrintEvt);
+    mq?.addEventListener?.('change', onMQ);
 
-        // Fallback por si el evento no llega (drivers, mobiles, etc.)
-        const wd = window.setTimeout(finish, watchdogMs);
+    // Fallback por si el evento no llega (drivers, mobiles, etc.)
+    const wd = window.setTimeout(finish, watchdogMs);
 
-        try { window.print(); } catch { finish(); }
-    });
+    try { window.print(); } catch { finish(); }
+  });
 }
 
 async function waitForElementReady(el: HTMLElement, timeoutMs = 1500): Promise<void> {
-    const t0 = Date.now();
-    return new Promise<void>((res, rej) => {
-        const tick = () => {
-            const ok = !!el && el.offsetWidth > 0 && el.offsetHeight > 0;
-            if (ok) return res();
-            if (Date.now() - t0 >= timeoutMs) return rej(new Error('Timeout esperando elemento'));
-            requestAnimationFrame(tick);
-        };
-        tick();
-    });
+  const t0 = Date.now();
+  return new Promise<void>((res, rej) => {
+    const tick = () => {
+      const ok = !!el && el.offsetWidth > 0 && el.offsetHeight > 0;
+      if (ok) return res();
+      if (Date.now() - t0 >= timeoutMs) return rej(new Error('Timeout esperando elemento'));
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
 }
 
 
 export function getOrigin(): string {
-    try {
-        return (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
-    } catch { return ''; }
+  try {
+    return (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
+  } catch { return ''; }
 }
 
 export function resolveLogoForPrint(img?: string): string {
-    const origin = getOrigin();
-    if (!img || !img.trim()) return `${origin}/assets/images/farmBienIcon.png`;
+  const origin = getOrigin();
+  if (!img || !img.trim()) return `${origin}/assets/images/farmBienIcon.png`;
 
-    // Ya es absoluta o dataURL/blob
-    if (/^(data:|blob:|https?:)/i.test(img)) return img;
+  // Ya es absoluta o dataURL/blob
+  if (/^(data:|blob:|https?:)/i.test(img)) return img;
 
-    const clean = img.replace(/^\/+/, '');
-    if (clean.startsWith('assets/')) return `${origin}/${clean}`;
-    if (clean.startsWith('browser/assets/')) return `${origin}/${clean.replace(/^browser\//, '')}`;
+  const clean = img.replace(/^\/+/, '');
+  if (clean.startsWith('assets/')) return `${origin}/${clean}`;
+  if (clean.startsWith('browser/assets/')) return `${origin}/${clean.replace(/^browser\//, '')}`;
 
-    // Nombre suelto: asumimos assets/images/<nombre>
-    return `${origin}/assets/images/${clean}`;
+  // Nombre suelto: asumimos assets/images/<nombre>
+  return `${origin}/assets/images/${clean}`;
 }
 
 export function preloadImage(src: string, timeoutMs = 2500): Promise<void> {
-    return new Promise<void>((resolve) => {
-        if (!src) return resolve();
-        const img = new Image();
-        if (/^https?:/i.test(src)) (img as any).crossOrigin = 'anonymous';
-        let done = false;
-        const finish = () => { if (!done) { done = true; resolve(); } };
-        const to = setTimeout(finish, timeoutMs);
-        img.onload = () => { clearTimeout(to); finish(); };
-        img.onerror = () => { clearTimeout(to); finish(); };
-        img.src = src;
-    });
+  return new Promise<void>((resolve) => {
+    if (!src) return resolve();
+    const img = new Image();
+    if (/^https?:/i.test(src)) (img as any).crossOrigin = 'anonymous';
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    const to = setTimeout(finish, timeoutMs);
+    img.onload = () => { clearTimeout(to); finish(); };
+    img.onerror = () => { clearTimeout(to); finish(); };
+    img.src = src;
+  });
 }
 
 export async function isolateAndPrint(
-    el: HTMLElement,
-    watchdogMs = 9000
+  el: HTMLElement,
+  watchdogMs = 9000
 ): Promise<void> {
-    // Portal a nivel <body> para evitar ancestros ocultos
-    const portal = document.createElement('div');
-    portal.id = '__print_portal__';
-    portal.setAttribute('data-print', '1');
-    // reset fuerte de estilos del portal
-    (portal as any).style = `
+  // Portal a nivel <body> para evitar ancestros ocultos
+  const portal = document.createElement('div');
+  portal.id = '__print_portal__';
+  portal.setAttribute('data-print', '1');
+  // reset fuerte de estilos del portal
+  (portal as any).style = `
     all: initial;
     position: fixed;
     inset: 0;
@@ -173,36 +173,36 @@ export async function isolateAndPrint(
     display: block;
   `;
 
-    // clonamos el ticket (HTML estático) y lo colocamos arriba-izquierda
-    const clone = el.cloneNode(true) as HTMLElement;
-    clone.id = 'ticketPedido'; // para que tus estilos de ticket apliquen
-    clone.style.position = 'absolute';
-    clone.style.left = '0';
-    clone.style.top = '0';
+  // clonamos el ticket (HTML estático) y lo colocamos arriba-izquierda
+  const clone = el.cloneNode(true) as HTMLElement;
+  clone.id = 'ticketPedido'; // para que tus estilos de ticket apliquen
+  clone.style.position = 'absolute';
+  clone.style.left = '0';
+  clone.style.top = '0';
 
-    portal.appendChild(clone);
-    document.body.appendChild(portal);
-    await whenDomStable();
+  portal.appendChild(clone);
+  document.body.appendChild(portal);
+  await whenDomStable();
 
-    // orquestación de impresión
-    await new Promise<void>((resolve) => {
-        let finished = false;
-        const finish = () => {
-            if (finished) return;
-            finished = true;
-            try { document.body.removeChild(portal); } catch { }
-            window.removeEventListener('afterprint', finish);
-            mq?.removeEventListener?.('change', onMQ);
-            if (wd) clearTimeout(wd);
-            resolve();
-        };
-        const mq = 'matchMedia' in window ? window.matchMedia('print') : null;
-        const onMQ = (e: MediaQueryListEvent) => { if (!e.matches) finish(); };
-        window.addEventListener('afterprint', finish);
-        mq?.addEventListener?.('change', onMQ);
-        const wd = window.setTimeout(finish, watchdogMs);
-        try { window.print(); } catch { finish(); }
-    });
+  // orquestación de impresión
+  await new Promise<void>((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      try { document.body.removeChild(portal); } catch { }
+      window.removeEventListener('afterprint', finish);
+      mq?.removeEventListener?.('change', onMQ);
+      if (wd) clearTimeout(wd);
+      resolve();
+    };
+    const mq = 'matchMedia' in window ? window.matchMedia('print') : null;
+    const onMQ = (e: MediaQueryListEvent) => { if (!e.matches) finish(); };
+    window.addEventListener('afterprint', finish);
+    mq?.addEventListener?.('change', onMQ);
+    const wd = window.setTimeout(finish, watchdogMs);
+    try { window.print(); } catch { finish(); }
+  });
 }
 
 export async function isolateAndPrintOnce(srcEl: HTMLElement): Promise<void> {
@@ -252,7 +252,7 @@ export async function isolateAndPrintOnce(srcEl: HTMLElement): Promise<void> {
 
   // 4) Imprime UNA sola vez y cierra
   await new Promise<void>(resolve => {
-    w.onafterprint = () => { try { w.close(); } catch {} resolve(); };
+    w.onafterprint = () => { try { w.close(); } catch { } resolve(); };
     // Chrome a veces necesita un tick para pintar
     setTimeout(() => w.print(), 50);
   });
@@ -295,10 +295,10 @@ export async function printElementOnce(el: HTMLElement) {
   const doPrint = () => {
     if (fired) return;
     fired = true;
-    try { w.focus(); } catch {}
-    try { w.print(); } catch {}
+    try { w.focus(); } catch { }
+    try { w.print(); } catch { }
     // Cierra después de un pequeño delay (Edge/Chrome)
-    setTimeout(() => { try { w.close(); } catch {} }, 250);
+    setTimeout(() => { try { w.close(); } catch { } }, 250);
   };
 
   // Cuando cargue el DOM, imprime
@@ -308,67 +308,84 @@ export async function printElementOnce(el: HTMLElement) {
 }
 
 export async function logoToDataUrlSafe(src: string, timeoutMs = 2500): Promise<string> {
-    try {
-        if (!src || src.startsWith('data:')) return src || '';
-        await new Promise<void>((resolve) => {
-            const img = new Image();
-            (img as any).crossOrigin = 'anonymous';
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-            img.src = src;
-            setTimeout(resolve, timeoutMs);
-        });
-        return await new Promise<string>((res) => {
-            try {
-                const img = new Image();
-                (img as any).crossOrigin = 'anonymous';
-                img.onload = () => {
-                    try {
-                        const c = document.createElement('canvas');
-                        c.width = img.naturalWidth || 64;
-                        c.height = img.naturalHeight || 64;
-                        const ctx = c.getContext('2d')!;
-                        ctx.drawImage(img, 0, 0);
-                        res(c.toDataURL('image/png'));
-                    } catch { res(src); }
-                };
-                img.onerror = () => res(src);
-                img.src = src;
-            } catch { res(src); }
-        });
-    } catch { return src; }
+  try {
+    if (!src || src.startsWith('data:')) return src || '';
+    await new Promise<void>((resolve) => {
+      const img = new Image();
+      (img as any).crossOrigin = 'anonymous';
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+      img.src = src;
+      setTimeout(resolve, timeoutMs);
+    });
+    return await new Promise<string>((res) => {
+      try {
+        const img = new Image();
+        (img as any).crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth || 64;
+            c.height = img.naturalHeight || 64;
+            const ctx = c.getContext('2d')!;
+            ctx.drawImage(img, 0, 0);
+            res(c.toDataURL('image/png'));
+          } catch { res(src); }
+        };
+        img.onerror = () => res(src);
+        img.src = src;
+      } catch { res(src); }
+    });
+  } catch { return src; }
 }
 
 // --- LOGO: traer como dataURL, si falla regresa el src tal cual
 export async function toDataURL(src: string, timeoutMs = 2500): Promise<string> {
-    if (!src || src.startsWith('data:')) return src || '';
-    return new Promise<string>((resolve) => {
-        const img = new Image();
-        // mismo origen: OK; si algún día es CDN, manten esto
-        (img as any).crossOrigin = 'anonymous';
-        const t = setTimeout(() => resolve(src), timeoutMs);
-        img.onload = () => {
-            try {
-                const c = document.createElement('canvas');
-                c.width = img.naturalWidth || 64;
-                c.height = img.naturalHeight || 64;
-                c.getContext('2d')!.drawImage(img, 0, 0);
-                clearTimeout(t);
-                resolve(c.toDataURL('image/png'));
-            } catch {
-                clearTimeout(t);
-                resolve(src);
-            }
-        };
-        img.onerror = () => { clearTimeout(t); resolve(src); };
-        img.src = src;
-    });
+  if (!src || src.startsWith('data:')) return src || '';
+  return new Promise<string>((resolve) => {
+    const img = new Image();
+    // mismo origen: OK; si algún día es CDN, manten esto
+    (img as any).crossOrigin = 'anonymous';
+    const t = setTimeout(() => resolve(src), timeoutMs);
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || 64;
+        c.height = img.naturalHeight || 64;
+        c.getContext('2d')!.drawImage(img, 0, 0);
+        clearTimeout(t);
+        resolve(c.toDataURL('image/png'));
+      } catch {
+        clearTimeout(t);
+        resolve(src);
+      }
+    };
+    img.onerror = () => { clearTimeout(t); resolve(src); };
+    img.src = src;
+  });
 }
 
 
 // print-utils.ts
-export async function printNodeInIframe(node: HTMLElement): Promise<void> {
+export async function printNodeInIframe(node: HTMLElement, opts?: {
+  fallbackMs?: number;
+  settleMs?: number; // micro-respiro extra antes de print
+}): Promise<void> {
+  const fallbackMs = opts?.fallbackMs ?? 6000;
+  const settleMs = opts?.settleMs ?? 80;
+
   return new Promise<void>((resolve, reject) => {
+    let done = false;
+
+    const finish = (iframe?: HTMLIFrameElement) => {
+      if (done) return;
+      done = true;
+      try {
+        if (iframe && document.body.contains(iframe)) document.body.removeChild(iframe);
+      } catch { }
+      resolve();
+    };
+
     try {
       // 1) Crear iframe oculto
       const iframe = document.createElement('iframe');
@@ -381,56 +398,76 @@ export async function printNodeInIframe(node: HTMLElement): Promise<void> {
       iframe.style.visibility = 'hidden';
       document.body.appendChild(iframe);
 
-      const win = iframe.contentWindow!;
+      const win = iframe.contentWindow;
+      if (!win) throw new Error('No se pudo obtener contentWindow del iframe');
+
       const doc = win.document;
 
-      // 2) Copiar estilos globales (styles.css y <style> del head)
-      const head = document.head.cloneNode(true) as HTMLElement;
-
-      // 3) Clonar el ticket renderizado
-      const clone = node.cloneNode(true) as HTMLElement;
-
-      // 4) Escribir documento del iframe
+      // 2) Documento base
       doc.open();
       doc.write('<!doctype html><html><head></head><body></body></html>');
       doc.close();
 
-      // Insertar head y ticket
-      doc.head.innerHTML = head.innerHTML;
+      // 3) Copiar head (estilos globales, etc.)
+      doc.head.innerHTML = document.head.innerHTML;
+
+      // 4) Clonar el nodo
+      const clone = node.cloneNode(true) as HTMLElement;
       doc.body.appendChild(clone);
 
-      // 5) Esperar fuentes/imagenes
-      const whenReady = () =>
-        new Promise<void>(r => setTimeout(r, 50)); // pequeño respiro para layout
-      const waitImages = () =>
-        Promise.all(Array.from(doc.images).map(img => {
+      const waitImages = async () => {
+        const imgs = Array.from(doc.images);
+        await Promise.all(imgs.map(img => {
           if (img.complete) return Promise.resolve();
-          return new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); });
-        })).then(() => undefined);
+          return new Promise<void>(res => {
+            img.onload = () => res();
+            img.onerror = () => res();
+          });
+        }));
+      };
+
+      const waitFonts = async () => {
+        // Chromium soporta document.fonts; en algunos contextos puede no existir
+        const anyDoc = doc as any;
+        if (anyDoc.fonts && typeof anyDoc.fonts.ready?.then === 'function') {
+          try { await anyDoc.fonts.ready; } catch { }
+        }
+      };
+
+      const waitTwoFrames = () =>
+        new Promise<void>(r => win.requestAnimationFrame(() => win.requestAnimationFrame(() => r())));
+
+      const waitMs = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+      // Fallback sólido: si no hay onafterprint, no te quedas colgado
+      const fallbackTimer = window.setTimeout(() => finish(iframe), fallbackMs);
 
       (async () => {
         await waitImages();
-        await whenReady();
+        await waitFonts();
+        await waitTwoFrames();
+        await waitMs(settleMs);
 
-        // 6) Imprimir una sola vez
-        win.onafterprint = () => {
-          try { document.body.removeChild(iframe); } catch {}
-          resolve();
-        };
-
-        // Edge fallback
-        setTimeout(() => {
-          try {
-            if (document.body.contains(iframe)) {
-              document.body.removeChild(iframe);
-              resolve();
-            }
-          } catch {}
-        }, 2000);
-
+        // 6) Print
         win.focus();
         win.print();
-      })();
+
+        // Si onafterprint dispara, limpiamos; si no, fallback lo hará
+        // Si dispara, cancelamos fallback para no duplicar cleanup
+        win.onafterprint = () => {
+          window.clearTimeout(fallbackTimer);
+          finish(iframe);
+        };
+
+
+      })().catch(err => {
+        window.clearTimeout(fallbackTimer);
+        if (!done) {
+          try { if (document.body.contains(iframe)) document.body.removeChild(iframe); } catch { }
+          done = true;
+          reject(err);
+        }
+      });
     } catch (e) {
       reject(e);
     }

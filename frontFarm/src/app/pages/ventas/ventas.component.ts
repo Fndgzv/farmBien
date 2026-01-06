@@ -1706,7 +1706,18 @@ export class VentasComponent implements OnInit, AfterViewInit {
       if (!el) throw new Error('ticketVenta no encontrado');
 
       // 🔥 Imprime SOLO el ticket en un iframe oculto (sin tocar tu @media print global)
-      await printNodeInIframe(el);
+      // ✅ Si hay tarjeta o transferencia → imprimir 2 tickets
+      const requiere2 = (this.montoTarjeta > 0) || (this.montoTransferencia > 0);
+      const veces = requiere2 ? 2 : 1;
+
+      const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+      // 🔥 Imprime SOLO el ticket en un iframe oculto (sin tocar tu @media print global)
+      for (let n = 0; n < veces; n++) {
+        await printNodeInIframe(el);
+        if (n < veces - 1) await sleep(600); // pausa leve entre impresiones
+      }
+
 
       // Guardar **después** de imprimir
       this.guardarVentaDespuesDeImpresion(this.folioVentaGenerado!);
