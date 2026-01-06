@@ -62,10 +62,6 @@ export async function printWithPreload(
         const el = typeof container === 'string'
           ? document.querySelector(container) as HTMLElement | null
           : container as HTMLElement | null;
-
-        console.log('PRINT DEBUG → listo?', !!el, el?.offsetWidth, el?.offsetHeight, el?.innerText?.slice(0, 120));
-
-
       } else {
         await waitForElementReady(container, 1500);
       }
@@ -365,14 +361,20 @@ export async function toDataURL(src: string, timeoutMs = 2500): Promise<string> 
   });
 }
 
-
 // print-utils.ts
-export async function printNodeInIframe(node: HTMLElement, opts?: {
-  fallbackMs?: number;
-  settleMs?: number; // micro-respiro extra antes de print
-}): Promise<void> {
-  const fallbackMs = opts?.fallbackMs ?? 6000;
-  const settleMs = opts?.settleMs ?? 80;
+export async function printNodeInIframe(
+  node: HTMLElement,
+  opts?: {
+    fallbackMs?: number;
+    settleMs?: number;   // micro-respiro antes de print
+    feedMm?: number;     // espacio extra al final del ticket (evita encimado)
+  }
+): Promise<void> {
+  const fallbackMs = opts?.fallbackMs ?? 25000; // 👈 más alto (evita “resolver” antes de tiempo)
+  const settleMs = opts?.settleMs ?? 120;
+  const feedMm = opts?.feedMm ?? 10;            // 👈 ajusta 8–15mm según tu térmica
+
+  const waitMs = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
   return new Promise<void>((resolve, reject) => {
     let done = false;
@@ -380,9 +382,7 @@ export async function printNodeInIframe(node: HTMLElement, opts?: {
     const finish = (iframe?: HTMLIFrameElement) => {
       if (done) return;
       done = true;
-      try {
-        if (iframe && document.body.contains(iframe)) document.body.removeChild(iframe);
-      } catch { }
+      try { if (iframe && document.body.contains(iframe)) document.body.removeChild(iframe); } catch { }
       resolve();
     };
 
@@ -400,7 +400,6 @@ export async function printNodeInIframe(node: HTMLElement, opts?: {
 
       const win = iframe.contentWindow;
       if (!win) throw new Error('No se pudo obtener contentWindow del iframe');
-
       const doc = win.document;
 
       // 2) Documento base
@@ -411,9 +410,14 @@ export async function printNodeInIframe(node: HTMLElement, opts?: {
       // 3) Copiar head (estilos globales, etc.)
       doc.head.innerHTML = document.head.innerHTML;
 
-      // 4) Clonar el nodo
+      // 4) Clonar el ticket
       const clone = node.cloneNode(true) as HTMLElement;
       doc.body.appendChild(clone);
+
+      // 5) FEED al final (para separar trabajos y evitar encimado)
+      const feed = doc.createElement('div');
+      feed.style.height = `${feedMm}mm`;
+      doc.body.appendChild(feed);
 
       const waitImages = async () => {
         const imgs = Array.from(doc.images);
@@ -427,7 +431,6 @@ export async function printNodeInIframe(node: HTMLElement, opts?: {
       };
 
       const waitFonts = async () => {
-        // Chromium soporta document.fonts; en algunos contextos puede no existir
         const anyDoc = doc as any;
         if (anyDoc.fonts && typeof anyDoc.fonts.ready?.then === 'function') {
           try { await anyDoc.fonts.ready; } catch { }
@@ -437,9 +440,12 @@ export async function printNodeInIframe(node: HTMLElement, opts?: {
       const waitTwoFrames = () =>
         new Promise<void>(r => win.requestAnimationFrame(() => win.requestAnimationFrame(() => r())));
 
-      const waitMs = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+      // 6) Hooks de finalización (más confiables)
+      const mql = win.matchMedia?.('print');
+      const onMQ = (e: MediaQueryListEvent) => { if (!e.matches) finish(iframe); };
+      mql?.addEventListener?.('change', onMQ);
 
-      // Fallback sólido: si no hay onafterprint, no te quedas colgado
+      // Fallback (solo si TODO falla)
       const fallbackTimer = window.setTimeout(() => finish(iframe), fallbackMs);
 
       (async () => {
@@ -448,25 +454,18 @@ export async function printNodeInIframe(node: HTMLElement, opts?: {
         await waitTwoFrames();
         await waitMs(settleMs);
 
-        // 6) Print
-        win.focus();
-        win.print();
-
-        // Si onafterprint dispara, limpiamos; si no, fallback lo hará
-        // Si dispara, cancelamos fallback para no duplicar cleanup
+        // IMPORTANTÍSIMO: setear onafterprint ANTES del print
         win.onafterprint = () => {
           window.clearTimeout(fallbackTimer);
           finish(iframe);
         };
 
-
+        win.focus();
+        win.print();
       })().catch(err => {
         window.clearTimeout(fallbackTimer);
-        if (!done) {
-          try { if (document.body.contains(iframe)) document.body.removeChild(iframe); } catch { }
-          done = true;
-          reject(err);
-        }
+        try { if (document.body.contains(iframe)) document.body.removeChild(iframe); } catch { }
+        if (!done) { done = true; reject(err); }
       });
     } catch (e) {
       reject(e);
@@ -474,6 +473,18 @@ export async function printNodeInIframe(node: HTMLElement, opts?: {
   });
 }
 
+export async function printCopies(node: HTMLElement, copies = 2, opts?: {
+  fallbackMs?: number;
+  settleMs?: number;
+  feedMm?: number;
+  betweenMs?: number;  // pausa entre copias
+}) {
+  const betweenMs = opts?.betweenMs ?? 350;
 
-
-
+  for (let k = 0; k < copies; k++) {
+    await printNodeInIframe(node, opts);
+    if (k < copies - 1) {
+      await new Promise(r => setTimeout(r, betweenMs));
+    }
+  }
+}

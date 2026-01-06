@@ -18,7 +18,7 @@ import { DevolucionService } from '../../services/devolucion.service';
 import { DevolucionTicketComponent } from '../../impresiones/devolucion-ticket/devolucion-ticket.component';
 import { MatTooltip } from '@angular/material/tooltip';
 
-import { resolveLogoForPrint, logoToDataUrlSafe, isolateAndPrint, whenDomStable } from '../../shared/utils/print-utils';
+import { resolveLogoForPrint, logoToDataUrlSafe, isolateAndPrint, whenDomStable, printCopies, printNodeInIframe } from '../../shared/utils/print-utils';
 
 @Component({
   selector: 'app-devoluciones',
@@ -423,8 +423,6 @@ export class DevolucionesComponent implements OnInit {
       farmacia: farma,
     };
 
-    console.log('[DEVOLUCIÓN] header.logo startsWith(data:)?', this.paraImpresion.farmacia.imagen?.startsWith('data:'), this.paraImpresion.farmacia.imagen?.slice(0,50));
-
     const after = async () => {
       const r = await Swal.fire({
         icon: 'question',
@@ -443,11 +441,33 @@ export class DevolucionesComponent implements OnInit {
 
     (() => { this.mostrarTicket = true; this.cdr.detectChanges(); })();
     await whenDomStable();
-    {
-      const el = document.getElementById('ticketDevolucion');
-      if (el) { await isolateAndPrint(el); }
+    const el = document.getElementById('ticketDevolucion');
+    if (el) {
+      // ✅ 1) Copia cliente
+      await printNodeInIframe(el, { feedMm: 12, fallbackMs: 25000, settleMs: 120 });
+
+      // ✅ 2) Pausa explícita: como en ventas, que NO se dispare sola
+      const r2 = await Swal.fire({
+        icon: 'info',
+        title: 'Copia para caja',
+        text: 'Presiona "Imprimir" para sacar la segunda copia.',
+        confirmButtonText: 'Imprimir',
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+
+      if (r2.isConfirmed) {
+        // (opcional) micro respiro para que Chrome/Edge no “pegue” jobs
+        await new Promise(r => setTimeout(r, 250));
+
+        // ✅ 3) Copia caja
+        await printNodeInIframe(el, { feedMm: 12, fallbackMs: 25000, settleMs: 120 });
+      }
     }
+
     this.mostrarTicket = false;
+
+    // ✅ Esto ya es “guardar / reintentar” (tu flujo actual)
     await after();
 
   }
