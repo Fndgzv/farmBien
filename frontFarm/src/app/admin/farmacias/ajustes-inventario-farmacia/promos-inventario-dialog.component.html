@@ -1,0 +1,95 @@
+<h3 class="titulo" style="text-align: center;">Editar promociones</h3>
+<div style="margin-bottom:6px; color: blue; text-align: center;">
+    {{data.item?.producto?.nombre || 'Producto'}}
+</div>
+
+<div style="text-align: center;">Cod. barras: <strong>{{data.item?.producto?.codigoBarras || 'Sin cód.'}}</strong>
+</div>
+
+<form [formGroup]="form" class="form-grid">
+
+    <!-- INAPAM -->
+    <div class="row">
+        <div class="cell">
+            <label style="display:flex;gap:0.5rem; margin-left: 1rem;">
+                <span>Aplica INAPAM (5%)</span>
+                <input type="checkbox" [formControl]="fc('descuentoINAPAM')">
+            </label>
+        </div>
+    </div>
+
+    <hr>
+
+    <!-- PROMOS POR DÍA -->
+    <!-- <div><small class="hint">Para que una promo día se aplique, porcentaje+inicio+fin deben estar completos.</small></div> -->
+    <!-- Encabezado de columnas -->
+    <div class="row promo-head">
+        <div class="cell promo">
+            <div class="g head">
+                <div class="lbl text-center">Promo</div>
+                <div class="lbl text-center">Ptje</div>
+                <div class="lbl text-center">Inicio</div>
+                <div class="lbl text-center">Fin</div>
+                <div class="lbl text-center">Monedero</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row" *ngFor="let d of dias">
+        <div class="cell promo">
+            <div class="g">
+                <label class="lbl">{{ d.label }}</label>
+                <input type="number" placeholder="%" min="0" max="100" step="1"
+                    [formControl]="fc(d.key + '.porcentaje')">
+                <input type="date" [formControl]="fc(d.key + '.inicio')">
+                <input type="date" [formControl]="fc(d.key + '.fin')">
+                <label class="chk">
+                    <input type="checkbox" [formControl]="fc(d.key + '.monedero')">
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <hr>
+
+    <!-- PROMO DE TEMPORADA -->
+    <!-- <small class="hint">Para aplicar temporada, porcentaje+inicio+fin deben estar completos.</small> -->
+    <div class="row">
+        <div class="cell promo">
+            <div class="g">
+                <label class="lbl">Temporada</label>
+                <input type="number" placeholder="%" min="0" max="100" step="1" [formControl]="fc('temp_porcentaje')">
+                <input type="date" [formControl]="fc('temp_inicio')">
+                <input type="date" [formControl]="fc('temp_fin')">
+                <label class="chk">
+                    <input type="checkbox" [formControl]="fc('temp_monedero')">
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <hr>
+
+    <!-- PROMO CANTIDAD -->
+    <div class="row">
+        <div class="cell g">
+            <label class="lbl">x Cantidad</label>
+            <select [formControl]="fc('promoCantidadRequerida')">
+                <option [ngValue]="null">— Sin promo —</option>
+                <option [ngValue]="2">2x1</option>
+                <option [ngValue]="3">3x2</option>
+                <option [ngValue]="4">4x3</option>
+            </select>
+            <input type="date" [formControl]="fc('inicioPromoCantidad')">
+            <input type="date" [formControl]="fc('finPromoCantidad')">
+        </div>
+        <!-- <small class="hint">Si eliges cantidad, captura inicio y fin.</small> -->
+    </div>
+</form>
+
+<div class="footer">
+    <button class="btn-rojo-chico" (click)="onCancel()">Cancelar</button>
+    <button class="btn-verde-chico" (click)="onSave()" [disabled]="saving">
+        {{ saving ? 'Guardando…' : 'Guardar'}}
+    </button>
+</div>

@@ -1,3 +1,4 @@
+// backBien\controllers\ajusteInventarioController.js
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 const Producto = require('../models/Producto');
 const Venta = require('../models/Venta');
@@ -45,6 +46,46 @@ function parseMaybeBool(v) {
   }
   return undefined;
 }
+
+// --- Helpers promos ---
+const parseBoolLoose = (v) => {
+  if (v === true || v === false) return v;
+  if (typeof v === 'string') {
+    const t = v.trim().toLowerCase();
+    if (t === 'true' || t === '1' || t === 'yes' || t === 'si') return true;
+    if (t === 'false' || t === '0' || t === 'no') return false;
+  }
+  if (typeof v === 'number') return v === 1;
+  return false;
+};
+
+function coercePromo(input, etiqueta = 'promo') {
+  // Si no viene, no se modifica
+  if (input == null) return null;
+
+  if (typeof input !== 'object') {
+    throw new Error(`Formato inválido para ${etiqueta}: debe ser objeto`);
+  }
+
+  const porcentaje = Number(input.porcentaje);
+  if (!Number.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100) {
+    throw new Error(`Porcentaje inválido en ${etiqueta} (0–100)`);
+  }
+
+  const inicio = new Date(input.inicio);
+  const fin = new Date(input.fin);
+  if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) {
+    throw new Error(`Fechas inválidas en ${etiqueta} (inicio/fin requeridos)`);
+  }
+  if (inicio > fin) {
+    throw new Error(`Rango de fechas inválido en ${etiqueta}: inicio > fin`);
+  }
+
+  const monedero = input.monedero != null ? parseBoolLoose(input.monedero) : false;
+
+  return { porcentaje, inicio, fin, monedero };
+}
+
 
 /**
  * Filtro para Producto:
@@ -173,7 +214,23 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
           stockMax: 1,
           stockMin: 1,
           precioVenta: 1,
-          ubicacionFarmacia: 1
+          ubicacionFarmacia: 1,
+          
+          // ✅ PROMOS POR FARMACIA (INVENTARIOFARMACIAS)
+          promoLunes: 1,
+          promoMartes: 1,
+          promoMiercoles: 1,
+          promoJueves: 1,
+          promoViernes: 1,
+          promoSabado: 1,
+          promoDomingo: 1,
+
+          promoCantidadRequerida: 1,
+          inicioPromoCantidad: 1,
+          finPromoCantidad: 1,
+
+          descuentoINAPAM: 1,
+          promoDeTemporada: 1
         }
       }
     ];
@@ -251,29 +308,107 @@ exports.actualizarInventarioMasivo = async (req, res) => {
 // Actualización individual de un producto en farmacia
 exports.actualizarInventarioIndividual = async (req, res) => {
   const { id } = req.params;
-  const { existencia, stockMax, stockMin, precioVenta, ubicacionFarmacia, clearUbicacion } = req.body;
+  const {
+    existencia, stockMax, stockMin, precioVenta,
+    ubicacionFarmacia, clearUbicacion,
+
+    // ✅ Promos por día (si vienen, se validan y se actualizan)
+    promoLunes, promoMartes, promoMiercoles, promoJueves,
+    promoViernes, promoSabado, promoDomingo,
+
+    // ✅ Promos por cantidad
+    promoCantidadRequerida, inicioPromoCantidad, finPromoCantidad,
+
+    // ✅ Promo de temporada
+    promoDeTemporada,
+
+    // ✅ INAPAM (default = false si no viene)
+    descuentoINAPAM
+  } = req.body;
 
   try {
     const inv = await InventarioFarmacia.findById(id);
     if (!inv) return res.status(404).json({ mensaje: "Registro no encontrado" });
 
+    // ------- Campos numéricos base -------
     if (hasNum(existencia)) inv.existencia = Number(existencia);
     if (hasNum(stockMax)) inv.stockMax = Number(stockMax);
     if (hasNum(stockMin)) inv.stockMin = Number(stockMin);
     if (hasNum(precioVenta)) inv.precioVenta = Number(precioVenta);
 
+    // ------- Ubicación en farmacia -------
     if (hasStr(ubicacionFarmacia)) inv.ubicacionFarmacia = String(ubicacionFarmacia).trim();
     else if (clearUbicacion === true) inv.ubicacionFarmacia = '';
 
+    // ------- Validación stockMin/stockMax -------
     if (inv.stockMin > inv.stockMax) {
       return res.status(400).json({ mensaje: "stockMin no puede ser mayor a stockMax" });
     }
 
+    // ------- Promos por día (si vienen, se validan y setean completas) -------
+    const dias = [
+      ['promoLunes', promoLunes],
+      ['promoMartes', promoMartes],
+      ['promoMiercoles', promoMiercoles],
+      ['promoJueves', promoJueves],
+      ['promoViernes', promoViernes],
+      ['promoSabado', promoSabado],
+      ['promoDomingo', promoDomingo],
+    ];
+
+    for (const [campo, payload] of dias) {
+      if (payload !== undefined) {             // solo si vino en el body
+        const val = coercePromo(payload, campo); // valida porcentaje/inicio/fin y default monedero=false
+        inv[campo] = val;                      // si es null no entra; si es objeto, setea
+      }
+    }
+
+    // ------- Promo de temporada -------
+    if (promoDeTemporada !== undefined) {
+      const val = coercePromo(promoDeTemporada, 'promoDeTemporada');
+      inv.promoDeTemporada = val;
+    }
+
+    // ------- Promos por cantidad (2x1, 3x2, 4x3) -------
+    const tieneCantidad = (
+      promoCantidadRequerida !== undefined ||
+      inicioPromoCantidad !== undefined ||
+      finPromoCantidad !== undefined
+    );
+
+    if (tieneCantidad) {
+      // si viene cualquiera, exigir los 3 campos correctos
+      const reqNum = Number(promoCantidadRequerida);
+      if (![2, 3, 4].includes(reqNum)) {
+        throw new Error('promoCantidadRequerida debe ser 2, 3 o 4');
+      }
+      const ini = new Date(inicioPromoCantidad);
+      const fin = new Date(finPromoCantidad);
+      if (isNaN(ini.getTime()) || isNaN(fin.getTime())) {
+        throw new Error('inicioPromoCantidad/finPromoCantidad inválidos');
+      }
+      if (ini > fin) {
+        throw new Error('Rango inválido en promo por cantidad: inicio > fin');
+      }
+
+      inv.promoCantidadRequerida = reqNum;
+      inv.inicioPromoCantidad = ini;
+      inv.finPromoCantidad = fin;
+    }
+
+    inv.descuentoINAPAM = (descuentoINAPAM !== undefined)
+      ? parseBoolLoose(descuentoINAPAM)
+      : inv.descuentoINAPAM; // respeta valor actual
+
+
     await inv.save();
+
     return res.json({ mensaje: "Inventario actualizado", inventario: inv });
   } catch (error) {
     console.error('Error en la actualización individual:', error);
-    return res.status(500).json({ mensaje: "Error en la actualización individual", error: error.message });
+    return res.status(400).json({
+      mensaje: error.message || "Error en la actualización individual"
+    });
   }
 };
 
@@ -579,5 +714,214 @@ exports.aplicarCambiosStockAuto = async (req, res) => {
   } catch (err) {
     console.error('❌ Error aplicarCambiosStockAuto:', err);
     res.status(500).json({ msg: 'Error aplicando cambios de stock' });
+  }
+};
+
+
+// ====== Aplicar promos + precios masivo ======
+exports.actualizarPromosYPreciosMasivo = async (req, res) => {
+  const { farmaciaId } = req.params;
+  const { ids, set, precio } = req.body || {};
+
+  if (!farmaciaId || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ mensaje: 'farmaciaId e ids[] son obligatorios' });
+  }
+
+  // ---- helpers locales (si ya los tienes, puedes reutilizarlos) ----
+  const parseBoolLoose = (v) => {
+    if (v === true || v === false) return v;
+    if (typeof v === 'string') {
+      const t = v.trim().toLowerCase();
+      if (t === 'true') return true;
+      if (t === 'false') return false;
+    }
+    return Boolean(v);
+  };
+
+  const toDate = (v) => {
+    if (v == null || v === '') return null;
+    const d = (v instanceof Date) ? v : new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  // null => "quiero limpiar" (unset)
+  // undefined => "no tocar"
+  // objeto => validar completo (porcentaje/inicio/fin) + monedero default false
+  const coercePromo = (payload, campo) => {
+    if (payload === undefined) return { mode: 'skip' };     // no tocar
+    if (payload === null) return { mode: 'unset' };         // limpiar
+
+    if (typeof payload !== 'object') {
+      throw new Error(`${campo}: formato inválido`);
+    }
+
+    const porcentaje = Number(payload.porcentaje);
+    const inicio = toDate(payload.inicio);
+    const fin = toDate(payload.fin);
+    const monedero = payload.monedero !== undefined ? parseBoolLoose(payload.monedero) : false;
+
+    // exigir completos
+    if (!Number.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100) {
+      throw new Error(`${campo}: porcentaje inválido (0-100)`);
+    }
+    if (!inicio || !fin) {
+      throw new Error(`${campo}: inicio/fin obligatorios`);
+    }
+    if (inicio > fin) {
+      throw new Error(`${campo}: rango inválido (inicio > fin)`);
+    }
+
+    return { mode: 'set', value: { porcentaje, inicio, fin, monedero } };
+  };
+
+  const normalizePrecio = (p) => {
+    if (!p) return null;
+    const modo = String(p.modo || '').toLowerCase();
+    const valor = Number(p.valor);
+    const redondear = (p.redondear === 0 || p.redondear === 1 || p.redondear === 2) ? p.redondear : 2;
+
+    if (!['pct', 'monto', 'set'].includes(modo)) {
+      throw new Error('precio.modo debe ser: pct | monto | set');
+    }
+    if (!Number.isFinite(valor)) {
+      throw new Error('precio.valor inválido');
+    }
+    return { modo, valor, redondear };
+  };
+
+  try {
+    const fId = new ObjectId(farmaciaId);
+    const objIds = ids.map(x => new ObjectId(x));
+
+    // 1) Traer docs actuales SOLO de esa farmacia y SOLO seleccionados
+    const docs = await InventarioFarmacia.find({
+      farmacia: fId,
+      _id: { $in: objIds }
+    }).select('_id precioVenta').lean();
+
+    if (!docs.length) {
+      return res.json({ mensaje: 'No se encontraron registros para actualizar', matched: 0, modified: 0 });
+    }
+
+    // 2) Construir $set / $unset desde "set"
+    const $set = {};
+    const $unset = {};
+
+    if (set && typeof set === 'object') {
+      // INAPAM: solo cambia si viene definido
+      if (set.descuentoINAPAM !== undefined) {
+        $set.descuentoINAPAM = parseBoolLoose(set.descuentoINAPAM);
+      }
+
+      // Promos por día
+      const dias = [
+        ['promoLunes', set.promoLunes],
+        ['promoMartes', set.promoMartes],
+        ['promoMiercoles', set.promoMiercoles],
+        ['promoJueves', set.promoJueves],
+        ['promoViernes', set.promoViernes],
+        ['promoSabado', set.promoSabado],
+        ['promoDomingo', set.promoDomingo],
+      ];
+
+      for (const [campo, payload] of dias) {
+        const r = coercePromo(payload, campo);
+        if (r.mode === 'set') $set[campo] = r.value;
+        if (r.mode === 'unset') $unset[campo] = 1;
+      }
+
+      // Temporada
+      {
+        const r = coercePromo(set.promoDeTemporada, 'promoDeTemporada');
+        if (r.mode === 'set') $set.promoDeTemporada = r.value;
+        if (r.mode === 'unset') $unset.promoDeTemporada = 1;
+      }
+
+      // Cantidad
+      if (set.promoCantidad !== undefined) {
+        if (set.promoCantidad === null) {
+          $unset.promoCantidadRequerida = 1;
+          $unset.inicioPromoCantidad = 1;
+          $unset.finPromoCantidad = 1;
+        } else {
+          const reqNum = Number(set.promoCantidad.requerida);
+          const ini = toDate(set.promoCantidad.inicio);
+          const fin = toDate(set.promoCantidad.fin);
+
+          if (![2, 3, 4].includes(reqNum)) {
+            throw new Error('promoCantidad.requerida debe ser 2, 3 o 4');
+          }
+          if (!ini || !fin) throw new Error('promoCantidad inicio/fin obligatorios');
+          if (ini > fin) throw new Error('promoCantidad rango inválido');
+
+          $set.promoCantidadRequerida = reqNum;
+          $set.inicioPromoCantidad = ini;
+          $set.finPromoCantidad = fin;
+        }
+      }
+    }
+
+    // 3) Ajuste masivo de precio (opcional)
+    const precioCfg = normalizePrecio(precio);
+
+    // 4) Hacer bulkWrite por id (así soportas precio calculado por doc)
+    const ops = [];
+    for (const d of docs) {
+      const update = {};
+      const $setLocal = { ...$set };
+      const $unsetLocal = { ...$unset };
+
+      if (precioCfg) {
+        const actual = Number(d.precioVenta || 0);
+        let nuevo = actual;
+
+        if (precioCfg.modo === 'pct') {
+          nuevo = actual * (1 + (precioCfg.valor / 100));
+        } else if (precioCfg.modo === 'monto') {
+          nuevo = actual + precioCfg.valor;
+        } else if (precioCfg.modo === 'set') {
+          nuevo = precioCfg.valor;
+        }
+
+        // no permitir <=0
+        if (!Number.isFinite(nuevo) || nuevo <= 0) {
+          // si uno sale inválido, truena todo para evitar dejar mitad actualizada
+          throw new Error(`Precio resultante inválido para ${d._id}`);
+        }
+
+        const factor = Math.pow(10, precioCfg.redondear);
+        nuevo = Math.round(nuevo * factor) / factor;
+
+        $setLocal.precioVenta = nuevo;
+      }
+
+      if (Object.keys($setLocal).length) update.$set = $setLocal;
+      if (Object.keys($unsetLocal).length) update.$unset = $unsetLocal;
+
+      if (!Object.keys(update).length) continue;
+
+      ops.push({
+        updateOne: {
+          filter: { _id: d._id, farmacia: fId },
+          update
+        }
+      });
+    }
+
+    if (!ops.length) {
+      return res.json({ mensaje: 'No hubo cambios que aplicar', matched: 0, modified: 0 });
+    }
+
+    const r = await InventarioFarmacia.bulkWrite(ops, { ordered: false });
+
+    return res.json({
+      mensaje: 'Cambios masivos aplicados',
+      matched: r.matchedCount,
+      modified: r.modifiedCount
+    });
+
+  } catch (err) {
+    console.error('[actualizarPromosYPreciosMasivo][ERROR]', err);
+    return res.status(400).json({ mensaje: err.message || 'Error aplicando cambios masivos' });
   }
 };

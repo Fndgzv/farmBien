@@ -1,14 +1,14 @@
 // backBien/controllers/ventaController.js
 const { DateTime } = require('luxon');
 const mongoose = require('mongoose');
+
 const Venta = require("../models/Venta");
-const Producto = require("../models/Producto");
 const Cliente = require("../models/Cliente");
 const InventarioFarmacia = require("../models/InventarioFarmacia");
 
 const ZONE = process.env.APP_TZ || 'America/Mexico_City';
 
-// Centavos
+// ===================== Helpers centavos =====================
 const toNumber = (v) => Number.isFinite(+v) ? +v : 0;
 const toCents = (n) => Math.round(toNumber(n) * 100);
 const fromCents = (c) => c / 100;
@@ -16,395 +16,41 @@ const fromCents = (c) => c / 100;
 const descuentoMenorQue25 = (precioBase, precioFinal) => {
   const baseC = toCents(precioBase);
   const finalC = toCents(precioFinal);
-  if (baseC <= 0) return false;                 // evita divisiones/umbral inválidos
-  const descC = Math.max(0, baseC - finalC);    // no permitir negativos
+  if (baseC <= 0) return false;
+  const descC = Math.max(0, baseC - finalC);
   const umbral = Math.round(baseC * 25 / 100);
   return descC < umbral;
 };
 
-// ====== FECHAS EN CDMX ======
-const hoyMxDT = () => DateTime.now().setZone(ZONE).startOf('day'); // Luxon DateTime
+// ===================== Fechas CDMX =====================
+const hoyMxDT = () => DateTime.now().setZone(ZONE).startOf('day');
 
-// Convierte Date o string a DateTime (CDMX, a las 00:00)
 function toMxStart(val) {
   if (!val) return null;
-  // Si ya es Date JS que viene de Mongo
-  if (val instanceof Date) {
-    return DateTime.fromJSDate(val, { zone: 'utc' }).setZone(ZONE).startOf('day');
-  }
-  // Si es string ISO/aaaa-mm-dd/dd-mm-aaaa
-  const s = String(val);
-  // ISO (aaaa-mm-dd o similar)
-  let dt = DateTime.fromISO(s, { zone: ZONE, setZone: true });
-  if (dt.isValid) return dt.startOf('day');
-  // dd/mm/aaaa
-  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (m) {
-    dt = DateTime.fromObject({ day: +m[1], month: +m[2], year: +m[3] }, { zone: ZONE });
-    if (dt.isValid) return dt.startOf('day');
-  }
-  // fallback
-  const js = new Date(s);
-  return isNaN(js.getTime())
-    ? null
-    : DateTime.fromJSDate(js, { zone: 'utc' }).setZone(ZONE).startOf('day');
+
+  // ✅ Trata como "fecha" (YYYY-MM-DD), no como instante (UTC)
+  const isoDate = (val instanceof Date)
+    ? DateTime.fromJSDate(val, { zone: 'utc' }).toISODate()
+    : String(val).slice(0, 10);
+
+  const dt = DateTime.fromISO(isoDate, { zone: ZONE });
+  return dt.isValid ? dt.startOf('day') : null;
 }
 
-// ¿hoy está dentro del rango [ini..fin] en CDMX?
+function toMxEnd(val) {
+  const dt = toMxStart(val);
+  return dt ? dt.endOf('day') : null; // ✅ incluye todo el día
+}
+
 function enRangoHoyMx(iniDT, finDT, hoyDT) {
   const h = hoyDT.toMillis();
   if (iniDT && finDT) return iniDT.toMillis() <= h && h <= finDT.toMillis();
   if (iniDT) return iniDT.toMillis() <= h;
   if (finDT) return h <= finDT.toMillis();
-  return true; // sin fechas => válido
+  return true;
 }
 
-function enRangoHoy(ini, fin, hoy) {
-  if (ini && fin) return ini <= hoy && hoy <= fin;
-  if (ini && !fin) return ini <= hoy;
-  if (!ini && fin) return hoy <= fin;
-  return true; // sin fechas => válido
-}
-
-
-const crearVenta = async (req, res) => {
-  try {
-    const {
-      folio,
-      clienteId,
-      productos,
-      aplicaInapam,
-      efectivo = 0,
-      tarjeta = 0,
-      transferencia = 0,
-      importeVale = 0,
-      farmacia,
-    } = req.body;
-
-    let folioFinal = folio;
-
-/*     if (!folioFinal || await Venta.exists({ folio: folioFinal })) {
-      folioFinal = await generarFolioUnico(Venta, {
-        prefijo: 'FB',
-        incluirDia: true
-      });
-    } */
-
-    const usuario = req.usuario;
-
-    if (!['admin', 'empleado'].includes(usuario.rol)) {
-      return res.status(403).json({ mensaje: 'Solo administradores o empleados pueden realizar ventas' });
-    }
-
-    // comprobar que el importeVale pueda pagarse con el monedero del cliente
-    const cliente = clienteId ? await Cliente.findById(clienteId) : null;
-
-    if (cliente && importeVale > cliente.totalMonedero) {
-      return res.status(405).json({ mensaje: `** Fondos insuficientes en el monedero, solo cuentas con: ${cliente.totalMonedero} **` });
-    }
-
-    if (!cliente && importeVale > 0) {
-      return res.status(406).json({ mensaje: `** Usted aún no cuenta con monedero electrónico **` });
-    }
-
-    const esCliente = cliente ? true : false;   // determninar si es un cliente
-
-    let totalVenta = 0;
-    let totalDescuento = 0;
-    let cantidadDeProductos = 0;
-
-    let totalPalmonedero = 0;
-    const productosProcesados = [];
-
-    const farmaciaId = farmacia;
-    let i = 0;
-
-    const hoyDT = hoyMxDT();                     // Luxon DateTime a 00:00 CDMX
-    const ahora = hoyDT.toJSDate();             // por si algo tuyo aún usa Date
-    const diaSemana = (hoyDT.weekday === 7) ? 0 : hoyDT.weekday;
-    // weekday: 1=Lun..7=Dom → convertimos a 0=Dom..6=Sáb
-
-
-    for (const item of productos) {
-
-      const productoDB = await Producto.findById(item.producto);
-      if (!productoDB) continue;
-
-      const inventario = await InventarioFarmacia.findOne({
-        producto: productoDB._id,
-        farmacia: farmaciaId
-      });
-
-      if (!inventario || inventario.existencia < item.cantidad) {
-        return res.status(400).json({ mensaje: `** No hay suficiente stock en la farmacia para ${productoDB.nombre} **` });
-      }
-
-      const precioBase = inventario.precioVenta;  // Tomo el precio de la farmacia ---
-      const costoUnitario = Number(productoDB.costo ?? 0);
-      if (!Number.isFinite(costoUnitario)) {
-        console.warn(`[VENTA] Producto ${productoDB._id} (${productoDB.nombre}) sin costo válido. Se usará 0.`);
-      }
-      let palmonedero = 0;
-      let descuentoRenglon = 0;
-      let precioFinal = precioBase;
-      let promoAplicada = "";
-      let cadDesc = "";
-      const clienteInapam = aplicaInapam === true;
-
-      const iniCant = toMxStart(productoDB.inicioPromoCantidad);
-      const finCant = toMxStart(productoDB.finPromoCantidad);
-      const activaCant = enRangoHoyMx(iniCant, finCant, hoyDT);
-      if (productoDB.promoCantidadRequerida && activaCant) {
-
-        descuentoRenglon = 0;
-        precioFinal = precioBase;
-        palmonedero = 0;
-        promoAplicada = '';
-        cadDesc = '';
-
-        if (item.cantidad >= productoDB.promoCantidadRequerida - 1) {
-          promoAplicada = `${getEtiquetaPromo(productoDB.promoCantidadRequerida)}`;
-        }
-
-        if (item.precio === 0) {
-          descuentoRenglon = precioBase;
-          precioFinal = 0;
-          cadDesc = '100%';
-          promoAplicada = `${getEtiquetaPromo(productoDB.promoCantidadRequerida)}-Gratis`;
-        }
-
-        if (clienteInapam && productoDB.descuentoINAPAM && item.precio > 0) {
-          descuentoRenglon = (precioFinal * 5) / 100;
-          precioFinal = precioFinal - descuentoRenglon;
-          promoAplicada = `${promoAplicada}-INAPAM`;
-          cadDesc = '5%'
-        }
-      } else {
-        // === Descuento por DÍA ===
-        //const hoy = soloFecha(new Date());
-        let porcentajeDia = 0;
-        let monederoDia = false;
-        let iniDia = null;
-        let finDia = null;
-
-        switch (diaSemana) {
-          case 1: // Lunes
-            porcentajeDia = Number(productoDB?.promoLunes?.porcentaje || 0);
-            monederoDia = !!(productoDB?.promoLunes?.monedero);
-            iniDia = toMxStart(productoDB?.promoLunes?.inicio);
-            finDia = toMxStart(productoDB?.promoLunes?.fin);
-            break;
-          case 2: // Martes
-            porcentajeDia = Number(productoDB?.promoMartes?.porcentaje || 0);
-            monederoDia = !!(productoDB?.promoMartes?.monedero);
-            iniDia = toMxStart(productoDB?.promoMartes?.inicio);
-            finDia = toMxStart(productoDB?.promoMartes?.fin);
-            break;
-          case 3: // Miércoles
-            porcentajeDia = Number(productoDB?.promoMiercoles?.porcentaje || 0);
-            monederoDia = !!(productoDB?.promoMiercoles?.monedero);
-            iniDia = toMxStart(productoDB?.promoMiercoles?.inicio);
-            finDia = toMxStart(productoDB?.promoMiercoles?.fin);
-            break;
-          case 4: // Jueves
-            porcentajeDia = Number(productoDB?.promoJueves?.porcentaje || 0);
-            monederoDia = !!(productoDB?.promoJueves?.monedero);
-            iniDia = toMxStart(productoDB?.promoJueves?.inicio);
-            finDia = toMxStart(productoDB?.promoJueves?.fin);
-            break;
-          case 5: // Viernes
-            porcentajeDia = Number(productoDB?.promoViernes?.porcentaje || 0);
-            monederoDia = !!(productoDB?.promoViernes?.monedero);
-            iniDia = toMxStart(productoDB?.promoViernes?.inicio);
-            finDia = toMxStart(productoDB?.promoViernes?.fin);
-            break;
-          case 6: // Sábado
-            porcentajeDia = Number(productoDB?.promoSabado?.porcentaje || 0);
-            monederoDia = !!(productoDB?.promoSabado?.monedero);
-            iniDia = toMxStart(productoDB?.promoSabado?.inicio);
-            finDia = toMxStart(productoDB?.promoSabado?.fin);
-            break;
-          case 0: // Domingo
-            porcentajeDia = Number(productoDB?.promoDomingo?.porcentaje || 0);
-            monederoDia = !!(productoDB?.promoDomingo?.monedero);
-            iniDia = toMxStart(productoDB?.promoDomingo?.inicio);
-            finDia = toMxStart(productoDB?.promoDomingo?.fin);
-            break;
-        }
-
-        const activoHoy = porcentajeDia > 0 && enRangoHoy(iniDia, finDia, hoyDT);
-
-        if (activoHoy) {
-          const precioFinalDia = precioBase * (1 - porcentajeDia / 100);
-          const descRenglonDia = precioBase - precioFinalDia;
-
-          precioFinal = precioFinalDia;
-          descuentoRenglon = descRenglonDia;
-          cadDesc = `${porcentajeDia}%`;
-          promoAplicada = getNombreDia(diaSemana);
-          palmonedero = 0;
-
-          if (
-            esCliente && monederoDia &&
-            !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
-          ) {
-            palmonedero = precioFinal * 0.02;
-          }
-        }
-        if (productoDB.promoDeTemporada && productoDB.promoDeTemporada.inicio && productoDB.promoDeTemporada.fin) {
-          const iniTemp = toMxStart(productoDB.promoDeTemporada.inicio);
-          const finTemp = toMxStart(productoDB.promoDeTemporada.fin);
-          if (iniTemp && finTemp && enRangoHoyMx(iniTemp, finTemp, hoyDT)) {
-            let precioFinalB = precioBase * (1 - productoDB.promoDeTemporada.porcentaje / 100);
-            if (precioFinalB < precioFinal) {
-              precioFinal = precioFinalB;
-              descuentoRenglon = precioBase - precioFinal;
-              cadDesc = `${productoDB.promoDeTemporada.porcentaje}%`;
-              promoAplicada = 'Temporada';
-              palmonedero = 0;
-              if (esCliente && productoDB.promoDeTemporada.monedero === true &&
-                !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
-              ) {
-                palmonedero = precioFinal * 0.02;
-              }
-            }
-          }
-        }
-
-        const puedeSumarInapam = clienteInapam && productoDB.descuentoINAPAM && descuentoMenorQue25(precioBase, precioFinal);
-
-        if (descuentoRenglon >= 0) {
-          if (puedeSumarInapam) {
-            precioFinal = precioFinal * 0.95;
-            descuentoRenglon = precioBase - precioFinal;
-            promoAplicada = `${promoAplicada ? promoAplicada + '-' : ''}INAPAM`;
-            cadDesc = cadDesc ? (cadDesc + ' + 5%') : '5%';
-          }
-        } else if (puedeSumarInapam) {
-          precioFinal = precioBase * 0.95;
-          descuentoRenglon = precioBase - precioFinal;
-          promoAplicada = `INAPAM`;
-          cadDesc = `5%`;
-        }
-      }
-
-      promoAplicada = limpiarPromocion(promoAplicada); // quitar guión inicial si existe.         
-
-      if (promoAplicada === '' && esCliente &&
-        !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')) {
-        promoAplicada = 'Cliente';
-        palmonedero = precioFinal * 0.02;
-      }
-
-      if (promoAplicada === 'INAPAM' && esCliente &&
-        !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')) {
-        promoAplicada = 'INAPAM-Cliente';
-        palmonedero = precioFinal * 0.02;
-      }
-
-      if (promoAplicada === '') promoAplicada = 'Ninguno';
-
-      const descuentoTotalRenglon = descuentoRenglon * item.cantidad;
-      const total = precioFinal * item.cantidad;
-      totalVenta += total;
-      totalDescuento += descuentoTotalRenglon;
-      cantidadDeProductos += item.cantidad;
-      palmonedero = palmonedero * item.cantidad;
-      totalPalmonedero += palmonedero;
-
-      inventario.existencia -= item.cantidad;
-      await inventario.save();    // actualizamos inventario
-
-      productosProcesados.push({
-        producto: productoDB._id,
-        categoria: productoDB.categoria,
-        cantidad: item.cantidad,
-        precio: precioFinal,
-        totalRen: total,
-        descuento: descuentoTotalRenglon,
-        monederoCliente: palmonedero,
-        precioOriginal: precioBase,
-        costo: costoUnitario,
-        iva: item.iva || 0,
-        tipoDescuento: promoAplicada,
-        cadenaDescuento: cadDesc,
-        lotes: []
-      });
-      i++;
-    }  /* fin ciclo de recorrido producto por producto */
-
-
-    const sumaPagos = parseFloat(efectivo) + parseFloat(tarjeta) + parseFloat(transferencia) + parseFloat(importeVale);
-
-
-    // Fuerza números (si te llegó null desde el front, no heredas null)
-    const efectivoN = toNumber(efectivo);
-    const tarjetaN = toNumber(tarjeta);
-    const transferenciaN = toNumber(transferencia);
-    const valeN = toNumber(importeVale);
-
-    // Compara en centavos (exactitud de 1 centavo)
-    const sumaPagosCents = toCents(efectivoN) + toCents(tarjetaN) + toCents(transferenciaN) + toCents(valeN);
-    const totalVentaCents = toCents(totalVenta);
-
-    // Permite diferencia de ±1 centavo por seguridad (si quieres exacto, usa ===)
-    const iguales = Math.abs(sumaPagosCents - totalVentaCents) <= 1;
-
-    if (!iguales) {
-      return res.status(400).json({
-        mensaje: `La suma de pagos (${fromCents(sumaPagosCents).toFixed(2)}) no coincide con el total (${fromCents(totalVentaCents).toFixed(2)}).`
-      });
-    }
-
-    const venta = new Venta({
-      farmacia: farmaciaId,
-      cliente: clienteId || null,
-      usuario: usuario.id,
-      productos: productosProcesados,
-      cantidadProductos: cantidadDeProductos,
-      total: totalVenta,
-      totalDescuento,
-      totalMonederoCliente: totalPalmonedero,
-      formaPago: {
-        efectivo: efectivoN,
-        tarjeta: tarjetaN,
-        transferencia: transferenciaN,
-        vale: valeN
-      },
-      fecha: new Date(),
-      folio: folioFinal
-    });
-
-    await venta.save();
-
-    if (cliente) {
-      let motivo = null;
-      if (totalPalmonedero > 0) motivo = 'Premio';
-      if (totalPalmonedero > 0 && importeVale > 0) motivo = 'Premio-Pago venta';
-      if (totalPalmonedero <= 0 && importeVale > 0) motivo = 'Pago venta';
-      cliente.historialCompras.push({ venta: venta._id });
-      const actual = Number.isFinite(cliente.totalMonedero)
-        ? cliente.totalMonedero : 0;
-      cliente.monedero.push({
-        fechaUso: new Date(),
-        montoIngreso: totalPalmonedero,
-        montoEgreso: importeVale,
-        motivo,
-        farmaciaUso: farmaciaId
-      });
-      cliente.totalMonedero = actual + totalPalmonedero - importeVale;
-
-      await cliente.save();
-    }
-
-    res.status(201).json({ mensaje: 'Venta realizada con éxito', venta });
-  } catch (error) {
-    console.error('Error al crear venta:', error);
-    res.status(500).json({ mensaje: 'Error interno del servidor', error });
-  }
-};
-
-
+// ===================== Promos helpers =====================
 function getEtiquetaPromo(valor) {
   if (valor === 2) return '2x1';
   if (valor === 3) return '3x2';
@@ -421,32 +67,537 @@ function limpiarPromocion(promo) {
   return str.startsWith('-') ? str.slice(1) : str;
 }
 
+// ===================== calcular precio/promos (NO cantidad) =====================
+function calcUnitNoCantidad({
+  precioBase,
+  productoDB,
+  promoSrc,
+  hoyDT,
+  diaSemana,
+  esCliente,
+  clienteInapam
+}) {
+  // defaults
+  let precioFinal = Number(precioBase || 0);
+  let descuentoUnit = 0;
+  let palmonederoUnit = 0;
+  let promoAplicada = '';
+  let cadDesc = '';
+
+  // ===== Descuento por día =====
+  let porcentajeDia = 0;
+  let monederoDia = false;
+  let iniDia = null;
+  let finDia = null;
+
+  switch (diaSemana) {
+    case 1:
+      porcentajeDia = Number(promoSrc?.promoLunes?.porcentaje || 0);
+      monederoDia = !!promoSrc?.promoLunes?.monedero;
+      iniDia = toMxStart(promoSrc?.promoLunes?.inicio);
+      finDia = toMxStart(promoSrc?.promoLunes?.fin);
+      break;
+    case 2:
+      porcentajeDia = Number(promoSrc?.promoMartes?.porcentaje || 0);
+      monederoDia = !!promoSrc?.promoMartes?.monedero;
+      iniDia = toMxStart(promoSrc?.promoMartes?.inicio);
+      finDia = toMxStart(promoSrc?.promoMartes?.fin);
+      break;
+    case 3:
+      porcentajeDia = Number(promoSrc?.promoMiercoles?.porcentaje || 0);
+      monederoDia = !!promoSrc?.promoMiercoles?.monedero;
+      iniDia = toMxStart(promoSrc?.promoMiercoles?.inicio);
+      finDia = toMxStart(promoSrc?.promoMiercoles?.fin);
+      break;
+    case 4:
+      porcentajeDia = Number(promoSrc?.promoJueves?.porcentaje || 0);
+      monederoDia = !!promoSrc?.promoJueves?.monedero;
+      iniDia = toMxStart(promoSrc?.promoJueves?.inicio);
+      finDia = toMxStart(promoSrc?.promoJueves?.fin);
+      break;
+    case 5:
+      porcentajeDia = Number(promoSrc?.promoViernes?.porcentaje || 0);
+      monederoDia = !!promoSrc?.promoViernes?.monedero;
+      iniDia = toMxStart(promoSrc?.promoViernes?.inicio);
+      finDia = toMxStart(promoSrc?.promoViernes?.fin);
+      break;
+    case 6:
+      porcentajeDia = Number(promoSrc?.promoSabado?.porcentaje || 0);
+      monederoDia = !!promoSrc?.promoSabado?.monedero;
+      iniDia = toMxStart(promoSrc?.promoSabado?.inicio);
+      finDia = toMxStart(promoSrc?.promoSabado?.fin);
+      break;
+    case 0:
+      porcentajeDia = Number(promoSrc?.promoDomingo?.porcentaje || 0);
+      monederoDia = !!promoSrc?.promoDomingo?.monedero;
+      iniDia = toMxStart(promoSrc?.promoDomingo?.inicio);
+      finDia = toMxStart(promoSrc?.promoDomingo?.fin);
+      break;
+  }
+
+  const activoHoy = porcentajeDia > 0 && enRangoHoyMx(iniDia, finDia, hoyDT);
+
+  if (activoHoy) {
+    const precioFinalDia = precioBase * (1 - porcentajeDia / 100);
+    const descUnitDia = precioBase - precioFinalDia;
+
+    precioFinal = precioFinalDia;
+    descuentoUnit = descUnitDia;
+    cadDesc = `${porcentajeDia}%`;
+    promoAplicada = getNombreDia(diaSemana);
+    palmonederoUnit = 0;
+
+    if (
+      esCliente && monederoDia &&
+      !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
+    ) {
+      palmonederoUnit = precioFinal * 0.02;
+    }
+  }
+
+  // ===== Temporada =====
+  if (promoSrc?.promoDeTemporada?.inicio && promoSrc?.promoDeTemporada?.fin) {
+    const iniTemp = toMxStart(promoSrc.promoDeTemporada.inicio);
+    const finTemp = toMxStart(promoSrc.promoDeTemporada.fin);
+
+    if (iniTemp && finTemp && enRangoHoyMx(iniTemp, finTemp, hoyDT)) {
+      const pTemp = Number(promoSrc?.promoDeTemporada?.porcentaje || 0);
+      const precioFinalTemp = precioBase * (1 - pTemp / 100);
+
+      if (precioFinalTemp < precioFinal) {
+        precioFinal = precioFinalTemp;
+        descuentoUnit = precioBase - precioFinal;
+        cadDesc = `${pTemp}%`;
+        promoAplicada = 'Temporada';
+        palmonederoUnit = 0;
+
+        if (
+          esCliente && promoSrc.promoDeTemporada.monedero === true &&
+          !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
+        ) {
+          palmonederoUnit = precioFinal * 0.02;
+        }
+      }
+    }
+  }
+
+  // ===== INAPAM (regla 25%) =====
+  const puedeSumarInapam =
+    clienteInapam &&
+    promoSrc.descuentoINAPAM &&
+    descuentoMenorQue25(precioBase, precioFinal);
+
+  // Nota: aquí descuentoUnit siempre es >= 0 (porque lo calculamos como base - final cuando aplica)
+  if (puedeSumarInapam) {
+    precioFinal = precioFinal * 0.95;
+    descuentoUnit = precioBase - precioFinal;
+    promoAplicada = `${promoAplicada ? promoAplicada + '-' : ''}INAPAM`;
+    cadDesc = cadDesc ? (cadDesc + ' + 5%') : '5%';
+  }
+
+  promoAplicada = limpiarPromocion(promoAplicada);
+
+  // ===== Cliente (2% monedero) si no hubo promo =====
+  if (
+    promoAplicada === '' && esCliente &&
+    !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
+  ) {
+    promoAplicada = 'Cliente';
+    palmonederoUnit = precioFinal * 0.02;
+  }
+
+  if (
+    promoAplicada === 'INAPAM' && esCliente &&
+    !(productoDB.categoria === 'Recargas' || productoDB.categoria === 'Servicio Médico')
+  ) {
+    promoAplicada = 'INAPAM-Cliente';
+    palmonederoUnit = precioFinal * 0.02;
+  }
+
+  if (promoAplicada === '') promoAplicada = 'Ninguno';
+
+  return { precioFinal, descuentoUnit, palmonederoUnit, promoAplicada, cadDesc };
+}
+
+// ===================== crearVenta =====================
+const crearVenta = async (req, res) => {
+  try {
+    const {
+      folio,
+      clienteId,
+      productos,
+      aplicaInapam,
+      efectivo = 0,
+      tarjeta = 0,
+      transferencia = 0,
+      importeVale = 0,
+      farmacia,
+    } = req.body;
+
+    if (!farmacia || !mongoose.isValidObjectId(farmacia)) {
+      return res.status(400).json({ mensaje: 'Falta farmacia válida' });
+    }
+
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({ mensaje: 'No hay productos para vender' });
+    }
+
+    const usuario = req.usuario;
+    if (!['admin', 'empleado'].includes(usuario?.rol)) {
+      return res.status(403).json({ mensaje: 'Solo administradores o empleados pueden realizar ventas' });
+    }
+
+    // Cliente y monedero
+    const cliente = clienteId ? await Cliente.findById(clienteId) : null;
+
+    const valeReq = toNumber(importeVale);
+    const monederoActual = cliente ? toNumber(cliente.totalMonedero) : 0;
+
+    if (cliente && valeReq > monederoActual) {
+      return res.status(405).json({
+        mensaje: `** Fondos insuficientes en el monedero, solo cuentas con: ${monederoActual} **`
+      });
+    }
+    if (!cliente && valeReq > 0) {
+      return res.status(406).json({ mensaje: `** Usted aún no cuenta con monedero electrónico **` });
+    }
+
+    const esCliente = !!cliente;
+    const farmaciaId = farmacia;
+    const folioFinal = folio;
+
+    let totalVenta = 0;
+    let totalDescuento = 0;
+    let cantidadDeProductos = 0;
+    let totalPalmonedero = 0;
+
+    const productosProcesados = [];
+
+    // ===================== PREFETCH inventario (1 query) =====================
+    const productoIds = productos.map(p => String(p.producto)).filter(Boolean);
+    const uniqueIds = [...new Set(productoIds)];
+
+    if (uniqueIds.some(id => !mongoose.isValidObjectId(id))) {
+      return res.status(400).json({ mensaje: 'Hay productos con ID inválido' });
+    }
+
+    // qtyByProd incluye cobrados + gratis (para stock)
+    const qtyByProd = new Map();
+    // qtyFreePayload por producto (solo para validar que coincida)
+    const qtyFreePayload = new Map();
+
+    for (const it of productos) {
+      const pid = String(it.producto || '');
+      const q = Math.max(0, toNumber(it.cantidad));
+      if (!pid || q <= 0) continue;
+
+      qtyByProd.set(pid, (qtyByProd.get(pid) || 0) + q);
+
+      const precioPayload = toNumber(it.precio);
+      if (precioPayload === 0) {
+        qtyFreePayload.set(pid, (qtyFreePayload.get(pid) || 0) + q);
+      }
+    }
+
+    const inventariosDocs = await InventarioFarmacia.find({
+      farmacia: farmaciaId,
+      producto: { $in: uniqueIds }
+    })
+      .populate("producto", "nombre costo categoria iva")
+      .exec();
+
+    const invByProd = new Map();
+    for (const inv of inventariosDocs) {
+      invByProd.set(String(inv.producto?._id || inv.producto), inv);
+    }
+
+    // Valida faltantes y stock total por producto
+    for (const pid of uniqueIds) {
+      const inv = invByProd.get(pid);
+      if (!inv || !inv.producto) {
+        return res.status(400).json({ mensaje: `** El producto ${pid} no existe en inventario de la farmacia **` });
+      }
+      const reqQty = qtyByProd.get(pid) || 0;
+      if (toNumber(inv.existencia) < reqQty) {
+        return res.status(400).json({
+          mensaje: `** No hay suficiente stock en la farmacia para ${inv.producto.nombre} (req: ${reqQty}, disp: ${inv.existencia}) **`
+        });
+      }
+    }
+
+    const hoyDT = hoyMxDT();
+    const diaSemana = (hoyDT.weekday === 7) ? 0 : hoyDT.weekday; // 0=Dom..6=Sáb
+    const clienteInapam = aplicaInapam === true;
+
+    // ===================== Procesar por PRODUCTO (genera renglón cobrado + renglón gratis) =====================
+    for (const pid of uniqueIds) {
+      const inventario = invByProd.get(pid);
+      if (!inventario || !inventario.producto) continue;
+
+      const productoDB = inventario.producto; // nombre/costo/categoria/iva
+      const promoSrc = inventario;            // promos en InventarioFarmacia
+      const precioBase = toNumber(inventario.precioVenta);
+      const costoUnitario = toNumber(productoDB.costo);
+
+      const totalQty = qtyByProd.get(pid) || 0;
+      if (totalQty <= 0) continue;
+
+      // ---- promo por cantidad (2x1/3x2/4x3) ----
+      const req = Math.max(0, Math.trunc(toNumber(promoSrc.promoCantidadRequerida)));
+      const iniCant = toMxStart(promoSrc.inicioPromoCantidad);
+      const finCant = toMxEnd(promoSrc.finPromoCantidad);
+      const activaCant = req >= 2 && enRangoHoyMx(iniCant, finCant, hoyDT);
+
+      let freeAllowed = 0;
+      if (activaCant) {
+        // Por cada "req" unidades, 1 va gratis
+        freeAllowed = Math.floor(totalQty / req);
+      }
+
+      const freePayload = qtyFreePayload.get(pid) || 0;
+
+      // Si el frontend manda renglones gratis, validamos que empaten con lo permitido
+      if (freePayload > 0 || freeAllowed > 0) {
+        if (!activaCant) {
+          return res.status(400).json({
+            mensaje: `** El producto ${productoDB.nombre} trae renglón gratis pero la promo por cantidad no está activa **`
+          });
+        }
+        if (freePayload !== freeAllowed) {
+          return res.status(400).json({
+            mensaje: `** Promo cantidad inválida en ${productoDB.nombre}: gratis enviados=${freePayload}, gratis esperados=${freeAllowed} **`
+          });
+        }
+      }
+
+      const paidQty = Math.max(0, totalQty - freeAllowed);
+
+      // --------- Renglón COBRADO ----------
+      if (paidQty > 0) {
+        let precioFinalUnit = precioBase;
+        let descuentoUnit = 0;
+        let palmonederoUnit = 0;
+        let promoAplicada = '';
+        let cadDesc = '';
+
+        if (activaCant && freeAllowed > 0) {
+          // Hay promo por cantidad: el renglón cobrado mantiene precio base
+          promoAplicada = getEtiquetaPromo(req);
+          cadDesc = ''; // no es % como tal
+          palmonederoUnit = 0;
+
+          // INAPAM sobre el cobrado (si aplica) — en tu lógica anterior sí lo permitías
+          if (clienteInapam && promoSrc.descuentoINAPAM) {
+            const descInapam = precioFinalUnit * 0.05;
+            precioFinalUnit = precioFinalUnit - descInapam;
+            descuentoUnit = precioBase - precioFinalUnit; // lo dejamos consistente
+            promoAplicada = `${promoAplicada}-INAPAM`;
+            cadDesc = '5%';
+          }
+        } else {
+          // No hay promo cantidad => usar tu motor de día/temporada/inapam/cliente
+          const calc = calcUnitNoCantidad({
+            precioBase,
+            productoDB,
+            promoSrc,
+            hoyDT,
+            diaSemana,
+            esCliente,
+            clienteInapam
+          });
+          precioFinalUnit = calc.precioFinal;
+          descuentoUnit = calc.descuentoUnit;
+          palmonederoUnit = calc.palmonederoUnit;
+          promoAplicada = calc.promoAplicada;
+          cadDesc = calc.cadDesc;
+        }
+
+        promoAplicada = limpiarPromocion(promoAplicada);
+        if (!promoAplicada) promoAplicada = 'Ninguno';
+
+        const totalRen = precioFinalUnit * paidQty;
+        const descuentoRen = descuentoUnit * paidQty;
+        const monederoRen = palmonederoUnit * paidQty;
+
+        totalVenta += totalRen;
+        totalDescuento += descuentoRen;
+        totalPalmonedero += monederoRen;
+        cantidadDeProductos += paidQty;
+
+        productosProcesados.push({
+          producto: productoDB._id,
+          categoria: productoDB.categoria,
+          cantidad: paidQty,
+          precio: Number(precioFinalUnit.toFixed(2)),
+          totalRen: Number(totalRen.toFixed(2)),
+          descuento: Number(descuentoRen.toFixed(2)),
+          monederoCliente: Number(monederoRen.toFixed(2)),
+          precioOriginal: Number(precioBase.toFixed(2)),
+          costo: Number(costoUnitario.toFixed(2)),
+          iva: toNumber(productoDB.iva),
+          tipoDescuento: promoAplicada,
+          cadenaDescuento: cadDesc || '',
+          lotes: []
+        });
+      }
+
+      // --------- Renglón GRATIS ----------
+      if (freeAllowed > 0) {
+        const totalRen = 0;
+        const descuentoRen = precioBase * freeAllowed;
+
+        totalVenta += totalRen;
+        totalDescuento += descuentoRen;
+        cantidadDeProductos += freeAllowed;
+
+        productosProcesados.push({
+          producto: productoDB._id,
+          categoria: productoDB.categoria,
+          cantidad: freeAllowed,
+          precio: 0,
+          totalRen: 0,
+          descuento: Number(descuentoRen.toFixed(2)),
+          monederoCliente: 0,
+          precioOriginal: Number(precioBase.toFixed(2)),
+          costo: Number(costoUnitario.toFixed(2)),
+          iva: toNumber(productoDB.iva),
+          tipoDescuento: `${getEtiquetaPromo(req)}-Gratis`,
+          cadenaDescuento: '100%',
+          lotes: []
+        });
+      }
+    }
+
+    // ===================== Validación pagos =====================
+    const efectivoN = toNumber(efectivo);
+    const tarjetaN = toNumber(tarjeta);
+    const transferenciaN = toNumber(transferencia);
+    const valeN = toNumber(importeVale);
+
+    const sumaPagosCents = toCents(efectivoN) + toCents(tarjetaN) + toCents(transferenciaN) + toCents(valeN);
+    const totalVentaCents = toCents(totalVenta);
+
+    const iguales = Math.abs(sumaPagosCents - totalVentaCents) <= 1;
+    if (!iguales) {
+      return res.status(400).json({
+        mensaje: `La suma de pagos (${fromCents(sumaPagosCents).toFixed(2)}) no coincide con el total (${fromCents(totalVentaCents).toFixed(2)}).`
+      });
+    }
+
+    // ===================== Transacción (descuento inventario + venta + monedero) =====================
+    const session = await mongoose.startSession();
+    let ventaCreada = null;
+
+    try {
+      await session.withTransaction(async () => {
+        // 1) Descontar inventario atómico por producto (incluye gratis)
+        const bulkOps = [];
+        for (const [pid, qty] of qtyByProd.entries()) {
+          if (!qty || qty <= 0) continue;
+
+          const inv = invByProd.get(pid);
+          if (!inv) throw new Error(`Inventario no encontrado para producto ${pid}`);
+
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: inv._id, existencia: { $gte: qty } },
+              update: { $inc: { existencia: -qty } },
+            }
+          });
+        }
+
+        if (bulkOps.length) {
+          const bulkRes = await InventarioFarmacia.bulkWrite(bulkOps, { ordered: true, session });
+          const expected = bulkOps.length;
+          const modified = bulkRes.modifiedCount || 0;
+          if (modified !== expected) throw new Error("STOCK_INSUFICIENTE_CONCURRENCIA");
+        }
+
+        // 2) Guardar venta
+        const ventaArr = await Venta.create([{
+          farmacia: farmaciaId,
+          cliente: clienteId || null,
+          usuario: usuario.id,
+          productos: productosProcesados,
+          cantidadProductos: cantidadDeProductos,
+          total: Number(totalVenta.toFixed(2)),
+          totalDescuento: Number(totalDescuento.toFixed(2)),
+          totalMonederoCliente: Number(totalPalmonedero.toFixed(2)),
+          formaPago: {
+            efectivo: efectivoN,
+            tarjeta: tarjetaN,
+            transferencia: transferenciaN,
+            vale: valeN
+          },
+          fecha: new Date(),
+          folio: folioFinal
+        }], { session });
+
+        ventaCreada = ventaArr[0];
+
+        // 3) Monedero
+        if (cliente) {
+          let motivo = null;
+          if (totalPalmonedero > 0) motivo = 'Premio';
+          if (totalPalmonedero > 0 && valeN > 0) motivo = 'Premio-Pago venta';
+          if (totalPalmonedero <= 0 && valeN > 0) motivo = 'Pago venta';
+
+          cliente.historialCompras.push({ venta: ventaCreada._id });
+
+          const actual = Number.isFinite(cliente.totalMonedero) ? cliente.totalMonedero : 0;
+          cliente.monedero.push({
+            fechaUso: new Date(),
+            montoIngreso: Number(totalPalmonedero.toFixed(2)),
+            montoEgreso: Number(valeN.toFixed(2)),
+            motivo,
+            farmaciaUso: farmaciaId
+          });
+          cliente.totalMonedero = Number((actual + totalPalmonedero - valeN).toFixed(2));
+
+          await cliente.save({ session });
+        }
+      });
+
+      return res.status(201).json({ mensaje: 'Venta realizada con éxito', venta: ventaCreada });
+
+    } catch (err) {
+      if (String(err.message) === "STOCK_INSUFICIENTE_CONCURRENCIA") {
+        return res.status(400).json({ mensaje: "** Ya no hay suficiente stock (venta concurrente). **" });
+      }
+      console.error("Error transacción venta:", err);
+      return res.status(500).json({ mensaje: "Error interno del servidor", error: err.message });
+    } finally {
+      session.endSession();
+    }
+
+  } catch (error) {
+    console.error('Error al crear venta:', error);
+    return res.status(500).json({ mensaje: 'Error interno del servidor', error });
+  }
+};
+
+// ===================== consultarVentas (lo de siempre) =====================
+
 // Convierte 'YYYY-MM-DD' (o ausencia) a rango UTC [gte, lt) según CDMX.
 function dayRangeUtcFromQuery(fechaInicial, fechaFinal) {
-  // Si no mandan nada → HOY (CDMX)
   if (!fechaInicial && !fechaFinal) {
     const startLocal = DateTime.now().setZone(ZONE).startOf('day');
     const endExLocal = startLocal.plus({ days: 1 });
     return { gte: startLocal.toUTC().toJSDate(), lt: endExLocal.toUTC().toJSDate() };
   }
 
-  // Normaliza entradas a 'YYYY-MM-DD' y crea DateTime en CDMX
   const norm = (s) => String(s).slice(0, 10);
   const startLocal = DateTime.fromISO(norm(fechaInicial || fechaFinal), { zone: ZONE }).startOf('day');
   const endExLocal = DateTime.fromISO(norm(fechaFinal || fechaInicial), { zone: ZONE }).startOf('day').plus({ days: 1 });
 
-  if (!startLocal.isValid || !endExLocal.isValid) {
-    throw new Error('Fecha inválida (usa YYYY-MM-DD)');
-  }
+  if (!startLocal.isValid || !endExLocal.isValid) throw new Error('Fecha inválida (usa YYYY-MM-DD)');
 
-  // Corrige si vienen invertidas
   const s = startLocal <= endExLocal.minus({ days: 1 }) ? startLocal : endExLocal.minus({ days: 1 });
   const e = startLocal <= endExLocal.minus({ days: 1 }) ? endExLocal : startLocal.plus({ days: 1 });
 
   return { gte: s.toUTC().toJSDate(), lt: e.toUTC().toJSDate() };
 }
 
-// helper seguro para castear ids
 function castId(id) {
   return (id && mongoose.isValidObjectId(id)) ? new mongoose.Types.ObjectId(id) : undefined;
 }
@@ -465,16 +616,13 @@ const consultarVentas = async (req, res) => {
       limit = 20,
     } = req.query;
 
-    // 1) Rango de fechas robusto
     const { gte, lt } = dayRangeUtcFromQuery(fechaInicial, fechaFinal);
 
-    // 2) Filtro base (find)
     const filtro = { fecha: { $gte: gte, $lt: lt } };
     if (farmaciaId) filtro.farmacia = farmaciaId;
-    if (clienteId)  filtro.cliente  = clienteId;
-    if (usuarioId)  filtro.usuario  = usuarioId;
+    if (clienteId) filtro.cliente = clienteId;
+    if (usuarioId) filtro.usuario = usuarioId;
 
-    // 3) Filtro por total
     const tDesde = totalDesde !== undefined && totalDesde !== '' ? Number(totalDesde) : null;
     const tHasta = totalHasta !== undefined && totalHasta !== '' ? Number(totalHasta) : null;
     if (!Number.isNaN(tDesde) || !Number.isNaN(tHasta)) {
@@ -484,31 +632,27 @@ const consultarVentas = async (req, res) => {
       if (Object.keys(filtro.total).length === 0) delete filtro.total;
     }
 
-    // 4) Validación de ObjectId (si vienen definidos)
     const invalidId =
       (farmaciaId && !mongoose.isValidObjectId(farmaciaId)) ||
-      (clienteId  && !mongoose.isValidObjectId(clienteId))  ||
-      (usuarioId  && !mongoose.isValidObjectId(usuarioId));
+      (clienteId && !mongoose.isValidObjectId(clienteId)) ||
+      (usuarioId && !mongoose.isValidObjectId(usuarioId));
     if (invalidId) {
       return res.status(400).json({ ok: false, mensaje: 'Algún ID es inválido' });
     }
 
-    // 5) Paginación
-    const pageNum  = Math.max(1, parseInt(page, 10)  || 1);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 20));
     const skip = (pageNum - 1) * limitNum;
 
-    // 6) $match para aggregate (ids casteados con helper)
     const matchAgg = { fecha: { $gte: gte, $lt: lt } };
     const farmaciaOid = castId(farmaciaId);
-    const clienteOid  = castId(clienteId);
-    const usuarioOid  = castId(usuarioId);
+    const clienteOid = castId(clienteId);
+    const usuarioOid = castId(usuarioId);
     if (farmaciaOid) matchAgg.farmacia = farmaciaOid;
-    if (clienteOid)  matchAgg.cliente  = clienteOid;
-    if (usuarioOid)  matchAgg.usuario  = usuarioOid;
-    if (filtro.total) matchAgg.total   = filtro.total;
+    if (clienteOid) matchAgg.cliente = clienteOid;
+    if (usuarioOid) matchAgg.usuario = usuarioOid;
+    if (filtro.total) matchAgg.total = filtro.total;
 
-    // 7) Consultas en paralelo
     const [ventasDocs, totalRegistros, sumasAgg] = await Promise.all([
       Venta.find(filtro)
         .sort({ fecha: -1 })
@@ -565,7 +709,6 @@ const consultarVentas = async (req, res) => {
       ]),
     ]);
 
-    // 8) Cálculos por venta…
     const toNum = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
     const ventas = ventasDocs.map(doc => {
       const o = doc.toObject ? doc.toObject() : doc;
@@ -594,10 +737,10 @@ const consultarVentas = async (req, res) => {
       ok: true,
       filtrosAplicados: {
         farmaciaId: farmaciaId || null,
-        clienteId:  clienteId  || null,
-        usuarioId:  usuarioId  || null,
+        clienteId: clienteId || null,
+        usuarioId: usuarioId || null,
         fechaInicial: gte,
-        fechaFinal:   lt,
+        fechaFinal: lt,
         totalDesde: tDesde,
         totalHasta: tHasta,
       },

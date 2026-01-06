@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { InventarioFarmaciaService } from '../../../services/inventario-farmacia.service';
 import { FarmaciaService } from '../../../services/farmacia.service';
 import Swal from 'sweetalert2';
@@ -9,7 +10,8 @@ import { finalize } from 'rxjs/operators';
 
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
-import { faSpinner, faCheck, faSave, faPen, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faCheck, faSave, faPen, faTimes, faTags } from '@fortawesome/free-solid-svg-icons';
+import { PromosInventarioDialogComponent } from './promos-inventario-dialog.component';
 
 
 @Component({
@@ -19,7 +21,8 @@ import { faSpinner, faCheck, faSave, faPen, faTimes } from '@fortawesome/free-so
     FormsModule,
     ReactiveFormsModule,
     FaIconComponent,
-    MatTooltipModule
+    MatTooltipModule,
+    MatDialogModule
   ],
   templateUrl: './ajustes-inventario-farmacia.component.html',
   styleUrl: './ajustes-inventario-farmacia.component.css'
@@ -32,6 +35,24 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   inventario: any[] = [];
   farmacias: any[] = [];
 
+
+  aplicandoMasivoPromosPrecio = false;
+
+  cmOpen = false;
+
+  diasMasivo = [
+    { key: 'promoLunes', label: 'Lunes' },
+    { key: 'promoMartes', label: 'Martes' },
+    { key: 'promoMiercoles', label: 'Miércoles' },
+    { key: 'promoJueves', label: 'Jueves' },
+    { key: 'promoViernes', label: 'Viernes' },
+    { key: 'promoSabado', label: 'Sábado' },
+    { key: 'promoDomingo', label: 'Domingo' },
+  ];
+
+  // estado UI masivo
+  masivo = this.buildMasivoState();
+
   ajusteMasivo: { precioVenta: any, existencia: any; stockMax: any; stockMin: any; ubicacionFarmacia: string } = {
     precioVenta: '',
     existencia: '',
@@ -41,6 +62,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   };
 
   estadoEdicion: { [key: string]: boolean } = {}; // clave: id del producto
+  edicionPromos: boolean = true;
 
   paginaActual = 1;
   tamanoPagina = 15;
@@ -50,6 +72,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   faSave = faSave;
   faEdit = faPen;
   faTimes = faTimes;
+  faTags = faTags;
 
   estadoGuardado: { [key: string]: 'idle' | 'guardando' | 'exito' } = {};
   cargando = false;
@@ -62,8 +85,15 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     private fb: FormBuilder,
     private inventarioService: InventarioFarmaciaService,
     private farmaciaService: FarmaciaService,
+    private dialog: MatDialog,
     library: FaIconLibrary
-  ) { library.addIcons(faSave, faSpinner, faCheck); }
+  ) { library.addIcons(faSave, faSpinner, faCheck, faTags); }
+
+  ngAfterViewInit() {
+    const v = localStorage.getItem('cmOpen');
+    this.cmOpen = v === '1';
+  }
+
 
   ngOnInit(): void {
     this.formFiltros = this.fb.group({
@@ -91,6 +121,11 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     this.cargarFarmacias();
   }
 
+  onToggleCambiosMasivos(ev: Event) {
+    const el = ev.target as HTMLDetailsElement;
+    localStorage.setItem('cmOpen', el.open ? '1' : '0');
+  }
+  
   cargarFarmacias() {
     this.farmaciaService.obtenerFarmacias().subscribe({
       next: (resp) => {
@@ -143,18 +178,8 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     this.inventarioService.buscarInventarioFarmacia(params).subscribe({
       next: (resp) => {
         this.estadoEdicion = {};
-        console.log('inventario farma', resp);
         this.inventario = resp.map((item: any) => ({
-          _id: item._id,
-          farmacia: item.farmacia,
-          producto: item.producto,
-          existencia: item.existencia,
-          stockMax: item.stockMax,
-          stockMin: item.stockMin,
-          costo: item.costo,
-          precioVenta: item.precioVenta,
-          ubicacionFarmacia: item.ubicacionFarmacia,
-          seleccionado: false,
+          ...item,
           copiaOriginal: {
             existencia: item.existencia,
             stockMax: item.stockMax,
@@ -187,10 +212,8 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   }
 
   seleccionarTodos(event: any) {
-    /* this.inventario.forEach(p => p.seleccionado = this.todosSeleccionados); */
     const checked = event.target.checked;
     this.inventario.forEach(p => p.seleccionado = checked);
-    /* this.todosSeleccionados = checked; */
   }
 
   guardarAjusteMasivo() {
@@ -385,9 +408,11 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       (i.ubicacionFarmacia ?? '') !== (i.copiaOriginal.ubicacionFarmacia ?? '');  // ← NUEVO
 
     if (!cambios) {
-      Swal.fire({ icon: 'info',
+      Swal.fire({
+        icon: 'info',
         title: 'Sin cambios',
-        text: 'No se detectaron cambios en este producto.' });
+        text: 'No se detectaron cambios en este producto.'
+      });
       return;
     }
 
@@ -423,6 +448,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
         });
         // this.buscar();
         this.estadoEdicion[i._id] = false;
+        this.edicionPromos = true;
       },
       error: (err) => {
         console.error('Error al guardar fila:', err);
@@ -446,6 +472,10 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   get inventarioPaginado() {
     const inicio = (this.paginaActual - 1) * this.tamanoPagina;
     return this.inventario.slice(inicio, inicio + this.tamanoPagina);
+  }
+
+  get seleccionadosCount(): number {
+    return this.inventario?.filter(x => x?.seleccionado).length ?? 0;
   }
 
   paginaAnterior() {
@@ -521,6 +551,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
 
   habilitarEdicion(id: string): void {
     this.estadoEdicion[id] = true;
+    this.edicionPromos = false;
   }
 
   cancelarEdicion(item: any) {
@@ -531,11 +562,267 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     item.ubicacionFarmacia = item.copiaOriginal.ubicacionFarmacia; // ← NUEVO
     this.estadoEdicion[item._id] = false;
     this.estadoGuardado[item._id] = 'idle';
+    this.edicionPromos = true;
   }
 
   limpiarFiltro(campo: string) {
     this.formFiltros.get(campo)?.setValue('');
     this.buscar();
   }
+
+  abrirEditarPromos(i: any) {
+    const ref = this.dialog.open(PromosInventarioDialogComponent, {
+      width: '580px',
+      maxWidth: '98vw',
+      disableClose: true,
+      data: { item: i }   // pasamos el renglón actual
+    });
+
+    ref.afterClosed().subscribe((resp) => {
+      // resp puede traer {updated: Inventario} si guardó
+      if (resp?.updated) {
+        const inv = resp.updated;
+        // Merge mínimo de campos conocidos para reflejar cambios locales
+        i.producto = i.producto ?? {};
+        i.descuentoINAPAM = inv.descuentoINAPAM;
+
+        i.promoLunes = inv.promoLunes;
+        i.promoMartes = inv.promoMartes;
+        i.promoMiercoles = inv.promoMiercoles;
+        i.promoJueves = inv.promoJueves;
+        i.promoViernes = inv.promoViernes;
+        i.promoSabado = inv.promoSabado;
+        i.promoDomingo = inv.promoDomingo;
+
+        i.promoCantidadRequerida = inv.promoCantidadRequerida;
+        i.inicioPromoCantidad = inv.inicioPromoCantidad;
+        i.finPromoCantidad = inv.finPromoCantidad;
+
+        i.promoDeTemporada = inv.promoDeTemporada;
+      }
+    });
+  }
+
+  private buildMasivoState() {
+    const emptyPromo = () => ({ porcentaje: null as any, inicio: '', fin: '', monedero: false });
+
+    const data: any = {};
+    for (const d of [
+      'promoLunes', 'promoMartes', 'promoMiercoles', 'promoJueves', 'promoViernes', 'promoSabado', 'promoDomingo'
+    ]) {
+      data[d] = emptyPromo();
+    }
+
+    return {
+      inapam: { usar: false, valor: false },
+
+      dias: {
+        usar: false,
+        limpiar: false,
+        data
+      },
+
+      temporada: {
+        usar: false,
+        limpiar: false,
+        porcentaje: null as any,
+        inicio: '',
+        fin: '',
+        monedero: false
+      },
+
+      cantidad: {
+        usar: false,
+        limpiar: false,
+        requerida: null as any,
+        inicio: '',
+        fin: ''
+      },
+
+      precio: {
+        usar: false,
+        modo: 'pct' as 'pct' | 'monto' | 'set',
+        valor: null as any,
+        redondear: 2 as 0 | 1 | 2
+      }
+    };
+  }
+
+  resetMasivoPromosPrecio() {
+    this.masivo = this.buildMasivoState();
+  }
+
+  /** valida y arma payload compatible con backend */
+  private buildPayloadMasivo(ids: string[]) {
+    const set: any = {};
+    let tieneAlgo = false;
+
+    // INAPAM
+    if (this.masivo.inapam.usar) {
+      set.descuentoINAPAM = !!this.masivo.inapam.valor;
+      tieneAlgo = true;
+    }
+
+    // Promos por día
+    if (this.masivo.dias.usar) {
+      if (this.masivo.dias.limpiar) {
+        // limpiar TODAS (manda null)
+        for (const d of this.diasMasivo) set[d.key] = null;
+        tieneAlgo = true;
+      } else {
+        for (const d of this.diasMasivo) {
+          const p = this.masivo.dias.data[d.key];
+          const tieneAlgunDato =
+            (p.porcentaje !== null && p.porcentaje !== '' && p.porcentaje !== undefined) ||
+            (p.inicio || '') !== '' ||
+            (p.fin || '') !== '' ||
+            p.monedero === true;
+
+          // si no capturó nada de ese día, NO lo mandes
+          if (!tieneAlgunDato) continue;
+
+          // si capturó algo -> exigir completos
+          if (p.porcentaje === null || p.porcentaje === '' || !p.inicio || !p.fin) {
+            throw new Error(`Promo ${d.label}: porcentaje, inicio y fin son obligatorios`);
+          }
+
+          set[d.key] = {
+            porcentaje: Number(p.porcentaje),
+            inicio: p.inicio,
+            fin: p.fin,
+            monedero: !!p.monedero
+          };
+          tieneAlgo = true;
+        }
+      }
+    }
+
+    // Temporada
+    if (this.masivo.temporada.usar) {
+      if (this.masivo.temporada.limpiar) {
+        set.promoDeTemporada = null;
+        tieneAlgo = true;
+      } else {
+        const t = this.masivo.temporada;
+        const tieneAlgunDato =
+          (t.porcentaje !== null && t.porcentaje !== '' && t.porcentaje !== undefined) ||
+          (t.inicio || '') !== '' ||
+          (t.fin || '') !== '' ||
+          t.monedero === true;
+
+        if (tieneAlgunDato) {
+          if (t.porcentaje === null || t.porcentaje === '' || !t.inicio || !t.fin) {
+            throw new Error('Temporada: porcentaje, inicio y fin son obligatorios');
+          }
+          set.promoDeTemporada = {
+            porcentaje: Number(t.porcentaje),
+            inicio: t.inicio,
+            fin: t.fin,
+            monedero: !!t.monedero
+          };
+          tieneAlgo = true;
+        }
+      }
+    }
+
+    // Cantidad
+    if (this.masivo.cantidad.usar) {
+      if (this.masivo.cantidad.limpiar) {
+        set.promoCantidad = null;
+        tieneAlgo = true;
+      } else {
+        const c = this.masivo.cantidad;
+        const tieneAlgoCantidad = c.requerida !== null || !!c.inicio || !!c.fin;
+
+        if (tieneAlgoCantidad) {
+          if (![2, 3, 4].includes(Number(c.requerida)) || !c.inicio || !c.fin) {
+            throw new Error('Cantidad: requerida (2,3,4), inicio y fin son obligatorios');
+          }
+          set.promoCantidad = {
+            requerida: Number(c.requerida),
+            inicio: c.inicio,
+            fin: c.fin
+          };
+          tieneAlgo = true;
+        }
+      }
+    }
+
+    // Precio
+    let precio: any = null;
+    if (this.masivo.precio.usar) {
+      const v = Number(this.masivo.precio.valor);
+      if (!Number.isFinite(v)) throw new Error('Precio masivo: valor inválido');
+
+      precio = {
+        modo: this.masivo.precio.modo,
+        valor: v,
+        redondear: this.masivo.precio.redondear
+      };
+      tieneAlgo = true;
+    }
+
+    if (!tieneAlgo) {
+      throw new Error('No capturaste ningún cambio masivo.');
+    }
+
+    return {
+      ids,
+      set: Object.keys(set).length ? set : undefined,
+      precio: precio ?? undefined
+    };
+  }
+
+  aplicarMasivoPromosPrecio() {
+    const farmacia = this.formFiltros.get('farmacia')?.value;
+    if (!farmacia) return;
+
+    const seleccionados = this.inventario.filter(x => x?.seleccionado);
+    if (!seleccionados.length) {
+      Swal.fire('Aviso', 'No hay productos seleccionados.', 'info');
+      return;
+    }
+
+    let payload: any;
+    try {
+      payload = this.buildPayloadMasivo(seleccionados.map(x => x._id));
+    } catch (e: any) {
+      Swal.fire('Validación', e?.message || 'Datos inválidos', 'warning');
+      return;
+    }
+
+    void Swal.fire({
+      title: 'Aplicando cambios masivos…',
+      html: 'Esto puede tardar unos segundos.',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    this.aplicandoMasivoPromosPrecio = true;
+
+    this.inventarioService.aplicarPromosYPrecioMasivo(farmacia, payload).pipe(
+      finalize(() => this.aplicandoMasivoPromosPrecio = false)
+    ).subscribe({
+      next: () => {
+        Swal.close();
+        Swal.fire({ icon: 'success', title: 'Listo', text: 'Cambios masivos aplicados', timer: 1400, timerProgressBar: true });
+
+        // Opciones:
+        // 1) Recargar todo para reflejar promos/precios reales:
+        this.buscar();
+
+        // 2) y reset de UI
+        this.resetMasivoPromosPrecio();
+      },
+      error: (err) => {
+        Swal.close();
+        console.error(err);
+        Swal.fire('Error', err?.error?.mensaje || 'No se pudieron aplicar cambios masivos', 'error');
+      }
+    });
+  }
+
+
 
 }

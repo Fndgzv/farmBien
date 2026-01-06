@@ -23,8 +23,59 @@ import { VentaService } from '../../services/venta.service';
 import { MatTooltip } from '@angular/material/tooltip';
 
 import { resolveLogoForPrint, logoToDataUrlSafe, whenDomStable, printNodeInIframe } from '../../shared/utils/print-utils';
-
 import { buildImgUrl } from '../../shared/img-url';
+
+type PromoDia = { inicio?: any; fin?: any; porcentaje?: number; monedero?: boolean };
+type PromoTemporada = { inicio?: any; fin?: any; porcentaje?: number; monedero?: boolean };
+type InvInfo = {
+  precioVenta: number;
+  ubicacionFarmacia?: string;
+  existencia: number;
+
+  descuentoINAPAM?: boolean;
+
+  promoCantidadRequerida?: number;
+  inicioPromoCantidad?: any;
+  finPromoCantidad?: any;
+
+  promoLunes?: PromoDia;
+  promoMartes?: PromoDia;
+  promoMiercoles?: PromoDia;
+  promoJueves?: PromoDia;
+  promoViernes?: PromoDia;
+  promoSabado?: PromoDia;
+  promoDomingo?: PromoDia;
+
+  promoDeTemporada?: PromoTemporada;
+};
+
+export interface ConsultaPrecioResp {
+  _id?: string; // opcional si luego lo agregas en backend
+  nombre: string;
+  precioNormal: number;
+
+  ubicacionFarmacia?: string | null;
+
+  // promos por día (opcionales)
+  promo0?: string; precioDomingo?: string; domingoMasInapam?: string;
+  promo1?: string; precioLunes?: string; lunesMasInapam?: string;
+  promo2?: string; precioMartes?: string; martesMasInapam?: string;
+  promo3?: string; precioMiercoles?: string; miercolesMasInapam?: string;
+  promo4?: string; precioJueves?: string; juevesMasInapam?: string;
+  promo5?: string; precioViernes?: string; viernesMasInapam?: string;
+  promo6?: string; precioSabado?: string; sabadoMasInapam?: string;
+
+  // promo ganadora / info general
+  promo?: string;                 // "Ninguno" o texto promo (cantidad/temporada)
+  promoCliente?: string;
+
+  // temporada
+  precioConDescuento?: string;    // "$xx.xx" si hay temporada activa
+  temporadaMasInapam?: string;    // "Temporada + 5% INAPAM: $xx.xx"
+
+  // inapam
+  precioInapam?: string;          // "$xx.xx"
+}
 
 @Component({
   selector: 'app-ventas',
@@ -43,7 +94,12 @@ import { buildImgUrl } from '../../shared/img-url';
   templateUrl: './ventas.component.html',
   styleUrl: './ventas.component.css'
 })
+
+
+
 export class VentasComponent implements OnInit, AfterViewInit {
+
+  invCache: Record<string, InvInfo> = {}; // productoId -> inventario info
 
   @ViewChild('codigoBarrasRef') codigoBarrasRef!: ElementRef<HTMLInputElement>;
   @ViewChild('efectivoRecibidoRef') efectivoRecibidoRef!: ElementRef<HTMLInputElement>; // <-- para enfocar el primer input del modal
@@ -312,7 +368,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
   }
 
-
   async cargarFarmacia() {
     try {
       const f = await firstValueFrom(this.farmaciaService.getFarmaciaById(this.farmaciaId));
@@ -411,54 +466,76 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async recalcularRenglones() {
+    if (!this.carrito.length) return;
 
-    if (this.carrito.length > 0) {
+    for (let i = 0; i < this.carrito.length; i++) {
+      const item = this.carrito[i];
+      const productoBase = this.productos.find(pe => pe._id === item.producto);
 
-      for (let i = 0; i < this.carrito.length; i++) {
-        // buscar caracteristicas del producto en almacen
-        const productoE = this.productos.find(pe => pe._id === this.carrito[i].producto);
+      if (!productoBase) continue;
 
-        if (this.descuentoMenorA25(this.carrito[i].producto)) await this.preguntaINAPAM(productoE);
+      // ✅ Asegura inv en cache
+      let inv = this.invCache[item.producto];
+      if (!inv) {
+        await this.existenciaProducto(this.farmaciaId, item.producto, 1, true);
+        inv = this.invCache[item.producto];
+      }
+      if (!inv) continue;
 
-        if (productoE.categoria === 'Recargas' || productoE.categoria === 'Servicio Médico') {
-          this.ptjeDescuento = 0;
-          this.productoAplicaMonedero = false;
-          this.cadDesc = '';
-          this.tipoDescuento = '';
-          this.alMonedero = 0;
-        } else this.descuentoYpromo(productoE);
+      // ✅ sincroniza datos desde inventariofarmacias
+      item.precioOriginal = Number(inv.precioVenta ?? item.precioOriginal ?? 0);
+      item.ubicacionEnFarmacia = inv.ubicacionFarmacia ?? item.ubicacionEnFarmacia ?? '';
+      this.existencias[item.producto] = Number(inv.existencia ?? this.existencias[item.producto] ?? 0);
 
-        let precioFinal = this.carrito[i].precioOriginal;
+      // INAPAM basado en inventario
+      if (this.descuentoMenorA25Inv(inv)) await this.preguntaINAPAMInv(inv);
 
-        precioFinal *= (100 - this.ptjeDescuento) / 100;
+      if (productoBase.categoria === 'Recargas' || productoBase.categoria === 'Servicio Médico') {
+        this.ptjeDescuento = 0;
+        this.productoAplicaMonedero = false;
+        this.cadDesc = '';
+        this.tipoDescuento = '';
+        this.alMonedero = 0;
+        this.aplicaGratis = false;
+      } else {
+        // ✅ promos desde inventario
+        this.descuentoYpromoInv(inv, productoBase.categoria);
+      }
 
-        if (this.productoAplicaMonedero) {
-          this.alMonedero = precioFinal * 0.02;
-          if (this.tipoDescuento === '') {
-            this.tipoDescuento = 'Cliente';
-            this.cadDesc = '2% Moned.';
-          } else {
-            this.tipoDescuento = `${this.tipoDescuento}-Cliente`;
-            this.cadDesc = `${this.cadDesc} + 2% Moned.`;
-          }
+      const precioOriginal = item.precioOriginal;
+      let precioFinalUnit = precioOriginal * (100 - this.ptjeDescuento) / 100;
+
+      // monedero 2%
+      if (this.productoAplicaMonedero) {
+        this.alMonedero = precioFinalUnit * 0.02;
+        if (this.tipoDescuento === '') {
+          this.tipoDescuento = 'Cliente';
+          this.cadDesc = '2% Moned.';
+        } else {
+          this.tipoDescuento = `${this.tipoDescuento}-Cliente`;
+          this.cadDesc = `${this.cadDesc} + 2% Moned.`;
         }
+      } else {
+        this.alMonedero = 0;
+      }
 
-        this.tipoDescuento = this.limpiarPromocion(this.tipoDescuento);
+      this.tipoDescuento = this.limpiarPromocion(this.tipoDescuento);
 
-        //if (this.captionButtomReanudar === '') this.captionButtomReanudar = productoE.nombre;
+      item.precioFinal = precioFinalUnit;
+      item.tipoDescuento = this.tipoDescuento;
+      item.cadDesc = this.cadDesc;
+      item.alMonedero = this.alMonedero;
+      item.descuentoUnitario = precioOriginal - precioFinalUnit;
+      item.iva = productoBase.iva ? precioFinalUnit * 0.16 : 0;
 
-        this.carrito[i].precioFinal = precioFinal;
-        this.carrito[i].tipoDescuento = this.tipoDescuento;
-        this.carrito[i].cadDesc = this.cadDesc;
-        this.carrito[i].alMonedero = this.alMonedero
-        this.carrito[i].descuentoUnitario = this.carrito[i].precioOriginal - precioFinal;
-        this.carrito[i].iva = productoE.iva ? precioFinal * 0.16 : 0;
+      // ✅ req desde inventario
+      item.promoCantidadRequerida = Number(inv.promoCantidadRequerida ?? 0) || 0;
 
-        if (this.aplicaGratis) this.validarProductoGratis(productoE._id);
-
-      };
-      this.calcularTotal();
+      const aplicaGratisItem = this.aplicaGratis;
+      if (aplicaGratisItem) this.validarProductoGratis(item.producto);
     }
+
+    this.calcularTotal();
   }
 
   buscarCliente() {
@@ -485,13 +562,13 @@ export class VentasComponent implements OnInit, AfterViewInit {
         }
       });
     } else {
-        this.cliente = '';
-        this.nombreCliente = '';
-        this.montoMonederoCliente = 0;
-        this.hayCliente = false;
-        this.ventaForm.controls['cliente'].setValue('');
-        this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
-        this.recalcularRenglones();
+      this.cliente = '';
+      this.nombreCliente = '';
+      this.montoMonederoCliente = 0;
+      this.hayCliente = false;
+      this.ventaForm.controls['cliente'].setValue('');
+      this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
+      this.recalcularRenglones();
     }
   }
 
@@ -869,84 +946,100 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async agregarProductoAlCarrito(producto: any) {
-
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
+
     if (existente) {
+      this.nombreDelProducto = existente.nombre;
 
-      console.log('producto existente en el carrito =====>', existente);
+      this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1)
+        .then(() => {
+          if (!this.hayProducto) return;
+          existente.cantidad += 1;
 
-      this.nombreDelProducto = existente.nombre
-      this.existenciaProducto(this.farmaciaId, producto._id, existente.cantidad + 1).then(() => {
-        if (!this.hayProducto) return;
-        existente.cantidad += 1;
-        if (this.esPromocionPorCantidad(existente.tipoDescuento)) {
-          this.validarProductoGratis(existente.producto);
-        }
-        this.calcularTotal();
-      }).catch((error: any) => {
-        console.error('Error en existenciaProducto: ', error);
-      });
-    } else {
-      let precioFinal = this.precioEnFarmacia;
+          if (this.esPromoCantidad(existente.tipoDescuento)) {
+            this.validarProductoGratis(existente.producto);
+          }
+          this.calcularTotal();
+        })
+        .catch((error: any) => console.error('Error en existenciaProducto: ', error));
 
-      if (this.descuentoMenorA25(producto)) await this.preguntaINAPAM(producto);
-
-      if (producto.categoria === 'Recargas' || producto.categoria === 'Servicio Médico') {
-        this.ptjeDescuento = 0;
-        this.productoAplicaMonedero = false;
-        this.cadDesc = '';
-        this.tipoDescuento = '';
-        this.alMonedero = 0;
-      } else this.descuentoYpromo(producto);
-
-      precioFinal *= (100 - this.ptjeDescuento) / 100;
-
-      if (this.productoAplicaMonedero) {
-        this.alMonedero = precioFinal * 0.02;
-        if (this.tipoDescuento === '') {
-          this.tipoDescuento = 'Cliente';
-          this.cadDesc = '2% Moned.';
-        } else {
-          this.tipoDescuento = `${this.tipoDescuento}-Cliente`;
-          this.cadDesc = `${this.cadDesc} + 2% Moned.`;
-        }
-      }
-
-      this.tipoDescuento = this.limpiarPromocion(this.tipoDescuento);
-
-      if (this.captionButtomReanudar === '') this.captionButtomReanudar = producto.nombre;
-
-      const nuevo = {
-        producto: producto._id,
-        codBarras: producto.codigoBarras,
-        nombre: producto.nombre,
-        cantidad: 1,
-        precioFinal,
-        precioOriginal: this.precioEnFarmacia,
-        ubicacionEnFarmacia: this.ubicacionEnFarmacia,
-        tipoDescuento: this.tipoDescuento,
-        cadDesc: this.cadDesc,
-        alMonedero: this.alMonedero,
-        descuentoUnitario: this.precioEnFarmacia - precioFinal,
-        iva: producto.iva ? precioFinal * 0.16 : 0,
-        cantidadPagada: 1,
-        farmacia: this.farmaciaId,
-        promoCantidadRequerida: producto.promoCantidadRequerida,
-      };
-
-      if (this.existencias[producto._id] == null) {
-        this.existencias[producto._id] = Math.max(1, Number.isFinite((producto as any)?.existencia) ? (producto as any).existencia : 1);
-      }
-
-      this.carrito = [nuevo, ...this.carrito];
+      return;
     }
 
+    // ✅ asegura inv en cache
+    let inv2 = this.invCache[producto._id];
+    if (!inv2) {
+      await this.existenciaProducto(this.farmaciaId, producto._id, 1, true);
+      inv2 = this.invCache[producto._id];
+    }
+    if (!inv2) return; // si el backend falló
 
+    // ✅ existencia real
+    this.existencias[producto._id] = Number(inv2.existencia ?? 0);
+
+    const precioOriginal = Number(inv2.precioVenta ?? this.precioEnFarmacia ?? 0);
+    let precioFinalUnit = precioOriginal;
+
+    // INAPAM pregunta basada en inventario
+    if (this.descuentoMenorA25Inv(inv2)) await this.preguntaINAPAMInv(inv2);
+
+    if (producto.categoria === 'Recargas' || producto.categoria === 'Servicio Médico') {
+      this.ptjeDescuento = 0;
+      this.productoAplicaMonedero = false;
+      this.cadDesc = '';
+      this.tipoDescuento = '';
+      this.alMonedero = 0;
+      this.aplicaGratis = false;
+    } else {
+      // ✅ aquí estaba tu error de tipos: manda (inv, categoria)
+      this.descuentoYpromoInv(inv2, producto.categoria);
+    }
+
+    precioFinalUnit *= (100 - this.ptjeDescuento) / 100;
+
+    if (this.productoAplicaMonedero) {
+      this.alMonedero = precioFinalUnit * 0.02;
+      if (this.tipoDescuento === '') {
+        this.tipoDescuento = 'Cliente';
+        this.cadDesc = '2% Moned.';
+      } else {
+        this.tipoDescuento = `${this.tipoDescuento}-Cliente`;
+        this.cadDesc = `${this.cadDesc} + 2% Moned.`;
+      }
+    } else {
+      this.alMonedero = 0;
+    }
+
+    this.tipoDescuento = this.limpiarPromocion(this.tipoDescuento);
+
+    if (this.captionButtomReanudar === '') this.captionButtomReanudar = producto.nombre;
+
+    const nuevo = {
+      producto: producto._id,
+      codBarras: producto.codigoBarras,
+      nombre: producto.nombre,
+      cantidad: 1,
+      precioFinal: precioFinalUnit,
+      precioOriginal,
+      ubicacionEnFarmacia: inv2.ubicacionFarmacia ?? this.ubicacionEnFarmacia,
+
+      tipoDescuento: this.tipoDescuento,
+      cadDesc: this.cadDesc,
+      alMonedero: this.alMonedero,
+
+      descuentoUnitario: precioOriginal - precioFinalUnit,
+      iva: producto.iva ? precioFinalUnit * 0.16 : 0,
+
+      cantidadPagada: 1,
+      farmacia: this.farmaciaId,
+      promoCantidadRequerida: Number(inv2.promoCantidadRequerida ?? 0) || 0,
+    };
+
+    this.carrito = [nuevo, ...this.carrito];
 
     if (this.aplicaGratis) this.validarProductoGratis(producto._id);
 
     this.calcularTotal();
-
   }
 
   limpiarPromocion(promo: string) {
@@ -954,146 +1047,177 @@ export class VentasComponent implements OnInit, AfterViewInit {
     return str.startsWith('-') ? str.slice(1) : str;
   }
 
-  async preguntaINAPAM(producto: any) {
-    if (producto.descuentoINAPAM && !this.yaPreguntoInapam) {
-      this.yaPreguntoInapam = true;
+  async preguntaINAPAMInv(inv: InvInfo) {
+    if (!inv?.descuentoINAPAM) return;
+    if (this.yaPreguntoInapam) return;
 
-      const result = await Swal.fire({
-        icon: 'question',
-        title: '¿Tiene credencial INAPAM vigente?',
-        html: `<h4>Me la puede mostrar por favor</h4>
-              <p style="color: green;">Revisa que su credencial de INAPAM:</p>
-              <p style="color: green;"> * Pertenezca al cliente</p>
-              <p style="color: green;"> * No este vencida</p>`,
-        showCancelButton: true,
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        confirmButtonText: 'Sí cumple',
-        cancelButtonText: 'No cumple',
-        focusCancel: true,
-        willOpen: () => { this.isSwalOpen = true; },  // 🔒 bloquea robo de foco
-        didOpen: () => {
-          const btn = Swal.getCancelButton();
-          btn?.focus();
-          setTimeout(() => btn?.focus(), 0);          // doble intento por si el browser mueve el foco
-        },
-        didClose: () => {
-          this.isSwalOpen = false;                    // 🔓 libera
-          this.focusBarcode(60);                      // vuelve al lector SI y solo SI ya no hay modal
-        }
-      });
+    const result = await Swal.fire({
+      icon: 'question',
+      title: '¿Tiene credencial INAPAM vigente?',
+      html: `
+    <div style="font-size: 18px; margin-top: 6px; color:#666;">
+      Me la puede mostrar por favor
+    </div>
 
-      this.aplicaInapam = result.isConfirmed;
-    }
+    <div style="margin-top: 14px; color: #0a8a0a; font-size: 18px;">
+      Revisa que su credencial de INAPAM:
+      <div style="margin-top: 10px; line-height: 1.6;">
+        * Pertenezca al cliente<br>
+        * No este vencida
+      </div>
+    </div>
+  `,
+      showCancelButton: true,
+      confirmButtonText: 'Sí cumple',
+      cancelButtonText: 'No cumple',
+      reverseButtons: false,
+
+      // ✅ como producción: NO cerrar por fuera ni ESC
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+
+      // ✅ SI quieres Enter para continuar con "No cumple"
+      allowEnterKey: true,
+
+      heightAuto: false,
+
+      // ✅ no enfoques el confirm
+      focusConfirm: false,
+
+      // ✅ ENFOCAR "No cumple" al abrir
+      didOpen: () => {
+        const cancelBtn = Swal.getCancelButton();
+        if (cancelBtn) cancelBtn.focus();
+      },
+
+      customClass: {
+        confirmButton: 'swal-inapam-confirm',
+        cancelButton: 'swal-inapam-cancel',
+        title: 'swal-inapam-title',
+        popup: 'swal-inapam-popup'
+      },
+      buttonsStyling: true,
+    });
+
+
+    // Aquí siempre hay respuesta (Sí/No), porque no puede cerrarse “a la mala”
+    this.aplicaInapam = result.isConfirmed;
+    this.yaPreguntoInapam = true;
   }
 
-  descuentoMenorA25(producto: any): boolean {
-    const fechahoy = new Date();
-    const hoy = fechahoy.getDay();
-    let descuentoXDia = 0;
-    switch (hoy) {
-      case 0: descuentoXDia = producto?.descuentoDomingo ?? null; break;
-      case 1: descuentoXDia = producto?.descuentoLunes ?? null; break;
-      case 2: descuentoXDia = producto?.descuentoMartes ?? null; break;
-      case 3: descuentoXDia = producto?.descuentoMiercoles ?? null; break;
-      case 4: descuentoXDia = producto?.descuentoJueves ?? null; break;
-      case 5: descuentoXDia = producto?.descuentoViernes ?? null; break;
-      case 6: descuentoXDia = producto?.descuentoSabado ?? null; break;
-      default: descuentoXDia = 0;
-    }
-    if (!descuentoXDia) return true;
-    return descuentoXDia < 25;
+  descuentoMenorA25Inv(inv: InvInfo): boolean {
+    const hoy = new Date().getDay(); // 0..6
+    const p = this.promoDelDia(inv, hoy);
+    const pct = Number(p?.porcentaje ?? 0);
+    if (!pct) return true;
+    return pct < 25;
   }
 
-  descuentoYpromo(producto: any) {
-    const fechahoy = this.soloFecha(new Date());
+
+  descuentoYpromoInv(inv: InvInfo, categoria: string) {
+    const fechahoy = this.hoySoloDiaLocal();
     const hoy = fechahoy.getDay();
 
-    this.tipoDescuento = "";
+    this.tipoDescuento = ""; 0
     this.cadDesc = '';
     this.ptjeDescuento = 0;
 
     this.productoAplicaMonedero = this.hayCliente;
-
     this.alMonedero = 0;
-    this.fechaIni = this.soloFecha(new Date(fechahoy));
-    this.fechaFin = this.soloFecha(new Date(fechahoy));
-    this.aplicaGratis = true;
+    this.aplicaGratis = false;
 
-    if (producto.promoCantidadRequerida &&
-      this.soloFecha(new Date(producto.inicioPromoCantidad)) <= this.soloFecha(fechahoy) &&
-      this.soloFecha(new Date(producto.finPromoCantidad)) >= this.soloFecha(fechahoy)) {
-      this.aplicaGratis = false;
-      this.cadDesc = '';
-      this.tipoDescuento = `${producto.promoCantidadRequerida}x${producto.promoCantidadRequerida - 1}`;
+    // 1) Promo por cantidad (2x1/3x2/4x3)
+    const req = Number(inv?.promoCantidadRequerida ?? 0);
+
+    const iniCant = this.fechaSoloDiaDesdeUTC(inv?.inicioPromoCantidad);
+    const finCant = this.fechaSoloDiaDesdeUTC(inv?.finPromoCantidad);
+
+    if (req >= 2 && iniCant && finCant && iniCant <= fechahoy && finCant >= fechahoy) {
+      this.aplicaGratis = true;
+      this.tipoDescuento = `${req}x${req - 1}`;
       this.productoAplicaMonedero = false;
-      if (producto.promoCantidadRequerida === 2) this.aplicaGratis = true;
 
-      if (this.aplicaInapam && producto.descuentoINAPAM) {
+      if (this.aplicaInapam && inv.descuentoINAPAM) {
         this.ptjeDescuento = 5;
         this.tipoDescuento += `-INAPAM`;
         this.cadDesc = '5%';
       }
-    } else {
-      let descuentoXDia = 0;
-      let hayDescuentoXDia = false;
-      switch (hoy) {
-        case 1: this.fechaIni = producto?.promoLunes?.inicio ?? null; this.fechaFin = producto?.promoLunes?.fin ?? null; descuentoXDia = producto?.promoLunes?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoLunes?.monedero ?? null; break;
-        case 2: this.fechaIni = producto?.promoMartes?.inicio ?? null; this.fechaFin = producto?.promoMartes?.fin ?? null; descuentoXDia = producto?.promoMartes?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoMartes?.monedero ?? null; break;
-        case 3: this.fechaIni = producto?.promoMiercoles?.inicio ?? null; this.fechaFin = producto?.promoMiercoles?.fin ?? null; descuentoXDia = producto?.promoMiercoles?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoMiercoles?.monedero ?? null; break;
-        case 4: this.fechaIni = producto?.promoJueves?.inicio ?? null; this.fechaFin = producto?.promoJueves?.fin ?? null; descuentoXDia = producto?.promoJueves?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoJueves?.monedero ?? null; break;
-        case 5: this.fechaIni = producto?.promoViernes?.inicio ?? null; this.fechaFin = producto?.promoViernes?.fin ?? null; descuentoXDia = producto?.promoViernes?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoViernes?.monedero ?? null; break;
-        case 6: this.fechaIni = producto?.promoSabado?.inicio ?? null; this.fechaFin = producto?.promoSabado?.fin ?? null; descuentoXDia = producto?.promoSabado?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoSadado?.monedero ?? null; break;
-        case 0: this.fechaIni = producto?.promoDomingo?.inicio ?? null; this.fechaFin = producto?.promoDomingo?.fin ?? null; descuentoXDia = producto?.promoDomingo?.porcentaje ?? null; this.productoAplicaMonedero = producto?.promoDomingo?.monedero ?? null; break;
-      }
-      if (!descuentoXDia || descuentoXDia <= 0) {
-        this.fechaIni = this.soloFecha(new Date(fechahoy));
-        this.fechaIni.setDate(this.fechaIni.getDate() + 5);
-        this.fechaIni = this.soloFecha(this.fechaIni);
-      } else {
-        hayDescuentoXDia = true;
-      }
+      return;
+    }
 
-      if (hayDescuentoXDia && this.soloFecha(new Date(this.fechaIni)) <= fechahoy && this.soloFecha(new Date(this.fechaFin)) >= fechahoy) {
-        this.tipoDescuento = this.nombreDiaSemana(hoy);
-        this.ptjeDescuento = descuentoXDia;
-        this.cadDesc = `${descuentoXDia}%`;
-        this.productoAplicaMonedero = this.productoAplicaMonedero && this.hayCliente;
-      }
+    // 2) Descuento por día
+    const promoDia = this.promoDelDia(inv, hoy);
+    const iniDia = this.fechaSoloDiaDesdeUTC(promoDia?.inicio);
+    const finDia = this.fechaSoloDiaDesdeUTC(promoDia?.fin);
+    const descuentoXDia = Number(promoDia?.porcentaje ?? 0);
 
-      if (producto.promoDeTemporada &&
-        this.soloFecha(new Date(producto.promoDeTemporada.inicio)) <= fechahoy &&
-        this.soloFecha(new Date(producto.promoDeTemporada.fin)) >= fechahoy) {
-        let ptjeTem = producto.promoDeTemporada.porcentaje;
+    if (descuentoXDia > 0 && iniDia && finDia && iniDia <= fechahoy && finDia >= fechahoy) {
+      this.tipoDescuento = this.nombreDiaSemana(hoy);
+      this.ptjeDescuento = descuentoXDia;
+      this.cadDesc = `${descuentoXDia}%`;
+      this.productoAplicaMonedero = !!promoDia?.monedero && this.hayCliente;
+    }
+
+    // 3) Temporada (si mejora)
+    if (inv?.promoDeTemporada?.inicio && inv?.promoDeTemporada?.fin) {
+      const t = inv.promoDeTemporada;
+
+      const iniTemp = this.fechaSoloDiaDesdeUTC(t.inicio);
+      const finTemp = this.fechaSoloDiaDesdeUTC(t.fin);
+
+      if (iniTemp && finTemp && iniTemp <= fechahoy && finTemp >= fechahoy) {
+        const ptjeTem = Number(t.porcentaje ?? 0);
         if (ptjeTem > this.ptjeDescuento) {
           this.ptjeDescuento = ptjeTem;
           this.tipoDescuento = 'Temporada';
           this.cadDesc = `${ptjeTem}%`;
-          this.productoAplicaMonedero = producto.promoDeTemporada.monedero && this.hayCliente;
+          this.productoAplicaMonedero = !!t.monedero && this.hayCliente;
         }
       }
+    }
 
-      if (this.ptjeDescuento > 0) {
-        if (this.ptjeDescuento < 25 && this.aplicaInapam && producto.descuentoINAPAM) {
-          let pf = this.precioEnFarmacia * (1 - this.ptjeDescuento / 100) * 0.95;
-          this.ptjeDescuento = (1 - (pf / this.precioEnFarmacia)) * 100;
-          this.tipoDescuento += `-INAPAM`;
-          this.cadDesc += `+ 5%`;
-          this.productoAplicaMonedero = this.hayCliente;
-        }
-      } else if (this.aplicaInapam && producto.descuentoINAPAM) {
-        this.ptjeDescuento = 5;
-        this.tipoDescuento = 'INAPAM';
-        this.cadDesc = '5%';
+    // 4) INAPAM acumulable si aplica
+    if (this.ptjeDescuento > 0) {
+      if (this.ptjeDescuento < 25 && this.aplicaInapam && inv.descuentoINAPAM) {
+        const base = Number(inv?.precioVenta ?? this.precioEnFarmacia ?? 0) || 1;
+        const pf = base * (1 - this.ptjeDescuento / 100) * 0.95;
+        this.ptjeDescuento = (1 - (pf / base)) * 100;
+
+        this.tipoDescuento += `-INAPAM`;
+        this.cadDesc += ` + 5%`;
         this.productoAplicaMonedero = this.hayCliente;
       }
+    } else if (this.aplicaInapam && inv.descuentoINAPAM) {
+      this.ptjeDescuento = 5;
+      this.tipoDescuento = 'INAPAM';
+      this.cadDesc = '5%';
+      this.productoAplicaMonedero = this.hayCliente;
+    }
 
-      if (this.ptjeDescuento <= 0) this.productoAplicaMonedero = this.hayCliente;
+    if (this.ptjeDescuento <= 0) this.productoAplicaMonedero = this.hayCliente;
+
+    // Recargas / Servicio Médico: nunca monedero ni promos
+    if (categoria === 'Recargas' || categoria === 'Servicio Médico') {
+      this.ptjeDescuento = 0;
+      this.productoAplicaMonedero = false;
+      this.cadDesc = '';
+      this.tipoDescuento = '';
+      this.alMonedero = 0;
     }
   }
 
   soloFecha(date: Date): Date {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+
+  soloFechaBD(val: any): Date | null {
+    if (!val) return null;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return null;
+
+    // ✅ fecha "date-only" basada en el ISO UTC (no se recorre a un día antes)
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   }
 
   eliminarProducto(index: number) {
@@ -1151,7 +1275,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     const solicitada = this.clampCantidad(raw);
     const req = Number(item.promoCantidadRequerida) || 0;
-    const esPromoCant = this.esPromocionPorCantidad(item.tipoDescuento) && req >= 2;
+    const esPromoCant = this.esPromoCantidad(item.tipoDescuento) && req >= 2;
 
     // Pedimos existencia actual en modo silencioso
     this.existenciaProducto(this.farmaciaId, item.producto, 1, /*quiet*/ true)
@@ -1176,7 +1300,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         }
 
         // Mantén coherente el renglón gratis
-        if (this.esPromocionPorCantidad(item.tipoDescuento)) {
+        if (this.esPromoCantidad(item.tipoDescuento)) {
           this.validarProductoGratis(item.producto);
         } else {
           const idxG = this.carrito.findIndex(p => p.producto === item.producto && p.esGratis);
@@ -1198,7 +1322,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       this.existenciaProducto(this.farmaciaId, producto.producto, producto.cantidad + 1).then(() => {
         if (!this.hayProducto) return;
         producto.cantidad += 1;
-        if (this.esPromocionPorCantidad(producto.tipoDescuento)) {
+        if (this.esPromoCantidad(producto.tipoDescuento)) {
           this.validarProductoGratis(producto.producto);
         }
         this.calcularTotal();
@@ -1214,7 +1338,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const producto = this.carrito[index];
     if (producto.cantidad > 1 && !producto.esGratis) {
       producto.cantidad--;
-      if (this.esPromocionPorCantidad(producto.tipoDescuento)) {
+      if (this.esPromoCantidad(producto.tipoDescuento)) {
         this.validarProductoGratis(producto.producto);
       }
       this.calcularTotal();
@@ -1225,62 +1349,98 @@ export class VentasComponent implements OnInit, AfterViewInit {
     //this.syncClienteCtrlDisabled();
   }
 
-  esPromocionPorCantidad(tipoDescuento: string): boolean {
-    const promos = ['2x1', '3x2', '4x3'];
-    return promos.some(p => tipoDescuento?.startsWith(p));
+  private esPromoCantidad(tipo: string): boolean {
+    const t = (tipo || '').trim();
+    return /^(2x1|3x2|4x3)(-|$)/.test(t);
   }
 
-  validarProductoGratis(productoId: string) {
+  private promoCantidadActiva(inv: any): boolean {
+    const hoy = this.soloFecha(new Date());                 // hoy local
+    const ini = this.soloFechaBD(inv?.inicioPromoCantidad); // ✅ BD en UTC-day
+    const fin = this.soloFechaBD(inv?.finPromoCantidad);    // ✅ BD en UTC-day
+    const req = Number(inv?.promoCantidadRequerida ?? 0);
+
+    return !!(req >= 2 && ini && fin && ini <= hoy && fin >= hoy);
+  }
+
+  async validarProductoGratis(productoId: string) {
+    // 1) renglón pagado
     const prodPaid = this.carrito.find(p => p.producto === productoId && !p.esGratis);
-    if (!prodPaid || !prodPaid.promoCantidadRequerida) return;
-
-    const req = prodPaid.promoCantidadRequerida;
-    const pagados = prodPaid.cantidad;
-    const gratisNecesarios = Math.floor(pagados / (req - 1));
-
     const idxGratis = this.carrito.findIndex(p => p.producto === productoId && p.esGratis);
 
-    if (gratisNecesarios > 0) {
-      // Revalida existencia total: pagados + gratis (ya lo hicimos antes en onCantidadChange,
-      // pero si llamas desde otros lugares, puedes mantener esta doble verificación)
-      this.nombreDelProducto = prodPaid.nombre
-      this.existenciaProducto(this.farmaciaId, productoId, pagados + gratisNecesarios);
-      if (!this.hayProducto) return;
-
-      if (idxGratis === -1) {
-        // crea línea gratis
-        this.carrito.push({
-          producto: prodPaid.producto,
-          nombre: prodPaid.nombre,
-          cantidad: gratisNecesarios,
-          precioFinal: 0,
-          precioOriginal: prodPaid.precioOriginal,
-          tipoDescuento: `${req}x${req - 1}-Gratis`,
-          cadDesc: `100%`,
-          alMonedero: 0,
-          descuentoUnitario: prodPaid.precioOriginal,
-          iva: 0,
-          cantidadPagada: 0,
-          esGratis: true,
-          controlesDeshabilitados: true,
-          lotes: prodPaid.lotes,
-          farmacia: this.farmaciaId
-        });
-      } else {
-        // ajusta cantidad gratis si cambió
-        const g = this.carrito[idxGratis];
-        if (g.cantidad !== gratisNecesarios) {
-          g.cantidad = gratisNecesarios;
-          g.tipoDescuento = `${req}x${req - 1}-Gratis`;
-          g.cadDesc = '100%';
-        }
-      }
-    } else {
-      // quitar línea gratis si ya no corresponde
+    if (!prodPaid) {
       if (idxGratis !== -1) this.carrito.splice(idxGratis, 1);
+      return;
+    }
+
+    // 2) SOLO si realmente es promo por cantidad en el renglón pagado
+    if (!this.esPromoCantidad(prodPaid.tipoDescuento)) {
+      if (idxGratis !== -1) this.carrito.splice(idxGratis, 1);
+      return;
+    }
+
+    // 3) valida que la promo siga activa hoy según inventario (backend manda ISO con Z)
+    const inv = this.invCache?.[productoId];
+    if (!inv || !this.promoCantidadActiva(inv)) {
+      if (idxGratis !== -1) this.carrito.splice(idxGratis, 1);
+      return;
+    }
+
+    const req = Number(inv.promoCantidadRequerida ?? prodPaid.promoCantidadRequerida ?? 0);
+    if (req < 2) {
+      if (idxGratis !== -1) this.carrito.splice(idxGratis, 1);
+      return;
+    }
+
+    // 4) calcula gratis necesarios
+    const pagados = Number(prodPaid.cantidad ?? 0);
+    const gratisNecesarios = Math.floor(pagados / (req - 1));
+
+    if (gratisNecesarios <= 0) {
+      if (idxGratis !== -1) this.carrito.splice(idxGratis, 1);
+      return;
+    }
+
+    // 5) ✅ revalida existencia TOTAL (pagados + gratis) con await
+    this.nombreDelProducto = prodPaid.nombre;
+    await this.existenciaProducto(this.farmaciaId, productoId, pagados + gratisNecesarios);
+    if (!this.hayProducto) return;
+
+    // 6) crea/actualiza renglón gratis
+    if (idxGratis === -1) {
+      const lineaGratis = {
+        producto: prodPaid.producto,
+        nombre: prodPaid.nombre,
+        cantidad: gratisNecesarios,
+        precioFinal: 0,
+        precioOriginal: prodPaid.precioOriginal,
+        tipoDescuento: `${req}x${req - 1}-Gratis`,
+        cadDesc: '100%',
+        alMonedero: 0,
+        descuentoUnitario: prodPaid.precioOriginal,
+        iva: 0,
+        cantidadPagada: 0,
+        esGratis: true,
+        controlesDeshabilitados: true,
+        lotes: prodPaid.lotes,
+        farmacia: this.farmaciaId,
+        promoCantidadRequerida: req
+      };
+
+      // opcional: meterla justo debajo del pagado
+      const idxPaid = this.carrito.findIndex(p => p.producto === productoId && !p.esGratis);
+      this.carrito.splice(idxPaid + 1, 0, lineaGratis);
+    } else {
+      const g = this.carrito[idxGratis];
+      g.cantidad = gratisNecesarios;
+      g.tipoDescuento = `${req}x${req - 1}-Gratis`;
+      g.cadDesc = '100%';
+      g.precioFinal = 0;
+      g.iva = 0;
+      g.controlesDeshabilitados = true;
+      g.promoCantidadRequerida = req;
     }
   }
-
 
   calcularTotal() {
     this.total = this.round2(this.carrito.reduce((acc, p) => acc + (p.precioFinal * p.cantidad), 0));
@@ -1557,7 +1717,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
   }
 
-
   limpiarVenta() {
     this.carrito = [];
     this.total = 0;
@@ -1670,61 +1829,46 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   consultarPrecio() {
-    if (!this.codigoConsulta.trim()) return;
+    const code = (this.codigoConsulta || '').trim();
+    if (!code) return;
 
-    this.productoService.consultarPrecioPorCodigo(this.farmaciaId, this.codigoConsulta).subscribe({
+    this.codigoConsulta = code;
+    this.consultaEncontrado = false;
+    this.productoConsultado = null;
+    this.consultaImgUrl = this.placeholderSrc;
+
+    this.productoService.consultarPrecioPorCodigo(this.farmaciaId, code).subscribe({
       next: (data) => {
-        // ¿Se encontró?
         const ok = !!data && data.nombre !== undefined;
 
         this.consultaEncontrado = ok;
 
         if (!ok) {
-          // Puedes mostrar mensaje o dejar null; así NO ocultas los inputs
           this.productoConsultado = null;
           this.consultaImgUrl = this.placeholderSrc;
           return;
         }
 
-        console.log('Datos recibidos en Consultar precio ', data);
+        this.productoConsultado = {
+          nombre: data.nombre,
+          precioNormal: data.precioNormal,
+          promo1: data.promo1, precioLunes: data.precioLunes, lunesMasInapam: data.lunesMasInapam,
+          promo2: data.promo2, precioMartes: data.precioMartes, martesMasInapam: data.martesMasInapam,
+          promo3: data.promo3, precioMiercoles: data.precioMiercoles, miercolesMasInapam: data.miercolesMasInapam,
+          promo4: data.promo4, precioJueves: data.precioJueves, juevesMasInapam: data.juevesMasInapam,
+          promo5: data.promo5, precioViernes: data.precioViernes, viernesMasInapam: data.viernesMasInapam,
+          promo6: data.promo6, precioSabado: data.precioSabado, sabadoMasInapam: data.sabadoMasInapam,
+          promo0: data.promo0, precioDomingo: data.precioDomingo, domingoMasInapam: data.domingoMasInapam,
+          promo: data.promo,
+          precioConDescuento: data.precioConDescuento,
+          precioInapam: data.precioInapam,
+          precioDescuentoMasInapam: data.precioDescuentoMasInapam,
+          temporadaMasInapam: data.temporadaMasInapam,
+          promoCliente: data.promoCliente,
+          ubicacionEnFarmacia: data.ubicacionFarmacia
+        };
 
-
-
-        if (!data || data.nombre === undefined) {
-          this.productoConsultado = {
-            nombre: "Producto no encontrado",
-            precioNormal: null,
-            promo1: null, precioLunes: null, lunesMasInapam: null,
-            promo2: null, precioMartes: null, martesMasInapam: null,
-            promo3: null, precioMiercoles: null, miercolesMasInapam: null,
-            promo4: null, precioJueves: null, juevesMasInapam: null,
-            promo5: null, precioViernes: null, viernesMasInapam: null,
-            promo6: null, precioSabado: null, sabadoMasInapam: null,
-            promo0: null, precioDomingo: null, domingoMasInapam: null,
-            promo: null, precioConDescuento: null, precioInapam: null, precioDescuentoMasInapam: null,
-            promoCliente: null,
-            ubicacionEnFarmacia: null,
-          };
-        } else {
-
-          this.productoConsultado = {
-            nombre: data.nombre,
-            precioNormal: data.precioNormal,
-            promo1: data.promo1, precioLunes: data.precioLunes, lunesMasInapam: data.lunesMasInapam,
-            promo2: data.promo2, precioMartes: data.precioMartes, martesMasInapam: data.martesMasInapam,
-            promo3: data.promo3, precioMiercoles: data.precioMiercoles, miercolesMasInapam: data.miercolesMasInapam,
-            promo4: data.promo4, precioJueves: data.precioJueves, juevesMasInapam: data.juevesMasInapam,
-            promo5: data.promo5, precioViernes: data.precioViernes, viernesMasInapam: data.viernesMasInapam,
-            promo6: data.promo6, precioSabado: data.precioSabado, sabadoMasInapam: data.sabadoMasInapam,
-            promo0: data.promo0, precioDomingo: data.precioDomingo, domingoMasInapam: data.domingoMasInapam,
-            promo: data.promo, precioConDescuento: data.precioConDescuento, precioInapam: data.precioInapam, precioDescuentoMasInapam: data.precioDescuentoMasInapam,
-            promoCliente: data.promoCliente,
-            ubicacionEnFarmacia: data.ubicacionFarmacia
-          };
-        }
-
-        // Resolver URL de imagen:
-        // 1) si el back devuelve _id úsalo; si no, busca por código de barras localmente
+        // ✅ ahora el back manda _id siempre
         const prodId = data._id
           ?? (this.productos || []).find(pr => pr.codigoBarras === this.codigoConsulta)?._id;
 
@@ -1732,17 +1876,16 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.consultaImgUrl = (prod && prod.imagen)
           ? this.productoService.getPublicImageUrl(prod.imagen)
           : this.placeholderSrc;
-
-
       },
       error: (error) => {
         console.error("❌ Error al consultar precio:", error);
-        this.productoConsultado = {
-          nombre: "Error en la consulta",
-          precioNormal: null,
-          promo: null,
-          precioFinal: null
-        };
+
+        const msg = error?.error?.mensaje || 'Error al consultar precio';
+        this.consultaEncontrado = false;
+        this.productoConsultado = null;
+        this.consultaImgUrl = this.placeholderSrc;
+
+        Swal.fire('Error', msg, 'error');
       }
     });
   }
@@ -1798,9 +1941,35 @@ export class VentasComponent implements OnInit, AfterViewInit {
     return new Promise((resolve, reject) => {
       this.productoService.existenciaPorFarmaciaYProducto(idFarmacia, idProducto).subscribe({
         next: (data) => {
-          this.precioEnFarmacia = data.precioVenta;
-          this.ubicacionEnFarmacia = data.ubicacionFarmacia;
-          const existencia = Number(data.existencia ?? 0);
+          // ✅ cachea inventario COMPLETO (incluye promos)
+          this.invCache[idProducto] = {
+            precioVenta: Number(data?.precioVenta ?? 0),
+            ubicacionFarmacia: data?.ubicacionFarmacia ?? '',
+            existencia: Number(data?.existencia ?? 0),
+
+            descuentoINAPAM: !!data?.descuentoINAPAM,
+
+            promoCantidadRequerida: Number(data?.promoCantidadRequerida ?? 0),
+            inicioPromoCantidad: data?.inicioPromoCantidad ?? null,
+            finPromoCantidad: data?.finPromoCantidad ?? null,
+
+            promoLunes: data?.promoLunes ?? null,
+            promoMartes: data?.promoMartes ?? null,
+            promoMiercoles: data?.promoMiercoles ?? null,
+            promoJueves: data?.promoJueves ?? null,
+            promoViernes: data?.promoViernes ?? null,
+            promoSabado: data?.promoSabado ?? null,
+            promoDomingo: data?.promoDomingo ?? null,
+
+            promoDeTemporada: data?.promoDeTemporada ?? null,
+          };
+
+          // ✅ y también tus variables legacy
+          this.precioEnFarmacia = this.invCache[idProducto].precioVenta;
+          this.ubicacionEnFarmacia = this.invCache[idProducto]?.ubicacionFarmacia ?? '';
+
+          const existencia = this.invCache[idProducto].existencia;
+          this.existencias[idProducto] = existencia;
 
           if (existencia >= cantRequerida) {
             this.hayProducto = true;
@@ -1954,6 +2123,33 @@ export class VentasComponent implements OnInit, AfterViewInit {
         text: 'Inténtalo de nuevo.',
       });
     };
+  }
+
+
+  private promoDelDia(inv: InvInfo, hoy: number): PromoDia | null {
+    switch (hoy) {
+      case 1: return inv.promoLunes ?? null;
+      case 2: return inv.promoMartes ?? null;
+      case 3: return inv.promoMiercoles ?? null;
+      case 4: return inv.promoJueves ?? null;
+      case 5: return inv.promoViernes ?? null;
+      case 6: return inv.promoSabado ?? null;
+      case 0: return inv.promoDomingo ?? null;
+      default: return null;
+    }
+  }
+
+  // ✅ convierte "2025-12-31T00:00:00.000Z" -> Date(2025, 11, 31) en local
+  fechaSoloDiaDesdeUTC(valor: any): Date | null {
+    if (!valor) return null;
+    const d = new Date(valor);
+    if (isNaN(d.getTime())) return null;
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  }
+
+  hoySoloDiaLocal(): Date {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate());
   }
 
 }

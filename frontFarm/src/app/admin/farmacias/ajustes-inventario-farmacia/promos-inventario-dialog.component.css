@@ -1,0 +1,165 @@
+/* ====== Layout base ====== */
+.titulo {
+  margin: 0 0 6px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.form-grid {
+  display: block;
+  overflow-x: auto; /* si en alguna compu aún no cabe, que scrollee */
+}
+
+.row {
+  margin: 8px 0;
+}
+
+.cell {
+  width: 100%;
+}
+
+hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid #ddd;
+}
+
+/* ====== Inputs uniformes ====== */
+input[type="number"],
+input[type="date"],
+select {
+  width: 100%;
+  height: 34px;
+  padding: 4px 8px;
+  border: 1px solid #bdbdbd;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+input[type="number"] {
+  text-align: right;
+}
+
+/* Header de columnas: misma rejilla que las filas */
+.promo-head .g.head{
+  display: grid;
+  grid-template-columns: 100px 50px 140px 140px 80px; /* igual que .cell.promo .g */
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.promo-head .lbl{
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: .4px;
+  color: #0404e4;
+  white-space: nowrap;
+}
+
+.text-center{ text-align:center; }
+
+/* Opcional: que el header se vea como barra */
+.promo-head .g.head{
+  padding: 6px 0;
+  border-bottom: 1px solid #dcdcdc;
+}
+
+/* ====== Promos (Lunes..Domingo + Temporada) ====== */
+/* Día | % | Inicio | Fin | Monedero */
+.cell.promo .g {
+  display: grid;
+  grid-template-columns: 100px 50px 140px 140px 80px;
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.cell.promo .lbl {
+  font-weight: 600;
+  white-space: nowrap;
+  color:#0404e4
+}
+
+.cell.promo .chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  justify-self:center;
+  user-select: none;
+}
+
+.cell.promo .chk input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+/* ====== Promo Cantidad ====== */
+/* Label | Select | Inicio | Fin */
+.row .cell.g {
+  display: grid;
+  grid-template-columns: 90px 130px 130px 130px;
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.row .cell.g .lbl {
+  font-weight: 700;
+  white-space: nowrap;
+  color: #df12ff;
+}
+
+/* ====== Footer ====== */
+.footer{
+  display: flex;
+  justify-content: space-between; /* izquierda / derecha */
+  align-items: center;
+  gap: 10px;
+  margin: 5px 30px 10px 30px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.footer button{
+  min-width: 110px; /* opcional, se ve más parejo */
+}
+
+:host{
+  display:block;
+  background: linear-gradient(45deg, rgb(251, 197, 197), rgb(244, 240, 240));
+}
+
+/* ====== Responsive ====== */
+@media (max-width: 860px) {
+  .cell.promo .g {
+    grid-template-columns: 95px 70px 1fr 1fr 120px;
+  }
+  .row .cell.g {
+    grid-template-columns: 95px 1fr 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  /* En móvil apila bonito */
+  .cell.promo .g {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "lbl lbl"
+      "pct pct"
+      "ini fin"
+      "chk chk";
+  }
+
+  /* Ojo: aquí usamos orden de elementos del HTML:
+     label.lbl, input%, input inicio, input fin, label.chk */
+  .cell.promo .g .lbl { grid-area: lbl; }
+  .cell.promo .g input[type="number"] { grid-area: pct; }
+  .cell.promo .g input[type="date"]:nth-of-type(1) { grid-area: ini; }
+  .cell.promo .g input[type="date"]:nth-of-type(2) { grid-area: fin; }
+  .cell.promo .g .chk { grid-area: chk; }
+
+  .row .cell.g {
+    grid-template-columns: 1fr;
+  }
+}

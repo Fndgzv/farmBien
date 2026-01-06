@@ -88,8 +88,11 @@
                     <div class="kv-label">Monedero:</div>
                     <div class="kv-value">{{ data.corte.totalVale | currency }}</div>
 
-                    <div class="kv-label">Recargas:</div>
-                    <div class="kv-value">{{ data.corte?.recargas?.saldoTeoricoFinal | currency }}</div>
+                    <div class="kv-label" style="color:rgb(3, 80, 187)">Recargas ventas:</div>
+                    <div class="kv-value" style="color:rgb(3, 80, 187)">{{ data.corte?.recargas?.vendidas | currency }}</div>
+                    <div class="kv-label" style="color:rgb(3, 80, 187)">Recargas saldo:</div>
+                    <div class="kv-value" style="color:rgb(3, 80, 187)">{{ data.corte?.recargas?.saldoTeoricoFinal | currency }}</div>
+
                 </div>
                 <div class="primer-grid" style="color: rgb(1, 83, 41);">
                     <div class="primer-label">Abonos a monederos de diversos clientes:</div>
@@ -149,8 +152,10 @@
                     <div class="kv-label">Monedero:</div>
                     <div class="kv-value">{{ totales.totalVale | currency }}</div>
 
-                    <div class="kv-label">Recargas:</div>
-                    <div class="kv-value">{{ totales.totalRecargas | currency }}</div>
+                    <div class="kv-label" style="color:rgb(3, 80, 187)">Recargas ventas:</div>
+                    <div class="kv-value" style="color:rgb(3, 80, 187)">{{ totales.totalRecargas | currency }}</div>
+                    <div class="kv-label" style="color:rgb(3, 80, 187)">Recargas saldo:</div>
+                    <div class="kv-value" style="color:rgb(3, 80, 187)">{{ data.corte?.recargas?.saldoInicial - totales.totalRecargas | currency }}</div>
                 </div>
                 
                 <div class="primer-grid" style="color: rgb(1, 83, 41);">

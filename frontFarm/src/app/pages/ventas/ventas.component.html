@@ -26,7 +26,7 @@
             {{ c.nombre }}
             <small *ngIf="c.telefono"> — {{ c.telefono }}</small>
           </mat-option>
-          
+
           <mat-option *ngIf="(filteredClientes$ | async)?.length === 0">
             Sin coincidencias
           </mat-option>
@@ -118,7 +118,7 @@
 
       <div *ngIf="consultaEncontrado" class="row">
         <div class="consulta-img-wrap col-sm-7 text-center">
-        <img [src]="consultaImgUrl" (error)="onConsultaImgError($event)" alt="Imagen de producto">
+          <img [src]="consultaImgUrl" (error)="onConsultaImgError($event)" alt="Imagen de producto">
         </div>
         <div *ngIf="productoConsultado" class="col-sm-5 text-center mt-4">
           <strong>Ubicación:</strong>
@@ -156,6 +156,7 @@
       <div *ngIf="productoConsultado">
         <p><strong>Nombre: </strong>{{ productoConsultado.nombre }}</p>
         <p><strong>Precio Normal:</strong> {{ productoConsultado.precioNormal | currency }}</p>
+
         <p *ngIf="productoConsultado.promo1"><strong>{{ productoConsultado.promo1 }}</strong>{{
           productoConsultado.precioLunes }}</p>
         <p *ngIf="productoConsultado.lunesMasInapam">{{ productoConsultado.lunesMasInapam }}</p>
@@ -184,16 +185,25 @@
           productoConsultado.precioDomingo }}</p>
         <p *ngIf="productoConsultado.domingoMasInapam">{{ productoConsultado.domingoMasInapam }}</p>
 
-        <p *ngIf="productoConsultado.promo"><strong>Promo: </strong>{{ productoConsultado.promo }}</p>
-        <p *ngIf="productoConsultado.precioConDescuento"><strong>Precio c/promo: </strong>{{
-          productoConsultado.precioConDescuento }}</p>
-        <p *ngIf="productoConsultado.precioDescuentoMasInapam"><strong>Precio promo + inapam: </strong>{{
-          productoConsultado.precioDescuentoMasInapam }}</p>
-        <p *ngIf="productoConsultado.precioInapam"><strong>Precio Inapam: </strong>{{ productoConsultado.precioInapam }}
+        <!-- <p *ngIf="productoConsultado.promo"><strong>Promo: </strong>{{ productoConsultado.promo }}</p> -->
+
+        <p *ngIf="productoConsultado.precioConDescuento">
+          <strong>Precio c/promo: </strong>{{ productoConsultado.precioConDescuento }}
         </p>
+
+        <!-- ✅ Nuevo backend -->
+        <p *ngIf="productoConsultado.temporadaMasInapam">{{ productoConsultado.temporadaMasInapam }}</p>
+
+        <!-- ✅ Fallback back viejo -->
+        <p *ngIf="!productoConsultado.temporadaMasInapam && productoConsultado.precioDescuentoMasInapam">
+          <strong>Precio promo + INAPAM: </strong>{{ productoConsultado.precioDescuentoMasInapam }}
+        </p>
+
+        <p *ngIf="productoConsultado.precioInapam">
+          <strong>Precio Inapam: </strong>{{ productoConsultado.precioInapam }}
+        </p>
+
         <p *ngIf="productoConsultado.promoCliente">{{ productoConsultado.promoCliente }}</p>
-
-
       </div>
 
       <button (click)="cerrarModalConsultaPrecio()" class="btn-rojo-tache"
@@ -255,10 +265,9 @@
           <td class="col-img">
             <div class="img-cell">
               <button type="button" class="img-button" (click)="openPreviewVenta(p)">
-                <img [src]="thumbs[p.producto] || placeholderSrc"
-                  (error)="onThumbError($event, p)"
-                  alt="" loading="lazy" decoding="async">
-                </button>
+                <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt=""
+                  loading="lazy" decoding="async">
+              </button>
             </div>
           </td>
 
@@ -268,16 +277,9 @@
           </td>
 
           <td class="col-cantidad">
-            <input
-              class="input-cantidad"
-              #qty="ngModel"
-              type="number"
-              min="1"
-              [attr.max]="existencias[p.producto]"
-              [ngModel]="p.cantidad"
-              (ngModelChange)="onCantidadChange(i, $event)"
-              [class.cantidad-ajustada]="p._cantidadAjustada"
-            />
+            <input class="input-cantidad" #qty="ngModel" type="number" min="1" [attr.max]="existencias[p.producto]"
+              [ngModel]="p.cantidad" (ngModelChange)="onCantidadChange(i, $event)"
+              [class.cantidad-ajustada]="p._cantidadAjustada" />
           </td>
 
           <td>{{ p.precioOriginal | currency }}</td> <!-- precio unitario -->
@@ -331,9 +333,10 @@
         <div class="form-group row mb-2">
           <label for="efectivoRecibido" class="col-sm-4 col-form-label text-left">Efectivo:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input #efectivoRecibidoRef id="efectivoRecibido" name="efectivoRecibido" type="number" (keydown.enter)="$event.preventDefault()"
-              class="form-control text-end" [(ngModel)]="efectivoRecibido" (ngModelChange)="calculaCambio()" [min]="0"
-              step="0.1" [disabled]="ocultarEfectivo" autocomplete="off" inputmode="decimal" [attr.autofocus]="true" />
+            <input #efectivoRecibidoRef id="efectivoRecibido" name="efectivoRecibido" type="number"
+              (keydown.enter)="$event.preventDefault()" class="form-control text-end" [(ngModel)]="efectivoRecibido"
+              (ngModelChange)="calculaCambio()" [min]="0" step="0.1" [disabled]="ocultarEfectivo" autocomplete="off"
+              inputmode="decimal" [attr.autofocus]="true" />
           </div>
         </div>
 
@@ -341,10 +344,10 @@
         <div class="form-group row mb-2">
           <label for="montoTarjeta" class="col-sm-4 col-form-label text-left">Tarjeta:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input id="montoTarjeta" name="montoTarjeta" type="number" class="form-control text-end" (keydown.enter)="$event.preventDefault()"
-              [(ngModel)]="montoTarjeta" (ngModelChange)="pagoTarjeta()" [min]="0"
-              [max]="total - pagoTransferencia1 - pagoVale1" step="0.1" [disabled]="ocultaTarjeta" autocomplete="off"
-              inputmode="decimal" />
+            <input id="montoTarjeta" name="montoTarjeta" type="number" class="form-control text-end"
+              (keydown.enter)="$event.preventDefault()" [(ngModel)]="montoTarjeta" (ngModelChange)="pagoTarjeta()"
+              [min]="0" [max]="total - pagoTransferencia1 - pagoVale1" step="0.1" [disabled]="ocultaTarjeta"
+              autocomplete="off" inputmode="decimal" />
           </div>
         </div>
 
@@ -352,10 +355,10 @@
         <div class="form-group row mb-2">
           <label for="montoTransferencia" class="col-sm-4 col-form-label">Transferencia:</label>
           <div class="col-sm-7 offset-sm-1 d-flex justify-content-end">
-            <input id="montoTransferencia" name="montoTransferencia" type="number" class="form-control text-end" (keydown.enter)="$event.preventDefault()"
-              [(ngModel)]="montoTransferencia" (ngModelChange)="pagoTransferencia()" [min]="0"
-              [max]="total - pagoTarjeta1 - pagoVale1" step="0.1" [disabled]="ocultaTransferencia" autocomplete="off"
-              inputmode="decimal" />
+            <input id="montoTransferencia" name="montoTransferencia" type="number" class="form-control text-end"
+              (keydown.enter)="$event.preventDefault()" [(ngModel)]="montoTransferencia"
+              (ngModelChange)="pagoTransferencia()" [min]="0" [max]="total - pagoTarjeta1 - pagoVale1" step="0.1"
+              [disabled]="ocultaTransferencia" autocomplete="off" inputmode="decimal" />
           </div>
         </div>
 
@@ -421,10 +424,6 @@
 </form>
 
 <!-- ventas.component.html -->
-<div
-  id="ticketVenta"
-  class="ticket-impresion"
-  *ngIf="mostrarTicket && ventaParaImpresion as data"
->
+<div id="ticketVenta" class="ticket-impresion" *ngIf="mostrarTicket && ventaParaImpresion as data">
   <app-venta-ticket [venta]="data"></app-venta-ticket>
 </div>

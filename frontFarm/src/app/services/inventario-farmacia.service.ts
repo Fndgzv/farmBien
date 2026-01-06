@@ -37,4 +37,12 @@ export class InventarioFarmaciaService {
   actualizarMasivo(farmaciaId: string, cambios: any): Observable<any> {
     return this.http.put(`${this.baseUrl}/masivo/${farmaciaId}`, cambios);
   }
+
+  aplicarPromosYPrecioMasivo(farmaciaId: string, payload: any) {
+  return this.http.put<any>(
+    `${this.baseUrl}/promos-masivo/${farmaciaId}`,
+    payload
+  );
+}
+
 }

@@ -290,9 +290,6 @@ export class CortesDeCajaComponent implements OnInit {
 
     // Caso 1: corte con fechaFin -> mostrar datos cerrados
     if (corte.fechaFin) {
-
-      console.log('Corte cerrado en cortesDeCaja', corte);
-
       this.dialog.open(CorteDetalleDialogComponent, {
         width: '720px',
         disableClose: true,
@@ -333,6 +330,7 @@ export class CortesDeCajaComponent implements OnInit {
           Swal.fire('Error', 'No se pudo obtener el previo del corte.', 'error');
         }
       });
+
   }
 
   eliminarCorte(corte: any) {
@@ -391,87 +389,99 @@ export class CortesDeCajaComponent implements OnInit {
 
 
   /** Acepta distintas formas de respuesta y devuelve el shape que espera el diálogo */
-  private normalizarPreview(resp: any) {
-    // 1) Encuentra el nodo que realmente trae los totales
-    const root =
-      resp?.preview ??
-      resp?.data ??
-      resp?.totales ??
-      resp?.resumen ??
-      resp?.result ??
-      resp?.corte ?? // algunos devuelven { corte: {...} }
-      resp;
+private normalizarPreview(resp: any) {
+  // 1) Nodo raíz con los totales
+  const root =
+    resp?.preview ??
+    resp?.data ??
+    resp?.totales ??
+    resp?.resumen ??
+    resp?.result ??
+    resp?.corte ??
+    resp;
 
-    // Si aún así no hay nada util, devuelve todo en 0
-    if (!root || typeof root !== 'object') {
-      return {
-        ventasEfectivo: 0, ventasTarjeta: 0, ventasTransferencia: 0, ventasVale: 0,
-        devolucionesEfectivo: 0, devolucionesVale: 0,
-        pedidosEfectivo: 0, pedidosTarjeta: 0, pedidosTransferencia: 0, pedidosVale: 0,
-        pedidosCanceladosEfectivo: 0, pedidosCanceladosVale: 0,
-        totalEfectivoEnCaja: 0, totalTarjeta: 0, totalTransferencia: 0, totalVale: 0,
-        totalRecargas: 0, abonosMonederos: 0,
-      };
-    }
-
-    // 2) Helper para tomar el primer campo definido de una lista de alias
-    const pick = (obj: any, keys: string[]) => {
-      for (const k of keys) {
-        if (obj?.[k] != null) return obj[k];
-      }
-      return undefined;
-    };
-
-    // 3) Conversión robusta a number (acepta strings y reemplaza comas decimales)
-    const n = (v: any) => {
-      if (v == null) return 0;
-      if (typeof v === 'number') return v;
-      if (typeof v === 'string') {
-        const t = v.trim().replace(/\s/g, '').replace(',', '.');
-        const num = Number(t);
-        return isNaN(num) ? 0 : num;
-      }
-      return Number(v) || 0;
-    };
-
-    // 4) Si viene anidado de otra forma (p. ej. { totales: {...} } dentro de root)
-    const src =
-      (typeof root.totales === 'object' ? root.totales : undefined) ??
-      (typeof root.resumen === 'object' ? root.resumen : undefined) ??
-      root;
-
-    // 5) Mapear con alias (Monedero/Vales, etc.)
+  if (!root || typeof root !== 'object') {
     return {
-      // Ventas
-      ventasEfectivo: n(pick(src, ['ventasEfectivo', 'ventas_efectivo', 'ventasEfe'])),
-      ventasTarjeta: n(pick(src, ['ventasTarjeta', 'ventas_tarjeta', 'ventasTj'])),
-      ventasTransferencia: n(pick(src, ['ventasTransferencia', 'ventas_transferencia', 'ventasTransf'])),
-      ventasVale: n(pick(src, ['ventasVale', 'ventasMonedero', 'ventas_monedero', 'ventasVales'])),
-
-      // Devoluciones
-      devolucionesEfectivo: n(pick(src, ['devolucionesEfectivo', 'devoluciones_efectivo', 'devEfectivo'])),
-      devolucionesVale: n(pick(src, ['devolucionesVale', 'devolucionesMonedero', 'devoluciones_monedero', 'devVales'])),
-
-      // Pedidos (ingresos)
-      pedidosEfectivo: n(pick(src, ['pedidosEfectivo', 'pedidos_efectivo'])),
-      pedidosTarjeta: n(pick(src, ['pedidosTarjeta', 'pedidos_tarjeta'])),
-      pedidosTransferencia: n(pick(src, ['pedidosTransferencia', 'pedidos_transferencia'])),
-      pedidosVale: n(pick(src, ['pedidosVale', 'pedidosMonedero', 'pedidos_monedero'])),
-
-      // Pedidos cancelados (egresos)
-      pedidosCanceladosEfectivo: n(pick(src, ['pedidosCanceladosEfectivo', 'pedidos_cancelados_efectivo'])),
-      pedidosCanceladosVale: n(pick(src, ['pedidosCanceladosVale', 'pedidosCanceladosMonedero', 'pedidos_cancelados_monedero'])),
-
-      // Totales
-      totalEfectivoEnCaja: n(pick(src, ['totalEfectivoEnCaja', 'total_efectivo_en_caja', 'totalEfectivo'])),
-      totalTarjeta: n(pick(src, ['totalTarjeta', 'total_tarjeta'])),
-      totalTransferencia: n(pick(src, ['totalTransferencia', 'total_transferencia'])),
-      totalVale: n(pick(src, ['totalVale', 'totalMonedero', 'total_monedero'])),
-
-      totalRecargas: n(pick(src, ['totalRecargas', 'recargas', 'total_recargas'])),
-      abonosMonederos: n(pick(src, ['abonosMonederos', 'abonosMonedero', 'abonos_monedero'])),
+      ventasEfectivo: 0, ventasTarjeta: 0, ventasTransferencia: 0, ventasVale: 0,
+      devolucionesEfectivo: 0, devolucionesVale: 0,
+      pedidosEfectivo: 0, pedidosTarjeta: 0, pedidosTransferencia: 0, pedidosVale: 0,
+      pedidosCanceladosEfectivo: 0, pedidosCanceladosVale: 0,
+      totalEfectivoEnCaja: 0, totalTarjeta: 0, totalTransferencia: 0, totalVale: 0,
+      totalRecargas: 0, abonosMonederos: 0,
+      saldoInicialRecargas: 0,
     };
   }
 
+  // 2) Helper para alias
+  const pick = (obj: any, keys: string[]) => {
+    if (!obj || typeof obj !== 'object') return undefined;
+    for (const k of keys) {
+      if (obj[k] != null) return obj[k];
+    }
+    return undefined;
+  };
+
+  // 3) Conversión robusta a number
+  const n = (v: any) => {
+    if (v == null) return 0;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const t = v.trim().replace(/\s/g, '').replace(',', '.');
+      const num = Number(t);
+      return isNaN(num) ? 0 : num;
+    }
+    return Number(v) || 0;
+  };
+
+  // 4) Si viene anidado de otra forma
+  const src =
+    (typeof root.totales === 'object' ? root.totales : undefined) ??
+    (typeof root.resumen === 'object' ? root.resumen : undefined) ??
+    root;
+
+  // 5) Recargas pueden venir como objeto: { saldoInicial, vendidas, saldoTeoricoFinal }
+  const recObj = (src && typeof src.recargas === 'object') ? src.recargas : null;
+  const recVendidas = recObj ? n(pick(recObj, ['vendidas', 'monto', 'total', 'sum'])) : undefined;
+  const recSaldoInicial = recObj ? n(pick(recObj, ['saldoInicial', 'inicial'])) : 0;
+
+  return {
+    // Ventas
+    ventasEfectivo:      n(pick(src, ['ventasEfectivo', 'ventas_efectivo', 'ventasEfe'])),
+    ventasTarjeta:       n(pick(src, ['ventasTarjeta', 'ventas_tarjeta', 'ventasTj'])),
+    ventasTransferencia: n(pick(src, ['ventasTransferencia', 'ventas_transferencia', 'ventasTransf'])),
+    ventasVale:          n(pick(src, ['ventasVale', 'ventasMonedero', 'ventas_monedero', 'ventasVales'])),
+
+    // Devoluciones
+    devolucionesEfectivo: n(pick(src, ['devolucionesEfectivo', 'devoluciones_efectivo', 'devEfectivo'])),
+    devolucionesVale:     n(pick(src, ['devolucionesVale', 'devolucionesMonedero', 'devoluciones_monedero', 'devVales'])),
+
+    // Pedidos (ingresos)
+    pedidosEfectivo:      n(pick(src, ['pedidosEfectivo', 'pedidos_efectivo'])),
+    pedidosTarjeta:       n(pick(src, ['pedidosTarjeta', 'pedidos_tarjeta'])),
+    pedidosTransferencia: n(pick(src, ['pedidosTransferencia', 'pedidos_transferencia'])),
+    pedidosVale:          n(pick(src, ['pedidosVale', 'pedidosMonedero', 'pedidos_monedero'])),
+
+    // Pedidos cancelados (egresos)
+    pedidosCanceladosEfectivo: n(pick(src, ['pedidosCanceladosEfectivo', 'pedidos_cancelados_efectivo'])),
+    pedidosCanceladosVale:     n(pick(src, ['pedidosCanceladosVale', 'pedidosCanceladosMonedero', 'pedidos_cancelados_monedero'])),
+
+    // Totales
+    totalEfectivoEnCaja: n(pick(src, ['totalEfectivoEnCaja', 'total_efectivo_en_caja', 'totalEfectivo'])),
+    totalTarjeta:        n(pick(src, ['totalTarjeta', 'total_tarjeta'])),
+    totalTransferencia:  n(pick(src, ['totalTransferencia', 'total_transferencia'])),
+    totalVale:           n(pick(src, ['totalVale', 'totalMonedero', 'total_monedero'])),
+
+    // Recargas: prioriza recargas.vendidas si viene como objeto; si no, cae a tus alias previos
+    totalRecargas: recVendidas !== undefined
+      ? recVendidas
+      : n(pick(src, ['totalRecargas', 'recargas', 'total_recargas'])),
+
+    // Monedero
+    abonosMonederos: n(pick(src, ['abonosMonederos', 'abonosMonedero', 'abonos_monedero'])),
+
+    // Extra útil si lo quieres mostrar
+    saldoInicialRecargas: recSaldoInicial,
+  };
+}
 
 }
