@@ -22,7 +22,6 @@ function digitsLooseRegex(digits) {
   return new RegExp(pattern, 'i');
 }
 
-const moment = require('moment');
 require('console');
 
 // === Directorios de uploads (únicos y consistentes) ===

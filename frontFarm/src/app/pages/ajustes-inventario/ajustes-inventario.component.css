@@ -22,7 +22,7 @@
 }
 
 .masivos {
-  font-size: small;
+  /* font-size: small; */
   width: 100%;
   background-color: rgb(183, 251, 228);
 }
@@ -34,7 +34,7 @@
 .container-masivos {
   display: flex;
   justify-content: space-between;
-}
+  width: 100%;}
 
 .tit-promo {
   color: rgb(2, 4, 124);
@@ -95,7 +95,7 @@
 .modal-dialog{
   background: azure;
   color: #222;
-  width: min(900px, 96vw);
+  width: min(1000px, 96vw);
   max-height: 90vh;
   overflow: auto;
   border-radius: 12px;

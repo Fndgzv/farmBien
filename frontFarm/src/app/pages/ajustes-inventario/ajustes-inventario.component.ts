@@ -602,8 +602,8 @@ export class AjustesInventarioComponent implements OnInit {
       precio: null,
       costo: null,
       iva: false,
-      stockMinimo: 20,
-      stockMaximo: 60,
+      stockMinimo: 10,
+      stockMaximo: 20,
       ubicacion: '',
       categoria: '',
       generico: false,
@@ -650,8 +650,8 @@ export class AjustesInventarioComponent implements OnInit {
           icon: 'success',
           title: 'Listo',
           html: `Producto creado correctamente.<br>
-                  Si deseas agregar promociones<br>
-                  busca el producto en la tabla y editalo`,
+                  Las promociones se agregan en cada<br>
+                   farmacia de manera independiente`,
           confirmButtonText: 'Aceptar',
           allowOutsideClick: false,
           allowEscapeKey: false,

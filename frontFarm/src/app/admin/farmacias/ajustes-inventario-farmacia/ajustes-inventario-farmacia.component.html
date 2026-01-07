@@ -106,11 +106,10 @@
       <div class="cm-title">
         Cambios masivos:
         <span class="cm-sub">
-          selecciona productos en la tabla y define qué quieres aplicar. Si un campo se deja vacío, no se toca.
+           INAPAM, promociones y precios.
         </span>
+          <small class="cm-count">Productos seleccionados: <b>{{ seleccionadosCount }}</b></small>
       </div>
-
-      <small class="cm-count">Seleccionados: <b>{{ seleccionadosCount }}</b></small>
     </div>
 
     <!-- Botoncito visual de desplegar -->
@@ -121,8 +120,8 @@
     <div class="cm-header">
 
       <!-- INAPAM -->
-      <div class="cm-row" style="color: blue;">
-        <label class="cm-check" style="margin-right: 1rem;">
+      <div class="cm-row">
+        <label class="cm-check" style="margin-right: 2rem;">
           <input type="checkbox"
                  [(ngModel)]="masivo.inapam.usar"
                  (click)="$event.stopPropagation()">
@@ -239,7 +238,7 @@
         </div>
 
         <!-- PROMO CANTIDAD -->
-        <div class="mt-4">
+        <div class="mt-promo-cant">
           <label class="cm-check">
             <input type="checkbox" [(ngModel)]="masivo.cantidad.usar" (click)="$event.stopPropagation()">
             <span>Aplicar promo por cantidad</span>
@@ -281,6 +280,10 @@
           <input type="checkbox" [(ngModel)]="masivo.precio.usar" (click)="$event.stopPropagation()">
           <span>Aplicar cambio de precio masivo</span>
         </label>
+
+        <div class="cm-price-head" [class.disabled]="!masivo.cantidad.usar || masivo.cantidad.limpiar">
+            <div>Forma de variación</div><div>Valor</div><div>Resultado</div>
+        </div>
 
         <div class="cm-price" [class.disabled]="!masivo.precio.usar">
           <select [disabled]="!masivo.precio.usar"
@@ -481,7 +484,7 @@
                         <!-- Botón Guardar -->
                         <button class="btn-icon-chico btn-verde-chico"
                             [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
-                            (click)="guardarFila(i)" matTooltip="Guardar">
+                            (click)="guardarFila(i)" matTooltip="Guardar renglón">
                             <fa-icon *ngIf="estadoGuardado[i._id] === 'guardando'" [icon]="faSpinner"
                                 class="fa-spin"></fa-icon>
                             <fa-icon *ngIf="estadoGuardado[i._id] === 'exito'" [icon]="faCheck"></fa-icon>
@@ -492,13 +495,13 @@
                         <!-- Botón Cancelar -->
                         <button class="btn-icon-chico btn-rojo-chico"
                             [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
-                            (click)="cancelarEdicion(i)" matTooltip="Cancelar">
+                            (click)="cancelarEdicion(i)" matTooltip="Cancelar edición">
                             <fa-icon [icon]="faTimes"></fa-icon>
                         </button>
 
                         <!-- Botón Editar Promociones -->
                         <button class="btn-icon-chico btn-amarillo-chico" [disabled]="!edicionPromos"
-                            (click)="abrirEditarPromos(i)" matTooltip="Editar promociones">
+                            (click)="abrirEditarPromos(i)" matTooltip="Editar promociones del producto">
                             <fa-icon [icon]="faTags"></fa-icon>
                         </button>
 

@@ -28,11 +28,11 @@
                 <input type="checkbox" formControlName="generico">
             </div>
             <div>
-                <label style="margin-right: 10px;">INAPAM:</label>
-                <input type="checkbox" formControlName="descuentoINAPAM">
+                <!-- <label style="margin-right: 10px;">INAPAM:</label>
+                <input type="checkbox" formControlName="descuentoINAPAM"> -->
                 <label style="margin-left: 2rem; margin-right: 10px;">Costo:</label>
                 <input type="number" formControlName="costo" style="width: 5rem;" step="0.1">
-                <label style="margin-left: 2rem; margin-right: 10px;">Precio:</label>
+                <!-- <label style="margin-left: 2rem; margin-right: 10px;">Precio:</label>
                 <input type="number" formControlName="precio" style="width: 5rem;"> 
                     <small *ngIf="utilPct !== null; else sinDato" [style.color]="utilColor" style="text-align: left;">
                         Util. {{ utilPct | number:'1.0-2' }}%
@@ -40,7 +40,7 @@
                     <ng-template #sinDato>—</ng-template>
                     <small *ngIf="utilAbs !== null" [style.color]="utilColor">
                         ({{ utilAbs | currency }})
-                    </small>
+                    </small> -->
 
                     <label style="margin-left: 2rem; margin-right: 10px;">Ubicación:</label>
                     <input type="text" formControlName="ubicacion" style="width: 11rem;">
@@ -63,12 +63,12 @@
                     <button class="btn-rojo-chico" type="button" (click)="eliminarLote(i)">Eliminar</button>
                 </div>
                 <div style="text-align: center;">
-                    <button type="button" (click)="agregarLote()" class="btn-verde-chico">Agregar Lote</button>
+                    <button type="button" (click)="agregarLote()" class="btn-gris-chico">Agregar Lote</button>
                 </div>
             </div>
 
             <!-- Promociones -->
-            <label class="subtitulo-edit">Promociones:</label>
+            <!-- <label class="subtitulo-edit">Promociones:</label>
             <div class="edit-seccion">
                 <label class="subtitulo-edit">Cantidad Requerida:</label>
                 <label style="margin-left: 1rem;">Tipo:</label>
@@ -122,10 +122,10 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
 
         </form>
-
+        <hr>
         <div class="modal-buttons">
             <button class="btn-rojo-chico" (click)="cerrarModal()">Cancelar</button>
             <button class="btn-verde-chico btn-right" (click)="guardarProducto()"

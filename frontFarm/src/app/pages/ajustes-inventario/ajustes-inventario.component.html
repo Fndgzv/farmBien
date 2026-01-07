@@ -150,26 +150,33 @@
         </div>
 
         <!-- 🟢 Zona General -->
-        <div class="container-masivos mb-1">
-            <div>
-                <!-- <label class="tit-promo" style="margin-right: 1rem;">Datos básicos:</label> -->
-                <label style="margin-right: 10px;">Categoría:</label>
-                <input style="width: 100px; margin-right: 2rem;" type="text" formControlName="categoria">
-                <label style="margin-right: 10px;">Ubicación:</label>
-                <input style="width: 100px; margin-right: 2rem;" type="text" formControlName="ubicacion">
-                <label style="margin-right: 10px;">Stock Mínimo:</label>
-                <input style="width: 50px; margin-right: 2rem;" type="number" formControlName="stockMinimo">
-                <label style="margin-right: 10px;">Stock Máximo:</label>
-                <input style="width: 50px; margin-right: 2rem;" type="number" formControlName="stockMaximo">
-                <label style="margin-right: 10px;">INAPAM:</label>
+        <!-- <div class="container-masivos"> -->
+            <div class="row mb-2 container-masivos">
+                <div class="col-md-3">
+                    <label style="margin-right: 10px;">Categoría:</label>
+                    <input type="text" formControlName="categoria">
+                </div>
+                <div class="col-md-3"> 
+                    <label style="margin-right: 10px;">Ubicación:</label>
+                    <input type="text" formControlName="ubicacion">
+                </div>
+                <div class="col-md-3" style="text-align: end;">
+                    <label style="margin-right: 10px;">Stock Mínimo:</label>
+                    <input style="width: 60px;" type="number" formControlName="stockMinimo">
+                </div>
+                <div class="col-md-3" style="text-align: end;">
+                    <label style="margin-right: 10px;">Stock Máximo:</label>
+                    <input style="width: 60px;" type="number" formControlName="stockMaximo">
+                </div>
+                <!-- <label style="margin-right: 10px;">INAPAM:</label>
                 <select formControlName="descuentoINAPAM">
                     <option [ngValue]="null">--</option>
                     <option [ngValue]="true">Sí</option>
                     <option [ngValue]="false">No</option>
-                </select>
+                </select> -->
             </div>
             <!-- 🟡 Zona Ajuste de Precios -->
-            <div>
+           <!--  <div>
                 <label class="tit-promo" style="text-align: right; margin-right: 10px">Sube/baja Precios:</label>
 
                 <label [ngClass]="{'selected-radio': formularioMasivo.get('ajustePrecioModo')?.value === 'porcentaje'}"
@@ -188,13 +195,11 @@
                     style="margin-right: 10px;">$:</label>
                 <input [class.disabled-label]="formularioMasivo.get('ajustePrecioModo')?.value != 'cantidad'"
                     type="number" style="width: 50px; margin-right: 5rem;" formControlName="ajustePrecioCantidad">
-            </div>
-        </div>
+            </div> -->
+        <!-- </div> -->
 
         <!-- Zona Promociones -->
-        <div>
-
-            <!-- 🔵 Promo Cantidad Requerida -->
+       <!--  <div>
             <div class="container-masivos mb-1">
                 <div>
                     <label style="margin-right: 10px;" class="tit-promo">Promo Cantidad Requerida:</label>
@@ -210,7 +215,6 @@
                     <input type="date" formControlName="finPromoCantidad">
                 </div>
 
-                <!-- 🟣 Promo Temporada -->
                 <div>
                     <label class="tit-promo" style="margin-right: 10px;">Promo Temporada:</label>
                     <label style="margin-right: 10px;">% Desc.:</label>
@@ -229,7 +233,6 @@
                 </div>
             </div>
 
-            <!-- 🟤 Promo por Día -->
             <div [formGroup]="promosPorDiaForm" style="margin-top: 10px;">
                 <div *ngFor="let dia of diasSemana">
                     <div [formGroupName]="'promo' + dia" class="row" style="margin-bottom: 5px;">
@@ -260,7 +263,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <!-- Botones -->
         <div class="modal-actions mt-3">
@@ -468,6 +471,11 @@
                     </div>
 
                     <div class="col-2">
+                        <label>Ubicación</label>
+                        <input type="text" formControlName="ubicacion" class="form-control" />
+                    </div>
+
+                    <div class="col-2">
                         <label>Stock Mín *</label>
                         <input type="number" formControlName="stockMinimo" class="form-control" />
                     </div>
@@ -490,11 +498,6 @@
                     <div class="col-2 form-check-vertical">
                         <label for="chkINA" class="form-label">INAPAM</label>
                         <input type="checkbox" class="form-check-input" formControlName="descuentoINAPAM" id="chkINA" />
-                    </div>
-
-                    <div class="col-2">
-                        <label>Ubicación</label>
-                        <input type="text" formControlName="ubicacion" class="form-control" />
                     </div>
 
                 </div>
