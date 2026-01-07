@@ -124,7 +124,12 @@ export class UsuariosComponent implements OnInit {
     if (this.formUsuario.invalid || this.guardando) return;
     this.guardando = true;
 
-    const datos = this.limpiarDatosUsuarioPorRol(this.formUsuario.value);
+    const datosOriginal = this.formUsuario.value;
+    const datos = this.limpiarDatosUsuarioPorRol({
+      ...datosOriginal,
+      nuevaPassword: datosOriginal.password  // 👈 esto es CLAVE para que el backend reciba correctamente
+    });
+
 
     const finalizar = () => {
       const modalElement = document.getElementById('modalUsuario');

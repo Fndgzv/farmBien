@@ -18,7 +18,7 @@ exports.obtenerUsuarios = async (req, res) => {
 exports.actualizarUsuario = async (req, res) => {
     try {
         const { id } = req.params;
-        const { usuario, nombre, password, nuevaPassword, email, telefono, domicilio, rol, farmacia, cedulaProfesional } = req.body;
+        const { usuario, nombre, nuevaPassword, email, telefono, domicilio, rol, farmacia, cedulaProfesional } = req.body;
 
         let usuarioEncontrado = await Usuario.findById(id);
         if (!usuarioEncontrado) {
@@ -53,14 +53,11 @@ exports.actualizarUsuario = async (req, res) => {
         }
 
         // Validar cambio de contraseña
-        if (nuevaPassword) {
-            const esIgual = await bcrypt.compare(nuevaPassword, usuarioEncontrado.password);
-            if (esIgual) {
-                return res.status(400).json({ mensaje: "La nueva contraseña no puede ser igual a la actual." });
-            }
+        if (nuevaPassword && nuevaPassword.trim() !== '') {
             const salt = await bcrypt.genSalt(10);
             usuarioEncontrado.password = await bcrypt.hash(nuevaPassword, salt);
         }
+
 
         // Validaciones y lógica según el nuevo rol
         if (rol) {
