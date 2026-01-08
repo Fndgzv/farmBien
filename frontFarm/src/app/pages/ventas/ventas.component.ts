@@ -1742,6 +1742,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.cambio = 0;
     this.aplicaInapam = false;
     this.yaPreguntoInapam = false;
+    this.captionButtomReanudar = "";
   }
 
   private yyyymmddLocal(d = new Date()): string {
