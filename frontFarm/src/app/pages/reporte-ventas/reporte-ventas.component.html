@@ -4,7 +4,7 @@
     <div class="mb-2 filtros">
         <form [formGroup]="filtroForm" class="row g-2 align-items-end">
             <!-- Farmacia select -->
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">Farmacia</label>
                 <select class="form-select" formControlName="farmaciaId" (change)="buscar(true)"
                     [disabled]="!farmaciasCargadas || cargando">
@@ -37,7 +37,7 @@
             </div>
 
 
-            <div class="col-md-3" style="align-items: end;">
+            <div class="col-md-2" style="align-items: end;">
                 <label class="form-label">Vendió:</label>
                 <select class="form-select" formControlName="usuarioId" (change)="buscar(true)"
                     [disabled]="cargando || !usuariosCargados">
@@ -45,8 +45,17 @@
                 </select>
             </div>
 
-            <div class="col-md-3">
-                <label class="form-label"># de Ventas por página</label>
+            <div class="col-md-1">
+                <label class="form-label">Serv. médico</label>
+                <select class="form-select" formControlName="porServicioMedico" (change)="buscar(true)" [disabled]="cargando">
+                    <option [ngValue]="''">TODOS</option>
+                    <option [ngValue]="'true'">Sí</option>
+                    <option [ngValue]="'false'">No</option>
+                </select>
+            </div>
+
+            <div class="col-md-1">
+                <label class="form-label">Ventas/pág</label>
                 <input type="number" class="form-control" formControlName="limit" min="1" max="200">
             </div>
 
@@ -94,6 +103,7 @@
                     <th>Vendió</th>
                     <th>Fecha</th>
                     <th>Folio</th>
+                    <th>Serv. Med.</th>
                     <th>Cliente</th>
                     <th class="text-end"># Prod.</th>
                     <th class="text-end">Al moned.</th>
@@ -119,6 +129,9 @@
                         <td>{{ v.usuario?.nombre || '—' }}</td>
                         <td>{{ v.fecha | date:'dd/MM/yyyy HH:mm':'America/Mexico_City' }}</td>
                         <td>{{ v.folio }}</td>
+                        <td>
+                          {{ v.porServicioMedico === true ? 'Sí' : (v.porServicioMedico === false ? 'No' : '-') }}
+                        </td>
                         <td>{{ v.cliente?.nombre || '—' }}</td>
                         <td>{{ v.cantidadProductos | number }}</td>
                         <td class="text-end">${{ v.totalMonederoCliente | number:'1.2-2' }}</td>
@@ -131,7 +144,7 @@
 
                     <!-- fila detalle expandible -->
                     <tr *ngIf="isExpanded(v)">
-                        <td colspan="13" style="background:#fafafa;">
+                        <td colspan="14" style="background:#fafafa;">
                             <!-- Subtabla de renglones -->
                             <div class="table-responsive">
                                 <table class="detalle-tabla">
@@ -202,13 +215,13 @@
                 </ng-container>
 
                 <tr *ngIf="rows.length === 0">
-                    <td colspan="13" class="text-center text-muted py-3">Sin resultados</td>
+                    <td colspan="14" class="text-center text-muted py-3">Sin resultados</td>
                 </tr>
             </tbody>
 
             <tfoot *ngIf="rows.length > 0">
                 <tr>
-                    <td colspan="6" class="text-end"><strong>Totales ===></strong></td>
+                    <td colspan="7" class="text-end"><strong>Totales ===></strong></td>
                     <td class="text-end" style="font-weight:600;">{{sumaCantidadProductos}}</td>
                     <td class="text-end" style="font-weight:600;">${{sumaTotalMonederoCliente | number:'1.2-2'}}</td>
                     <td class="text-end" style="font-weight:600;">${{sumaTotalDescuento | number:'1.2-2'}}</td>

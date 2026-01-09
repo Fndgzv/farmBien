@@ -55,6 +55,9 @@ const VentaSchema = new mongoose.Schema({
     transferencia: { type: Number, default: 0 },
     vale: { type: Number, default: 0 },
   },
+
+  porServicioMedico: { type: Boolean, default: false },
+
   fecha: { type: Date, default: Date.now }
 }, { timestamps: true });
 
@@ -65,5 +68,6 @@ VentaSchema.index({ farmacia: 1, fecha: 1 });
 VentaSchema.index({ usuario: 1, fecha: 1 });
 VentaSchema.index({ farmacia: 1, usuario: 1, fecha: 1 });
 VentaSchema.index({ 'productos.producto': 1, fecha: 1 });
+VentaSchema.index({ porServicioMedico: 1, fecha: 1 });
 
 module.exports = mongoose.model("Venta", VentaSchema);

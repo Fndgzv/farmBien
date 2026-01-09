@@ -20,6 +20,7 @@ export interface ConsultarVentasParams {
   totalHasta?: number | string;
   page?: number;
   limit?: number;
+  porServicioMedico?: boolean;
 }
 export interface ConsultarVentasResponse {
   ok: boolean;
@@ -150,6 +151,10 @@ export class ReportesService {
       limit: p.limit != null ? String(p.limit) : undefined,
     };
 
+    if ((p as any).porServicioMedico !== undefined && (p as any).porServicioMedico !== null) {
+      obj.porServicioMedico = String((p as any).porServicioMedico); // 'true' | 'false'
+    }
+
     let params = new HttpParams();
     Object.keys(obj).forEach(k => {
       const v = obj[k];
@@ -263,9 +268,9 @@ export class ReportesService {
     );
   }
 
-rankingProductosKPIs(params: any) {
-  return this.http.get<any>(`${this.url}/ranking-productos-kpis`, { params });
-}
+  rankingProductosKPIs(params: any) {
+    return this.http.get<any>(`${this.url}/ranking-productos-kpis`, { params });
+  }
 
 
 

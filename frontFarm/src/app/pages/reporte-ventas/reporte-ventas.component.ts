@@ -123,7 +123,8 @@ export class ReporteVentasComponent implements OnInit {
       usuarioId: [''],
       totalDesde: [''],
       totalHasta: [''],
-      limit: [this.limit]
+      limit: [this.limit],
+      porServicioMedico: ['']   // '' = TODOS | 'true' | 'false'
     });
 
     this.filtroForm.get('clienteNombre')!.valueChanges
@@ -367,7 +368,7 @@ export class ReporteVentasComponent implements OnInit {
 
   limpiar() {
     const hoy = this.todayYMD();
-    this.filtroForm.reset({
+    this.filtroForm.patchValue({
       farmaciaId: '',
       fechaInicial: hoy,
       fechaFinal: hoy,
@@ -375,8 +376,10 @@ export class ReporteVentasComponent implements OnInit {
       usuarioId: '',
       totalDesde: '',
       totalHasta: '',
-      limit: this.limit
+      limit: this.limit,
+      porServicioMedico: ''   // <- TODOS
     });
+    this.clienteSel = null;
     this.resetPaginacion();
     this.buscar(true);
   }
@@ -388,18 +391,21 @@ export class ReporteVentasComponent implements OnInit {
     const val = this.filtroForm.value;
     this.limit = Number(val.limit) || 20;
 
-    // ❗️No formateamos aquí. Enviamos “tal cual” y el service convierte a YYYY-MM-DD 1 sola vez.
     const params: ConsultarVentasParams = {
       farmaciaId: val.farmaciaId || undefined,
       clienteId: val.clienteId || undefined,
       usuarioId: val.usuarioId || undefined,
       totalDesde: (val.totalDesde !== '' && val.totalDesde != null) ? Number(val.totalDesde) : undefined,
       totalHasta: (val.totalHasta !== '' && val.totalHasta != null) ? Number(val.totalHasta) : undefined,
-      fechaInicial: val.fechaInicial as any,  // Date o string; el service lo normaliza
-      fechaFinal: val.fechaFinal as any,  // Date o string; el service lo normaliza
+      fechaInicial: val.fechaInicial as any, // Date o string; el service lo normaliza
+      fechaFinal: val.fechaFinal as any, // Date o string; el service lo normaliza
       page: this.page,
       limit: this.limit,
     };
+
+    const psm = val.porServicioMedico;
+    if (psm === 'true' || psm === true) (params as any).porServicioMedico = 'true';
+    else if (psm === 'false' || psm === false) (params as any).porServicioMedico = 'false';
 
     this.cargando = true;
     this.reportes.getVentas(params).subscribe({

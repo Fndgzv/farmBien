@@ -1,19 +1,33 @@
 <div>
-  <div class="row align-items-center titulo-row">
-    <div class="col-6 text-end">
+  <div class="row align-items-center titulo-row mb-0">
+    <div class="col-3 text-left">
       <h1 class="titulo mb-0">Ventas</h1>
     </div>
 
-    <div class="col-6 d-flex justify-content-center">
+    <div class="col-3 d-flex justify-content-center">
       <label class="me-2 mb-0">Tamaño imagen:</label>
       <select class="form-select form-select-sm scale-select" [(ngModel)]="thumbScale"
         (ngModelChange)="onScaleChange($event)">
         <option *ngFor="let s of scales" [ngValue]="s">{{ s }}×</option>
       </select>
     </div>
+
+    <div class="col-3 d-flex align-items-center justify-content-center" *ngIf="carrito.length > 0">
+      <label class="form-check-label me-2" for="chkServicioMedico">Venta por servicio médico</label>
+      <input
+        id="chkServicioMedico"
+        type="checkbox"
+        class="form-check-input"
+        [(ngModel)]="porServicioMedico"
+      />
+    </div>
+    
+    <div class="col-3 d-flex justify-content-center">
+      <button (click)="abrirModalConsultaPrecio()" class="btn-gris consultar-precio">Consultar Precio</button>
+    </div>
   </div>
 
-  <div class="row align-items-center mb-1">
+  <div class="row align-items-center mb-0">
 
     <div class="col-md-2">
       <mat-form-field class="compact-field" appearance="outline">
@@ -60,10 +74,6 @@
       <input type="checkbox" id="aplicaInapam" name="aplicaInapam" [(ngModel)]="aplicaInapam"
         (ngModelChange)="yaPreguntoInapam = true; VerSiPreguntaINAPAM()" />
       <label for="aplicaInapam">Presenta cred. INAPAM</label>
-    </div>
-
-    <div class="col-md-2 text-end">
-      <button (click)="abrirModalConsultaPrecio()" class="btn-gris consultar-precio">Consultar Precio</button>
     </div>
   </div>
 

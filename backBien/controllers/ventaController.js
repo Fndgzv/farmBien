@@ -232,6 +232,7 @@ const crearVenta = async (req, res) => {
       transferencia = 0,
       importeVale = 0,
       farmacia,
+      porServicioMedico
     } = req.body;
 
     if (!farmacia || !mongoose.isValidObjectId(farmacia)) {
@@ -514,7 +515,7 @@ const crearVenta = async (req, res) => {
         }
 
         // 2) Guardar venta
-        const ventaArr = await Venta.create([{
+        const ventaPayload = {
           farmacia: farmaciaId,
           cliente: clienteId || null,
           usuario: usuario.id,
@@ -531,9 +532,16 @@ const crearVenta = async (req, res) => {
           },
           fecha: new Date(),
           folio: folioFinal
-        }], { session });
+        };
 
-        ventaCreada = ventaArr[0];
+        // 👇 Solo lo seteamos si viene explícito como booleano
+        if (typeof porServicioMedico === 'boolean') {
+          ventaPayload.porServicioMedico = porServicioMedico;
+        }
+
+        const ventaArr = await Venta.create([ventaPayload], { session });
+        const ventaCreada = ventaArr[0];
+
 
         // 3) Monedero
         if (cliente) {
@@ -614,6 +622,7 @@ const consultarVentas = async (req, res) => {
       totalHasta,
       page = 1,
       limit = 20,
+      porServicioMedico,
     } = req.query;
 
     const { gte, lt } = dayRangeUtcFromQuery(fechaInicial, fechaFinal);
@@ -631,6 +640,22 @@ const consultarVentas = async (req, res) => {
       if (tHasta !== null && !Number.isNaN(tHasta)) filtro.total.$lte = tHasta;
       if (Object.keys(filtro.total).length === 0) delete filtro.total;
     }
+
+    const orNoServicio = [
+      { porServicioMedico: { $exists: false } },
+      { porServicioMedico: { $eq: false } },
+      { porServicioMedico: { $eq: null } },
+      { porServicioMedico: { $eq: '' } },
+      { porServicioMedico: { $eq: 0 } },
+    ];
+
+    if (String(porServicioMedico).toLowerCase() === 'true') {
+      filtro.porServicioMedico = true;
+    } else if (String(porServicioMedico).toLowerCase() === 'false') {
+      // todo lo que NO sea true (incluye false, null y campo ausente)
+      filtro.porServicioMedico = { $ne: true };
+    }
+
 
     const invalidId =
       (farmaciaId && !mongoose.isValidObjectId(farmaciaId)) ||
@@ -652,6 +677,12 @@ const consultarVentas = async (req, res) => {
     if (clienteOid) matchAgg.cliente = clienteOid;
     if (usuarioOid) matchAgg.usuario = usuarioOid;
     if (filtro.total) matchAgg.total = filtro.total;
+
+    if (String(porServicioMedico).toLowerCase() === 'true') {
+      matchAgg.porServicioMedico = true;
+    } else if (String(porServicioMedico).toLowerCase() === 'false') {
+      matchAgg.porServicioMedico = { $ne: true };
+    }
 
     const [ventasDocs, totalRegistros, sumasAgg] = await Promise.all([
       Venta.find(filtro)
@@ -717,6 +748,7 @@ const consultarVentas = async (req, res) => {
       const utilidad = toNum(o.total) - costo;
       return {
         ...o,
+        porServicioMedico: !!o.porServicioMedico,
         _costo: Number(costo.toFixed(2)),
         _utilidad: Number(utilidad.toFixed(2)),
         costoCalculado: Number(costo.toFixed(2)),
@@ -743,6 +775,9 @@ const consultarVentas = async (req, res) => {
         fechaFinal: lt,
         totalDesde: tDesde,
         totalHasta: tHasta,
+        porServicioMedico:
+          (porServicioMedico === undefined ? null : String(porServicioMedico).toLowerCase() === 'true')
+
       },
       paginacion: {
         page: pageNum,
