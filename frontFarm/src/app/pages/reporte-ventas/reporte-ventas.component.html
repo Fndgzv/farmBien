@@ -56,7 +56,13 @@
 
             <div class="col-md-1">
                 <label class="form-label">Ventas/pág</label>
-                <input type="number" class="form-control" formControlName="limit" min="1" max="200">
+                <input type="number" class="form-control" formControlName="limit" min="5" max="200">
+            </div>
+
+            <div class="col-2 text-end" style="margin-top: 1.3rem;">
+                <button type="button" class="btn-gris" (click)="buscar(true)" [disabled]="cargando">
+                    {{ cargando ? 'Buscando...' : 'Buscar' }}
+                </button>
             </div>
 
             <div class="mt-3 row">
@@ -85,11 +91,6 @@
                         matTooltip="Limpiar filtros"><i class="fas fa-times"></i></button>
                 </div>
 
-                <div class="col-2 text-end" style="margin-top: 1.3rem;">
-                    <button type="button" class="btn-gris" (click)="buscar(true)" [disabled]="cargando">
-                        {{ cargando ? 'Buscando...' : 'Buscar' }}
-                    </button>
-                </div>
             </div>
         </form>
     </div>

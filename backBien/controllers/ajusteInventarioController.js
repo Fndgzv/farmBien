@@ -90,7 +90,7 @@ function coercePromo(input, etiqueta = 'promo') {
 /**
  * Filtro para Producto:
  * - nombre: TODAS las palabras en nombreNorm (cualquier orden/posición)
- * - categoria: TODAS las palabras en categoriaNorm (cualquier orden/posición)
+ * - categoria: TODAS las palabras en categoriaNorm (posición inicial)
  * - codigoBarras: contains (i)
  * - inapam / generico: igualdad estricta si vienen definidos
  */
@@ -105,11 +105,12 @@ function construirFiltroProducto({ nombre, categoria, codigoBarras, inapam, gene
     }
   }
 
-  // categoria: todas las palabras contra categoriaNorm
+  // categoria: SOLO prefijo en categoriaNorm (no split de palabras, no "contains")
   if (categoria) {
-    const words = splitWords(categoria);
-    for (const w of words) {
-      and.push({ categoriaNorm: { $regex: escapeRegex(w) } });
+    // normaliza una sola vez y ancla al inicio ("^")
+    const prefijo = escapeRegex(normLatin(String(categoria).trim()));
+    if (prefijo) {
+      and.push({ categoriaNorm: { $regex: '^' + prefijo } });
     }
   }
 
@@ -215,7 +216,7 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
           stockMin: 1,
           precioVenta: 1,
           ubicacionFarmacia: 1,
-          
+
           // ✅ PROMOS POR FARMACIA (INVENTARIOFARMACIAS)
           promoLunes: 1,
           promoMartes: 1,
