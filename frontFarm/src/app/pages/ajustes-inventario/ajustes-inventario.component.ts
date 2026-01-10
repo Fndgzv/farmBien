@@ -650,8 +650,9 @@ export class AjustesInventarioComponent implements OnInit {
           icon: 'success',
           title: 'Listo',
           html: `Producto creado correctamente.<br>
-                  Las promociones se agregan en cada<br>
-                   farmacia de manera independiente`,
+                  Si deseas agregar promociones<br>
+                  hazlo por farmacia en:<br>
+                  Catálogos/Farmacias/Inventario`,
           confirmButtonText: 'Aceptar',
           allowOutsideClick: false,
           allowEscapeKey: false,

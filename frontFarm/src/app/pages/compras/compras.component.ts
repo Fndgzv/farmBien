@@ -507,8 +507,8 @@ export class ComprasComponent implements OnInit {
       precio: null,
       costo: null,
       iva: false,
-      stockMinimo: 50,
-      stockMaximo: 100,
+      stockMinimo: 20,
+      stockMaximo: 40,
       ubicacion: '',
       categoria: '',
       generico: false,
@@ -557,7 +557,8 @@ export class ComprasComponent implements OnInit {
           title: 'Listo',
           html: `Producto creado correctamente.<br>
                   Si deseas agregar promociones<br>
-                  busca el producto en la tabla y editalo`,
+                  hazlo por farmacia en:<br>
+                  Catálogos/Farmacias/Inventario`,
           confirmButtonText: 'Aceptar',
           allowOutsideClick: false,
           allowEscapeKey: false,
