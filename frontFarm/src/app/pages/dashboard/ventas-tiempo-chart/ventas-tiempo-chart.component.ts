@@ -15,6 +15,7 @@ import {
 
 import { ReportesService } from '../../../services/reportes.service';
 import { FarmaciaService } from '../../../services/farmacia.service';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 export type ChartOptions = {
     series: any[];
@@ -31,7 +32,7 @@ export type ChartOptions = {
 @Component({
     selector: 'app-ventas-tiempo-chart',
     standalone: true,
-    imports: [CommonModule, FormsModule, NgApexchartsModule],
+    imports: [CommonModule, FormsModule, NgApexchartsModule, MatTooltipModule],
     templateUrl: './ventas-tiempo-chart.component.html',
     styleUrls: ['./ventas-tiempo-chart.component.css']
 })
