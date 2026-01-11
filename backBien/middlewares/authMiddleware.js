@@ -1,3 +1,4 @@
+// backBien\middlewares\authMiddleware.js
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
 
@@ -24,4 +25,3 @@ module.exports = async (req, res, next) => {
     res.status(401).json({ mensaje: 'Token no válido.' });
   }
 };
-

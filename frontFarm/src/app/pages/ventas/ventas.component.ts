@@ -207,8 +207,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   isSwalOpen = false;
 
-  porServicioMedico = false;
-
   buildImgUrlRef = buildImgUrl;
   placeholderSrc = 'assets/images/farmBienIcon.png';
   thumbs: Record<string, string> = {};
@@ -800,7 +798,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
       totalAlmonedero: this.totalAlmonedero,
       aplicaInapam: this.aplicaInapam,
       captionButtomReanudar: this.captionButtomReanudar || '(venta pausada)',
-      porServicioMedico: this.porServicioMedico,
     });
     this.ventaService.setVentasPausadas(this.ventasPausadas);
 
@@ -819,8 +816,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.captionButtomReanudar = '';
     this.ventaForm.controls['cliente'].setValue('');
     this.hayCliente = false;
-
-    // this.syncClienteCtrlDisabled();
     this.focusBarcode(0, true);
   }
 
@@ -841,8 +836,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.captionButtomReanudar = venta.captionButtomReanudar;
     this.ventasPausadas.splice(index, 1);
     this.ventaService.setVentasPausadas(this.ventasPausadas);
-    this.porServicioMedico = !!venta.porServicioMedico;
-    //this.syncClienteCtrlDisabled();
     this.focusBarcode(0, true);
   }
 
@@ -1747,7 +1740,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.aplicaInapam = false;
     this.yaPreguntoInapam = false;
     this.captionButtomReanudar = "";
-    this.porServicioMedico = false;
   }
 
   private yyyymmddLocal(d = new Date()): string {
@@ -1792,7 +1784,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
       importeVale: this.pagoVale1,
       farmacia: this.farmaciaId,
       totaMonederoCliente: this.totalAlmonedero,
-      ...(this.porServicioMedico ? { porServicioMedico: true } : {})
     };
 
     this.ventasService.crearVenta(venta).subscribe({

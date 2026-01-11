@@ -47,17 +47,7 @@ const ClienteSchema = new mongoose.Schema({
     historialCompras: [HistorialCompraSchema],
     monedero: [MonederoSchema],
     totalMonedero: { type: Number, require: true, default: 0 },
-    historialMedico: [
-        {
-            receta: {
-                medico: { type: mongoose.Schema.Types.ObjectId, ref: "Usuario" },
-                medicamentos: [{ type: mongoose.Schema.Types.ObjectId, ref: "Producto" }],
-                indicaciones: String,
-                diagnostico: String,
-                fecha: Date,
-            }
-        }
-    ]
+
 }, { timestamps: true });
 
 // Índices para optimizar búsquedas

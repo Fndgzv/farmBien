@@ -87,6 +87,7 @@ app.use('/api/inventario-portatil', require('./routes/inventario-portatil.routes
 app.use('/api/reportes', require('./routes/reportesRoutes'));
 app.use('/api/reportes', require('./routes/reportesPresupuestoRoutes'));
 app.use('/api/inventario-fisico', require('./routes/inventarioFisico.routes'));
+app.use("/api/fichas-consultorio", require("./routes/fichasConsultorio.routes"));
 
 
 // =============================================================

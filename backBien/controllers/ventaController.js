@@ -25,6 +25,10 @@ const descuentoMenorQue25 = (precioBase, precioFinal) => {
 // ===================== Fechas CDMX =====================
 const hoyMxDT = () => DateTime.now().setZone(ZONE).startOf('day');
 
+const norm = (s) => String(s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().trim();
+
 function toMxStart(val) {
   if (!val) return null;
 
@@ -231,14 +235,13 @@ const crearVenta = async (req, res) => {
       tarjeta = 0,
       transferencia = 0,
       importeVale = 0,
-      farmacia,
-      porServicioMedico
+      farmacia
+      // OJO: porServicioMedico ya no viene del front
     } = req.body;
 
     if (!farmacia || !mongoose.isValidObjectId(farmacia)) {
       return res.status(400).json({ mensaje: 'Falta farmacia válida' });
     }
-
     if (!Array.isArray(productos) || productos.length === 0) {
       return res.status(400).json({ mensaje: 'No hay productos para vender' });
     }
@@ -330,7 +333,10 @@ const crearVenta = async (req, res) => {
     const diaSemana = (hoyDT.weekday === 7) ? 0 : hoyDT.weekday; // 0=Dom..6=Sáb
     const clienteInapam = aplicaInapam === true;
 
-    // ===================== Procesar por PRODUCTO (genera renglón cobrado + renglón gratis) =====================
+    // === bandera calculada: ¿hay al menos un producto de categoría "Servicio Médico"?
+    let esVentaDeServicio = false;
+
+    // ===================== Procesar por PRODUCTO =====================
     for (const pid of uniqueIds) {
       const inventario = invByProd.get(pid);
       if (!inventario || !inventario.producto) continue;
@@ -339,6 +345,11 @@ const crearVenta = async (req, res) => {
       const promoSrc = inventario;            // promos en InventarioFarmacia
       const precioBase = toNumber(inventario.precioVenta);
       const costoUnitario = toNumber(productoDB.costo);
+
+      // 👉 marca la bandera aquí (ya existe productoDB)
+      if (norm(productoDB.categoria) === 'servicio medico') {
+        esVentaDeServicio = true;
+      }
 
       const totalQty = qtyByProd.get(pid) || 0;
       if (totalQty <= 0) continue;
@@ -351,13 +362,11 @@ const crearVenta = async (req, res) => {
 
       let freeAllowed = 0;
       if (activaCant) {
-        // Por cada "req" unidades, 1 va gratis
         freeAllowed = Math.floor(totalQty / req);
       }
 
       const freePayload = qtyFreePayload.get(pid) || 0;
 
-      // Si el frontend manda renglones gratis, validamos que empaten con lo permitido
       if (freePayload > 0 || freeAllowed > 0) {
         if (!activaCant) {
           return res.status(400).json({
@@ -382,21 +391,18 @@ const crearVenta = async (req, res) => {
         let cadDesc = '';
 
         if (activaCant && freeAllowed > 0) {
-          // Hay promo por cantidad: el renglón cobrado mantiene precio base
           promoAplicada = getEtiquetaPromo(req);
-          cadDesc = ''; // no es % como tal
+          cadDesc = '';
           palmonederoUnit = 0;
 
-          // INAPAM sobre el cobrado (si aplica) — en tu lógica anterior sí lo permitías
           if (clienteInapam && promoSrc.descuentoINAPAM) {
             const descInapam = precioFinalUnit * 0.05;
             precioFinalUnit = precioFinalUnit - descInapam;
-            descuentoUnit = precioBase - precioFinalUnit; // lo dejamos consistente
+            descuentoUnit = precioBase - precioFinalUnit;
             promoAplicada = `${promoAplicada}-INAPAM`;
             cadDesc = '5%';
           }
         } else {
-          // No hay promo cantidad => usar tu motor de día/temporada/inapam/cliente
           const calc = calcUnitNoCantidad({
             precioBase,
             productoDB,
@@ -413,8 +419,7 @@ const crearVenta = async (req, res) => {
           cadDesc = calc.cadDesc;
         }
 
-        promoAplicada = limpiarPromocion(promoAplicada);
-        if (!promoAplicada) promoAplicada = 'Ninguno';
+        promoAplicada = limpiarPromocion(promoAplicada) || 'Ninguno';
 
         const totalRen = precioFinalUnit * paidQty;
         const descuentoRen = descuentoUnit * paidQty;
@@ -444,10 +449,8 @@ const crearVenta = async (req, res) => {
 
       // --------- Renglón GRATIS ----------
       if (freeAllowed > 0) {
-        const totalRen = 0;
         const descuentoRen = precioBase * freeAllowed;
 
-        totalVenta += totalRen;
         totalDescuento += descuentoRen;
         cantidadDeProductos += freeAllowed;
 
@@ -485,13 +488,13 @@ const crearVenta = async (req, res) => {
       });
     }
 
-    // ===================== Transacción (descuento inventario + venta + monedero) =====================
+    // ===================== Transacción =====================
     const session = await mongoose.startSession();
     let ventaCreada = null;
 
     try {
       await session.withTransaction(async () => {
-        // 1) Descontar inventario atómico por producto (incluye gratis)
+        // 1) Descontar inventario
         const bulkOps = [];
         for (const [pid, qty] of qtyByProd.entries()) {
           if (!qty || qty <= 0) continue;
@@ -506,7 +509,6 @@ const crearVenta = async (req, res) => {
             }
           });
         }
-
         if (bulkOps.length) {
           const bulkRes = await InventarioFarmacia.bulkWrite(bulkOps, { ordered: true, session });
           const expected = bulkOps.length;
@@ -524,24 +526,15 @@ const crearVenta = async (req, res) => {
           total: Number(totalVenta.toFixed(2)),
           totalDescuento: Number(totalDescuento.toFixed(2)),
           totalMonederoCliente: Number(totalPalmonedero.toFixed(2)),
-          formaPago: {
-            efectivo: efectivoN,
-            tarjeta: tarjetaN,
-            transferencia: transferenciaN,
-            vale: valeN
-          },
+          formaPago: { efectivo: efectivoN, tarjeta: tarjetaN, transferencia: transferenciaN, vale: valeN },
           fecha: new Date(),
-          folio: folioFinal
+          folio: folioFinal,
+          // 👇 calculado automáticamente
+          porServicioMedico: esVentaDeServicio
         };
 
-        // 👇 Solo lo seteamos si viene explícito como booleano
-        if (typeof porServicioMedico === 'boolean') {
-          ventaPayload.porServicioMedico = porServicioMedico;
-        }
-
-        const ventaArr = await Venta.create([ventaPayload], { session });
-        const ventaCreada = ventaArr[0];
-
+        const arr = await Venta.create([ventaPayload], { session });
+        ventaCreada = arr[0];
 
         // 3) Monedero
         if (cliente) {
@@ -584,9 +577,6 @@ const crearVenta = async (req, res) => {
   }
 };
 
-// ===================== consultarVentas (lo de siempre) =====================
-
-// Convierte 'YYYY-MM-DD' (o ausencia) a rango UTC [gte, lt) según CDMX.
 function dayRangeUtcFromQuery(fechaInicial, fechaFinal) {
   if (!fechaInicial && !fechaFinal) {
     const startLocal = DateTime.now().setZone(ZONE).startOf('day');
