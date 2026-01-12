@@ -207,6 +207,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   isSwalOpen = false;
 
+  bloquearScanner = false;
+
   buildImgUrlRef = buildImgUrl;
   placeholderSrc = 'assets/images/farmBienIcon.png';
   thumbs: Record<string, string> = {};
@@ -444,24 +446,50 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
   }
 
+
   async VerSiPreguntaINAPAM() {
-    if (this.aplicaInapam) {
-      const result = await Swal.fire({
-        icon: 'question',
-        title: 'Credencial INAPAM vigente',
-        html: `<h4>Me puede mostrar su credencial de INAPAM por favor?</h4>
-                <p style="color: green;">Revisa que su credencial de INAPAM:</p>
-                <p style="color: green;"> * Pertenezca al cliente</p>
-                <p style="color: green;"> * No este vencida</p>`,
-        showCancelButton: true,
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        confirmButtonText: 'Sí cumple',
-        cancelButtonText: 'No cumple',
-        focusCancel: true,
-      });
-      this.aplicaInapam = result.isConfirmed;
+    if (!this.aplicaInapam) {
+      this.recalcularRenglones();
+      return;
     }
+
+    this.bloquearScanner = true;
+
+    // 👈 declarar aquí para que exista en didOpen y willClose
+    let keyHandler: (e: KeyboardEvent) => void;
+
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Credencial INAPAM vigente',
+      html: `<h4>Me puede mostrar su credencial de INAPAM por favor?</h4>
+           <p style="color: green;">Revisa que su credencial de INAPAM:</p>
+           <p style="color: green;"> * Pertenezca al cliente</p>
+           <p style="color: green;"> * No este vencida</p>`,
+      showCancelButton: true,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      confirmButtonText: 'Sí cumple',
+      cancelButtonText: 'No cumple',
+      focusCancel: true,
+      didOpen: (el) => {
+        // ⛔️ bloquear que el Enter burbujee al input del scanner
+        keyHandler = (e: KeyboardEvent) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          }
+        };
+        el.addEventListener('keydown', keyHandler, true); // capture = true
+      },
+      willClose: (el) => {
+        try { el.removeEventListener('keydown', keyHandler, true); } catch { }
+      },
+    });
+
+    this.aplicaInapam = result.isConfirmed;
+    this.bloquearScanner = false;
+    this.focusBarcode(60, true);
     this.recalcularRenglones();
   }
 
@@ -747,11 +775,12 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (producto) {
       this.busquedaProducto = producto.nombre;
       this.nombreDelProducto = producto.nombre;
-      this.existenciaProducto(this.farmaciaId, producto._id, 1).then(() => {
+
+      this.guardConsultaMedica(producto).then(async cand => {
+        if (!cand) { this.focusBarcode(100, true); return; }
+        const ok = await this.existenciaProducto(this.farmaciaId, cand._id, 1).catch(() => null);
         if (!this.hayProducto) return;
-        this.agregarProductoAlCarrito(producto);
-      }).catch((error: any) => {
-        console.error('Error en existenciaProducto: ', error);
+        this.agregarProductoAlCarrito(cand);
       });
     }
     this.focusBarcode(100, true);
@@ -762,16 +791,18 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const productoC = this.productos.find(p => p._id === productoId);
     if (productoC) {
       this.busquedaPorCodigo = productoC.codigoBarras;
-      this.nombreDelProducto = productoC.nombre
-      this.existenciaProducto(this.farmaciaId, productoC._id, 1).then(() => {
+      this.nombreDelProducto = productoC.nombre;
+
+      this.guardConsultaMedica(productoC).then(async cand => {
+        if (!cand) { this.focusBarcode(100, true); return; }
+        const ok = await this.existenciaProducto(this.farmaciaId, cand._id, 1).catch(() => null);
         if (!this.hayProducto) return;
-        this.agregarProductoAlCarrito(productoC);
-      }).catch((error: any) => {
-        console.error('Error en existenciaProducto: ', error);
+        this.agregarProductoAlCarrito(cand);
       });
     }
     this.focusBarcode(100, true);
   }
+
 
   displayNombre = (id?: string): string => {
     const p = this.productos.find(x => x._id === id);
@@ -896,6 +927,19 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const code = (this.codigoBarras || '').trim();
     this.codigoBarras = ''; // limpia SIEMPRE el input visible
 
+    // 🔒 Si hay un modal que debe bloquear el scanner, ignora el enter colado
+    if (this.bloquearScanner) {
+      this.focusBarcode(60, true);
+      return;
+    }
+
+    // 🚫 Si el código está vacío, no dispares “no encontrado”
+    if (!code) {
+      this.focusBarcode(60, true);
+      return;
+    }
+
+
     // 1) Si aún no cargan productos, encola el escaneo y sal
     if (this.productosCargando) {
       if (code.length) this.pendingScan = code;
@@ -939,6 +983,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
       return;
     }
 
+    // 🔒 Valida consulta correcta según el día (con posible sustitución)
+    const candidato = await this.guardConsultaMedica(producto);
+    if (!candidato) { this.focusBarcode(60, true); return; }
+    producto = candidato;
+
     this.nombreDelProducto = producto.nombre
 
     // 4) Verificar existencia y agregar al carrito
@@ -956,6 +1005,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async agregarProductoAlCarrito(producto: any) {
+    const candidato = await this.guardConsultaMedica(producto);
+    if (!candidato) { this.focusBarcode(60, true); return; }
+    producto = candidato;
     const existente = this.carrito.find(p => p.producto === producto._id && !p.esGratis);
 
     if (existente) {
@@ -1061,59 +1113,63 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (!inv?.descuentoINAPAM) return;
     if (this.yaPreguntoInapam) return;
 
+    let keyHandler: (e: KeyboardEvent) => void;
+
     const result = await Swal.fire({
       icon: 'question',
       title: '¿Tiene credencial INAPAM vigente?',
       html: `
-    <div style="font-size: 18px; margin-top: 6px; color:#666;">
-      Me la puede mostrar por favor
-    </div>
-
-    <div style="margin-top: 14px; color: #0a8a0a; font-size: 18px;">
-      Revisa que su credencial de INAPAM:
-      <div style="margin-top: 10px; line-height: 1.6;">
-        * Pertenezca al cliente<br>
-        * No este vencida
+      <div style="font-size: 18px; margin-top: 6px; color:#666;">
+        Me la puede mostrar por favor
       </div>
-    </div>
-  `,
+      <div style="margin-top: 14px; color: #0a8a0a; font-size: 18px;">
+        Revisa que su credencial de INAPAM:
+        <div style="margin-top: 10px; line-height: 1.6;">
+          * Pertenezca al cliente<br>
+          * No esté vencida
+        </div>
+      </div>
+    `,
       showCancelButton: true,
       confirmButtonText: 'Sí cumple',
       cancelButtonText: 'No cumple',
-      reverseButtons: false,
 
-      // ✅ como producción: NO cerrar por fuera ni ESC
+      // 👉 que Enter esté habilitado, pero lo capturamos nosotros
+      allowEnterKey: true,
       allowOutsideClick: false,
       allowEscapeKey: false,
+      returnFocus: false,
 
-      // ✅ SI quieres Enter para continuar con "No cumple"
-      allowEnterKey: true,
-
+      // 👉 intenta enfocarlo igual
+      focusCancel: true,
       heightAuto: false,
 
-      // ✅ no enfoques el confirm
-      focusConfirm: false,
-
-      // ✅ ENFOCAR "No cumple" al abrir
       didOpen: () => {
-        const cancelBtn = Swal.getCancelButton();
-        if (cancelBtn) cancelBtn.focus();
+        // 1) Asegura foco en "No cumple" (por si el CSS/animación lo pierde)
+        setTimeout(() => Swal.getCancelButton()?.focus(), 0);
+
+        // 2) Mientras el modal esté visible, cualquier Enter => clickCancel()
+        keyHandler = (e: KeyboardEvent) => {
+          if (!Swal.isVisible()) return;
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            Swal.clickCancel();
+          }
+        };
+        document.addEventListener('keydown', keyHandler, true); // capture=true
       },
 
-      customClass: {
-        confirmButton: 'swal-inapam-confirm',
-        cancelButton: 'swal-inapam-cancel',
-        title: 'swal-inapam-title',
-        popup: 'swal-inapam-popup'
+      willClose: () => {
+        try { document.removeEventListener('keydown', keyHandler, true); } catch { }
       },
-      buttonsStyling: true,
     });
 
-
-    // Aquí siempre hay respuesta (Sí/No), porque no puede cerrarse “a la mala”
     this.aplicaInapam = result.isConfirmed;
     this.yaPreguntoInapam = true;
   }
+
 
   descuentoMenorA25Inv(inv: InvInfo): boolean {
     const hoy = new Date().getDay(); // 0..6
@@ -2171,6 +2227,96 @@ export class VentasComponent implements OnInit, AfterViewInit {
   hoySoloDiaLocal(): Date {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  }
+
+
+  // === Helpers para controlar Consulta Médica vs FDS ===
+  private norm(s: any): string {
+    return String(s || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().trim();
+  }
+
+  private isWeekendToday(): boolean {
+    const d = new Date().getDay(); // 0=Dom .. 6=Sáb
+    return d === 0 || d === 6;
+  }
+
+  // ⚠️ ACTUALIZA estos códigos si cambian en tu BD
+  private readonly COD_CONSULTA_NORMAL = '5656565656561';
+  private readonly COD_CONSULTA_FDS = '151562325423';
+
+  private isConsultaNormal(p: any): boolean {
+    return this.norm(p?.nombre) === 'consulta medica' ||
+      String(p?.codigoBarras) === this.COD_CONSULTA_NORMAL;
+  }
+
+  private isConsultaFinSemana(p: any): boolean {
+    return this.norm(p?.nombre) === 'consulta medica fin de semana' ||
+      String(p?.codigoBarras) === this.COD_CONSULTA_FDS;
+  }
+
+  private findConsulta(target: 'normal' | 'finsemana'): any | undefined {
+    const name = target === 'normal' ? 'consulta medica' : 'consulta medica fin de semana';
+    const code = target === 'normal' ? this.COD_CONSULTA_NORMAL : this.COD_CONSULTA_FDS;
+    return this.productos.find(p =>
+      this.norm(p?.nombre) === name || String(p?.codigoBarras) === code
+    );
+  }
+
+  /**
+   * Si el producto capturado es una "Consulta" incorrecta para el día:
+   * - muestra un Swal informativo,
+   * - intenta sustituir por la correcta,
+   * - regresa el producto correcto o null si debe abortar.
+   */
+  private async guardConsultaMedica(producto: any): Promise<any | null> {
+    const esFds = this.isWeekendToday();
+
+    // Caso 1: es fin de semana, pero intentan "Consulta Médica" normal
+    if (this.isConsultaNormal(producto) && esFds) {
+      const correcto = this.findConsulta('finsemana');
+      this.bloquearScanner = true;
+      await Swal.fire({
+        icon: 'info',
+        title: 'Consulta válida en fin de semana',
+        html: `
+        Hoy es <b>${['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][new Date().getDay()]}</b>.
+        <br>Debes usar <b>Consulta Médica Fin de Semana</b>.
+        ${correcto ? '<br><br>La sustituiremos automáticamente.' : '<br><br><span style="color:#b00">No se encontró la versión de fin de semana en catálogo.</span>'}
+      `,
+        confirmButtonText: 'Entendido',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => { const btn = Swal.getConfirmButton(); if (btn) btn.focus(); },
+        willClose: () => { this.bloquearScanner = false; }
+      });
+      return correcto ?? null;
+    }
+
+    // Caso 2: es entre semana, pero intentan "Consulta Médica Fin de Semana"
+    if (this.isConsultaFinSemana(producto) && !esFds) {
+      const correcto = this.findConsulta('normal');
+      this.bloquearScanner = true;
+      await Swal.fire({
+        icon: 'info',
+        title: 'Consulta válida entre semana',
+        html: `
+        Hoy es <b>${['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][new Date().getDay()]}</b>.
+        <br>Debes usar <b>Consulta Médica</b>.
+        ${correcto ? '<br><br>La sustituiremos automáticamente.' : '<br><br><span style="color:#b00">No se encontró la versión entre semana en catálogo.</span>'}
+      `,
+        confirmButtonText: 'Entendido',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => { const btn = Swal.getConfirmButton(); if (btn) btn.focus(); },
+        willClose: () => { this.bloquearScanner = false; }
+      });
+      return correcto ?? null;
+    }
+
+    // OK para el día
+    return producto;
   }
 
 }

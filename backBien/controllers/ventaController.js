@@ -223,6 +223,35 @@ function calcUnitNoCantidad({
   return { precioFinal, descuentoUnit, palmonederoUnit, promoAplicada, cadDesc };
 }
 
+// --- IDs (opcional) ---
+const ID_CONSULTA = '68a5385d788fb0150b6a7097';           // Consulta Médica
+const ID_CONSULTA_FS = '68d16e447da87183e5778112';         // Consulta Médica Fin de Semana
+
+// --- Códigos de barras (por si prefieres esta vía) ---
+const CB_CONSULTA = '5656565656561';
+const CB_CONSULTA_FS = '151562325423';
+
+// Normalizador ya lo tienes como `norm`
+const esConsultaMedica = (prod) => {
+  const id = String(prod?._id || '');
+  const cb = String(prod?.codigoBarras || '');
+  const nombre = norm(prod?.nombre);
+
+  return id === ID_CONSULTA
+    || cb === CB_CONSULTA
+    || nombre === 'consulta medica';
+};
+
+const esConsultaMedicaFinSemana = (prod) => {
+  const id = String(prod?._id || '');
+  const cb = String(prod?.codigoBarras || '');
+  const nombre = norm(prod?.nombre);
+
+  return id === ID_CONSULTA_FS
+    || cb === CB_CONSULTA_FS
+    || nombre === 'consulta medica fin de semana';
+};
+
 // ===================== crearVenta =====================
 const crearVenta = async (req, res) => {
   try {
@@ -315,6 +344,7 @@ const crearVenta = async (req, res) => {
       invByProd.set(String(inv.producto?._id || inv.producto), inv);
     }
 
+
     // Valida faltantes y stock total por producto
     for (const pid of uniqueIds) {
       const inv = invByProd.get(pid);
@@ -332,6 +362,31 @@ const crearVenta = async (req, res) => {
     const hoyDT = hoyMxDT();
     const diaSemana = (hoyDT.weekday === 7) ? 0 : hoyDT.weekday; // 0=Dom..6=Sáb
     const clienteInapam = aplicaInapam === true;
+
+    // --- Determinar si es fin de semana ---
+    const esFinDeSemana = (diaSemana === 6 || diaSemana === 0); // 6 = Sábado, 0 = Domingo
+
+    // --- Validación dura: prohíbe capturar la consulta incorrecta según el día ---
+    for (const pid of uniqueIds) {
+      const inv = invByProd.get(pid);
+      if (!inv || !inv.producto) continue;
+
+      const p = inv.producto;
+
+      // Si es fin de semana: NO permitir "Consulta Médica" (normal)
+      if (esFinDeSemana && esConsultaMedica(p) && !esConsultaMedicaFinSemana(p)) {
+        return res.status(400).json({
+          mensaje: 'Hoy es fin de semana. Debe usarse "Consulta Médica Fin de Semana".'
+        });
+      }
+
+      // Si es entre semana: NO permitir "Consulta Médica Fin de Semana"
+      if (!esFinDeSemana && esConsultaMedicaFinSemana(p)) {
+        return res.status(400).json({
+          mensaje: 'Hoy es entre semana. Debe usarse "Consulta Médica".'
+        });
+      }
+    }
 
     // === bandera calculada: ¿hay al menos un producto de categoría "Servicio Médico"?
     let esVentaDeServicio = false;
