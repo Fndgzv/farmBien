@@ -890,7 +890,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
 
-  agregarProductoPorCodigo() {
+  private delay(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
+  async agregarProductoPorCodigo() {
     // 0) Normaliza el input del lector
     const code = (this.codigoBarras || '').trim();
     this.codigoBarras = ''; // limpia SIEMPRE el input visible
@@ -909,8 +910,20 @@ export class VentasComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // 3) Buscar el producto por código de barras
-    const producto = this.productos.find(p => String(p.codigoBarras) === code);
+    // 3) Buscar el producto por código de barras (con estabilización)
+    const codeNorm = String(code || '').trim();
+
+    const tryFind = () => this.productos.find(p => String(p.codigoBarras) === codeNorm);
+
+    let producto = tryFind();
+    if (!producto) {
+      await this.delay(120);
+      producto = tryFind();
+    }
+    if (!producto) {
+      await this.delay(120);
+      producto = tryFind();
+    }
 
     if (!producto) {
       Swal.fire({
