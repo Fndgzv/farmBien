@@ -922,6 +922,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
 
   private delay(ms: number) { return new Promise<void>(r => setTimeout(r, ms)); }
+
   async agregarProductoPorCodigo() {
     // 0) Normaliza el input del lector
     const code = (this.codigoBarras || '').trim();
@@ -933,41 +934,28 @@ export class VentasComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // 🚫 Si el código está vacío, no dispares “no encontrado”
+    // ✅ PRIMERO: si viene vacío y YA hay carrito -> abrir cobro
     if (!code) {
+      if (this.carrito.length > 0 && !this.mostrarModalPago) {
+        this.abrirModalPago(); // esta función ya debe poner mostrarModalPago=true
+      }
       this.focusBarcode(60, true);
       return;
     }
 
-
     // 1) Si aún no cargan productos, encola el escaneo y sal
     if (this.productosCargando) {
-      if (code.length) this.pendingScan = code;
+      this.pendingScan = code;
       return;
     }
 
-    // 2) Si viene vacío y ya hay carrito -> pregunta cobro
-    if (!code && this.carrito.length > 0) {
-      this.abrirModalPago();
-      // el focus lo manejamos abajo en finally
-      //this.focusBarcode(60, true);
-      return;
-    }
-
-    // 3) Buscar el producto por código de barras (con estabilización)
-    const codeNorm = String(code || '').trim();
-
+    // 2) Buscar el producto por código de barras (con estabilización)
+    const codeNorm = String(code).trim();
     const tryFind = () => this.productos.find(p => String(p.codigoBarras) === codeNorm);
 
     let producto = tryFind();
-    if (!producto) {
-      await this.delay(120);
-      producto = tryFind();
-    }
-    if (!producto) {
-      await this.delay(120);
-      producto = tryFind();
-    }
+    if (!producto) { await this.delay(120); producto = tryFind(); }
+    if (!producto) { await this.delay(120); producto = tryFind(); }
 
     if (!producto) {
       Swal.fire({
@@ -988,9 +976,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (!candidato) { this.focusBarcode(60, true); return; }
     producto = candidato;
 
-    this.nombreDelProducto = producto.nombre
+    this.nombreDelProducto = producto.nombre;
 
-    // 4) Verificar existencia y agregar al carrito
+    // 3) Verificar existencia y agregar al carrito
     this.existenciaProducto(this.farmaciaId, producto._id, 1)
       .then(() => {
         if (!this.hayProducto) return; // ya mostró alerta de existencia
@@ -1003,6 +991,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.focusBarcode(60, true);
       });
   }
+
 
   async agregarProductoAlCarrito(producto: any) {
     const candidato = await this.guardConsultaMedica(producto);
@@ -1535,41 +1524,70 @@ export class VentasComponent implements OnInit, AfterViewInit {
     //this.syncClienteCtrlDisabled();
   }
 
-  abrirModalPago() {
-    Swal.fire({
-      icon: 'question',
-      title: '¿DESEA AGREGAR ALGO MÁS?',
-      showCancelButton: true,
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      focusConfirm: true,
-      confirmButtonText: 'NO, ir a cobrar',
-      cancelButtonText: 'SI, agregar más productos'
-    }).then(result => {
-      if (result.isConfirmed) {
-        this.usarMonedero = false;
-        this.mostrarModalPago = true;
+abrirModalPago() {
+  // 🔒 Bloquea el lector mientras está el alert de “agregar algo más”
+  this.bloquearScanner = true;
 
-        // limpiar valores a null para que los inputs se vean "vacíos"
-        this.montoTarjeta = null;
-        this.montoTransferencia = null;
-        this.montoVale = null;
-        this.efectivoRecibido = null;
-        this.cambio = 0;
+  Swal.fire({
+    icon: 'question',
+    title: '¿DESEA AGREGAR ALGO MÁS?',
+    showCancelButton: true,
 
-        this.habilitarInputs();
+    // ⛔ No cerrar por fuera/ESC
+    allowOutsideClick: false,
+    allowEscapeKey: false,
 
-        // 1) Evita focos pendientes al lector
-        this.clearBarcodeFocusTimer();
-        this.codigoBarrasRef?.nativeElement?.blur();
+    // ✅ Enter confirma por defecto
+    allowEnterKey: true,
+    focusConfirm: true,
+    confirmButtonText: 'NO, ir a cobrar',
+    cancelButtonText: 'SÍ, agregar más productos',
 
-        // 2) Enfoca efectivo tras render
-        this.cdRef.detectChanges();
-        setTimeout(() => this.efectivoRecibidoRef?.nativeElement?.focus(), 0);
-        this.calcularTotal();
-      }
-    });
-  }
+    // ✅ Enfoca el botón confirmar (para que Enter sea “NO, ir a cobrar”)
+    didOpen: () => {
+      // quita foco del input del lector
+      this.clearBarcodeFocusTimer();
+      this.codigoBarrasRef?.nativeElement?.blur();
+
+      const btn = Swal.getConfirmButton();
+      btn?.focus();
+    },
+
+    // ✅ Al cerrar, re-habilita el scanner (después de resolver el .then)
+    willClose: () => {
+      setTimeout(() => {
+        this.bloquearScanner = false;
+        // si no vas a cobrar, regresa focus al lector
+        if (!this.mostrarModalPago) this.focusBarcode(80, true);
+      }, 0);
+    }
+  }).then(result => {
+    if (result.isConfirmed) {
+      // va a cobrar
+      this.usarMonedero = false;
+      this.mostrarModalPago = true;
+
+      // limpiar inputs visibles
+      this.montoTarjeta = null;
+      this.montoTransferencia = null;
+      this.montoVale = null;
+      this.efectivoRecibido = null;
+      this.cambio = 0;
+
+      this.habilitarInputs();
+
+      // enfocar efectivo en el modal de cobro
+      this.cdRef.detectChanges();
+      setTimeout(() => this.efectivoRecibidoRef?.nativeElement?.focus(), 0);
+      this.calcularTotal();
+    } else {
+      // seguirá agregando: asegúrate de que NO esté el modal de cobro
+      this.mostrarModalPago = false;
+      // el focus al lector ya lo maneja willClose()
+    }
+  });
+}
+
 
   calculaCambio() {
 
