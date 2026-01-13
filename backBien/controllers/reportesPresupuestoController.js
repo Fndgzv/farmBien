@@ -212,31 +212,39 @@ const reportePresupuesto = async (req, res) => {
 const grabarPresupuestoStock = async (req, res) => {
   try {
     const { items } = req.body;
+
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ mensaje: 'items vacío o no válido.' });
     }
 
-    // Sanitiza entradas
     const ops = [];
+    let validos = 0;
+
     for (const it of items) {
       const id = it?.productoId;
-      const vendidos = Number(it?.vendidosSMaxE ?? 0);
+      const vendidosRaw = it?.vendidosSMaxE;
+
       if (!id || !mongoose.isValidObjectId(id)) continue;
 
-      const stockMaximo = Math.max(0, Math.floor(vendidos)); // entero
+      const vendidos = Number(vendidosRaw);
+      if (!Number.isFinite(vendidos)) continue;
+
+      const stockMaximo = Math.max(0, Math.floor(vendidos));
       const stockMinimo = Math.ceil(stockMaximo * 0.3);
 
       ops.push({
         updateOne: {
-          filter: { _id: mongoose.Types.ObjectId(id) },
-          update: {
-            $set: {
-              stockMaximo,
-              stockMinimo
-            }
-          }
+          // ✅ opción 1: string (recomendado)
+          filter: { _id: id },
+
+          // ✅ opción 2: si quieres ObjectId:
+          // filter: { _id: new mongoose.Types.ObjectId(id) },
+
+          update: { $set: { stockMaximo, stockMinimo } }
         }
       });
+
+      validos++;
     }
 
     if (!ops.length) {
@@ -244,7 +252,14 @@ const grabarPresupuestoStock = async (req, res) => {
     }
 
     const result = await Producto.bulkWrite(ops, { ordered: false });
-    return res.json({ ok: true, modified: result?.modifiedCount ?? 0, matched: result?.matchedCount ?? 0 });
+
+    return res.json({
+      ok: true,
+      intentados: items.length,
+      validos,
+      matched: result?.matchedCount ?? 0,
+      modified: result?.modifiedCount ?? 0
+    });
   } catch (err) {
     console.error('grabarPresupuestoStock error:', err);
     return res.status(500).json({ mensaje: err.message || 'Error al grabar stock máximo/mínimo' });

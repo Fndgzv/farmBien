@@ -22,12 +22,12 @@
     </div>
 
     <div class="campo">
-        <label>Desde</label>
+        <label>Ventas desde</label>
         <input type="date" [(ngModel)]="desde">
     </div>
 
     <div class="campo">
-        <label>Hasta</label>
+        <label>hasta</label>
         <input type="date" [(ngModel)]="hasta">
     </div>
 
@@ -38,7 +38,7 @@
 
     <div class="campo accion">
         <label>&nbsp;</label>
-        <button class="btn-gris" (click)="buscar()">
+        <button class="btn-gris" (click)="buscar()" matTooltip="Obtener stock max y min conforme a la cantidad vendida">
             Calcular
         </button>
     </div>
