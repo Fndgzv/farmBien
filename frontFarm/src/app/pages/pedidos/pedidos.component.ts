@@ -478,14 +478,9 @@ export class PedidosComponent implements OnInit {
       });
     };
 
-    (() => { this.mostrarTicket = true; this.cdr.detectChanges(); })();
-    await whenDomStable();
-    {
-      const el = document.getElementById('ticketPedido');
-      if (el) await isolateAndPrint(el);
-    }
-    this.mostrarTicket = false;
+    await this.imprimirTicketPedidoConCopiaCajaSiAplica(body.pagoResta);
     after();
+
   }
 
   private isPrinting = false;
@@ -555,13 +550,7 @@ export class PedidosComponent implements OnInit {
 
       const after = () => this.guardarPedido();
 
-      (() => { this.mostrarTicket = true; this.cdr.detectChanges(); })();
-      await whenDomStable();
-      {
-        const el = document.getElementById('ticketPedido');
-        if (el) await isolateAndPrint(el);
-      }
-      this.mostrarTicket = false;
+      await this.imprimirTicketPedidoConCopiaCajaSiAplica(pagoACuenta);
       after();
 
     } finally {
@@ -875,5 +864,42 @@ export class PedidosComponent implements OnInit {
   cerrarDetallePedido(pedido: any) {
     this.pedidoDetalleAbiertoId = null;
   }
+
+
+private requiereCopiaCajaPorPago(pago: { tarjeta?: number; transferencia?: number } | null | undefined): boolean {
+  const t = Number(pago?.tarjeta ?? 0);
+  const tr = Number(pago?.transferencia ?? 0);
+  return (t > 0 || tr > 0);
+}
+
+private async imprimirTicketPedidoConCopiaCajaSiAplica(pago: { tarjeta?: number; transferencia?: number } | null | undefined): Promise<void> {
+  (() => { this.mostrarTicket = true; this.cdr.detectChanges(); })();
+  await whenDomStable();
+
+  const el = document.getElementById('ticketPedido');
+  if (!el) { this.mostrarTicket = false; return; }
+
+  // ✅ 1) Primera copia (siempre)
+  await printNodeInIframe(el, { feedMm: 12, fallbackMs: 25000, settleMs: 120 });
+
+  // ✅ 2) Segunda copia SOLO si hay tarjeta o transferencia
+  if (this.requiereCopiaCajaPorPago(pago)) {
+    const r2 = await Swal.fire({
+      icon: 'info',
+      title: 'Copia para caja',
+      text: 'Presiona "Imprimir" para sacar la segunda copia.',
+      confirmButtonText: 'Imprimir',
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    });
+
+    if (r2.isConfirmed) {
+      await new Promise(r => setTimeout(r, 250)); // micro-respiro (como tú ya haces)
+      await printNodeInIframe(el, { feedMm: 12, fallbackMs: 25000, settleMs: 120 });
+    }
+  }
+
+  this.mostrarTicket = false;
+}
 
 }

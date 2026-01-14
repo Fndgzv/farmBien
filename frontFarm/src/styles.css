@@ -36,7 +36,7 @@ body {
   text-align: center;
 }
 
-.titulo{
+.titulo {
   font-family: Calibri, 'Trebuchet MS', sans-serif;
   font-size: 26px;
   font-weight: 700;
@@ -528,12 +528,19 @@ body {
 
 
 @media print {
-  @page { size: 75mm auto; margin: 0; }
+  @page {
+    size: 75mm auto;
+    margin: 0;
+  }
 
-  body * { visibility: hidden !important; }
+  body * {
+    visibility: hidden !important;
+  }
 
   .ticket-impresion,
-  .ticket-impresion * { visibility: visible !important; }
+  .ticket-impresion * {
+    visibility: visible !important;
+  }
 
   .ticket-impresion {
     position: fixed !important;
@@ -541,27 +548,38 @@ body {
     top: 0 !important;
     width: 75mm !important;
     padding: 0 0 0 3mm !important;
-    box-sizing: border-box !important; /* padding incluido en los 72mm */
+    box-sizing: border-box !important;
+    /* padding incluido en los 72mm */
     z-index: 2147483647 !important;
     overflow: visible !important;
     transform: none !important;
   }
 
-  html, body,
-  app-root, router-outlet,
-  mat-sidenav-container, .mat-sidenav-content,
-  .cdk-overlay-container, .cdk-global-scrollblock {
+  html,
+  body,
+  app-root,
+  router-outlet,
+  mat-sidenav-container,
+  .mat-sidenav-content,
+  .cdk-overlay-container,
+  .cdk-global-scrollblock {
     transform: none !important;
     overflow: visible !important;
     height: auto !important;
   }
 
-  body.printing-venta * { visibility: hidden !important; }
+  body.printing-venta * {
+    visibility: hidden !important;
+  }
 
-  body.printing-venta > *:not(.print-root) { display: none !important; }
+  body.printing-venta>*:not(.print-root) {
+    display: none !important;
+  }
 
   .print-root,
-  .print-root * { visibility: visible !important; }
+  .print-root * {
+    visibility: visible !important;
+  }
 
   .print-root {
     position: fixed !important;
@@ -573,12 +591,13 @@ body {
     overflow: hidden !important;
 
     page-break-before: avoid !important;
-    page-break-after:  avoid !important;
+    page-break-after: avoid !important;
     page-break-inside: avoid !important;
     break-before: avoid-page !important;
-    break-after:  avoid-page !important;
+    break-after: avoid-page !important;
     break-inside: avoid !important;
   }
+
 }
 
 /* Popup (si quieres controlar ancho) */
