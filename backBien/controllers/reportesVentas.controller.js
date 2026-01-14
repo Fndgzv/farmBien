@@ -94,7 +94,9 @@ const ingresosPorTiempo = async (req, res) => {
           },
           egreso: '$costoVenta',
           ventas: { $literal: 1 },
-          pedidos: { $literal: 0 }
+          pedidos: { $literal: 0 },
+          pedidosMovs: { $literal: 0 },
+          pedidoId: null,
         }
       },
 
@@ -105,32 +107,88 @@ const ingresosPorTiempo = async (req, res) => {
           pipeline: [
             {
               $match: {
-                fechaPedido: { $gte: gte, $lt: lt },
-                estado: 'entregado',
+                // ✅ ignoramos cancelado
+                estado: { $in: ['inicial', 'entregado'] },
                 ...(matchFarmacia && { farmacia: matchFarmacia })
               }
             },
+            // ✅ crear movimientos (1 o 2 por pedido)
             {
               $project: {
-                fecha: '$fechaPedido',
-                ingreso: {
-                  $add: [
-                    '$pagoACuenta.efectivo',
-                    '$pagoACuenta.transferencia',
-                    { $multiply: ['$pagoACuenta.tarjeta', CARD_NET] },
-                    '$pagoResta.efectivo',
-                    '$pagoResta.transferencia',
-                    { $multiply: ['$pagoResta.tarjeta', CARD_NET] }
+                pedidoId: '$_id',
+                movimientos: {
+                  $concatArrays: [
+                    // Movimiento 1: A CUENTA (siempre existe para inicial y entregado)
+                    [
+                      {
+                        fecha: '$fechaPedido',
+                        ingreso: {
+                          $subtract: [
+                            {
+                              $add: [
+                                { $ifNull: ['$pagoACuenta.efectivo', 0] },
+                                { $ifNull: ['$pagoACuenta.transferencia', 0] },
+                                { $multiply: [{ $ifNull: ['$pagoACuenta.tarjeta', 0] }, CARD_NET] }
+                              ]
+                            },
+                            { $ifNull: ['$pagoACuenta.vale', 0] } // ✅ vale NO es ingreso real
+                          ]
+                        },
+                        egreso: 0
+                      }
+                    ],
+                    // Movimiento 2: RESTA (solo si entregado)
+                    {
+                      $cond: [
+                        { $eq: ['$estado', 'entregado'] },
+                        [
+                          {
+                            fecha: { $ifNull: ['$fechaEntrega', '$fechaPedido'] },
+                            ingreso: {
+                              $subtract: [
+                                {
+                                  $add: [
+                                    { $ifNull: ['$pagoResta.efectivo', 0] },
+                                    { $ifNull: ['$pagoResta.transferencia', 0] },
+                                    { $multiply: [{ $ifNull: ['$pagoResta.tarjeta', 0] }, CARD_NET] }
+                                  ]
+                                },
+                                { $ifNull: ['$pagoResta.vale', 0] } // ✅ vale NO es ingreso real
+                              ]
+                            },
+                            egreso: { $ifNull: ['$costo', 0] } // ✅ costo cuando se entrega
+                          }
+                        ],
+                        []
+                      ]
+                    }
                   ]
-                },
-                egreso: '$costo',
+                }
+              }
+            },
+            { $unwind: '$movimientos' },
+            {
+              $project: {
+                fecha: '$movimientos.fecha',
+                ingreso: '$movimientos.ingreso',
+                egreso: '$movimientos.egreso',
+
                 ventas: { $literal: 0 },
-                pedidos: { $literal: 1 }
+                pedidos: { $literal: 0 },
+                pedidosMovs: { $literal: 1 },  // ✅ 1 por movimiento
+                pedidoId: '$pedidoId'          // ✅ conserva el id real
+              }
+            },
+            // ✅ filtra por rango ahora que ya tenemos "fecha" correcta (pedido o entrega)
+            {
+              $match: {
+                fecha: { $gte: gte, $lt: lt }
               }
             }
           ]
         }
       },
+
 
       /* ====================== DEVOLUCIONES ====================== */
       {
@@ -149,7 +207,9 @@ const ingresosPorTiempo = async (req, res) => {
                 ingreso: { $literal: 0 },
                 egreso: '$totalDevuelto',
                 ventas: { $literal: 0 },
-                pedidos: { $literal: 0 }
+                pedidos: { $literal: 0 },
+                pedidosMovs: { $literal: 0 },
+                pedidoId: null
               }
             }
           ]
@@ -173,7 +233,9 @@ const ingresosPorTiempo = async (req, res) => {
                 ingreso: { $literal: 0 },
                 egreso: '$totalDevuelto',
                 ventas: { $literal: 0 },
-                pedidos: { $literal: 0 }
+                pedidos: { $literal: 0 },
+                pedidosMovs: { $literal: 0 },
+                pedidoId: null
               }
             }
           ]
@@ -187,8 +249,9 @@ const ingresosPorTiempo = async (req, res) => {
           ingresos: { $sum: '$ingreso' },
           egresos: { $sum: '$egreso' },
           ventas: { $sum: '$ventas' },
-          pedidos: { $sum: '$pedidos' },
-          fecha: { $min: '$fecha' }
+          pedidosMovs: { $sum: '$pedidosMovs' },
+          pedidoIds: { $addToSet: '$pedidoId' },
+          fecha: { $min: '$fecha' },
         }
       },
 
@@ -214,7 +277,12 @@ const ingresosPorTiempo = async (req, res) => {
             $round: [{ $subtract: ['$ingresos', '$egresos'] }, 2]
           },
           ventas: 1,
-          pedidos: 1
+          pedidos: 1,
+          pedidosMovs: 1,
+          pedidosUnicos: {
+            $size: { $setDifference: ['$pedidoIds', [null]] }
+          },
+
         }
       },
 

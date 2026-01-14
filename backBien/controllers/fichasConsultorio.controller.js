@@ -262,3 +262,66 @@ exports.liberarCobro = async (req, res) => {
     return res.status(500).json({ msg: "Error al liberar cobro" });
   }
 };
+
+exports.listasParaCobro = async (req, res) => {
+  try {
+    const farmaciaId = String(req.usuario?.farmacia || req.headers["x-farmacia-id"] || "");
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const fichas = await FichaConsultorio.find({
+      farmaciaId,
+      estado: "LISTA_PARA_COBRO",
+    })
+      .sort({ urgencia: -1, llegadaAt: 1 })
+      .select("folio pacienteNombre pacienteTelefono motivo urgencia llegadaAt servicios serviciosTotal medicoId")
+      .lean();
+
+    return res.json({ ok: true, fichas });
+  } catch (err) {
+    console.error("listasParaCobro:", err);
+    return res.status(500).json({ msg: "Error al obtener fichas listas para cobro" });
+  }
+};
+
+// en fichasConsultorio.controller.js
+const norm = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+exports.buscar = async (req, res) => {
+  try {
+    const farmaciaId = String(req.usuario?.farmacia || req.headers["x-farmacia-id"] || "");
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const q = String(req.query.q || "").trim();
+    if (!q) return res.status(400).json({ msg: "Falta q" });
+
+    const qNorm = norm(q);
+
+    const filtro = {
+      farmaciaId,
+      estado: { $in: ["LISTA_PARA_COBRO", "EN_COBRO"] },
+      $or: [
+        { folio: { $regex: q, $options: "i" } },
+        { pacienteTelefono: { $regex: q, $options: "i" } },
+        { pacienteNombreNorm: { $regex: qNorm, $options: "i" } },
+        { pacienteNombre: { $regex: q, $options: "i" } },
+      ],
+    };
+
+    const fichas = await FichaConsultorio.find(filtro)
+      .sort({ estado: 1, urgencia: -1, llegadaAt: 1 }) // LISTA_PARA_COBRO antes que EN_COBRO
+      .select("folio pacienteNombre pacienteTelefono motivo urgencia llegadaAt estado servicios serviciosTotal cobroPor cobroAt medicoId")
+      .lean();
+
+    return res.json({ ok: true, fichas });
+  } catch (err) {
+    console.error("buscar ficha:", err);
+    return res.status(500).json({ msg: "Error al buscar ficha" });
+  }
+};
+
+

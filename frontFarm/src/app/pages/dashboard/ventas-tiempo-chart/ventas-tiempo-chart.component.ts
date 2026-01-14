@@ -47,10 +47,12 @@ export class VentasTiempoChartComponent implements OnInit {
     farmacias: any[] = [];
     farmaciaSeleccionada = 'ALL';
 
-    kpiTotalVentas = 0;
+    kpiIngresosNetos = 0;
     kpiUtilidad = 0;
     kpiVentas = 0;
     kpiMargen = 0;
+    kpiPedidosUnicos = 0;
+    kpiPedidosMovs = 0;
 
     horaPico: any = null;
     horaMuerta: any = null;
@@ -114,14 +116,141 @@ export class VentasTiempoChartComponent implements OnInit {
         });
     }
 
+    /*     buildChart() {
+    
+            this.data = this.ordenarData(this.data);
+            const hasData = this.data.length > 0;
+    
+            this.kpiIngresosNetos = hasData
+                ? this.data.reduce((a, d) => a + (d.ingresos ?? 0), 0)
+                : 0;
+    
+            this.kpiUtilidad = hasData
+                ? this.data.reduce((a, d) => a + (d.utilidad ?? 0), 0)
+                : 0;
+    
+            this.kpiVentas = hasData
+                ? this.data.reduce((a, d) => a + (d.ventas ?? 0), 0)
+                : 0;
+            this.kpiMargen = this.kpiIngresosNetos
+                ? (this.kpiUtilidad / this.kpiIngresosNetos) * 100
+                : 0;
+    
+            const categorias = hasData
+                ? this.data.map(d => this.formatearPeriodo(d.periodo))
+                : [];
+    
+            const ventas = hasData ? this.data.map(d => d.ingresos ?? 0) : [];
+            const utilidad = hasData ? this.data.map(d => d.utilidad ?? 0) : [];
+            const conteo = hasData ? this.data.map(d => d.ventas ?? 0) : [];
+    
+            const maxVentas = ventas.length ? Math.max(...ventas) : 0;
+            const maxConteo = conteo.length ? Math.max(...conteo) : 0;
+    
+            const safeMaxConteo = Math.max(1, maxConteo);
+    
+            const tickConteo =
+                safeMaxConteo <= 5
+                    ? safeMaxConteo
+                    : 5;
+    
+    
+            this.chartOptions = {
+                chart: {
+                    type: 'line',
+                    height: 360,
+                    toolbar: { show: false },
+                    animations: { enabled: false }
+                },
+    
+                series: [
+                    {
+                        name: 'Total ventas ($)',
+                        data: ventas,
+                        yAxisIndex: 0
+                    },
+                    {
+                        name: 'Utilidad ($)',
+                        data: utilidad,
+                        yAxisIndex: 1
+                    },
+                    {
+                        name: 'Número de ventas',
+                        data: conteo,
+                        yAxisIndex: 2
+                    }
+                ],
+    
+                xaxis: {
+                    type: 'category',
+                    categories: categorias,
+                    labels: {
+                        rotate: -45,
+                        style: { fontSize: '12px' }
+                    }
+                },
+    
+                yaxis: [
+                    {
+                        min: 0,
+                        max: Math.ceil(maxVentas * 1),
+                        title: { text: 'Ventas ($)' },
+                        labels: {
+                            formatter: v => `$${Math.round(v)}`
+                        }
+                    },
+                    {
+                        min: 0,
+                        max: Math.ceil(Math.max(...utilidad) * 1.6),
+                        title: { text: 'Utilidad ($)' },
+                        labels: {
+                            formatter: v => `$${Math.round(v)}`
+                        }
+                    },
+                    {
+                        opposite: true,
+                        min: 0,
+                        max: Math.ceil(maxConteo * 1.2),
+                        tickAmount: tickConteo,
+                        forceNiceScale: true,
+                        title: { text: 'Número de ventas' },
+                        labels: {
+                            formatter: v => `${Math.round(v)}`
+                        }
+                    }
+                ],
+    
+                stroke: {
+                    curve: 'smooth',
+                    width: [3, 3, 2]
+                },
+    
+                markers: {
+                    size: 4
+                },
+    
+                tooltip: {
+                    shared: true
+                },
+    
+                dataLabels: {
+                    enabled: false
+                },
+    
+                colors: ['#1E88E5', '#2E7D32', '#F57C00']
+            };
+    
+            this.calcularHorasClave();
+        } */
+
     buildChart() {
 
         this.data = this.ordenarData(this.data);
         const hasData = this.data.length > 0;
 
         /* ================= KPIs ================= */
-        this.kpiTotalVentas = hasData
-            ? this.data.reduce((a, d) => a + (d.ingresos ?? 0), 0)
+        this.kpiIngresosNetos = hasData
+            ? this.data.reduce((a, d) => a + (d.ingresos ?? 0), 0)   // ⚠️ realmente: ingresos netos
             : 0;
 
         this.kpiUtilidad = hasData
@@ -131,8 +260,18 @@ export class VentasTiempoChartComponent implements OnInit {
         this.kpiVentas = hasData
             ? this.data.reduce((a, d) => a + (d.ventas ?? 0), 0)
             : 0;
-        this.kpiMargen = this.kpiTotalVentas
-            ? (this.kpiUtilidad / this.kpiTotalVentas) * 100
+
+        // ✅ NUEVOS KPIs
+        this.kpiPedidosUnicos = hasData
+            ? this.data.reduce((a, d) => a + (d.pedidosUnicos ?? 0), 0)
+            : 0;
+
+        this.kpiPedidosMovs = hasData
+            ? this.data.reduce((a, d) => a + (d.pedidosMovs ?? 0), 0)
+            : 0;
+
+        this.kpiMargen = this.kpiIngresosNetos
+            ? (this.kpiUtilidad / this.kpiIngresosNetos) * 100
             : 0;
 
         /* ================= DATA ================= */
@@ -146,14 +285,9 @@ export class VentasTiempoChartComponent implements OnInit {
 
         const maxVentas = ventas.length ? Math.max(...ventas) : 0;
         const maxConteo = conteo.length ? Math.max(...conteo) : 0;
-
         const safeMaxConteo = Math.max(1, maxConteo);
 
-        const tickConteo =
-            safeMaxConteo <= 5
-                ? safeMaxConteo
-                : 5;
-
+        const tickConteo = safeMaxConteo <= 5 ? safeMaxConteo : 5;
 
         /* ================= CHART ================= */
         this.chartOptions = {
@@ -165,48 +299,29 @@ export class VentasTiempoChartComponent implements OnInit {
             },
 
             series: [
-                {
-                    name: 'Total ventas ($)',
-                    data: ventas,
-                    yAxisIndex: 0
-                },
-                {
-                    name: 'Utilidad ($)',
-                    data: utilidad,
-                    yAxisIndex: 1
-                },
-                {
-                    name: 'Número de ventas',
-                    data: conteo,
-                    yAxisIndex: 2
-                }
+                { name: 'Ingresos netos ($)', data: ventas, yAxisIndex: 0 },
+                { name: 'Utilidad ($)', data: utilidad, yAxisIndex: 1 },
+                { name: 'Número de ventas', data: conteo, yAxisIndex: 2 }
             ],
 
             xaxis: {
                 type: 'category',
                 categories: categorias,
-                labels: {
-                    rotate: -45,
-                    style: { fontSize: '12px' }
-                }
+                labels: { rotate: -45, style: { fontSize: '12px' } }
             },
 
             yaxis: [
                 {
                     min: 0,
                     max: Math.ceil(maxVentas * 1),
-                    title: { text: 'Ventas ($)' },
-                    labels: {
-                        formatter: v => `$${Math.round(v)}`
-                    }
+                    title: { text: 'Ingresos ($)' },
+                    labels: { formatter: v => `$${Math.round(v)}` }
                 },
                 {
                     min: 0,
-                    max: Math.ceil(Math.max(...utilidad) * 1.6),
+                    max: Math.ceil((utilidad.length ? Math.max(...utilidad) : 0) * 1.6),
                     title: { text: 'Utilidad ($)' },
-                    labels: {
-                        formatter: v => `$${Math.round(v)}`
-                    }
+                    labels: { formatter: v => `$${Math.round(v)}` }
                 },
                 {
                     opposite: true,
@@ -215,38 +330,24 @@ export class VentasTiempoChartComponent implements OnInit {
                     tickAmount: tickConteo,
                     forceNiceScale: true,
                     title: { text: 'Número de ventas' },
-                    labels: {
-                        formatter: v => `${Math.round(v)}`
-                    }
+                    labels: { formatter: v => `${Math.round(v)}` }
                 }
             ],
 
-            stroke: {
-                curve: 'smooth',
-                width: [3, 3, 2]
-            },
-
-            markers: {
-                size: 4
-            },
-
-            tooltip: {
-                shared: true
-            },
-
-            dataLabels: {
-                enabled: false
-            },
-
+            stroke: { curve: 'smooth', width: [3, 3, 2] },
+            markers: { size: 4 },
+            tooltip: { shared: true },
+            dataLabels: { enabled: false },
             colors: ['#1E88E5', '#2E7D32', '#F57C00']
         };
 
         this.calcularHorasClave();
     }
 
+
     /* =========================
-       HORAS CLAVE
-       ========================= */
+   HORAS CLAVE
+   ========================= */
     calcularHorasClave() {
         const validos = this.data.filter(d => d.ingresos > 0);
 

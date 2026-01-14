@@ -29,33 +29,51 @@
 </div>
 
 <div class="kpis">
-    <div class="kpi-card ventas">
-        <span class="kpi-title">Importe de ventas: </span>
-        <span class="kpi-value">
-            {{ kpiTotalVentas | currency:'MXN':'symbol-narrow' }}
-        </span>
-    </div>
+  <div class="kpi-card ventas" matTooltip="ventas + pedidos − devoluciones/cancelaciones">
+    <span class="kpi-title">Ingresos netos: 
+        <span class="kpi-info" aria-hidden="true">ⓘ</span>
+    </span>
+    <span class="kpi-value">
+      {{ kpiIngresosNetos | currency:'MXN':'symbol-narrow' }}
+    </span>
+  </div>
 
-    <div class="kpi-card utilidad">
-        <span class="kpi-title">Utilidad: </span>
-        <span class="kpi-value">
-            {{ kpiUtilidad | currency:'MXN':'symbol-narrow' }}
-        </span>
-    </div>
+  <div class="kpi-card utilidad">
+    <span class="kpi-title">Utilidad: </span>
+    <span class="kpi-value">
+      {{ kpiUtilidad | currency:'MXN':'symbol-narrow' }}
+    </span>
+  </div>
 
-    <div class="kpi-card margen">
-        <span class="kpi-title">Margen: </span>
-        <span class="kpi-value">
-            {{ kpiMargen | number:'1.1-2' }} %
-        </span>
-    </div>
+  <div class="kpi-card margen">
+    <span class="kpi-title">Margen: </span>
+    <span class="kpi-value">
+      {{ kpiMargen | number:'1.1-2' }} %
+    </span>
+  </div>
 
-    <div class="kpi-card ventas-num">
-        <span class="kpi-title">Ventas: </span>
-        <span class="kpi-value">
-            {{ kpiVentas }}
-        </span>
-    </div>
+  <div class="kpi-card ventas-num">
+    <span class="kpi-title">Ventas: </span>
+    <span class="kpi-value">
+      {{ kpiVentas }}
+    </span>
+  </div>
+
+  <div class="kpi-card pedidos-num">
+    <span class="kpi-title">Pedidos (folios): </span>
+    <span class="kpi-value">
+      {{ kpiPedidosUnicos }}
+    </span>
+  </div>
+
+  <div class="kpi-card pedidos-movs" matTooltip="abonos + liquidaciones">
+    <span class="kpi-title">Cobros pedidos: 
+        <span class="kpi-info" aria-hidden="true">ⓘ</span>
+    </span>
+    <span class="kpi-value">
+      {{ kpiPedidosMovs }}
+    </span>
+  </div>
 </div>
 
 <div *ngIf="horaPico">

@@ -40,4 +40,18 @@ router.get(
   ctrl.obtenerCola
 );
 
+router.get(
+  "/listas-para-cobro",
+  auth,
+  checkRole(["admin", "empleado"]),
+  ctrl.listasParaCobro
+);
+
+router.get(
+  "/buscar",
+  auth,
+  checkRole(["admin", "empleado"]),
+  ctrl.buscar
+);
+
 module.exports = router;

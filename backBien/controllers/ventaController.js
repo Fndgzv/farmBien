@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Venta = require("../models/Venta");
 const Cliente = require("../models/Cliente");
 const InventarioFarmacia = require("../models/InventarioFarmacia");
+const FichaConsultorio = require("../models/FichaConsultorio");
 
 const ZONE = process.env.APP_TZ || 'America/Mexico_City';
 
@@ -258,6 +259,7 @@ const crearVenta = async (req, res) => {
     const {
       folio,
       clienteId,
+      fichaId,
       productos,
       aplicaInapam,
       efectivo = 0,
@@ -265,7 +267,6 @@ const crearVenta = async (req, res) => {
       transferencia = 0,
       importeVale = 0,
       farmacia
-      // OJO: porServicioMedico ya no viene del front
     } = req.body;
 
     if (!farmacia || !mongoose.isValidObjectId(farmacia)) {
@@ -273,6 +274,10 @@ const crearVenta = async (req, res) => {
     }
     if (!Array.isArray(productos) || productos.length === 0) {
       return res.status(400).json({ mensaje: 'No hay productos para vender' });
+    }
+
+    if (fichaId && !mongoose.isValidObjectId(fichaId)) {
+      return res.status(400).json({ mensaje: 'fichaId inválido' });
     }
 
     const usuario = req.usuario;
@@ -390,6 +395,7 @@ const crearVenta = async (req, res) => {
 
     // === bandera calculada: ¿hay al menos un producto de categoría "Servicio Médico"?
     let esVentaDeServicio = false;
+    if (fichaId) esVentaDeServicio = true;
 
     // ===================== Procesar por PRODUCTO =====================
     for (const pid of uniqueIds) {
@@ -549,6 +555,30 @@ const crearVenta = async (req, res) => {
 
     try {
       await session.withTransaction(async () => {
+        // ✅ 0) Validar ficha dentro de la transacción (si aplica)
+        let fichaDoc = null;
+
+        if (fichaId) {
+          fichaDoc = await FichaConsultorio.findOne(
+            { _id: fichaId, farmaciaId: farmaciaId },
+            null,
+            { session }
+          );
+
+          if (!fichaDoc) throw new Error("FICHA_NO_ENCONTRADA");
+
+          if (fichaDoc.estado !== "EN_COBRO") {
+            throw new Error(`FICHA_NO_EN_COBRO:${fichaDoc.estado}`);
+          }
+
+          if (fichaDoc.ventaId) throw new Error("FICHA_YA_COBRADA");
+
+          // ✅ opcional (muy recomendable): que la misma caja que la tomó sea quien cobre
+          if (fichaDoc.cobroPor && String(fichaDoc.cobroPor) !== String(usuario._id)) {
+            throw new Error("FICHA_EN_COBRO_POR_OTRO_USUARIO");
+          }
+        }
+
         // 1) Descontar inventario
         const bulkOps = [];
         for (const [pid, qty] of qtyByProd.entries()) {
@@ -591,6 +621,31 @@ const crearVenta = async (req, res) => {
         const arr = await Venta.create([ventaPayload], { session });
         ventaCreada = arr[0];
 
+        // ✅ 2.1) Cerrar ficha en la misma transacción
+        if (fichaId) {
+          const upd = await FichaConsultorio.updateOne(
+            {
+              _id: fichaId,
+              farmaciaId: farmaciaId,
+              estado: "EN_COBRO",
+              ventaId: { $exists: false },
+            },
+            {
+              $set: {
+                estado: "ATENDIDA",
+                ventaId: ventaCreada._id,
+                cobradaAt: new Date(),
+                actualizadaPor: usuario._id,
+              },
+            },
+            { session }
+          );
+
+          if ((upd.modifiedCount || 0) !== 1) {
+            throw new Error("NO_SE_PUDO_CERRAR_FICHA");
+          }
+        }
+
         // 3) Monedero
         if (cliente) {
           let motivo = null;
@@ -620,6 +675,23 @@ const crearVenta = async (req, res) => {
       if (String(err.message) === "STOCK_INSUFICIENTE_CONCURRENCIA") {
         return res.status(400).json({ mensaje: "** Ya no hay suficiente stock (venta concurrente). **" });
       }
+      if (String(err.message) === "FICHA_NO_ENCONTRADA") {
+        return res.status(404).json({ mensaje: "Ficha no encontrada" });
+      }
+      if (String(err.message).startsWith("FICHA_NO_EN_COBRO:")) {
+        const estado = String(err.message).split(":")[1];
+        return res.status(400).json({ mensaje: `La ficha no está en cobro (estado: ${estado}).` });
+      }
+      if (String(err.message) === "FICHA_YA_COBRADA") {
+        return res.status(400).json({ mensaje: "La ficha ya fue cobrada anteriormente." });
+      }
+      if (String(err.message) === "FICHA_EN_COBRO_POR_OTRO_USUARIO") {
+        return res.status(409).json({ mensaje: "Esta ficha está en cobro por otro usuario." });
+      }
+      if (String(err.message) === "NO_SE_PUDO_CERRAR_FICHA") {
+        return res.status(409).json({ mensaje: "No se pudo cerrar la ficha (posible concurrencia). Intenta de nuevo." });
+      }
+
       console.error("Error transacción venta:", err);
       return res.status(500).json({ mensaje: "Error interno del servidor", error: err.message });
     } finally {
