@@ -94,9 +94,8 @@ const ingresosPorTiempo = async (req, res) => {
           },
           egreso: '$costoVenta',
           ventas: { $literal: 1 },
-          pedidos: { $literal: 0 },
           pedidosMovs: { $literal: 0 },
-          pedidoId: null,
+          pedidoId: null
         }
       },
 
@@ -107,7 +106,7 @@ const ingresosPorTiempo = async (req, res) => {
           pipeline: [
             {
               $match: {
-                // ✅ ignoramos cancelado
+                // ✅ ignoramos cancelado (neto = 0 y no entra aquí)
                 estado: { $in: ['inicial', 'entregado'] },
                 ...(matchFarmacia && { farmacia: matchFarmacia })
               }
@@ -172,14 +171,12 @@ const ingresosPorTiempo = async (req, res) => {
                 fecha: '$movimientos.fecha',
                 ingreso: '$movimientos.ingreso',
                 egreso: '$movimientos.egreso',
-
                 ventas: { $literal: 0 },
-                pedidos: { $literal: 0 },
                 pedidosMovs: { $literal: 1 },  // ✅ 1 por movimiento
-                pedidoId: '$pedidoId'          // ✅ conserva el id real
+                pedidoId: '$pedidoId'
               }
             },
-            // ✅ filtra por rango ahora que ya tenemos "fecha" correcta (pedido o entrega)
+            // ✅ filtra por rango ya con fecha correcta
             {
               $match: {
                 fecha: { $gte: gte, $lt: lt }
@@ -188,7 +185,6 @@ const ingresosPorTiempo = async (req, res) => {
           ]
         }
       },
-
 
       /* ====================== DEVOLUCIONES ====================== */
       {
@@ -207,33 +203,6 @@ const ingresosPorTiempo = async (req, res) => {
                 ingreso: { $literal: 0 },
                 egreso: '$totalDevuelto',
                 ventas: { $literal: 0 },
-                pedidos: { $literal: 0 },
-                pedidosMovs: { $literal: 0 },
-                pedidoId: null
-              }
-            }
-          ]
-        }
-      },
-
-      /* ====================== CANCELACIONES ====================== */
-      {
-        $unionWith: {
-          coll: 'cancelaciones',
-          pipeline: [
-            {
-              $match: {
-                fechaCancelacion: { $gte: gte, $lt: lt },
-                ...(matchFarmacia && { farmacia: matchFarmacia })
-              }
-            },
-            {
-              $project: {
-                fecha: '$fechaCancelacion',
-                ingreso: { $literal: 0 },
-                egreso: '$totalDevuelto',
-                ventas: { $literal: 0 },
-                pedidos: { $literal: 0 },
                 pedidosMovs: { $literal: 0 },
                 pedidoId: null
               }
@@ -251,7 +220,7 @@ const ingresosPorTiempo = async (req, res) => {
           ventas: { $sum: '$ventas' },
           pedidosMovs: { $sum: '$pedidosMovs' },
           pedidoIds: { $addToSet: '$pedidoId' },
-          fecha: { $min: '$fecha' },
+          fecha: { $min: '$fecha' }
         }
       },
 
@@ -273,16 +242,12 @@ const ingresosPorTiempo = async (req, res) => {
           },
           ingresos: { $round: ['$ingresos', 2] },
           egresos: { $round: ['$egresos', 2] },
-          utilidad: {
-            $round: [{ $subtract: ['$ingresos', '$egresos'] }, 2]
-          },
+          utilidad: { $round: [{ $subtract: ['$ingresos', '$egresos'] }, 2] },
           ventas: 1,
-          pedidos: 1,
           pedidosMovs: 1,
           pedidosUnicos: {
             $size: { $setDifference: ['$pedidoIds', [null]] }
-          },
-
+          }
         }
       },
 

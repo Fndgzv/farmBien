@@ -1,3 +1,4 @@
+// backBien/models/CorteCaja.js
 const mongoose = require("mongoose");
 
 const CorteCajaSchema = new mongoose.Schema({

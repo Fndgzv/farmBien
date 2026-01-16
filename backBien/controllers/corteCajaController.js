@@ -90,6 +90,7 @@ const finalizarCorte = async (req, res) => {
     // Limpieza defensiva (por si se reintenta finalizar)
     corte.tarjetas = [];
     corte.transferencias = [];
+    corte.efectivoMovimientos = []; // ✅ para auditoría
 
     /* =========================
        VENTAS
@@ -164,11 +165,18 @@ const finalizarCorte = async (req, res) => {
 
     /* =========================
        PEDIDOS - ANTICIPOS
+       Regla: si el pedido se canceló dentro del mismo corte, se ignora aquí (no ingreso)
     ========================== */
     const anticipos = await Pedido.find({
       farmacia: corte.farmacia,
       usuarioPidio: usuarioId,
       fechaPedido: RANGO,
+
+      // ✅ EXCLUIR: pedidos cancelados cuyo cancelación ocurrió también dentro del corte
+      $nor: [{
+        estado: 'cancelado',
+        fechaCancelacion: RANGO
+      }]
     });
 
     let anticiposEfectivo = 0;
@@ -210,7 +218,7 @@ const finalizarCorte = async (req, res) => {
     });
 
     /* =========================
-       PEDIDOS - RESTO
+       PEDIDOS - RESTO (ENTREGA)
     ========================== */
     const entregas = await Pedido.find({
       farmacia: corte.farmacia,
@@ -258,16 +266,57 @@ const finalizarCorte = async (req, res) => {
     });
 
     /* =========================
-       CANCELACIONES
+       CANCELACIONES (REGLA CORTE) - SOLO EFECTIVO
+       Restar SOLO si:
+       - fechaCancelacion dentro del corte
+       - y pedido.fechaPedido ANTES del inicio del corte
+       Ignorar vales.
+       Nota: usamos Cancelacion porque ahí está el "dineroDevuelto real".
     ========================== */
-    const cancelaciones = await Cancelacion.find({
-      farmacia: corte.farmacia,
-      usuario: usuarioId,
-      fechaCancelacion: RANGO,
-    });
+    const cancelaciones = await Cancelacion.aggregate([
+      {
+        $match: {
+          farmacia: new mongoose.Types.ObjectId(corte.farmacia),
+          usuario: new mongoose.Types.ObjectId(usuarioId),
+          fechaCancelacion: RANGO,
+        }
+      },
+      {
+        $lookup: {
+          from: 'pedidos',
+          localField: 'pedido',
+          foreignField: '_id',
+          as: 'pedidoDoc'
+        }
+      },
+      { $unwind: '$pedidoDoc' },
 
-    const cancelacionesVale = cancelaciones.reduce((a, c) => a + N(c.valeDevuelto), 0);
+      // ✅ condición clave: el pedido se levantó antes del corte
+      { $match: { 'pedidoDoc.fechaPedido': { $lt: inicio } } },
+
+      {
+        $project: {
+          dineroDevuelto: 1,
+          fechaCancelacion: 1,
+          folioPedido: '$pedidoDoc.folio'
+        }
+      }
+    ]);
+
     const cancelacionesEfectivo = cancelaciones.reduce((a, c) => a + N(c.dineroDevuelto), 0);
+
+    // Auditoría de movimientos en efectivo (negativos)
+    cancelaciones.forEach(c => {
+      const monto = -N(c.dineroDevuelto);
+      if (monto !== 0) {
+        corte.efectivoMovimientos.push({
+          origen: 'cancelacion',
+          referencia: c.folioPedido || 'Pedido cancelado',
+          monto,
+          fecha: c.fechaCancelacion
+        });
+      }
+    });
 
     /* =========================
        TOTALES
@@ -290,8 +339,10 @@ const finalizarCorte = async (req, res) => {
     corte.pedidosTarjeta = pedidosTarjeta;
     corte.pedidosTransferencia = pedidosTransferencia;
     corte.pedidosVale = pedidosVale;
+
+    // ✅ solo efectivo (vales ignorados en cancelación)
     corte.pedidosCanceladosEfectivo = cancelacionesEfectivo;
-    corte.pedidosCanceladosVale = cancelacionesVale;
+    corte.pedidosCanceladosVale = 0;
 
     const efectivoInicial = N(corte.efectivoInicial);
     corte.totalEfectivoEnCaja =
@@ -303,7 +354,9 @@ const finalizarCorte = async (req, res) => {
 
     corte.totalTarjeta = ventasTarjeta + pedidosTarjeta;
     corte.totalTransferencia = ventasTransferencia + pedidosTransferencia;
-    corte.totalVale = ventasVale - devolucionesVale + pedidosVale - cancelacionesVale;
+
+    // ✅ no restamos cancelacionesVale
+    corte.totalVale = ventasVale - devolucionesVale + pedidosVale;
 
     // 🔹 RECARGAS (OBJETO NUEVO)
     if (!corte.recargas) {
@@ -323,6 +376,8 @@ const finalizarCorte = async (req, res) => {
     corte.devolucionesRealizadas = devoluciones.length;
     corte.pedidosLevantados = anticipos.length;
     corte.pedidosEntregados = entregas.length;
+
+    // ✅ cuenta solo cancelaciones que impactan el corte (por regla)
     corte.pedidosCancelados = cancelaciones.length;
 
     if (grabar) await corte.save();
