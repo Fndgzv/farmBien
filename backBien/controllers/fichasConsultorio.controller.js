@@ -1,5 +1,7 @@
+// backBien/controllers/fichasConsultorio.controller.js
 const FichaConsultorio = require("../models/FichaConsultorio");
 const Producto = require("../models/Producto");
+const Paciente = require("../models/Paciente");
 
 /**
  * .env:
@@ -38,18 +40,31 @@ exports.crearFicha = async (req, res) => {
 
     const { pacienteNombre, pacienteTelefono, motivo, urgencia = false, pacienteId } = req.body;
 
-    if (!pacienteNombre?.trim()) {
+    let pacienteNombreFinal = (pacienteNombre || "").trim();
+    let pacienteTelefonoFinal = (pacienteTelefono || "").trim();
+
+    if (pacienteId) {
+      const p = await Paciente.findById(pacienteId)
+        .select("nombre apellidos contacto.telefono")
+        .lean();
+
+      if (!p) return res.status(404).json({ msg: "Paciente no encontrado" });
+
+      pacienteNombreFinal = `${p.nombre || ""} ${p.apellidos || ""}`.trim();
+      pacienteTelefonoFinal = (p?.contacto?.telefono || pacienteTelefonoFinal || "").trim();
+    }
+
+    if (!pacienteNombreFinal) {
       return res.status(400).json({ msg: "pacienteNombre es requerido" });
     }
 
     const ficha = await FichaConsultorio.create({
       farmaciaId,
-      pacienteNombre: pacienteNombre.trim(),
-      pacienteTelefono: (pacienteTelefono || "").trim(),
+      pacienteNombre: pacienteNombreFinal,
+      pacienteTelefono: pacienteTelefonoFinal,
       motivo: (motivo || "").trim(),
       urgencia: !!urgencia,
       pacienteId: pacienteId || undefined,
-
       creadaPor: req.usuario._id,
       actualizadaPor: req.usuario._id,
     });
@@ -66,7 +81,7 @@ exports.crearFicha = async (req, res) => {
  * Médico captura servicios y deja ficha LISTA_PARA_COBRO
  *
  * Reglas:
- * - servicios deben ser categoría "Servicios Médicos"
+ * - servicios deben ser categoría "Servicio Médico"
  * - debe incluir al menos UNA consulta (consulta normal o fin de semana)
  */
 exports.actualizarServicios = async (req, res) => {
@@ -110,9 +125,9 @@ exports.actualizarServicios = async (req, res) => {
       if (!p) return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
 
       const cat = (p.categoria || "").trim();
-      if (cat !== "Servicios Médicos") {
+      if (cat !== "Servicio Médico") {
         return res.status(400).json({
-          msg: `El producto ${p.nombre} no es de categoría Servicios Médicos`,
+          msg: `El producto ${p.nombre} no es de categoría Servicio Médico`,
         });
       }
 
@@ -181,6 +196,86 @@ exports.obtenerCola = async (req, res) => {
     return res.status(500).json({ msg: "Error al obtener cola" });
   }
 };
+
+
+/**
+ * POST /api/fichas-consultorio/:id/tomar-para-atencion
+ * Médico “toma” una ficha de la cola para atenderla.
+ * Evita que dos médicos tomen la misma.
+ */
+exports.tomarParaAtencion = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const ficha = await FichaConsultorio.findOneAndUpdate(
+      {
+        _id: id,
+        farmaciaId,
+        estado: "EN_ESPERA",
+      },
+      {
+        $set: {
+          estado: "EN_ATENCION",
+          medicoId: req.usuario._id,
+          llamadoAt: new Date(),
+          inicioAtencionAt: new Date(),
+          actualizadaPor: req.usuario._id,
+        },
+      },
+      { new: true }
+    );
+
+    if (!ficha) {
+      return res.status(400).json({
+        msg: "No se pudo tomar la ficha. Puede que ya no esté en espera o pertenezca a otra farmacia.",
+      });
+    }
+
+    return res.json({ ok: true, ficha });
+  } catch (err) {
+    console.error("tomarParaAtencion:", err);
+    return res.status(500).json({ msg: "Error al tomar ficha para atención" });
+  }
+};
+
+exports.llamarFicha = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const ficha = await FichaConsultorio.findOneAndUpdate(
+      {
+        _id: id,
+        farmaciaId,
+        estado: "EN_ESPERA",
+      },
+      {
+        $set: {
+          estado: "EN_ATENCION",
+          medicoId: req.usuario._id,
+          llamadoAt: new Date(),
+          inicioAtencionAt: new Date(),
+          actualizadaPor: req.usuario._id,
+        },
+      },
+      { new: true }
+    );
+
+    if (!ficha) {
+      return res.status(400).json({ msg: "No se pudo llamar: la ficha ya no está en espera." });
+    }
+
+    return res.json({ ok: true, ficha });
+  } catch (err) {
+    console.error("llamarFicha:", err);
+    return res.status(500).json({ msg: "Error al llamar ficha" });
+  }
+};
+
 
 /**
  * POST /api/fichas-consultorio/:id/tomar-para-cobro

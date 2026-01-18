@@ -269,6 +269,7 @@ const crearVenta = async (req, res) => {
       farmacia
     } = req.body;
 
+
     if (!farmacia || !mongoose.isValidObjectId(farmacia)) {
       return res.status(400).json({ mensaje: 'Falta farmacia válida' });
     }
@@ -669,6 +670,29 @@ const crearVenta = async (req, res) => {
         }
       });
 
+      /* return res.status(201).json({ mensaje: 'Venta realizada con éxito', venta: ventaCreada }); */
+
+      // 4) Si viene fichaId: marcar ficha como ATENDIDA y ligar venta
+      if (fichaId) {
+        if (!mongoose.isValidObjectId(fichaId)) throw new Error("FICHA_ID_INVALIDO");
+
+        const ficha = await FichaConsultorio.findOne({
+          _id: fichaId,
+          farmaciaId: farmaciaId,
+          estado: { $in: ["LISTA_PARA_COBRO", "EN_COBRO"] }
+        }).session(session);
+
+        if (!ficha) throw new Error("FICHA_NO_ENCONTRADA_O_NO_COBRABLE");
+
+        ficha.estado = "ATENDIDA";
+        ficha.ventaId = ventaCreada._id;
+        ficha.cobradaAt = new Date();
+        ficha.cobroPor = usuario.id; // req.usuario.id
+        ficha.cobroAt = new Date();  // si agregaste este campo, si no quítalo
+
+        await ficha.save({ session });
+      }
+
       return res.status(201).json({ mensaje: 'Venta realizada con éxito', venta: ventaCreada });
 
     } catch (err) {
@@ -691,6 +715,14 @@ const crearVenta = async (req, res) => {
       if (String(err.message) === "NO_SE_PUDO_CERRAR_FICHA") {
         return res.status(409).json({ mensaje: "No se pudo cerrar la ficha (posible concurrencia). Intenta de nuevo." });
       }
+
+      if (String(err.message) === "FICHA_ID_INVALIDO") {
+        return res.status(400).json({ mensaje: "Ficha inválida." });
+      }
+      if (String(err.message) === "FICHA_NO_ENCONTRADA_O_NO_COBRABLE") {
+        return res.status(400).json({ mensaje: "La ficha no existe o ya fue cobrada/cancelada." });
+      }
+
 
       console.error("Error transacción venta:", err);
       return res.status(500).json({ mensaje: "Error interno del servidor", error: err.message });

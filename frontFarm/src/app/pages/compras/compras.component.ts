@@ -139,6 +139,9 @@ export class ComprasComponent implements OnInit {
     // 👇 inicializa form del modal
     this.nuevoProductoForm = this.fb.group({
       nombre: ['', [Validators.required, Validators.minLength(3)]],
+      ingreActivo: [''],
+      renglon1: [''],
+      renglon2: [''],
       codigoBarras: ['', Validators.required],
       unidad: ['', Validators.required],
       precio: [null, [Validators.required, Validators.min(0)]],
@@ -175,6 +178,9 @@ export class ComprasComponent implements OnInit {
 
     this.itemForm = this.fb.group({
       nombre: ['', Validators.required],
+      ingreActivo: [''],
+      renglon1: [''],
+      renglon2: [''],
       codigoBarras: ['', Validators.required],
       cantidad: [1, [Validators.required, Validators.min(1)]],
       lote: ['', [Validators.required, Validators.pattern(/^[A-Z0-9]*$/)]],
@@ -283,6 +289,9 @@ export class ComprasComponent implements OnInit {
     const vals = this.itemForm.value;
     const item = {
       nombre: vals.nombre,
+      ingreActivo: vals.ingreActivo,
+      renglon1: vals.renglon1,
+      renglon2: vals.renglon2,
       codigoBarras: this.codBarras,
       cantidad: vals.cantidad,
       lote: vals.lote,
@@ -473,6 +482,9 @@ export class ComprasComponent implements OnInit {
 
     this.itemForm.patchValue({
       nombre: prod.nombre,
+      ingreActivo: prod.nombre,
+      renglon1: prod.renglon1,
+      renglon2: prod.renglon2,
       codBarras: this.codBarras,
       cantidad: 1,
       lote: '',
@@ -502,6 +514,9 @@ export class ComprasComponent implements OnInit {
   abrirNuevoProducto() {
     this.nuevoProductoForm.reset({
       nombre: '',
+      ingreActivo: '',
+      renglon1: '',
+      renglon2: '',
       codigoBarras: '',
       unidad: 'PZA',
       precio: null,

@@ -219,11 +219,17 @@ export const routes: Routes = [
             component: RankingProductosComponent
           }
         ]
-      }
+      },
+      {
+        path: 'consultas',
+        loadComponent: () => import('./pages/medico-consultorio/medico-consultorio.component')
+          .then(m => m.MedicoConsultorioComponent)
+      },
+
 
     ]
   },
-  
+
   { path: 'login', component: LoginComponent } // fuera del layout
 ];
 

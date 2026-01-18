@@ -88,7 +88,8 @@ app.use('/api/reportes', require('./routes/reportesRoutes'));
 app.use('/api/reportes', require('./routes/reportesPresupuestoRoutes'));
 app.use('/api/inventario-fisico', require('./routes/inventarioFisico.routes'));
 app.use("/api/fichas-consultorio", require("./routes/fichasConsultorio.routes"));
-
+app.use("/api/pacientes", require("./routes/pacientes.routes"));
+app.use("/api/recetas", require("./routes/recetas.routes"));
 
 // =============================================================
 // 📁 SERVIR ARCHIVOS UPLOADS
@@ -184,6 +185,7 @@ mongoose.connection.once('open', async () => {
     const Compra = mongoose.model('Compra');
     const InventarioFarmacia = mongoose.model('InventarioFarmacia');
     const CorteCaja = mongoose.model('CorteCaja');
+    const Paciente = mongoose.model('Paciente');
 
     await Promise.all([
       Venta.syncIndexes(),
@@ -195,6 +197,7 @@ mongoose.connection.once('open', async () => {
       Compra.syncIndexes(),
       InventarioFarmacia.syncIndexes(),
       CorteCaja.syncIndexes(),
+      Paciente.syncIndexes(),
     ]);
 
     console.log('✅ Índices sincronizados correctamente');

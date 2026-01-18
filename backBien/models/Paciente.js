@@ -1,9 +1,10 @@
+// backBien/models/Paciente.js
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
 const ContactoSchema = new Schema(
   {
-    telefono: { type: String, trim: true, index: true },
+    telefono: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true },
     direccion: { type: String, trim: true },
     emergencia: {
@@ -19,7 +20,7 @@ const DatosGeneralesSchema = new Schema(
   {
     fechaNacimiento: { type: Date },
     sexo: { type: String, enum: ["M", "F", "Otro", "NoEspecifica"], default: "NoEspecifica" },
-    curp: { type: String, trim: true, uppercase: true, index: true },
+    curp: { type: String, trim: true, uppercase: true },
     ocupacion: { type: String, trim: true },
     escolaridad: { type: String, trim: true },
   },
@@ -90,7 +91,7 @@ const PacienteSchema = new Schema(
     // Identidad
     nombre: { type: String, required: true, trim: true },
     apellidos: { type: String, trim: true },
-    nombreCompletoNorm: { type: String, trim: true, index: true }, // para búsqueda (lower/sin acentos)
+    nombreCompletoNorm: { type: String, trim: true }, // para búsqueda (lower/sin acentos)
     contacto: { type: ContactoSchema, default: {} },
     datosGenerales: { type: DatosGeneralesSchema, default: {} },
 

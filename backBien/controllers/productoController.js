@@ -195,13 +195,14 @@ exports.crearProducto = async (req, res) => {
 
   try {
     const {
-      nombre, renglon1, renglon2, codigoBarras, unidad, precio, costo, iva,
+      nombre, ingreActivo, renglon1, renglon2, codigoBarras, unidad, precio, costo, iva,
       stockMinimo, stockMaximo, ubicacion, categoria, generico, descuentoINAPAM
     } = req.body;
 
     // 1) Crear producto
     const nuevoProducto = await Producto.create([{
       nombre,
+      ingreActivo,
       renglon1,
       renglon2,
       codigoBarras,
@@ -289,6 +290,7 @@ exports.obtenerProductoPorId = async (req, res) => {
 
 
 const { DateTime } = require("luxon");
+const { log } = require('console');
 
 const ZONE = process.env.APP_TZ || "America/Mexico_City";
 
@@ -867,6 +869,7 @@ exports.actualizarProducto = async (req, res) => {
 
     // Actualización de campos
     productoActual.nombre = prod.nombre;
+    productoActual.ingreActivo = prod.ingreActivo;
     productoActual.renglon1 = prod.renglon1;
     productoActual.renglon2 = prod.renglon2;
     productoActual.codigoBarras = prod.codigoBarras;

@@ -1,0 +1,125 @@
+<div class="row mb-2">
+  <div class="col">
+    <h1 class="titulo mb-0">Consultorio</h1>
+    <small *ngIf="farmaciaNombre">Farmacia: {{ farmaciaNombre }}</small>
+  </div>
+  <div class="col d-flex justify-content-end gap-2">
+    <button class="btn btn-outline-secondary" (click)="cargarCola()">Refrescar</button>
+  </div>
+</div>
+
+<!-- COLA -->
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Cola (En espera)</strong>
+    <span class="badge bg-primary">{{ cola.length }}</span>
+  </div>
+
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead>
+        <tr>
+          <th>Paciente</th>
+          <th>Tel</th>
+          <th>Motivo</th>
+          <th>Urg.</th>
+          <th>Llegada</th>
+          <th style="width: 140px;">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let f of cola">
+          <td>{{ f.pacienteNombre }}</td>
+          <td>{{ f.pacienteTelefono || '-' }}</td>
+          <td>{{ f.motivo || '-' }}</td>
+          <td>
+            <span class="badge" [class.bg-danger]="f.urgencia" [class.bg-secondary]="!f.urgencia">
+              {{ f.urgencia ? 'URGENTE' : 'Normal' }}
+            </span>
+          </td>
+          <td>{{ f.llegadaAt | date:'short' }}</td>
+          <td>
+            <button class="btn btn-sm btn-success" (click)="llamar(f)">Llamar</button>
+          </td>
+        </tr>
+        <tr *ngIf="!cola.length">
+          <td colspan="6" class="text-center p-3">No hay pacientes en espera</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ATENCIÓN -->
+<div class="card" *ngIf="fichaActual">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>En atención</strong>
+    <span class="badge bg-warning text-dark">{{ fichaActual.pacienteNombre }}</span>
+  </div>
+
+  <div class="card-body">
+    <div class="row mb-2">
+      <div class="col-md-8">
+        <label class="form-label">Notas del médico</label>
+        <textarea class="form-control" rows="3" [(ngModel)]="notasMedico"></textarea>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Motivo</label>
+        <input class="form-control" [(ngModel)]="motivoEditable">
+        <div class="form-text">Opcional (si quieres ajustar lo que capturó caja)</div>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <strong>Servicios (categoría “Servicio Médico”)</strong>
+      <button class="btn btn-sm btn-outline-primary" (click)="agregarRenglonServicio()">+ Agregar</button>
+    </div>
+
+    <div class="alert alert-info py-2">
+      Recuerda: la ficha debe incluir al menos <strong>Consulta Médica</strong> (normal o fin de semana).
+    </div>
+
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th style="width: 45%;">Producto</th>
+          <th style="width: 90px;">Cant</th>
+          <th>Notas</th>
+          <th style="width: 90px;">Acc</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let s of servicios; let i = index">
+          <td>
+            <!-- por ahora input texto; luego lo cambiamos a autocomplete de productos -->
+            <input class="form-control"
+                   placeholder="Pega/pon el ID del producto (temporal)"
+                   [(ngModel)]="s.productoId">
+            <div class="form-text">Luego lo cambiamos a buscador por nombre/CB</div>
+          </td>
+
+          <td>
+            <input class="form-control" type="number" min="1" [(ngModel)]="s.cantidad">
+          </td>
+
+          <td>
+            <input class="form-control" [(ngModel)]="s.notas" placeholder="Opcional">
+          </td>
+
+          <td>
+            <button class="btn btn-sm btn-outline-danger" (click)="quitarServicio(i)">Quitar</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button class="btn btn-secondary" (click)="cancelarAtencion()">Cerrar sin enviar</button>
+      <button class="btn btn-success" [disabled]="guardando" (click)="guardarYEnviarACaja()">
+        {{ guardando ? 'Guardando…' : 'Guardar y enviar a caja' }}
+      </button>
+    </div>
+  </div>
+</div>

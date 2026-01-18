@@ -1,7 +1,7 @@
 // ventas.component.ts
-import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
-import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap, tap } from 'rxjs/operators';
-import { of, Observable, from, mergeMap, firstValueFrom } from 'rxjs';
+import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, ChangeDetectorRef, NgZone } from '@angular/core';
+import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap } from 'rxjs/operators';
+import { of, Observable, firstValueFrom } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule, NgForm } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -9,6 +9,8 @@ import { VentasService } from '../../services/ventas.service';
 import { FarmaciaService } from '../../services/farmacia.service';
 import { ProductoService } from '../../services/producto.service';
 import { ClienteService } from '../../services/cliente.service';
+import { FichasConsultorioService } from '../../services/fichas-consultorio.service';
+import { PacientesService } from '../../services/pacientes.service';
 import { VentaTicketComponent } from '../../impresiones/venta-ticket/venta-ticket.component';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
@@ -24,6 +26,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 
 import { resolveLogoForPrint, logoToDataUrlSafe, whenDomStable, printNodeInIframe } from '../../shared/utils/print-utils';
 import { buildImgUrl } from '../../shared/img-url';
+import { environment } from '../../../environments/environment';
 
 type PromoDia = { inicio?: any; fin?: any; porcentaje?: number; monedero?: boolean };
 type PromoTemporada = { inicio?: any; fin?: any; porcentaje?: number; monedero?: boolean };
@@ -95,9 +98,9 @@ export interface ConsultaPrecioResp {
   styleUrl: './ventas.component.css'
 })
 
-
-
 export class VentasComponent implements OnInit, AfterViewInit {
+
+  baseUrl = environment.apiUrl;
 
   invCache: Record<string, InvInfo> = {}; // productoId -> inventario info
 
@@ -211,6 +214,28 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   private suprimeEnterHasta = 0;
 
+  // === Fichas consultorio (caja) ===
+  mostrarModalFichas = false;
+  fichasParaCobro: any[] = [];
+  fichaSeleccionada: any = null;
+  fichaIdSeleccionada: string | null = null;
+
+  mostrarModalPedirFicha = false;
+
+  busquedaPaciente = '';
+  buscandoPaciente = false;
+
+  pacienteEncontrado: any = null;     // cuando viene {paciente}
+  pacientesEncontrados: any[] = [];   // cuando viene {pacientes}
+  pacienteSeleccionado: any = null;
+
+  nuevoPaciente = { nombre: '', apellidos: '', telefono: '', curp: '' };
+
+  fichaUrgencia = false;
+  fichaMotivo = '';
+
+  creandoFicha = false;
+
   buildImgUrlRef = buildImgUrl;
   placeholderSrc = 'assets/images/farmBienIcon.png';
   thumbs: Record<string, string> = {};
@@ -269,9 +294,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
     private clienteService: ClienteService,
     private ventaService: VentaService,
     private farmaciaService: FarmaciaService,
-    private cdRef: ChangeDetectorRef,
-    private ngZone: NgZone
-  ) {
+    private fichasService: FichasConsultorioService,
+    private pacientesService: PacientesService,
+    private cdRef: ChangeDetectorRef) {
     this.ventaForm = this.fb.group({
       cliente: [''],
       producto: [''],
@@ -1521,24 +1546,49 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.totalAlmonedero = this.round2(this.carrito.reduce((acc, p) => acc + (p.alMonedero * p.cantidad), 0));
   }
 
-  cancelarVenta() {
+
+  async cancelarVenta() {
+    await this.liberarFichaSiAplica();  // ✅ regresa a LISTA_PARA_COBRO
+    this.resetVentaUI();               // ✅ limpia la UI
+  }
+
+  private async liberarFichaSiAplica(): Promise<void> {
+    if (!this.fichaIdSeleccionada) return;
+
+    try {
+      await firstValueFrom(this.fichasService.liberarCobro(this.fichaIdSeleccionada));
+    } catch (err) {
+      console.error('Error liberarCobro:', err);
+      // no bloquea el reset
+    }
+  }
+
+  private resetVentaUI() {
     this.captionButtomReanudar = '';
     this.carrito = [];
     this.total = 0;
     this.totalArticulos = 0;
     this.totalDescuento = 0;
     this.totalAlmonedero = 0;
+
     this.aplicaInapam = false;
     this.yaPreguntoInapam = false;
+
     this.folioVentaGenerado = null;
     this.limpiarCliente();
+
     this.montoTarjeta = 0;
     this.montoTransferencia = 0;
     this.montoVale = 0;
     this.efectivoRecibido = 0;
     this.cambio = 0;
+
     this.hayCliente = false;
-    //this.syncClienteCtrlDisabled();
+
+    this.fichaIdSeleccionada = null;
+    this.fichaSeleccionada = null;
+
+    this.focusBarcode(60, true);
   }
 
   abrirModalPago() {
@@ -1883,11 +1933,17 @@ export class VentasComponent implements OnInit, AfterViewInit {
       importeVale: this.pagoVale1,
       farmacia: this.farmaciaId,
       totaMonederoCliente: this.totalAlmonedero,
+      fichaId: this.fichaIdSeleccionada
     };
 
     this.ventasService.crearVenta(venta).subscribe({
       next: () => {
         this.folioVentaGenerado = null;
+
+        // ✅ limpiar vínculo de ficha
+        this.fichaIdSeleccionada = null;
+        this.fichaSeleccionada = null;
+
         this.limpiarVenta();
         this.mostrarModalPago = false;
 
@@ -2272,7 +2328,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     return d === 0 || d === 6;
   }
 
-  // ⚠️ ACTUALIZA estos códigos si cambian en tu BD
+  // ⚠️ ACTUALIZA estos códigos de barras si cambian en tu BD
   private readonly COD_CONSULTA_NORMAL = '5656565656561';
   private readonly COD_CONSULTA_FDS = '151562325423';
 
@@ -2347,6 +2403,303 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     // OK para el día
     return producto;
+  }
+
+  /* métodos para “traer ficha → agregar al carrito” */
+  abrirModalFichasParaCobro() {
+    this.bloquearScanner = true;
+    this.mostrarModalFichas = true;
+    this.fichasParaCobro = [];
+    this.fichaSeleccionada = null;
+
+    this.fichasService.listasParaCobro().subscribe({
+      next: (resp: any) => {
+        this.fichasParaCobro = resp?.fichas ?? [];
+        this.cdRef.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error listasParaCobro:', err);
+        Swal.fire('Error', 'No se pudieron cargar las fichas para cobro.', 'error')
+          .then(() => this.cerrarModalFichas());
+      }
+    });
+  }
+
+  cerrarModalFichas() {
+    this.mostrarModalFichas = false;
+    this.bloquearScanner = false;
+    this.focusBarcode(60, true);
+  }
+
+  async tomarFichaParaCobro(f: any) {
+    if (!f?._id) return;
+
+    // Si ya hay una ficha tomada en la venta actual, evita mezclar
+    if (this.fichaIdSeleccionada && this.fichaIdSeleccionada !== f._id) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Ya hay una ficha en esta venta',
+        html: `Esta venta ya está ligada a una ficha.<br><b>Termina o cancela la venta actual</b> antes de tomar otra.`,
+        confirmButtonText: 'OK',
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+      return;
+    }
+
+    // ✅ Confirmación antes de bloquear y traspasar
+    const r = await Swal.fire({
+      icon: 'question',
+      title: 'Tomar ficha y agregar al carrito',
+      html: `
+      Al tomar esta ficha:
+      <ul style="text-align:left; margin: 10px 0 0 18px;">
+        <li>Se <b>bloquea</b> para que no la cobren en otra caja</li>
+        <li>Sus <b>servicios se agregan</b> al carrito de esta venta</li>
+      </ul>
+      ¿Deseas continuar?
+    `,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, tomar y agregar',
+      cancelButtonText: 'No, seguir en la lista',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      focusCancel: true
+    });
+
+    if (!r.isConfirmed) return;
+
+    this.fichasService.tomarParaCobro(f._id).subscribe({
+      next: async (resp: any) => {
+        const ficha = resp?.ficha ?? null;
+        if (!ficha?._id) {
+          Swal.fire('Error', 'No se recibió la ficha tomada.', 'error');
+          return;
+        }
+
+        // ✅ Liga ficha a esta venta
+        this.fichaIdSeleccionada = ficha._id;
+        this.fichaSeleccionada = ficha; // (puedes dejarlo aunque ya no se muestre)
+
+        // ✅ traspasa servicios al carrito
+        await this.agregarServiciosFichaAlCarrito(ficha);
+
+        // refresca lista por si quedó alguna en pantalla (aunque normalmente cierras modal)
+        // this.fichasParaCobro = this.fichasParaCobro.filter(x => x._id !== ficha._id);
+        // this.cdRef.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error tomarParaCobro:', err);
+        const msg = err?.error?.msg || 'No se pudo tomar la ficha para cobro.';
+        Swal.fire('Error', msg, 'error');
+      }
+    });
+  }
+
+  private agregandoFicha = false; 
+  private async agregarServiciosFichaAlCarrito(ficha: any) {
+
+    if (this.agregandoFicha) return;
+    this.agregandoFicha = true;
+
+    try {
+    const servicios = Array.isArray(ficha?.servicios) ? ficha.servicios : [];
+    if (!servicios.length) {
+      Swal.fire('Aviso', 'La ficha no trae servicios para cobrar.', 'info');
+      return;
+    }
+
+    // ✅ Ligar ficha a esta venta
+    this.fichaIdSeleccionada = ficha._id;
+
+    // ✅ Agregar cada servicio como producto normal (usando tu flujo existente)
+    // OJO: servicios trae snapshot, pero tú necesitas producto real (de this.productos)
+    for (const s of servicios) {
+      const prod = this.productos.find(p => p._id === String(s.productoId));
+      if (!prod) {
+        console.warn('Producto de servicio no existe en catálogo local:', s.productoId);
+        continue;
+      }
+
+      // Asegura existencia (para Servicio Médico normalmente es alto, pero lo respetamos)
+      this.nombreDelProducto = prod.nombre;
+      try {
+        await this.existenciaProducto(this.farmaciaId, prod._id, (Number(s.cantidad) || 1), true);
+      } catch { }
+
+      // Agrega 1 a 1 respetando tu lógica de incrementos
+      const veces = Math.max(1, Math.floor(Number(s.cantidad) || 1));
+      for (let i = 0; i < veces; i++) {
+        await this.agregarProductoAlCarrito(prod);
+      }
+    }
+
+    // Cierra modal y regresa al scanner
+    this.cerrarModalFichas();
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Servicios agregados al carrito',
+      timer: 900,
+      showConfirmButton: false
+    });
+
+    this.focusBarcode(60, true);
+  } finally {
+    this.agregandoFicha = false;
+  }
+  }
+
+
+  confirmarAgregarFichaAlCarrito() {
+    if (!this.fichaSeleccionada?._id) return;
+    this.agregarServiciosFichaAlCarrito(this.fichaSeleccionada);
+  }
+
+  getTotalFicha(fx: any): number {
+    return (fx?.servicios || []).reduce((a: number, s: any) => a + (Number(s?.precio || 0) * Number(s?.cantidad || 0)), 0);
+  }
+
+  abrirModalPedirFicha() {
+    this.mostrarModalPedirFicha = true;
+    this.limpiarBusquedaPaciente();
+    this.pacienteSeleccionado = null;
+    this.nuevoPaciente = { nombre: '', apellidos: '', telefono: '', curp: '' };
+    this.fichaUrgencia = false;
+    this.fichaMotivo = '';
+  }
+
+  cerrarModalPedirFicha() {
+    this.mostrarModalPedirFicha = false;
+  }
+
+  limpiarBusquedaPaciente() {
+    this.busquedaPaciente = '';
+    this.pacienteEncontrado = null;
+    this.pacientesEncontrados = [];
+  }
+
+  buscarPaciente() {
+    const q = (this.busquedaPaciente || '').trim();
+    if (!q) return;
+
+    this.buscandoPaciente = true;
+    this.pacienteEncontrado = null;
+    this.pacientesEncontrados = [];
+
+    this.pacientesService.buscar(q).subscribe({
+      next: (resp: any) => {
+        if (resp?.paciente) {
+          this.pacienteEncontrado = resp.paciente;
+        } else {
+          this.pacientesEncontrados = resp?.pacientes || [];
+        }
+        this.buscandoPaciente = false;
+      },
+      error: (err: any) => {
+        console.error(err);
+        this.buscandoPaciente = false;
+        Swal.fire('Error', err?.error?.msg || 'No se pudo buscar paciente', 'error');
+      }
+    });
+  }
+
+  crearPacienteBasico() {
+    const nombre = (this.nuevoPaciente.nombre || '').trim();
+    if (!nombre) {
+      Swal.fire('Falta nombre', 'Captura al menos el nombre del paciente.', 'warning');
+      return;
+    }
+
+    const payload = {
+      nombre,
+      apellidos: (this.nuevoPaciente.apellidos || '').trim(),
+      telefono: (this.nuevoPaciente.telefono || '').trim(),
+      curp: (this.nuevoPaciente.curp || '').trim(),
+    };
+
+    this.pacientesService.crearBasico(payload).subscribe({
+      next: (resp: any) => {
+        const p = resp?.paciente;
+        if (!p) return;
+
+        this.pacienteSeleccionado = p;
+        Swal.fire('OK', resp?.yaExistia ? 'Paciente ya existía, seleccionado.' : 'Paciente creado y seleccionado.', 'success');
+      },
+      error: (err: any) => {
+        console.error(err);
+        Swal.fire('Error', err?.error?.msg || 'No se pudo crear paciente', 'error');
+      }
+    });
+  }
+
+
+  seleccionarPaciente(p: any) {
+    this.pacienteSeleccionado = p;
+  }
+
+  crearFichaDesdeCaja() {
+    if (this.creandoFicha) return; // 🔒 evita doble click/enter
+
+    // ✅ Caso 1: ya seleccionó paciente de la lista
+    const pacienteId = this.pacienteSeleccionado?._id;
+
+    // ✅ Caso 2: alta directa (nombre obligatorio)
+    const nombre = (this.nuevoPaciente.nombre || '').trim();
+    const apellidos = (this.nuevoPaciente.apellidos || '').trim();
+    const nombreDirecto = `${nombre} ${apellidos}`.trim();
+
+    if (!pacienteId && !nombreDirecto) {
+      Swal.fire('Falta paciente', 'Busca/selecciona un paciente o dalo de alta básico.', 'warning');
+      return;
+    }
+
+    // (opcional) Si NO es urgencia, exigir motivo (tú decides)
+    // if (!this.fichaUrgencia && !(this.fichaMotivo || '').trim()) {
+    //   Swal.fire('Falta motivo', 'Captura el motivo de la consulta (o marca Urgencia).', 'warning');
+    //   return;
+    // }
+
+    this.creandoFicha = true;
+
+    const payload: any = {
+      urgencia: !!this.fichaUrgencia,
+      motivo: (this.fichaMotivo || '').trim(),
+    };
+
+    if (pacienteId) {
+      payload.pacienteId = pacienteId;
+
+      // ✅ opcional: manda snapshot por si luego quieres mostrar en cola sin populate
+      // payload.pacienteNombre = `${this.pacienteSeleccionado?.nombre || ''} ${this.pacienteSeleccionado?.apellidos || ''}`.trim();
+      // payload.pacienteTelefono = this.pacienteSeleccionado?.contacto?.telefono || '';
+    } else {
+      payload.pacienteNombre = nombreDirecto;
+      payload.pacienteTelefono = (this.nuevoPaciente.telefono || '').trim();
+    }
+
+    this.fichasService.crearFicha(payload).subscribe({
+      next: (_resp: any) => {
+        this.creandoFicha = false;
+
+        Swal.fire('Ficha creada', 'El paciente quedó en espera.', 'success');
+        this.cerrarModalPedirFicha();
+
+        // 🧹 Limpieza
+        this.pacienteEncontrado = null;
+        this.pacientesEncontrados = [];
+        this.pacienteSeleccionado = null;
+        this.busquedaPaciente = '';
+        this.nuevoPaciente = { nombre: '', apellidos: '', telefono: '', curp: '' };
+        this.fichaUrgencia = false;
+        this.fichaMotivo = '';
+      },
+      error: (err: any) => {
+        console.error(err);
+        this.creandoFicha = false;
+        Swal.fire('Error', err?.error?.msg || 'No se pudo crear la ficha', 'error');
+      }
+    });
   }
 
 }

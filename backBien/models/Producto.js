@@ -21,6 +21,8 @@ const LoteSchema = new Schema({
 // === Producto ===
 const ProductoSchema = new Schema({
   nombre: { type: String, required: true, trim: true },
+  ingreActivo: { type: String, trim: true },
+
   codigoBarras: { type: String, trim: true },
   unidad: { type: String, required: true, trim: true },
   precio: { type: Number, required: true },
@@ -39,6 +41,7 @@ const ProductoSchema = new Schema({
   // === NUEVOS: campos normalizados para búsquedas sin acentos y más rápidas ===
   nombreNorm: { type: String, default: "" },
   categoriaNorm: { type: String, default: "" },
+  ingreActivoNorm: { type: String, default: "" },
 
   promoLunes: {
     porcentaje: { type: Number, min: 0, max: 100 },
@@ -108,25 +111,39 @@ function applyNormToDoc(doc) {
   if (doc.isNew || doc.isModified("categoria")) {
     doc.categoriaNorm = norm(doc.categoria);
   }
+  if (doc.isNew || doc.isModified("ingreActivo")) {
+    doc.ingreActivoNorm = norm(doc.ingreActivo);
+  }
 }
 
 function applyNormToUpdate(update) {
   if (!update) return;
 
-  // Garantiza $set
   if (!update.$set) update.$set = {};
 
-  // Detecta valores venidos en $set o top-level (por seguridad)
-  const nombre = (update.$set && update.$set.nombre) !== undefined ? update.$set.nombre : update.nombre;
-  const categoria = (update.$set && update.$set.categoria) !== undefined ? update.$set.categoria : update.categoria;
+  const $set = update.$set || {};
+  const $soi = update.$setOnInsert || {};
+  const $unset = update.$unset || {};
 
-  if (nombre !== undefined) {
-    update.$set.nombreNorm = norm(nombre);
-  }
-  if (categoria !== undefined) {
-    update.$set.categoriaNorm = norm(categoria);
+  const pick = (key) =>
+    $set[key] !== undefined ? $set[key]
+    : $soi[key] !== undefined ? $soi[key]
+    : update[key];
+
+  const nombre = pick("nombre");
+  const categoria = pick("categoria");
+  const ingreActivo = pick("ingreActivo");
+
+  if (nombre !== undefined) update.$set.nombreNorm = norm(nombre);
+  if (categoria !== undefined) update.$set.categoriaNorm = norm(categoria);
+  if (ingreActivo !== undefined) update.$set.ingreActivoNorm = norm(ingreActivo);
+
+  // Si lo están “borrando”
+  if ($unset && $unset.ingreActivo !== undefined) {
+    update.$set.ingreActivoNorm = "";
   }
 }
+
 
 // Save / create
 ProductoSchema.pre("save", function (next) {
@@ -139,6 +156,7 @@ ProductoSchema.pre("insertMany", function (next, docs) {
   for (const d of docs) {
     d.nombreNorm = norm(d.nombre);
     d.categoriaNorm = norm(d.categoria);
+    d.ingreActivoNorm = norm(d.ingreActivo);
   }
   next();
 });
@@ -165,8 +183,10 @@ ProductoSchema.pre("replaceOne", function (next) {
 ProductoSchema.index({ codigoBarras: 1 }, { sparse: true });
 ProductoSchema.index({ nombre: 1 });
 ProductoSchema.index({ categoria: 1 });       // opcional, útil para orden/lookup
+ProductoSchema.index({ ingreActivo: 1 });       // opcional, útil para orden/lookup
 ProductoSchema.index({ nombreNorm: 1 });      // clave para búsquedas sin acentos
 ProductoSchema.index({ categoriaNorm: 1 });   // clave para búsquedas sin acentos
+ProductoSchema.index({ ingreActivoNorm: 1 });   // clave para búsquedas sin acentos
 ProductoSchema.index({ categoriaNorm: 1, nombreNorm: 1 });
 
 module.exports = mongoose.models.Producto || mongoose.model("Producto", ProductoSchema);

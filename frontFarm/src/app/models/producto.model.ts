@@ -15,6 +15,7 @@ export interface PromoDia {
 export interface Producto {
   _id: string;
   nombre: string;
+  ingreActivo: string;
   renglon1: string;
   renglon2: string;
   codigoBarras: string;

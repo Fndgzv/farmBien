@@ -2,22 +2,40 @@
     <div class="modal-content">
 
         <h3 class="titulo">Almacen editar producto</h3>
+
         <form [formGroup]="formulario">
             <div class="edit-seccion">
                 <label>Nombre:</label>
-                <input type="text" formControlName="nombre" style="width: 32rem;">
+                <input type="text" formControlName="nombre" style="width: 100%;">
+       
+                <label style="margin-top: 20px;">Ingredientes activos:</label>
+                <input type="text" formControlName="ingreActivo" style="width: 100%;">
+            </div>
+
+            <div class="edit-seccion" style="margin-top: 20px;">
+                <label>Renglón 1:</label>
+                <input type="text" formControlName="renglon1" style="width: 36%;">
+
+                <label>Renglón 2:</label>
+                <input type="text" formControlName="renglon2" style="width: 36%;">
+            </div>
+            
+            <div class="edit-seccion">
                 <label>Cod. Barras:</label>
                 <input type="text" formControlName="codigoBarras" style="width: 10rem;">
-            </div>
-            <div class="edit-seccion">
-                <label>Renglón 1:</label>
-                <input type="text" formControlName="renglon1" style="width: 22rem;">
-                <label>Renglón 2:</label>
-                <input type="text" formControlName="renglon2" style="width: 22rem;">
-            </div>
-            <div class="edit-seccion">
+
                 <label>Categoría:</label>
-                <input type="text" formControlName="categoria" style="width: 11rem;">
+                <input type="text" formControlName="categoria" style="width: 12rem;">
+
+                <label>Unidad:</label>
+                <input type="text" formControlName="unidad" style="width: 5rem;">
+
+                <label >Costo:</label>
+                <input type="number" formControlName="costo"step="0.1" style="width: 5rem;">
+            </div>
+            <div class="edit-seccion"> 
+                <label >Ubicación:</label>
+                <input type="text" formControlName="ubicacion" style="width: 11rem;">
                 <label>Stock Minimo:</label>
                 <input type="number" formControlName="stockMinimo" style="width: 4rem;">
                 <label>Stock Maximo:</label>
@@ -27,11 +45,12 @@
                 <label>Genérico:</label>
                 <input type="checkbox" formControlName="generico">
             </div>
+
             <div>
                 <!-- <label style="margin-right: 10px;">INAPAM:</label>
                 <input type="checkbox" formControlName="descuentoINAPAM"> -->
-                <label style="margin-left: 2rem; margin-right: 10px;">Costo:</label>
-                <input type="number" formControlName="costo" style="width: 5rem;" step="0.1">
+                <!-- <label style="margin-left: 2rem; margin-right: 10px;">Costo:</label>
+                <input type="number" formControlName="costo" style="width: 5rem;" step="0.1"> -->
                 <!-- <label style="margin-left: 2rem; margin-right: 10px;">Precio:</label>
                 <input type="number" formControlName="precio" style="width: 5rem;"> 
                     <small *ngIf="utilPct !== null; else sinDato" [style.color]="utilColor" style="text-align: left;">
@@ -42,8 +61,8 @@
                         ({{ utilAbs | currency }})
                     </small> -->
 
-                    <label style="margin-left: 2rem; margin-right: 10px;">Ubicación:</label>
-                    <input type="text" formControlName="ubicacion" style="width: 11rem;">
+                   <!--  <label style="margin-left: 2rem; margin-right: 10px;">Ubicación:</label>
+                    <input type="text" formControlName="ubicacion" style="width: 11rem;"> -->
             </div>
             <!-- Lotes -->
             <div formArrayName="lotes">
@@ -123,7 +142,7 @@
                     </div>
                 </div>
             </div> -->
-
+            
         </form>
         <hr>
         <div class="modal-buttons">

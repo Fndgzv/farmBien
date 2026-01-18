@@ -1,3 +1,5 @@
+// backBien\routes\fichasConsultorio.routes.js
+
 const router = require("express").Router();
 const ctrl = require("../controllers/fichasConsultorio.controller");
 
@@ -38,6 +40,20 @@ router.get(
   auth,
   checkRole(["admin", "medico"]),
   ctrl.obtenerCola
+);
+
+router.post(
+  "/:id/tomar-para-atencion",
+  auth,
+  checkRole(["admin", "medico"]),
+  ctrl.tomarParaAtencion
+);
+
+router.post(
+  "/:id/llamar",
+  auth,
+  checkRole(["admin", "medico"]),
+  ctrl.llamarFicha
 );
 
 router.get(

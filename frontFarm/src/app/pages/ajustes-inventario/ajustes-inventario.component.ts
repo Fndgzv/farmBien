@@ -11,7 +11,7 @@ import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { environment } from '../../../environments/environment';
 
-import { catchError, firstValueFrom, from, mergeMap, of, tap } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
 
 type ColumnaOrden = '' | keyof Producto | 'existencia';
@@ -115,6 +115,7 @@ export class AjustesInventarioComponent implements OnInit {
     // 👇 inicializa form del modal
     this.nuevoProductoForm = this.fb.group({
       nombre: ['', [Validators.required, Validators.minLength(3)]],
+      ingreActivo: [''],
       renglon1: [''],
       renglon2: [''],
       codigoBarras: ['', Validators.required],
@@ -595,6 +596,7 @@ export class AjustesInventarioComponent implements OnInit {
   abrirNuevoProducto() {
     this.nuevoProductoForm.reset({
       nombre: '',
+      ingreActivo: '',
       codigoBarras: '',
       renglon1: '',
       renglon2: '',

@@ -1,5 +1,7 @@
+// backBien/models/Receta.js
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const { VIAS_ADMIN } = require("../constants/viasAdmin");
 
 const MedicamentoRecetadoSchema = new Schema(
     {
@@ -18,43 +20,6 @@ const MedicamentoRecetadoSchema = new Schema(
     },
     { _id: false }
 );
-
-const VIAS_ADMIN = [
-    // Comunes
-    "ORAL",
-    "SUBLINGUAL",
-    "BUCAL",
-    "INHALATORIA",
-    "NASAL",
-    "TOPICA",
-    "TRANSDERMICA",
-    "OFTALMICA",
-    "OTICA",
-    "RECTAL",
-    "VAGINAL",
-    "INTRAVENOSA",
-    "INTRAMUSCULAR",
-    "SUBCUTANEA",
-    "INTRADERMICA",
-];
-
-export const VIAS = [
-  { value: 'ORAL',           label: 'Oral (VO)' },
-  { value: 'SUBLINGUAL',     label: 'Sublingual' },
-  { value: 'BUCAL',          label: 'Bucal' },
-  { value: 'INHALATORIA',    label: 'Inhalatoria' },
-  { value: 'NASAL',          label: 'Nasal' },
-  { value: 'TOPICA',         label: 'Tópica' },
-  { value: 'TRANSDERMICA',   label: 'Transdérmica (parches)' },
-  { value: 'OFTALMICA',      label: 'Oftálmica (ojos)' },
-  { value: 'OTICA',          label: 'Ótica (oídos)' },
-  { value: 'RECTAL',         label: 'Rectal' },
-  { value: 'VAGINAL',        label: 'Vaginal' },
-  { value: 'INTRAVENOSA',    label: 'Intravenosa (IV)' },
-  { value: 'INTRAMUSCULAR',  label: 'Intramuscular (IM)' },
-  { value: 'SUBCUTANEA',     label: 'Subcutánea (SC)' },
-  { value: 'INTRADERMICA',   label: 'Intradérmica (ID)' },
-];
 
 const RecetaSchema = new Schema(
     {

@@ -1,0 +1,20 @@
+const VIAS_ADMIN = [
+  "ORAL",
+  "SUBLINGUAL",
+  "BUCAL",
+  "INHALATORIA",
+  "NASAL",
+  "TOPICA",
+  "TRANSDERMICA",
+  "OFTALMICA",
+  "OTICA",
+  "RECTAL",
+  "VAGINAL",
+  "INTRAVENOSA",
+  "INTRAMUSCULAR",
+  "SUBCUTANEA",
+  "INTRADERMICA",
+  "OTRA",
+];
+
+module.exports = { VIAS_ADMIN };
