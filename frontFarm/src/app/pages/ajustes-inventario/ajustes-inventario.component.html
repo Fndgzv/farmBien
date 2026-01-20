@@ -96,13 +96,6 @@
                         Existencia &lt; Stock Mín.
                     </label>
                 </div>
-
-                <!-- Botón limpiar (opcional, útil si quieres apagar de un clic el flag) -->
-                <button *ngIf="filtros.bajoStock" type="button"
-                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                    (click)="limpiarFiltro('bajoStock')" matTooltip="Quitar filtro bajo stock">
-                    <fa-icon [icon]="faTimes"></fa-icon>
-                </button>
             </div>
         </div>
 
@@ -123,16 +116,6 @@
                     Solo caducados
                 </label>
                 </div>
-
-                <button
-                *ngIf="filtros.caducados"
-                type="button"
-                class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                (click)="limpiarFiltro('caducados')"
-                matTooltip="Quitar filtro caducados"
-                >
-                <fa-icon [icon]="faTimes"></fa-icon>
-                </button>
             </div>
         </div>
 
@@ -182,16 +165,6 @@
                 Mostrar duplicados
                 </label>
             </div>
-
-            <!-- Botón limpiar -->
-            <!-- <button
-                *ngIf="filtros.duplicadosCB"
-                type="button"
-                class="btn-icon-chico btn-sm btn-light btn-rojo-chico ms-2"
-                (click)="limpiarFiltro('duplicadosCB')"
-                matTooltip="Quitar filtro de duplicados"
-            ><fa-icon [icon]="faTimes"></fa-icon>
-            </button> -->
         </div>
     
         <div class="col-md-1 text-end mt-3">
@@ -199,6 +172,14 @@
                 matTooltip="Filtrar información solicitada" (click)="aplicarFiltros()">
                 <i class="fa fa-spinner fa-spin me-1" *ngIf="filtrando || iniciando"></i>
                 {{ filtrando ? 'Filtrando…' : (iniciando ? 'Iniciando…' : 'Buscar') }}
+            </button>
+        </div>
+
+        <div class="col-md-1 text-end mt-3">
+            <button class="btn-rojo-tache" [disabled]="filtrando || iniciando" [attr.aria-busy]="filtrando || iniciando"
+                matTooltip="Recargar todos los productos sin filtros" (click)="cargarProductos(true)">
+                <i class="fa fa-spinner fa-spin me-1" *ngIf="filtrando || iniciando"></i>
+                {{ filtrando ? 'Cargando…' : (iniciando ? 'Iniciando…' : 'Refrescar') }}
             </button>
         </div>
 
@@ -398,23 +379,23 @@
                         'bi-caret-up': columnaOrden !== 'ultimoProveedorNombre'
                     }" class="icono-orden"></i>
                 </th>
-                <th (click)="ordenar('fechaCaducos')" matTooltip="Fecha de caducidad más próxima">
+                <th (click)="ordenar('proximaCaducidad')" matTooltip="Fecha de caducidad más próxima">
                     Fecha prox. cad.
-                    <i [ngClass]="{
-                        'bi': true,
-                        'bi-caret-up-fill': columnaOrden === 'fechaCaducos' && direccionOrden === 'asc',
-                        'bi-caret-down-fill': columnaOrden === 'fechaCaducos' && direccionOrden === 'desc',
-                        'bi-caret-up': columnaOrden !== 'fechaCaducos'
-                    }" class="icono-orden"></i>
-                </th>
-                <th matTooltip="Cantidad de productos por caducar">Cant. prox. caduc.</th>
-                <th  (click)="ordenar('proximaCaducidad')" matTooltip="Fecha mas reciente de caducados">
-                    Fecha caducos
                     <i [ngClass]="{
                         'bi': true,
                         'bi-caret-up-fill': columnaOrden === 'proximaCaducidad' && direccionOrden === 'asc',
                         'bi-caret-down-fill': columnaOrden === 'proximaCaducidad' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'proximaCaducidad'
+                    }" class="icono-orden"></i>
+                </th>
+                <th matTooltip="Cantidad de productos por caducar">Cant. prox. caduc.</th>
+                <th  (click)="ordenar('fechaCaducos')" matTooltip="Fecha mas reciente de caducados">
+                    Fecha caducos
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'fechaCaducos' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'fechaCaducos' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'fechaCaducos'
                     }" class="icono-orden"></i>
                 </th>
                 <th matTooltip="Cantidad de productos caducos">Cant. caduc.</th>

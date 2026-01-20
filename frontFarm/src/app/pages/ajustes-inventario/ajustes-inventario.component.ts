@@ -897,6 +897,8 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   cargarProductos(borrarFiltros: boolean) {
+    this.iniciando = true;
+    this.cdr.detectChanges();
     this.productoService.obtenerProductos().subscribe({
       next: (productos) => {
         this.productos = (productos || []).map((p: any) => ({
@@ -921,6 +923,7 @@ export class AjustesInventarioComponent implements OnInit {
       },
       error: (err) => console.error('Error al cargar productos:', err)
     });
+    this.iniciando = false;
   }
 
   onImgError(ev: Event, p: any) {
