@@ -15,7 +15,8 @@
         <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Nombre</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.nombre" name="nombre" class="form-control pe-4 flex-grow-1">
+                <input type="text" [(ngModel)]="filtros.nombre" name="nombre" (keyup.enter)="aplicarFiltros()"
+                    class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.nombre" type="button" matTooltip="Limpiar nombre"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('nombre')">
@@ -40,7 +41,7 @@
         <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Categoría</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.categoria" name="categoria"
+                <input type="text" [(ngModel)]="filtros.categoria" name="categoria" (keyup.enter)="aplicarFiltros()"
                     class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.categoria" type="button" matTooltip="Limpiar categoría"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
@@ -71,7 +72,8 @@
         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">Genérico?</label>
             <div class="position-relative">
-                <select [(ngModel)]="filtros.generico" name="generico" class="form-control pe-4 flex-grow-1">
+                <select [(ngModel)]="filtros.generico" name="generico" class="form-control pe-4 flex-grow-1"
+                    (change)="aplicarFiltros()">
                     <option [ngValue]="null">--</option>
                     <option [ngValue]="true">Sí</option>
                     <option [ngValue]="false">No</option>
@@ -135,7 +137,7 @@
         </div>
 
         <!-- Caducan en -->
-        <div class="col-md-2">
+        <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">Caducan en:</label>
             <div class="position-relative">
                 <select
@@ -182,14 +184,14 @@
             </div>
 
             <!-- Botón limpiar -->
-            <button
+            <!-- <button
                 *ngIf="filtros.duplicadosCB"
                 type="button"
                 class="btn-icon-chico btn-sm btn-light btn-rojo-chico ms-2"
                 (click)="limpiarFiltro('duplicadosCB')"
                 matTooltip="Quitar filtro de duplicados"
             ><fa-icon [icon]="faTimes"></fa-icon>
-            </button>
+            </button> -->
         </div>
     
         <div class="col-md-1 text-end mt-3">
