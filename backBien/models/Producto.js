@@ -43,6 +43,11 @@ const ProductoSchema = new Schema({
   categoriaNorm: { type: String, default: "" },
   ingreActivoNorm: { type: String, default: "" },
 
+  ultimoProveedorId: { type: Schema.Types.ObjectId, ref: "Proveedor", default: null, index: true },
+  ultimaCompraAt: { type: Date, default: null, index: true },
+  ultimaCompraId: { type: Schema.Types.ObjectId, ref: "Compra", default: null },
+  ultimoCostoCompra: { type: Number, default: 0, min: 0 },
+
   promoLunes: {
     porcentaje: { type: Number, min: 0, max: 100 },
     inicio: { type: Date },
@@ -127,8 +132,8 @@ function applyNormToUpdate(update) {
 
   const pick = (key) =>
     $set[key] !== undefined ? $set[key]
-    : $soi[key] !== undefined ? $soi[key]
-    : update[key];
+      : $soi[key] !== undefined ? $soi[key]
+        : update[key];
 
   const nombre = pick("nombre");
   const categoria = pick("categoria");

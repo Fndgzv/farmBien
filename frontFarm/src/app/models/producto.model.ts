@@ -25,6 +25,13 @@ export interface Producto {
   iva: boolean;
   stockMinimo: number;
   stockMaximo: number;
+  existencia: number;
+  ultimoProveedorNombre: string;
+  proximaCaducidad: Date;
+  cantidadProximaCaducidad: number,
+  fechaCaducos: Date;
+  cantidadCaducada: number,
+
   ubicacion: string;
   categoria: string;
   generico: boolean;

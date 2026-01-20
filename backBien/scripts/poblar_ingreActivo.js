@@ -33,6 +33,7 @@ async function main() {
       { categoria: "Antibiótico" },
       { categoria: /^IV( |$)/ },
       { categoria: /^VI( |$)/ },
+      { categoria: /^SUPLEMENTOS( |$)/ },
     ],
   };
 
@@ -105,6 +106,6 @@ async function main() {
 
 main().catch(async (err) => {
   console.error("ERROR:", err);
-  try { await mongoose.disconnect(); } catch {}
+  try { await mongoose.disconnect(); } catch { }
   process.exit(1);
 });

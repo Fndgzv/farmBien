@@ -181,10 +181,204 @@ exports.actualizarImagenProducto = async (req, res) => {
 // Obtener todos los productos
 exports.obtenerProductos = async (req, res) => {
   try {
-    const productos = await Producto.find();
-    res.json(productos);
+    const productos = await Producto.aggregate([
+      // 0) existencia = suma de lotes.cantidad SOLO > 0
+      {
+        $addFields: {
+          existencia: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: { $ifNull: ["$lotes", []] },
+                    as: "l",
+                    cond: { $gt: ["$$l.cantidad", 0] }
+                  }
+                },
+                as: "l",
+                in: { $ifNull: ["$$l.cantidad", 0] }
+              }
+            }
+          }
+        }
+      },
+
+      // 1) Precalcular: lotesValidos + inicio de mañana (00:00) en CDMX
+      {
+        $addFields: {
+          inicioMananaCdmx: {
+            $dateAdd: {
+              startDate: {
+                $dateTrunc: {
+                  date: "$$NOW",
+                  unit: "day",
+                  timezone: "America/Mexico_City"
+                }
+              },
+              unit: "day",
+              amount: 1,
+              timezone: "America/Mexico_City"
+            }
+          },
+          lotesValidos: {
+            $filter: {
+              input: { $ifNull: ["$lotes", []] },
+              as: "l",
+              cond: {
+                $and: [
+                  { $gt: ["$$l.cantidad", 0] },
+                  { $ne: ["$$l.fechaCaducidad", null] }
+                ]
+              }
+            }
+          }
+        }
+      },
+
+      // 2) proximaCaducidad = la fecha más antigua, pero > hoy (CDMX) => >= inicioMananaCdmx
+      //    fechaCaducos = la fecha más reciente <= hoy (CDMX) => < inicioMananaCdmx
+      {
+        $addFields: {
+          proximaCaducidad: {
+            $let: {
+              vars: {
+                futuros: {
+                  $filter: {
+                    input: "$lotesValidos",
+                    as: "l",
+                    cond: { $gte: ["$$l.fechaCaducidad", "$inicioMananaCdmx"] }
+                  }
+                }
+              },
+              in: { $min: "$$futuros.fechaCaducidad" }
+            }
+          },
+          fechaCaducos: {
+            $let: {
+              vars: {
+                vencidosOHoy: {
+                  $filter: {
+                    input: "$lotesValidos",
+                    as: "l",
+                    cond: { $lt: ["$$l.fechaCaducidad", "$inicioMananaCdmx"] }
+                  }
+                }
+              },
+              in: { $max: "$$vencidosOHoy.fechaCaducidad" }
+            }
+          }
+        }
+      },
+
+      // 3) cantidadProximaCaducidad = suma de lotes cuya fechaCaducidad == proximaCaducidad (solo futuros)
+      {
+        $addFields: {
+          cantidadProximaCaducidad: {
+            $let: {
+              vars: {
+                prox: "$proximaCaducidad",
+                futuros: {
+                  $filter: {
+                    input: "$lotesValidos",
+                    as: "l",
+                    cond: { $gte: ["$$l.fechaCaducidad", "$inicioMananaCdmx"] }
+                  }
+                }
+              },
+              in: {
+                $cond: [
+                  { $ne: ["$$prox", null] },
+                  {
+                    $sum: {
+                      $map: {
+                        input: {
+                          $filter: {
+                            input: "$$futuros",
+                            as: "l",
+                            cond: {
+                              $eq: [
+                                { $toLong: "$$l.fechaCaducidad" },
+                                { $toLong: "$$prox" }
+                              ]
+                            }
+                          }
+                        },
+                        as: "l",
+                        in: { $ifNull: ["$$l.cantidad", 0] }
+                      }
+                    }
+                  },
+                  0
+                ]
+              }
+            }
+          }
+        }
+      },
+
+      // 4) cantidadCaducada = suma de lotes con fechaCaducidad <= hoy (CDMX) => < inicioMananaCdmx
+      {
+        $addFields: {
+          cantidadCaducada: {
+            $let: {
+              vars: {
+                vencidosOHoy: {
+                  $filter: {
+                    input: "$lotesValidos",
+                    as: "l",
+                    cond: { $lt: ["$$l.fechaCaducidad", "$inicioMananaCdmx"] }
+                  }
+                }
+              },
+              in: {
+                $sum: {
+                  $map: {
+                    input: "$$vencidosOHoy",
+                    as: "l",
+                    in: { $ifNull: ["$$l.cantidad", 0] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      // 5) Lookup proveedor (ultimoProveedorId)
+      {
+        $lookup: {
+          from: "proveedores",
+          localField: "ultimoProveedorId",
+          foreignField: "_id",
+          as: "ultimoProveedorDoc"
+        }
+      },
+
+      // 6) Exponer nombre proveedor
+      {
+        $addFields: {
+          ultimoProveedorNombre: {
+            $ifNull: [{ $first: "$ultimoProveedorDoc.nombre" }, null]
+          }
+        }
+      },
+
+      // 7) Limpieza
+      {
+        $project: {
+          ultimoProveedorDoc: 0,
+          lotesValidos: 0,
+          inicioMananaCdmx: 0
+        }
+      },
+
+      { $sort: { nombre: 1 } }
+    ]);
+
+    return res.json(productos);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener productos" });
+    console.error(error);
+    return res.status(500).json({ mensaje: "Error al obtener productos" });
   }
 };
 
@@ -290,7 +484,7 @@ exports.obtenerProductoPorId = async (req, res) => {
 
 
 const { DateTime } = require("luxon");
-const { log } = require('console');
+require('console');
 
 const ZONE = process.env.APP_TZ || "America/Mexico_City";
 
@@ -409,13 +603,13 @@ exports.consultarPrecioPorCodigo = async (req, res) => {
 
     // ------------ 1) Promos por día (si existen en inventariofarmacias) ------------
     const dias = [
-      { k: 'promoDomingo',  idx: 0, label: 'Domingo',   promoKey: 'promo0', precioKey: 'precioDomingo', masInapamKey: 'domingoMasInapam' },
-      { k: 'promoLunes',    idx: 1, label: 'lunes',     promoKey: 'promo1', precioKey: 'precioLunes',   masInapamKey: 'lunesMasInapam' },
-      { k: 'promoMartes',   idx: 2, label: 'Martes',    promoKey: 'promo2', precioKey: 'precioMartes',  masInapamKey: 'martesMasInapam' },
-      { k: 'promoMiercoles',idx: 3, label: 'Miércoles', promoKey: 'promo3', precioKey: 'precioMiercoles', masInapamKey: 'miercolesMasInapam' },
-      { k: 'promoJueves',   idx: 4, label: 'Jueves',    promoKey: 'promo4', precioKey: 'precioJueves',  masInapamKey: 'juevesMasInapam' },
-      { k: 'promoViernes',  idx: 5, label: 'Viernes',   promoKey: 'promo5', precioKey: 'precioViernes', masInapamKey: 'viernesMasInapam' },
-      { k: 'promoSabado',   idx: 6, label: 'Sábado',    promoKey: 'promo6', precioKey: 'precioSabado',  masInapamKey: 'sabadoMasInapam' },
+      { k: 'promoDomingo', idx: 0, label: 'Domingo', promoKey: 'promo0', precioKey: 'precioDomingo', masInapamKey: 'domingoMasInapam' },
+      { k: 'promoLunes', idx: 1, label: 'lunes', promoKey: 'promo1', precioKey: 'precioLunes', masInapamKey: 'lunesMasInapam' },
+      { k: 'promoMartes', idx: 2, label: 'Martes', promoKey: 'promo2', precioKey: 'precioMartes', masInapamKey: 'martesMasInapam' },
+      { k: 'promoMiercoles', idx: 3, label: 'Miércoles', promoKey: 'promo3', precioKey: 'precioMiercoles', masInapamKey: 'miercolesMasInapam' },
+      { k: 'promoJueves', idx: 4, label: 'Jueves', promoKey: 'promo4', precioKey: 'precioJueves', masInapamKey: 'juevesMasInapam' },
+      { k: 'promoViernes', idx: 5, label: 'Viernes', promoKey: 'promo5', precioKey: 'precioViernes', masInapamKey: 'viernesMasInapam' },
+      { k: 'promoSabado', idx: 6, label: 'Sábado', promoKey: 'promo6', precioKey: 'precioSabado', masInapamKey: 'sabadoMasInapam' },
     ];
 
     for (const d of dias) {

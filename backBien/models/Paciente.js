@@ -27,7 +27,7 @@ const DatosGeneralesSchema = new Schema(
   { _id: false }
 );
 
-// Lo mínimo hoy; luego lo mapeamos 1:1 con tu cuestionario inicial
+
 const AntecedentesSchema = new Schema(
   {
     alergias: [{ type: String, trim: true }],

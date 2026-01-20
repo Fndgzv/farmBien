@@ -3,14 +3,6 @@ const FichaConsultorio = require("../models/FichaConsultorio");
 const Producto = require("../models/Producto");
 const Paciente = require("../models/Paciente");
 
-/**
- * .env:
- * CONSULTA_PRODUCTO_IDS=ID_CONSULTA_NORMAL,ID_CONSULTA_FIN_SEMANA
- */
-const CONSULTA_PRODUCTO_IDS = (process.env.CONSULTA_PRODUCTO_IDS || "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
 
 function getFarmaciaActiva(req) {
   const fromUser = req.usuario?.farmacia;          // empleado/medico
@@ -20,14 +12,6 @@ function getFarmaciaActiva(req) {
   return String(farmaciaId);
 }
 
-function isConsultaProducto(prod) {
-  // Preferido: IDs en .env
-  if (CONSULTA_PRODUCTO_IDS.length > 0) {
-    return CONSULTA_PRODUCTO_IDS.includes(String(prod._id));
-  }
-  // Fallback si luego agregas campo a Producto
-  return prod.tipoServicioMedico === "CONSULTA";
-}
 
 /**
  * POST /api/fichas-consultorio
@@ -82,7 +66,6 @@ exports.crearFicha = async (req, res) => {
  *
  * Reglas:
  * - servicios deben ser categoría "Servicio Médico"
- * - debe incluir al menos UNA consulta (consulta normal o fin de semana)
  */
 exports.actualizarServicios = async (req, res) => {
   try {
@@ -103,54 +86,50 @@ exports.actualizarServicios = async (req, res) => {
       return res.status(400).json({ msg: "La ficha ya está en cobro, no se puede modificar" });
     }
 
-    if (!Array.isArray(servicios) || servicios.length === 0) {
-      return res.status(400).json({ msg: "Debes capturar al menos el renglón de consulta" });
+    // ✅ Ahora NO es forzoso traer consulta (ni siquiera servicios)
+    // Solo validamos que "servicios" sea arreglo
+    if (!Array.isArray(servicios)) {
+      return res.status(400).json({ msg: "Servicios inválidos" });
     }
 
-    const productoIds = servicios.map((s) => s.productoId).filter(Boolean);
-    if (productoIds.length === 0) {
-      return res.status(400).json({ msg: "Servicios inválidos: faltan productoId" });
-    }
+    // Si viene vacío, simplemente guardamos vacío (permitido)
+    let serviciosSnapshot = [];
 
-    const productos = await Producto.find({ _id: { $in: productoIds } })
-      .select("nombre codigoBarras categoria precioVenta tipoServicioMedico");
-
-    const map = new Map(productos.map((p) => [String(p._id), p]));
-
-    const serviciosSnapshot = [];
-    let traeConsulta = false;
-
-    for (const s of servicios) {
-      const p = map.get(String(s.productoId));
-      if (!p) return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
-
-      const cat = (p.categoria || "").trim();
-      if (cat !== "Servicio Médico") {
-        return res.status(400).json({
-          msg: `El producto ${p.nombre} no es de categoría Servicio Médico`,
-        });
+    if (servicios.length > 0) {
+      const productoIds = servicios.map((s) => s.productoId).filter(Boolean);
+      if (productoIds.length === 0) {
+        return res.status(400).json({ msg: "Servicios inválidos: faltan productoId" });
       }
 
-      if (isConsultaProducto(p)) traeConsulta = true;
+      const productos = await Producto.find({ _id: { $in: productoIds } })
+        .select("nombre codigoBarras categoria precioVenta");
 
-      const cantidad = Math.max(parseInt(s.cantidad ?? 1, 10) || 1, 1);
+      const map = new Map(productos.map((p) => [String(p._id), p]));
 
-      serviciosSnapshot.push({
-        productoId: p._id,
-        nombre: p.nombre,
-        codigoBarras: p.codigoBarras,
-        precio: p.precioVenta ?? 0,
-        cantidad,
-        notas: (s.notas || "").trim(),
-      });
-    }
+      serviciosSnapshot = [];
 
-    if (!traeConsulta) {
-      return res.status(400).json({
-        msg:
-          "La ficha debe incluir al menos una CONSULTA (normal o fin de semana). " +
-          "Configura CONSULTA_PRODUCTO_IDS en .env con los IDs permitidos.",
-      });
+      for (const s of servicios) {
+        const p = map.get(String(s.productoId));
+        if (!p) return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
+
+        const cat = (p.categoria || "").trim();
+        if (cat !== "Servicio Médico") {
+          return res.status(400).json({
+            msg: `El producto ${p.nombre} no es de categoría Servicio Médico`,
+          });
+        }
+
+        const cantidad = Math.max(parseInt(s.cantidad ?? 1, 10) || 1, 1);
+
+        serviciosSnapshot.push({
+          productoId: p._id,
+          nombre: p.nombre,
+          codigoBarras: p.codigoBarras,
+          precio: p.precioVenta ?? 0,
+          cantidad,
+          notas: (s.notas || "").trim(),
+        });
+      }
     }
 
     ficha.servicios = serviciosSnapshot;
@@ -158,9 +137,14 @@ exports.actualizarServicios = async (req, res) => {
 
     ficha.medicoId = req.usuario._id;
     ficha.inicioAtencionAt = ficha.inicioAtencionAt || new Date();
-    ficha.finAtencionAt = new Date();
+    if (serviciosSnapshot.length > 0) {
+      ficha.finAtencionAt = new Date();
+      ficha.estado = "LISTA_PARA_COBRO";
+    } else {
+      // ✅ Si NO hay servicios: se queda en atención y NO toca finAtencionAt
+      ficha.estado = "EN_ATENCION";
+    }
 
-    ficha.estado = "LISTA_PARA_COBRO";
     ficha.actualizadaPor = req.usuario._id;
 
     await ficha.save();
@@ -385,6 +369,62 @@ const norm = (s) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+
+exports.cancelarFicha = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const usuario = req.usuario; // viene del authMiddleware
+    const rol = usuario?.rol;
+
+    const { motivoCancelacion } = req.body;
+
+    const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
+    if (!ficha) return res.status(404).json({ msg: "Ficha no encontrada" });
+
+    // Estados finales
+    if (ficha.estado === "ATENDIDA") {
+      return res.status(400).json({ msg: "No se puede cancelar una ficha ya cobrada/atendida" });
+    }
+    if (ficha.estado === "CANCELADA") {
+      return res.status(400).json({ msg: "La ficha ya está cancelada" });
+    }
+
+    // Reglas por estado EN_COBRO
+    if (ficha.estado === "EN_COBRO") {
+      if (rol === "medico") {
+        return res.status(403).json({ msg: "La ficha ya está en cobro. Debe cancelarla caja." });
+      }
+
+      // empleado: solo si él la tomó; admin puede siempre
+      if (rol === "empleado") {
+        if (ficha.cobroPor && String(ficha.cobroPor) !== String(usuario._id)) {
+          return res.status(409).json({ msg: "La ficha está tomada por otro usuario en caja." });
+        }
+      }
+
+      // ✅ al cancelar, liberamos el cobro para que no quede bloqueada
+      ficha.cobroPor = null;
+    }
+
+    // Listo: cancelar
+    ficha.estado = "CANCELADA";
+    ficha.motivoCancelacion = (motivoCancelacion || "").trim();
+    ficha.canceladaAt = new Date();
+    ficha.canceladaPor = usuario._id;
+    ficha.actualizadaPor = usuario._id;
+
+    await ficha.save();
+
+    return res.json({ ok: true, ficha });
+  } catch (err) {
+    console.error("cancelarFicha:", err);
+    return res.status(500).json({ msg: "Error al cancelar ficha" });
+  }
+};
+
 
 exports.buscar = async (req, res) => {
   try {

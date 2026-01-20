@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const Proveedor = require('../models/Proveedor');
 const Compra = require('../models/Compra');
 const Producto = require('../models/Producto');
-const InventarioFarmacia = require('../models/InventarioFarmacia');
 
 exports.obtenerCompras = async (req, res) => {
   try {
@@ -85,11 +84,11 @@ exports.crearCompra = async (req, res) => {
         return res.status(400).json({ mensaje: 'Falta código de barras en un renglón' });
       }
 
-      const cant   = toNum(cantidad);
-      const costo  = toNum(costoUnitario);
+      const cant = toNum(cantidad);
+      const costo = toNum(costoUnitario);
       const precio = toNum(precioUnitario);
 
-      if (cant <= 0)  return res.status(400).json({ mensaje: `Cantidad inválida para ${codigoBarras}` });
+      if (cant <= 0) return res.status(400).json({ mensaje: `Cantidad inválida para ${codigoBarras}` });
       if (costo < 0 || precio < 0) {
         return res.status(400).json({ mensaje: `Costo/precio inválidos para ${codigoBarras}` });
       }
@@ -101,7 +100,7 @@ exports.crearCompra = async (req, res) => {
 
       if (afectarExistencias) {
         // 5) Actualizar costo, precio y stocks configurables
-        if (Number.isFinite(costo))  prodDB.costo  = costo;
+        if (Number.isFinite(costo)) prodDB.costo = costo;
         if (Number.isFinite(precio)) prodDB.precio = precio;
 
         if (stockMinimo !== undefined) prodDB.stockMinimo = toNum(stockMinimo);
@@ -110,18 +109,18 @@ exports.crearCompra = async (req, res) => {
         // 6) Promociones (si vienen)
         if (promociones && typeof promociones === 'object') {
           Object.assign(prodDB, {
-            promoLunes:               promociones.promoLunes ?? prodDB.promoLunes,
-            promoMartes:              promociones.promoMartes ?? prodDB.promoMartes,
-            promoMiercoles:           promociones.promoMiercoles ?? prodDB.promoMiercoles,
-            promoJueves:              promociones.promoJueves ?? prodDB.promoJueves,
-            promoViernes:             promociones.promoViernes ?? prodDB.promoViernes,
-            promoSabado:              promociones.promoSabado ?? prodDB.promoSabado,
-            promoDomingo:             promociones.promoDomingo ?? prodDB.promoDomingo,
-            promoCantidadRequerida:   promociones.promoCantidadRequerida ?? prodDB.promoCantidadRequerida,
-            inicioPromoCantidad:      promociones.inicioPromoCantidad ?? prodDB.inicioPromoCantidad,
-            finPromoCantidad:         promociones.finPromoCantidad ?? prodDB.finPromoCantidad,
-            descuentoINAPAM:          promociones.descuentoINAPAM ?? prodDB.descuentoINAPAM,
-            promoDeTemporada:         promociones.promoDeTemporada ?? prodDB.promoDeTemporada
+            promoLunes: promociones.promoLunes ?? prodDB.promoLunes,
+            promoMartes: promociones.promoMartes ?? prodDB.promoMartes,
+            promoMiercoles: promociones.promoMiercoles ?? prodDB.promoMiercoles,
+            promoJueves: promociones.promoJueves ?? prodDB.promoJueves,
+            promoViernes: promociones.promoViernes ?? prodDB.promoViernes,
+            promoSabado: promociones.promoSabado ?? prodDB.promoSabado,
+            promoDomingo: promociones.promoDomingo ?? prodDB.promoDomingo,
+            promoCantidadRequerida: promociones.promoCantidadRequerida ?? prodDB.promoCantidadRequerida,
+            inicioPromoCantidad: promociones.inicioPromoCantidad ?? prodDB.inicioPromoCantidad,
+            finPromoCantidad: promociones.finPromoCantidad ?? prodDB.finPromoCantidad,
+            descuentoINAPAM: promociones.descuentoINAPAM ?? prodDB.descuentoINAPAM,
+            promoDeTemporada: promociones.promoDeTemporada ?? prodDB.promoDeTemporada
           });
         }
 
@@ -142,6 +141,10 @@ exports.crearCompra = async (req, res) => {
 
         // limpiar lotes sin cantidad
         prodDB.lotes = (prodDB.lotes || []).filter(l => toNum(l.cantidad) > 0);
+
+        prodDB.ultimoProveedorId = prov._id;
+        prodDB.ultimaCompraAt = fechaCompra;
+        prodDB.ultimaCompraId = null;
 
         // guarda cambios en productos
         await prodDB.save();
@@ -174,6 +177,44 @@ exports.crearCompra = async (req, res) => {
 
     await compra.save();
 
+    // ✅ ACTUALIZAR "último proveedor" en Producto (rápido con bulkWrite)
+    // Se hace aunque afectarExistencias sea false, porque sigue siendo "última compra"
+    const proveedorId = compra.proveedor;
+    const compraId = compra._id;
+    const compraFecha = compra.fecha;
+
+    // Si un producto se repite en items, nos quedamos con el último costo/precio
+    const mapUlt = new Map();
+    for (const it of compra.productos) {
+      const pid = String(it.producto);
+      if (!pid) continue;
+
+      mapUlt.set(pid, {
+        pid,
+        costo: toNum(it.costoUnitario)
+      });
+    }
+
+    const ops = [];
+    for (const x of mapUlt.values()) {
+      ops.push({
+        updateOne: {
+          filter: { _id: x.pid },
+          update: {
+            $set: {
+              ultimoProveedorId: proveedorId,
+              ultimaCompraId: compraId,
+              ultimaCompraAt: compraFecha,
+              ultimoCostoCompra: x.costo,
+            }
+          }
+        }
+      });
+    }
+
+    if (ops.length) {
+      await Producto.bulkWrite(ops, { ordered: false });
+    }
     return res.status(201).json({
       mensaje: 'Compra registrada correctamente',
       compra
@@ -211,7 +252,7 @@ function dayRangeUtcFromQuery(fechaIni, fechaFin) {
 
   return {
     gte: toUtcBoundary(iniLocal),          // >= inicio de día LOCAL (en UTC)
-    lt:  toUtcBoundary(finExclusiveLocal)  // < (fin LOCAL + 1 día) en UTC
+    lt: toUtcBoundary(finExclusiveLocal)  // < (fin LOCAL + 1 día) en UTC
   };
 }
 
@@ -227,9 +268,9 @@ exports.consultarCompras = async (req, res) => {
       codigoBarras
     } = req.query;
 
-    const page  = Math.max(1, parseInt(req.query.page  || '1',  10));
+    const page = Math.max(1, parseInt(req.query.page || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '15', 10)));
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
     const barra = (codigoBarras ?? '').trim();
 
     // Rango de fechas blindado a local -> UTC exclusivo
@@ -261,7 +302,7 @@ exports.consultarCompras = async (req, res) => {
       }
 
       const prodDocs = await Producto.find(prodQuery, { _id: 1 });
-      const prodIds  = prodDocs.map(p => p._id);
+      const prodIds = prodDocs.map(p => p._id);
 
       if (prodIds.length === 0) {
         return res.json({

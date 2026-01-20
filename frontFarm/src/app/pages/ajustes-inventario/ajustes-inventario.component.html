@@ -12,7 +12,7 @@
 
     <!-- Filtros -->
     <div class="row mb-2 filtros-container">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Nombre</label>
             <div class="position-relative">
                 <input type="text" [(ngModel)]="filtros.nombre" name="nombre" class="form-control pe-4 flex-grow-1">
@@ -50,7 +50,7 @@
             </div>
         </div>
 
-        <div class="col-md-1">
+<!--         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">INAPAM</label>
             <div class="position-relative">
                 <select [(ngModel)]="filtros.descuentoINAPAM" name="descuentoINAPAM"
@@ -65,7 +65,9 @@
                     <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
-        </div>
+        </div> -->
+
+
         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">Genérico?</label>
             <div class="position-relative">
@@ -102,15 +104,65 @@
             </div>
         </div>
 
-        <div class="col-md-1 text-end mt-3">
-            <button class="btn-gris" [disabled]="filtrando || iniciando" [attr.aria-busy]="filtrando || iniciando"
-                matTooltip="Filtrar información solicitada" (click)="aplicarFiltros()">
-                <i class="fa fa-spinner fa-spin me-1" *ngIf="filtrando || iniciando"></i>
-                {{ filtrando ? 'Filtrando…' : (iniciando ? 'Iniciando…' : 'Buscar') }}
-            </button>
+        <!-- Productos caducados -->
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Productos caducados</label>
+            <div class="position-relative">
+                <div class="form-check mt-2">
+                <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="filtroCaducados"
+                    [(ngModel)]="filtros.caducados"
+                    name="caducados"
+                    (change)="onToggleCaducados()"
+                />
+                <label class="form-check-label" for="filtroCaducados">
+                    Solo caducados
+                </label>
+                </div>
+
+                <button
+                *ngIf="filtros.caducados"
+                type="button"
+                class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                (click)="limpiarFiltro('caducados')"
+                matTooltip="Quitar filtro caducados"
+                >
+                <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
         </div>
 
-        <div class="d-flex align-items-center mt-2">
+        <!-- Caducan en -->
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Caducan en:</label>
+            <div class="position-relative">
+                <select
+                [(ngModel)]="filtros.caducanEnMeses"
+                name="caducanEnMeses"
+                class="form-control pe-4 flex-grow-1"
+                (change)="onChangeCaducanEn()"
+                >
+                <option [ngValue]="null">--</option>
+                <option *ngFor="let m of mesesCaducidad" [ngValue]="m">
+                    {{ m }} mes{{ m === 1 ? '' : 'es' }}
+                </option>
+                </select>
+
+                <button
+                *ngIf="filtros.caducanEnMeses !== null"
+                type="button"
+                matTooltip="Limpiar caducidad"
+                class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                (click)="limpiarFiltro('caducanEnMeses')"
+                >
+                <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-2">
             <!-- Etiqueta -->
             <label class="me-3 mb-0" style="white-space: nowrap;">Código Barras: </label>
 
@@ -137,6 +189,14 @@
                 (click)="limpiarFiltro('duplicadosCB')"
                 matTooltip="Quitar filtro de duplicados"
             ><fa-icon [icon]="faTimes"></fa-icon>
+            </button>
+        </div>
+    
+        <div class="col-md-1 text-end mt-3">
+            <button class="btn-gris" [disabled]="filtrando || iniciando" [attr.aria-busy]="filtrando || iniciando"
+                matTooltip="Filtrar información solicitada" (click)="aplicarFiltros()">
+                <i class="fa fa-spinner fa-spin me-1" *ngIf="filtrando || iniciando"></i>
+                {{ filtrando ? 'Filtrando…' : (iniciando ? 'Iniciando…' : 'Buscar') }}
             </button>
         </div>
 
@@ -278,7 +338,7 @@
         </div>
     </form>
 
-    <table class="tabla">
+    <table class="tabla" style="font-size: small;">
         <thead>
             <tr>
                 <th>
@@ -312,7 +372,7 @@
                         'bi-caret-up': columnaOrden !== 'categoria'
                     }" class="icono-orden"></i>
                 </th>
-                <th>Genérico</th>
+                <!-- <th>Genérico</th> -->
                 <th>Stock Mín.</th>
                 <th>Stock Máx.</th>
                 <th (click)="ordenar('existencia')">
@@ -324,9 +384,38 @@
                         'bi-caret-up': columnaOrden !== 'existencia'
                     }" class="icono-orden"></i>
                 </th>
-                <th>INAPAM</th>
+                <!-- <th>INAPAM</th> -->
                 <th>Costo</th>
-                <th title="Precio sugerido">Precio</th>
+                <!-- <th title="Precio sugerido">Precio</th> -->
+                <th (click)="ordenar('ultimoProveedorNombre')">
+                    Ultimo proveedor
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'ultimoProveedorNombre' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'ultimoProveedorNombre' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'ultimoProveedorNombre'
+                    }" class="icono-orden"></i>
+                </th>
+                <th (click)="ordenar('fechaCaducos')" matTooltip="Fecha de caducidad más próxima">
+                    Fecha prox. cad.
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'fechaCaducos' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'fechaCaducos' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'fechaCaducos'
+                    }" class="icono-orden"></i>
+                </th>
+                <th matTooltip="Cantidad de productos por caducar">Cant. prox. caduc.</th>
+                <th  (click)="ordenar('proximaCaducidad')" matTooltip="Fecha mas reciente de caducados">
+                    Fecha caducos
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'proximaCaducidad' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'proximaCaducidad' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'proximaCaducidad'
+                    }" class="icono-orden"></i>
+                </th>
+                <th matTooltip="Cantidad de productos caducos">Cant. caduc.</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -374,20 +463,25 @@
                 </td>
                 <td>{{ p.codigoBarras }}</td>
                 <td>{{ p.categoria }}</td>
-                <td style="text-align: center;">
+                <!-- <td style="text-align: center;">
                     <input type="checkbox" [checked]="p.generico" disabled>
-                </td>
+                </td> -->
                 <td style="text-align: right">{{ p.stockMinimo }}</td>
                 <td style="text-align: right">{{ p.stockMaximo }}</td>
-                <td style="text-align: right" [class.text-danger]="getExistencia(p) < (p.stockMinimo || 0)">
-                    {{ getExistencia(p) }}
+                <td style="text-align: right" [class.text-danger]="p.existencia < (p.stockMinimo || 0)">
+                    {{ p.existencia }}
                 </td>
 
-                <td style="text-align: center;">
+                <!-- <td style="text-align: center;">
                     <input type="checkbox" [checked]="p.descuentoINAPAM" disabled>
-                </td>
+                </td> -->
                 <td>{{ p.costo | currency }}</td>
-                <td>{{ p.precio |currency }}</td>
+                <!-- <td>{{ p.precio |currency }}</td> -->
+                <td>{{ p.ultimoProveedorNombre }}</td>
+                <td>{{ p.proximaCaducidad | date:'dd/MM/yyyy' }}</td>
+                <td style="text-align: right">{{ p.cantidadProximaCaducidad }}</td>
+                <td>{{ p.fechaCaducos | date:'dd/MM/yyyy' }}</td>
+                <td style="text-align: right">{{ p.cantidadCaducada }}</td>
                 <td>
                     <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)"
                         matTooltip="Editar producto">

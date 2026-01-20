@@ -60,6 +60,11 @@ const FichaConsultorioSchema = new Schema(
     // Auditoría
     creadaPor: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
     actualizadaPor: { type: Schema.Types.ObjectId, ref: "Usuario" },
+
+    canceladaAt: { type: Date },
+    canceladaPor: { type: Schema.Types.ObjectId, ref: "Usuario" },
+    motivoCancelacion: { type: String, trim: true },
+
   },
   { timestamps: true }
 );

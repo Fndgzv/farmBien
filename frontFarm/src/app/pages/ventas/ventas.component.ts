@@ -224,6 +224,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   busquedaPaciente = '';
   buscandoPaciente = false;
+  busquedaPacienteHecha = false;
 
   pacienteEncontrado: any = null;     // cuando viene {paciente}
   pacientesEncontrados: any[] = [];   // cuando viene {pacientes}
@@ -2496,58 +2497,58 @@ export class VentasComponent implements OnInit, AfterViewInit {
     });
   }
 
-  private agregandoFicha = false; 
+  private agregandoFicha = false;
   private async agregarServiciosFichaAlCarrito(ficha: any) {
 
     if (this.agregandoFicha) return;
     this.agregandoFicha = true;
 
     try {
-    const servicios = Array.isArray(ficha?.servicios) ? ficha.servicios : [];
-    if (!servicios.length) {
-      Swal.fire('Aviso', 'La ficha no trae servicios para cobrar.', 'info');
-      return;
-    }
-
-    // ✅ Ligar ficha a esta venta
-    this.fichaIdSeleccionada = ficha._id;
-
-    // ✅ Agregar cada servicio como producto normal (usando tu flujo existente)
-    // OJO: servicios trae snapshot, pero tú necesitas producto real (de this.productos)
-    for (const s of servicios) {
-      const prod = this.productos.find(p => p._id === String(s.productoId));
-      if (!prod) {
-        console.warn('Producto de servicio no existe en catálogo local:', s.productoId);
-        continue;
+      const servicios = Array.isArray(ficha?.servicios) ? ficha.servicios : [];
+      if (!servicios.length) {
+        Swal.fire('Aviso', 'La ficha no trae servicios para cobrar.', 'info');
+        return;
       }
 
-      // Asegura existencia (para Servicio Médico normalmente es alto, pero lo respetamos)
-      this.nombreDelProducto = prod.nombre;
-      try {
-        await this.existenciaProducto(this.farmaciaId, prod._id, (Number(s.cantidad) || 1), true);
-      } catch { }
+      // ✅ Ligar ficha a esta venta
+      this.fichaIdSeleccionada = ficha._id;
 
-      // Agrega 1 a 1 respetando tu lógica de incrementos
-      const veces = Math.max(1, Math.floor(Number(s.cantidad) || 1));
-      for (let i = 0; i < veces; i++) {
-        await this.agregarProductoAlCarrito(prod);
+      // ✅ Agregar cada servicio como producto normal (usando tu flujo existente)
+      // OJO: servicios trae snapshot, pero tú necesitas producto real (de this.productos)
+      for (const s of servicios) {
+        const prod = this.productos.find(p => p._id === String(s.productoId));
+        if (!prod) {
+          console.warn('Producto de servicio no existe en catálogo local:', s.productoId);
+          continue;
+        }
+
+        // Asegura existencia (para Servicio Médico normalmente es alto, pero lo respetamos)
+        this.nombreDelProducto = prod.nombre;
+        try {
+          await this.existenciaProducto(this.farmaciaId, prod._id, (Number(s.cantidad) || 1), true);
+        } catch { }
+
+        // Agrega 1 a 1 respetando tu lógica de incrementos
+        const veces = Math.max(1, Math.floor(Number(s.cantidad) || 1));
+        for (let i = 0; i < veces; i++) {
+          await this.agregarProductoAlCarrito(prod);
+        }
       }
+
+      // Cierra modal y regresa al scanner
+      this.cerrarModalFichas();
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Servicios agregados al carrito',
+        timer: 900,
+        showConfirmButton: false
+      });
+
+      this.focusBarcode(60, true);
+    } finally {
+      this.agregandoFicha = false;
     }
-
-    // Cierra modal y regresa al scanner
-    this.cerrarModalFichas();
-
-    Swal.fire({
-      icon: 'success',
-      title: 'Servicios agregados al carrito',
-      timer: 900,
-      showConfirmButton: false
-    });
-
-    this.focusBarcode(60, true);
-  } finally {
-    this.agregandoFicha = false;
-  }
   }
 
 
@@ -2575,15 +2576,20 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   limpiarBusquedaPaciente() {
     this.busquedaPaciente = '';
+    this.buscandoPaciente = false;
+    this.busquedaPacienteHecha = false;
     this.pacienteEncontrado = null;
     this.pacientesEncontrados = [];
+    this.pacienteSeleccionado = null;
   }
+
 
   buscarPaciente() {
     const q = (this.busquedaPaciente || '').trim();
     if (!q) return;
 
     this.buscandoPaciente = true;
+    this.busquedaPacienteHecha = true;
     this.pacienteEncontrado = null;
     this.pacientesEncontrados = [];
 

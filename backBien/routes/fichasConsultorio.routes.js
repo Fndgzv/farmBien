@@ -70,4 +70,12 @@ router.get(
   ctrl.buscar
 );
 
+router.post(
+  "/:id/cancelar",
+  auth,
+  checkRole(["admin", "empleado", "medico"]),
+  ctrl.cancelarFicha
+);
+
+
 module.exports = router;

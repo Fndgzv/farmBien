@@ -43,23 +43,30 @@ export class AjustesInventarioComponent implements OnInit {
   filtrando = false;
   iniciando = false;
 
+  mesesCaducidad = Array.from({ length: 12 }, (_, i) => i + 1);
+
   filtros: {
     nombre: string;
     codigoBarras: string;
     categoria: string;
-    descuentoINAPAM: boolean | null;
     generico: boolean | null;
     bajoStock: boolean | null;
     duplicadosCB: boolean | null;
+
+    caducados: boolean | null;
+    caducanEnMeses: number | null;
   } = {
       nombre: '',
       codigoBarras: '',
       categoria: '',
-      descuentoINAPAM: null,
       generico: null,
       bajoStock: false,
       duplicadosCB: false,
+
+      caducados: false,
+      caducanEnMeses: null,
     };
+
 
   paginaActual = 1;
   tamanioPagina = 15;
@@ -179,6 +186,26 @@ export class AjustesInventarioComponent implements OnInit {
       const palabras = f?.nombre ? this.splitWords(f.nombre) : [];
       const palabrasCategoria = f?.categoria ? this.splitWords(f.categoria) : [];
       this.productosFiltrados = (this.productos || []).filter(p => {
+
+        const coincideCaducados = f.caducados
+          ? (Number((p as any).cantidadCaducada ?? 0) > 0)
+          : true;
+
+        const coincideCaducanEn = (() => {
+          if (f.caducanEnMeses === null) return true;
+
+          const prox = this.toDate((p as any).proximaCaducidad);
+          if (!prox) return false;
+
+          // "fin de hoy" CDMX => inicio de mañana 00:00 local
+          const inicioManana = this.inicioMananaLocal(new Date());
+          // tope = inicio de mañana + N meses
+          const limite = this.addMonths(inicioManana, f.caducanEnMeses);
+
+          // solo FUTURAS (>= mañana 00:00) y dentro del rango
+          return prox >= inicioManana && prox < limite;
+        })();
+
         const nombreNorm = (p as any)._normNombre ?? this.normTxt(p?.nombre);
         const coincideNombre = palabras.length
           ? palabras.every(w => nombreNorm.includes(w))
@@ -190,14 +217,11 @@ export class AjustesInventarioComponent implements OnInit {
         const coincideCategoria = palabrasCategoria.length
           ? palabrasCategoria.every(w => categoriaNorm.includes(w))
           : true;
-        const coincideINAPAM = f.descuentoINAPAM === null
-          ? true
-          : p.descuentoINAPAM === f.descuentoINAPAM;
         const coincideGenerico = f.generico === null
           ? true
           : p.generico === f.generico;
         const coincideBajoStock = f.bajoStock
-          ? this.getExistencia(p) < (p.stockMinimo ?? 0)
+          ? p.existencia < (p.stockMinimo ?? 0)
           : true;
         // 🔹 SOLO productos cuyo CB está repetido en la carga
         const coincideDuplicadosCB = f.duplicadosCB
@@ -208,10 +232,12 @@ export class AjustesInventarioComponent implements OnInit {
           coincideNombre &&
           coincideCodigo &&
           coincideCategoria &&
-          coincideINAPAM &&
+          /* coincideINAPAM && */
           coincideGenerico &&
           coincideBajoStock &&
-          coincideDuplicadosCB
+          coincideDuplicadosCB &&
+          coincideCaducados &&
+          coincideCaducanEn
         );
       });
 
@@ -219,6 +245,47 @@ export class AjustesInventarioComponent implements OnInit {
       this.filtrando = false;
     }, 0);
   }
+
+  onToggleCaducados() {
+    if (this.filtros.caducados) {
+      // si activa caducados, limpiar "caducan en"
+      this.filtros.caducanEnMeses = null;
+    }
+    this.aplicarFiltros();
+  }
+
+  onChangeCaducanEn() {
+    if (this.filtros.caducanEnMeses !== null) {
+      // si selecciona "caducan en", apagar caducados
+      this.filtros.caducados = false;
+    }
+    this.aplicarFiltros();
+  }
+
+
+  private inicioMananaLocal(d = new Date()): Date {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    x.setDate(x.getDate() + 1); // mañana 00:00
+    return x;
+  }
+
+  private addMonths(date: Date, months: number): Date {
+    const d = new Date(date);
+    const day = d.getDate();
+    d.setMonth(d.getMonth() + months);
+
+    // ajuste típico por meses cortos (31 -> 30/28)
+    if (d.getDate() < day) d.setDate(0);
+    return d;
+  }
+
+  private toDate(v: any): Date | null {
+    if (!v) return null;
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
 
   private cbDuplicados = new Set<string>();
 
@@ -246,13 +313,26 @@ export class AjustesInventarioComponent implements OnInit {
     );
   }
 
-  limpiarFiltro(campo: keyof typeof this.filtros) {
-    if (campo === 'descuentoINAPAM') this.filtros[campo] = null;
-    if (campo === 'generico') this.filtros[campo] = null;
+  /* limpiarFiltro(campo: keyof typeof this.filtros) {
     if (campo === 'bajoStock') { this.filtros.bajoStock = false }
     if (campo === 'duplicadosCB') (this.filtros as any).duplicadosCB = false;
     if (campo === 'nombre' || campo === 'categoria' || campo === 'codigoBarras') this.filtros[campo] = '';
 
+    this.aplicarFiltros();
+  } */
+
+  limpiarFiltro(campo: string) {
+    switch (campo) {
+      case 'nombre': this.filtros.nombre = ''; break;
+      case 'codigoBarras': this.filtros.codigoBarras = ''; break;
+      case 'categoria': this.filtros.categoria = ''; break;
+      case 'generico': this.filtros.generico = null; break;
+      case 'bajoStock': this.filtros.bajoStock = false; break;
+      case 'duplicadosCB': this.filtros.duplicadosCB = false; break;
+
+      case 'caducados': this.filtros.caducados = false; break;
+      case 'caducanEnMeses': this.filtros.caducanEnMeses = null; break;
+    }
     this.aplicarFiltros();
   }
 
@@ -440,7 +520,7 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   guardarProductoEditado(productoActualizado: ProductoUI) {
-    
+
     // 1) separa id y crea payload sin _id
     const id = (productoActualizado as any)._id;
     const payload: any = { ...productoActualizado };
@@ -568,8 +648,8 @@ export class AjustesInventarioComponent implements OnInit {
     }
 
     this.productosFiltrados.sort((a, b) => {
-      const valorA = (columna === 'existencia') ? this.getExistencia(a) : (a as any)?.[columna];
-      const valorB = (columna === 'existencia') ? this.getExistencia(b) : (b as any)?.[columna];
+      const valorA = (a as any)?.[columna];
+      const valorB = (b as any)?.[columna];
 
       const aNum = typeof valorA === 'number' && !isNaN(valorA);
       const bNum = typeof valorB === 'number' && !isNaN(valorB);
@@ -582,15 +662,11 @@ export class AjustesInventarioComponent implements OnInit {
         const sB = (valorB ?? '').toString().toLowerCase();
         comp = sA < sB ? -1 : sA > sB ? 1 : 0;
       }
+
       return this.direccionOrden === 'asc' ? comp : -comp;
-    });
+    });;
 
     this.paginaActual = 1;
-  }
-
-
-  getExistencia(p: ProductoUI): number {
-    return Array.isArray(p?.lotes) ? p.lotes.reduce((sum, l) => sum + (Number(l?.cantidad) || 0), 0) : 0;
   }
 
   abrirNuevoProducto() {
@@ -836,8 +912,9 @@ export class AjustesInventarioComponent implements OnInit {
         if (borrarFiltros) {
           this.filtros = {
             nombre: '', codigoBarras: '', categoria: '',
-            descuentoINAPAM: null, generico: null,
-            bajoStock: false, duplicadosCB: false
+            /* descuentoINAPAM: null,*/ generico: null,
+            bajoStock: false, duplicadosCB: false,
+            caducados: false, caducanEnMeses: null
           };
         }
         this.aplicarFiltros();

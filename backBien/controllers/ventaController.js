@@ -636,6 +636,8 @@ const crearVenta = async (req, res) => {
                 estado: "ATENDIDA",
                 ventaId: ventaCreada._id,
                 cobradaAt: new Date(),
+                cobroPor: usuario._id,
+                cobroAt: new Date(),
                 actualizadaPor: usuario._id,
               },
             },
@@ -669,29 +671,6 @@ const crearVenta = async (req, res) => {
           await cliente.save({ session });
         }
       });
-
-      /* return res.status(201).json({ mensaje: 'Venta realizada con éxito', venta: ventaCreada }); */
-
-      // 4) Si viene fichaId: marcar ficha como ATENDIDA y ligar venta
-      if (fichaId) {
-        if (!mongoose.isValidObjectId(fichaId)) throw new Error("FICHA_ID_INVALIDO");
-
-        const ficha = await FichaConsultorio.findOne({
-          _id: fichaId,
-          farmaciaId: farmaciaId,
-          estado: { $in: ["LISTA_PARA_COBRO", "EN_COBRO"] }
-        }).session(session);
-
-        if (!ficha) throw new Error("FICHA_NO_ENCONTRADA_O_NO_COBRABLE");
-
-        ficha.estado = "ATENDIDA";
-        ficha.ventaId = ventaCreada._id;
-        ficha.cobradaAt = new Date();
-        ficha.cobroPor = usuario.id; // req.usuario.id
-        ficha.cobroAt = new Date();  // si agregaste este campo, si no quítalo
-
-        await ficha.save({ session });
-      }
 
       return res.status(201).json({ mensaje: 'Venta realizada con éxito', venta: ventaCreada });
 
