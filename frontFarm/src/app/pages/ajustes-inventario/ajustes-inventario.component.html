@@ -461,9 +461,9 @@
                 <td>{{ p.costo | currency }}</td>
                 <!-- <td>{{ p.precio |currency }}</td> -->
                 <td>{{ p.ultimoProveedorNombre }}</td>
-                <td>{{ p.proximaCaducidad | date:'dd/MM/yyyy' }}</td>
+                <td>{{ p.proximaCaducidad | date:'MMM/yyyy' | titlecase }}</td>
                 <td style="text-align: right">{{ p.cantidadProximaCaducidad }}</td>
-                <td>{{ p.fechaCaducos | date:'dd/MM/yyyy' }}</td>
+                <td>{{ p.fechaCaducos | date:'MMM/yyyy' | titlecase }}</td>
                 <td style="text-align: right">{{ p.cantidadCaducada }}</td>
                 <td>
                     <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)"

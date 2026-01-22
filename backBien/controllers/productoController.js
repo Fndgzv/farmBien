@@ -1059,7 +1059,7 @@ exports.actualizarProducto = async (req, res) => {
     }
 
     // Guardamos el precio anterior para comparar
-    const precioAnterior = productoActual.precio;
+    //const precioAnterior = productoActual.precio;
 
     // Actualización de campos
     productoActual.nombre = prod.nombre;
@@ -1075,6 +1075,14 @@ exports.actualizarProducto = async (req, res) => {
     if (typeof prod.stockMinimo === 'number') productoActual.stockMinimo = prod.stockMinimo;
     if (typeof prod.stockMaximo === 'number') productoActual.stockMaximo = prod.stockMaximo;
     if (typeof prod.descuentoINAPAM !== 'undefined') productoActual.descuentoINAPAM = prod.descuentoINAPAM;
+
+    // ✅ ultimoProveedorId (solo si llega un ObjectId válido)
+    if (prod.ultimoProveedorId !== undefined) {
+      // si llega string vacío o null, no lo actualizamos (no lo tocamos)
+      if (prod.ultimoProveedorId && mongoose.Types.ObjectId.isValid(prod.ultimoProveedorId)) {
+        productoActual.ultimoProveedorId = prod.ultimoProveedorId;
+      }
+    }
 
     // Promos por día
     productoActual.promoLunes = prod.promosPorDia?.promoLunes;
@@ -1097,12 +1105,12 @@ exports.actualizarProducto = async (req, res) => {
     await productoActual.save();
 
     // 🔹 Solo sincroniza InventarioFarmacia si el precio cambió y es numérico
-    if (typeof prod.precio === 'number' && !isNaN(prod.precio) && prod.precio !== precioAnterior) {
+    /* if (typeof prod.precio === 'number' && !isNaN(prod.precio) && prod.precio !== precioAnterior) {
       await InventarioFarmacia.updateMany(
-        { producto: productoId, precioVenta: { $ne: prod.precio } }, // evita escrituras innecesarias
+        { producto: productoId, precioVenta: { $ne: prod.precio } },
         { $set: { precioVenta: prod.precio } }
       );
-    }
+    } */
 
     res.json({ mensaje: "Producto actualizado correctamente", producto: productoActual });
   } catch (error) {

@@ -6,20 +6,30 @@
         <form [formGroup]="formulario">
             <div class="edit-seccion">
                 <label>Nombre:</label>
-                <input type="text" formControlName="nombre" style="width: 100%;">
-       
-                <label style="margin-top: 20px;">Ingredientes activos:</label>
-                <input type="text" formControlName="ingreActivo" style="width: 100%;">
+                <input type="text" formControlName="nombre" style="width: 60%;">
+            </div>
+            <div class="edit-seccion">
+                <label>Ingredientes activos:</label>
+                <input type="text" formControlName="ingreActivo" style="width: 60%;">
             </div>
 
-            <div class="edit-seccion" style="margin-top: 20px;">
+            <div class="edit-seccion">
                 <label>Renglón 1:</label>
                 <input type="text" formControlName="renglon1" style="width: 36%;">
 
                 <label>Renglón 2:</label>
                 <input type="text" formControlName="renglon2" style="width: 36%;">
             </div>
-            
+            <div class="edit-seccion">
+                <label>Último proveedor:</label>
+                <select formControlName="ultimoProveedorId" style="width: 18rem;">
+                    <option [ngValue]="null">— Sin proveedor —</option>
+                    <option *ngFor="let pr of proveedores" [ngValue]="pr._id">
+                    {{ pr.nombre }}
+                    </option>
+                </select>
+            </div>
+
             <div class="edit-seccion">
                 <label>Cod. Barras:</label>
                 <input type="text" formControlName="codigoBarras" style="width: 10rem;">
@@ -66,20 +76,46 @@
             </div>
             <!-- Lotes -->
             <div formArrayName="lotes">
-
-                <label class="subtitulo-edit">Lotes:</label>
+                <div style="text-align: center;">
+                    <label class="subtitulo-edit"><strong>Lotes:</strong></label>
+                </div>
                 <div *ngFor="let lote of lotesFormArray.controls; let i = index" [formGroupName]="i"
                     class="edit-seccion">
                     <label>Lote:</label>
-                    <input type="text" formControlName="lote">
+                    <input type="text" formControlName="lote" style="width: 7rem;">
 
                     <label>Caducidad:</label>
-                    <input type="date" formControlName="fechaCaducidad">
+                    <input
+                        type="text"
+                        formControlName="fechaCaducidad"
+                        inputmode="numeric"
+                        maxlength="4"
+                        placeholder="MMAA"
+                        (input)="onCaducidadInput(i)"
+                        style="width: 4rem;"
+                    >
+                    <small class="text-muted" *ngIf="getCaducidadPreview(i) as prev">
+                        <strong style="color:rebeccapurple">{{ prev }}</strong>
+                    </small>
 
-                    <label>Cantidad:</label>
+                    <label style="margin-left: 3rem;">Cantidad:</label>
                     <input type="number" formControlName="cantidad" style="width: 5rem;">
 
                     <button class="btn-rojo-chico" type="button" (click)="eliminarLote(i)">Eliminar</button>
+
+                    <div class="text-danger" style="font-size: 12px; margin-left: 10rem;"
+                        *ngIf="lotesFormArray.at(i).get('fechaCaducidad')?.touched &&
+                                lotesFormArray.at(i).get('fechaCaducidad')?.invalid">
+                        <span *ngIf="lotesFormArray.at(i).get('fechaCaducidad')?.hasError('mmaaFormato')">
+                            Captura 4 dígitos en formato MMAA (ej. 0228).
+                        </span>
+                        <span *ngIf="lotesFormArray.at(i).get('fechaCaducidad')?.hasError('mmaaMes')">
+                            Mes inválido (01 a 12).
+                        </span>
+                        <span *ngIf="lotesFormArray.at(i).get('fechaCaducidad')?.hasError('mmaaPasada')">
+                            No se permite una caducidad menor a hoy.
+                        </span>
+                    </div>
                 </div>
                 <div style="text-align: center;">
                     <button type="button" (click)="agregarLote()" class="btn-gris-chico">Agregar Lote</button>

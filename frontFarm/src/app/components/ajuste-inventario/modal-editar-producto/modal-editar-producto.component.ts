@@ -3,6 +3,10 @@ import { CommonModule } from '@angular/common';
 import { ValidatorFn, AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { Producto, Lote } from '../../../models/producto.model';
 
+type ModalProductoData = {
+  producto: Producto;
+  proveedores: any[]; // o Proveedor[] si tienes la interfaz
+};
 @Component({
   selector: 'app-modal-editar-producto',
   standalone: true,
@@ -13,14 +17,19 @@ import { Producto, Lote } from '../../../models/producto.model';
 export class ModalEditarProductoComponent implements OnInit {
 
   formulario!: FormGroup;
+  proveedores: any[] = [];
 
   @Output() guardar = new EventEmitter<Producto>();
   @Output() cerrar = new EventEmitter<void>();
 
   constructor(
     private fb: FormBuilder,
-    @Inject('PRODUCTO_DATA') public producto: Producto
+    @Inject('PRODUCTO_DATA') public data: ModalProductoData
   ) { }
+
+  get producto(): Producto {
+    return this.data.producto;
+  }
 
   get utilAbs(): number | null {
     // obtener utilidad en la captura individual
@@ -68,6 +77,7 @@ export class ModalEditarProductoComponent implements OnInit {
 
 
   ngOnInit(): void {
+    this.proveedores = Array.isArray(this.data?.proveedores) ? this.data.proveedores : [];
     this.formulario = this.fb.group({
       nombre: [this.producto.nombre, [Validators.required]],
       ingreActivo: [this.producto.ingreActivo],
@@ -84,6 +94,7 @@ export class ModalEditarProductoComponent implements OnInit {
       descuentoINAPAM: [this.producto.descuentoINAPAM],
       stockMinimo: [this.producto.stockMinimo, [Validators.required, Validators.min(0)]],
       stockMaximo: [this.producto.stockMaximo, [Validators.required, Validators.min(0)]],
+      ultimoProveedorId: [(this.producto as any).ultimoProveedorId ?? null],
       lotes: this.fb.array(this.producto.lotes.map(l => this.crearLoteForm(l))),
       promosPorDia: this.fb.group(this.inicializarPromosPorDia()),
       promoCantidadRequerida: [this.producto.promoCantidadRequerida],
@@ -149,11 +160,7 @@ export class ModalEditarProductoComponent implements OnInit {
   }
 
   formOkSinLotes(): boolean {
-    if (!this.formulario) return false;
-    const ctrls = this.formulario.controls as any;
-    return Object.keys(ctrls)
-      .filter(k => k !== 'lotes')        // <- ignoramos lotes
-      .every(k => ctrls[k]?.valid === true);
+    return this.formulario?.valid === true;
   }
 
   private dumpFormErrors(ctrl: AbstractControl, path: string = 'form'): void {
@@ -214,17 +221,27 @@ export class ModalEditarProductoComponent implements OnInit {
     };
   }
 
+  private formatMMAA(fecha: Date): string {
+    if (!fecha) return '';
+    const d = new Date(fecha);
+    const mm = this.pad2(d.getMonth() + 1);
+    const aa = this.pad2(d.getFullYear() % 100);
+    return `${mm}${aa}`; // MMAA
+  }
+
   crearLoteForm(lote: Lote): FormGroup {
     return this.fb.group({
       _id: [lote?._id ?? null],
-      // lote opcional
       lote: [lote?.lote ?? null],
-      // fecha opcional pero, si existe, válida (>= hoy)
-      fechaCaducidad: [this.formatDate(lote?.fechaCaducidad) || null, [this.optionalFutureDate()]],
-      // cantidad opcional, si existe debe ser >= 0
+      fechaCaducidad: [
+        lote?.fechaCaducidad ? this.formatMMAA(lote.fechaCaducidad as any) : null,
+        [this.mmaaNoPasadoValidator()]
+      ],
       cantidad: [lote?.cantidad ?? null, [this.optionalMin(0)]],
     });
   }
+
+
 
   inicializarPromosPorDia() {
     const promos: any = {};
@@ -249,22 +266,22 @@ export class ModalEditarProductoComponent implements OnInit {
     return this.formulario.get('lotes') as FormArray;
   }
 
-agregarLote() {
+  agregarLote() {
 
-  // Número de lote basado en cuántos existen
-  const nextNumber = this.lotesFormArray.length + 1;
+    // Número de lote basado en cuántos existen
+    const nextNumber = this.lotesFormArray.length + 1;
 
-  // 2 dígitos → 01, 02, 03...
-  const padded = String(nextNumber).padStart(2, '0');
+    // 2 dígitos → 01, 02, 03...
+    const padded = String(nextNumber).padStart(2, '0');
 
-  const nuevoLote: Lote = {
-    lote: `LOTE-${padded}`,
-    fechaCaducidad: new Date(),
-    cantidad: 0
-  };
+    const nuevoLote: Lote = {
+      lote: `LOTE-${padded}`,
+      fechaCaducidad: new Date(),
+      cantidad: 0
+    };
 
-  this.lotesFormArray.push(this.crearLoteForm(nuevoLote));
-}
+    this.lotesFormArray.push(this.crearLoteForm(nuevoLote));
+  }
 
 
   eliminarLote(index: number) {
@@ -283,18 +300,28 @@ agregarLote() {
 
     const v = this.formulario.value as any;
 
-    const lotes = (v.lotes || []).map((l: any) => ({
-      ...l,
-      lote: (l?.lote ?? '').toString().trim() || null,
-      fechaCaducidad: l?.fechaCaducidad ? new Date(l.fechaCaducidad) : null,
-      cantidad: (l?.cantidad === '' || l?.cantidad === null || l?.cantidad === undefined)
-        ? null
-        : Number(l.cantidad),
-    }))
-      // opcional: quita filas totalmente vacías
+    const lotes = (v.lotes || []).map((l: any) => {
+      const fecha = this.parseMMAA(l?.fechaCaducidad);
+
+      return {
+        ...l,
+        lote: (l?.lote ?? '').toString().trim() || null,
+        // ✅ ya mandamos Date real al backend (último día del mes)
+        fechaCaducidad: fecha,
+        cantidad: (l?.cantidad === '' || l?.cantidad === null || l?.cantidad === undefined)
+          ? null
+          : Number(l.cantidad),
+      };
+    })
       .filter((l: any) => l.lote !== null || l.fechaCaducidad !== null || l.cantidad !== null);
 
-    const productoActualizado: Producto = { ...this.producto, ...v, lotes };
+    const productoActualizado: Producto = {
+      ...this.producto,
+      ...v,
+      lotes,
+      // por si v lo trae como '' lo normalizamos a null:
+      ultimoProveedorId: v.ultimoProveedorId || null
+    } as any;
     this.guardar.emit(productoActualizado);
   }
 
@@ -307,4 +334,99 @@ agregarLote() {
     const d = new Date(fecha);
     return d.toISOString().split('T')[0];
   }
+
+  private pad2(n: number): string {
+    return String(n).padStart(2, '0');
+  }
+
+  private lastDayOfMonth(year: number, month1to12: number): number {
+    // día 0 del siguiente mes = último día del mes actual
+    return new Date(year, month1to12, 0).getDate();
+  }
+
+  private parseMMAA(value: any): Date | null {
+    if (value === null || value === undefined) return null;
+
+    // Limpia todo lo que no sea dígito
+    const s = String(value).replace(/\D/g, '').slice(0, 4);
+    if (s.length !== 4) return null;
+
+    const mm = Number(s.slice(0, 2));
+    const aa = Number(s.slice(2, 4));
+
+    if (!Number.isFinite(mm) || mm < 1 || mm > 12) return null;
+
+    // Regla: "28" => 2028. (si algún día quieres ventana 70/30, lo ajustamos)
+    const year = 2000 + aa;
+
+    const day = this.lastDayOfMonth(year, mm);
+
+    // Date local (00:00)
+    return new Date(year, mm - 1, day);
+  }
+
+  private formatDateEs(d: Date): string {
+    const dd = this.pad2(d.getDate());
+    const mm = this.pad2(d.getMonth() + 1);
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  onCaducidadInput(i: number) {
+    const g = this.lotesFormArray.at(i) as FormGroup;
+    const ctrl = g.get('fechaCaducidad');
+    if (!ctrl) return;
+
+    const cleaned = String(ctrl.value ?? '').replace(/\D/g, '').slice(0, 4);
+    if (cleaned !== ctrl.value) ctrl.setValue(cleaned, { emitEvent: false });
+
+    ctrl.markAsTouched();
+    ctrl.updateValueAndValidity({ onlySelf: true });
+  }
+
+
+  getCaducidadPreview(i: number): string | null {
+    const g = this.lotesFormArray.at(i) as FormGroup;
+    const v = g.get('fechaCaducidad')?.value;
+    const d = this.parseMMAA(v);
+    return d ? this.formatDateEs(d) : null;
+  }
+
+  private mmaaNoPasadoValidator(): ValidatorFn {
+    return (control: AbstractControl) => {
+      const raw = control.value;
+
+      // vacío = válido (si quieres que sea obligatorio, quita esto)
+      if (raw === null || raw === undefined || raw === '') return null;
+
+      const s = String(raw).replace(/\D/g, '');
+      if (s.length !== 4) return { mmaaFormato: true };
+
+      const mm = Number(s.slice(0, 2));
+      const aa = Number(s.slice(2, 4));
+
+      if (!Number.isFinite(mm) || mm < 1 || mm > 12) return { mmaaMes: true };
+
+      const year = 2000 + aa;
+      const day = this.lastDayOfMonth(year, mm);
+      const fechaCad = new Date(year, mm - 1, day);
+
+      if (isNaN(fechaCad.getTime())) return { mmaaInvalida: true };
+
+      // ✅ No aceptar fechas menores a hoy (comparando contra fin de hoy)
+      const inicioManana = this.inicioMananaLocal(new Date()); // mañana 00:00 local
+      if (fechaCad < inicioManana) return { mmaaPasada: true };
+
+      return null;
+    };
+  }
+
+  private inicioMananaLocal(d = new Date()): Date {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    x.setDate(x.getDate() + 1); // mañana 00:00 local
+    return x;
+  }
+
+
 }

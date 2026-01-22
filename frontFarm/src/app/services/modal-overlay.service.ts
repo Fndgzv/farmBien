@@ -14,44 +14,58 @@ export class ModalOverlayService {
   constructor(
     private overlay: Overlay,
     private injector: Injector
-  ) {}
+  ) { }
 
-  abrirModal(producto: Producto, callback: (producto: Producto) => void): void {
-    // Si ya hay modal abierto, no abrir otro
-    if (this.overlayRef) return;
+  // ModalOverlayService
 
-    this.overlayRef = this.overlay.create({
-      hasBackdrop: true,
-      backdropClass: 'cdk-overlay-dark-backdrop',
-      positionStrategy: this.overlay.position()
-        .global()
-        .centerHorizontally()
-        .centerVertically()
-    });
+abrirModal<TData = any, TResult = any>(
+  data: TData,
+  callback: (result: TResult) => void
+): void {
+  // Si ya hay modal abierto, no abrir otro
+  if (this.overlayRef) return;
 
-    const portal = new ComponentPortal(ModalEditarProductoComponent, null, this.crearInjector(producto, callback));
-    const componentRef = this.overlayRef.attach(portal);
+  this.overlayRef = this.overlay.create({
+    hasBackdrop: true,
+    backdropClass: 'cdk-overlay-dark-backdrop',
+    positionStrategy: this.overlay.position()
+      .global()
+      .centerHorizontally()
+      .centerVertically()
+  });
 
-    // Cerrar al hacer click en el fondo
-    this.overlayRef.backdropClick().subscribe(() => this.cerrarModal());
+  const portal = new ComponentPortal(
+    ModalEditarProductoComponent,
+    null,
+    this.crearInjector<TData, TResult>(data, callback)
+  );
 
-    // También al emitir desde el propio modal
-    componentRef.instance.cerrar.subscribe(() => this.cerrarModal());
-    componentRef.instance.guardar.subscribe((productoEditado: Producto) => {
-      callback(productoEditado);
-      this.cerrarModal();
-    });
-  }
+  const componentRef = this.overlayRef.attach(portal);
 
-  private crearInjector(producto: Producto, callback: (producto: Producto) => void): Injector {
-    return Injector.create({
-      providers: [
-        { provide: 'PRODUCTO_DATA', useValue: producto },
-        { provide: 'GUARDAR_CALLBACK', useValue: callback }
-      ],
-      parent: this.injector
-    });
-  }
+  // Cerrar al hacer click en el fondo
+  this.overlayRef.backdropClick().subscribe(() => this.cerrarModal());
+
+  // También al emitir desde el propio modal
+  componentRef.instance.cerrar.subscribe(() => this.cerrarModal());
+
+  componentRef.instance.guardar.subscribe((result: TResult) => {
+    callback(result);
+    this.cerrarModal();
+  });
+}
+
+private crearInjector<TData = any, TResult = any>(
+  data: TData,
+  callback: (result: TResult) => void
+): Injector {
+  return Injector.create({
+    providers: [
+      { provide: 'PRODUCTO_DATA', useValue: data },          // 👈 ahora es "data" genérico
+      { provide: 'GUARDAR_CALLBACK', useValue: callback }    // (puedes dejarlo igual)
+    ],
+    parent: this.injector
+  });
+}
 
   cerrarModal(): void {
     if (this.overlayRef) {

@@ -5,6 +5,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Producto } from '../../models/producto.model';
 import { ModalOverlayService } from '../../services/modal-overlay.service';
 import { ProductoService } from '../../services/producto.service';
+import { ProveedorService } from '../../services/proveedor.service';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -86,6 +87,7 @@ export class AjustesInventarioComponent implements OnInit {
   thumbs: Record<string, string> = {};
   placeholderSrc = 'assets/images/farmBienIcon.png';
 
+  proveedores: any[] = [];
 
   // ajustes-inventario.component.ts (helper)
   imgUrl(p: any): string {
@@ -103,6 +105,7 @@ export class AjustesInventarioComponent implements OnInit {
     private cdr: ChangeDetectorRef,
     private modalService: ModalOverlayService,
     private productoService: ProductoService,
+    private proveedorService: ProveedorService,
     library: FaIconLibrary,
     private renderer: Renderer2
   ) { library.addIcons(faPen, faTimes, faPlus); }
@@ -111,7 +114,8 @@ export class AjustesInventarioComponent implements OnInit {
     this.iniciando = true;
     this.inicializarFormulario();
     this.cargarProductos(true);
-    this.iniciando = false;
+    this.cargarProveedores();
+
     this.formularioMasivo.valueChanges.subscribe(() => {
       this.cdr.detectChanges();
     });
@@ -514,14 +518,18 @@ export class AjustesInventarioComponent implements OnInit {
 
   editarProducto(prod: ProductoUI) {
     const productoClonado = JSON.parse(JSON.stringify(prod));
-    this.modalService.abrirModal(productoClonado, (productoEditado: Producto) => {
-      this.guardarProductoEditado(productoEditado);
-    });
+
+    this.modalService.abrirModal(
+      { producto: productoClonado, proveedores: this.proveedores }, // ✅ mandamos proveedores
+      (productoEditado: Producto) => {
+        this.guardarProductoEditado(productoEditado);
+      }
+    );
   }
+
 
   guardarProductoEditado(productoActualizado: ProductoUI) {
 
-    // 1) separa id y crea payload sin _id
     const id = (productoActualizado as any)._id;
     const payload: any = { ...productoActualizado };
     delete payload._id;
@@ -529,14 +537,16 @@ export class AjustesInventarioComponent implements OnInit {
     delete payload.createdAt;
     delete payload.updatedAt;
 
-    // 2) normaliza numéricos (ajusta las llaves a tu modelo real)
-    ['precioVenta', 'costo', 'existencia', 'iva', 'minimo', 'maximo'].forEach(k => {
-      if (payload[k] !== undefined && payload[k] !== null) {
-        payload[k] = Number(payload[k]) || 0;
+    // ✅ normaliza numéricos reales
+    ['precio', 'costo', 'stockMinimo', 'stockMaximo'].forEach(k => {
+      if (payload[k] !== undefined && payload[k] !== null && payload[k] !== '') {
+        payload[k] = Number(payload[k]);
       }
     });
 
-    // 3) llama el servicio con id en la URL y body sin _id
+    // iva y generico son boolean
+    // ultimoProveedorId se manda tal cual (string o null)
+    if (payload.ultimoProveedorId === '') payload.ultimoProveedorId = null;
     this.productoService.actualizarProductoIndividual(id, payload).subscribe({
       next: () => {
         Swal.fire({
@@ -924,6 +934,22 @@ export class AjustesInventarioComponent implements OnInit {
       error: (err) => console.error('Error al cargar productos:', err)
     });
     this.iniciando = false;
+  }
+
+  cargarProveedores(): void {
+    this.proveedorService.obtenerProveedores().subscribe({
+      next: (data: any[]) => {
+        this.proveedores = (data || []).sort((a, b) =>
+          (a?.nombre ?? '').localeCompare(b?.nombre ?? '', 'es', { sensitivity: 'base' })
+        );
+        console.log('proveedores cargados:', this.proveedores);
+        this.iniciando = false;
+        this.cdr.detectChanges(); // por si acaso
+      },
+      error: (err) => {
+        console.error('Error al cargar proveedores:', err);
+      }
+    });
   }
 
   onImgError(ev: Event, p: any) {
