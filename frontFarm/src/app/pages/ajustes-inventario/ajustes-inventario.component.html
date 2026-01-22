@@ -167,6 +167,34 @@
             </div>
         </div>
     
+        <!-- Último proveedor -->
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Último proveedor</label>
+            <div class="position-relative">
+                <select
+                [(ngModel)]="filtros.ultimoProveedorId"
+                name="ultimoProveedorId"
+                class="form-control pe-4 flex-grow-1"
+                (change)="aplicarFiltros()"
+                >
+                <option [ngValue]="null">--</option>
+                <option [ngValue]="'__SIN__'">Sin proveedor</option>
+                
+                <option *ngFor="let pr of proveedores" [ngValue]="pr._id">
+                    {{ pr.nombre }}
+                </option>
+                </select>
+
+                <button *ngIf="filtros.ultimoProveedorId"
+                type="button"
+                matTooltip="Limpiar proveedor"
+                class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                (click)="limpiarFiltro('ultimoProveedorId')">
+                <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
         <div class="col-md-1 text-end mt-3">
             <button class="btn-gris" [disabled]="filtrando || iniciando" [attr.aria-busy]="filtrando || iniciando"
                 matTooltip="Filtrar información solicitada" (click)="aplicarFiltros()">
@@ -356,8 +384,6 @@
                     }" class="icono-orden"></i>
                 </th>
                 <!-- <th>Genérico</th> -->
-                <th>Stock Mín.</th>
-                <th>Stock Máx.</th>
                 <th (click)="ordenar('existencia')">
                     Existencia
                     <i [ngClass]="{
@@ -367,6 +393,8 @@
                         'bi-caret-up': columnaOrden !== 'existencia'
                     }" class="icono-orden"></i>
                 </th>
+                <th>Stock Mín.</th>
+                <th>Stock Máx.</th>
                 <!-- <th>INAPAM</th> -->
                 <th>Costo</th>
                 <!-- <th title="Precio sugerido">Precio</th> -->
@@ -449,11 +477,11 @@
                 <!-- <td style="text-align: center;">
                     <input type="checkbox" [checked]="p.generico" disabled>
                 </td> -->
-                <td style="text-align: right">{{ p.stockMinimo }}</td>
-                <td style="text-align: right">{{ p.stockMaximo }}</td>
                 <td style="text-align: right" [class.text-danger]="p.existencia < (p.stockMinimo || 0)">
                     {{ p.existencia }}
                 </td>
+                <td style="text-align: right">{{ p.stockMinimo }}</td>
+                <td style="text-align: right">{{ p.stockMaximo }}</td>
 
                 <!-- <td style="text-align: center;">
                     <input type="checkbox" [checked]="p.descuentoINAPAM" disabled>

@@ -56,6 +56,7 @@ export class AjustesInventarioComponent implements OnInit {
 
     caducados: boolean | null;
     caducanEnMeses: number | null;
+    ultimoProveedorId: string | null;
   } = {
       nombre: '',
       codigoBarras: '',
@@ -66,6 +67,7 @@ export class AjustesInventarioComponent implements OnInit {
 
       caducados: false,
       caducanEnMeses: null,
+      ultimoProveedorId: null,
     };
 
 
@@ -195,6 +197,18 @@ export class AjustesInventarioComponent implements OnInit {
           ? (Number((p as any).cantidadCaducada ?? 0) > 0)
           : true;
 
+        const provIdProd =
+          (p as any).ultimoProveedorId?._id ??
+          (p as any).ultimoProveedorId ??
+          null;
+
+        const coincideProveedor =
+          f.ultimoProveedorId === null
+            ? true
+            : f.ultimoProveedorId === '__SIN__'
+              ? (provIdProd === null || provIdProd === undefined || provIdProd === '')
+              : String(provIdProd ?? '') === String(f.ultimoProveedorId);
+
         const coincideCaducanEn = (() => {
           if (f.caducanEnMeses === null) return true;
 
@@ -241,7 +255,8 @@ export class AjustesInventarioComponent implements OnInit {
           coincideBajoStock &&
           coincideDuplicadosCB &&
           coincideCaducados &&
-          coincideCaducanEn
+          coincideCaducanEn &&
+          coincideProveedor
         );
       });
 
@@ -336,6 +351,7 @@ export class AjustesInventarioComponent implements OnInit {
 
       case 'caducados': this.filtros.caducados = false; break;
       case 'caducanEnMeses': this.filtros.caducanEnMeses = null; break;
+      case 'ultimoProveedorId': this.filtros.ultimoProveedorId = null; break;
     }
     this.aplicarFiltros();
   }
@@ -926,7 +942,7 @@ export class AjustesInventarioComponent implements OnInit {
             nombre: '', codigoBarras: '', categoria: '',
             /* descuentoINAPAM: null,*/ generico: null,
             bajoStock: false, duplicadosCB: false,
-            caducados: false, caducanEnMeses: null
+            caducados: false, caducanEnMeses: null, ultimoProveedorId: null
           };
         }
         this.aplicarFiltros();
