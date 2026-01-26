@@ -546,11 +546,8 @@
 <!-- Modal Método de Pago -->
 <form #payForm="ngForm" (ngSubmit)="onSubmitVenta(payForm)" (keydown.enter)="onEnterSubmit($any($event))">
   <div class="modal-overlay" *ngIf="mostrarModalPago">
-    <div class="modal-content">
-      <div class="modal-header bg-info-subtle text-blue">
-        <h5 class="modal-title">Método de Pago</h5>
-      </div>
-
+    <div class="modal-content" style="width: 400px;">
+        <h4 style="color: blue;">Método de Pago</h4>
       <div class="modal-body">
         <p class="total-pago">Total a pagar: <strong>{{ total | currency }}</strong></p>
 
