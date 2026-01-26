@@ -1,3 +1,4 @@
+//backBien\constants\viasAdmin.js
 const VIAS_ADMIN = [
   "ORAL",
   "SUBLINGUAL",

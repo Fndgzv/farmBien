@@ -1,3 +1,4 @@
+// backBien\controllers\recetas.controller.js
 const mongoose = require("mongoose");
 const Receta = require("../models/Receta");
 const Paciente = require("../models/Paciente");

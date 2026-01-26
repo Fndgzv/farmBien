@@ -17,6 +17,32 @@ export class ProductoService {
 
   constructor(private http: HttpClient) { }
 
+  private headers() {
+    const token = localStorage.getItem('auth_token') || '';
+
+    // 1) Admin
+    let farmaciaId = localStorage.getItem('farmaciaActivaId') || '';
+
+    // 2) Fallback user_farmacia
+    if (!farmaciaId) {
+      const uf = localStorage.getItem('user_farmacia');
+      try {
+        const parsed = uf ? JSON.parse(uf) : null;
+        farmaciaId = parsed?._id || '';
+      } catch { }
+    }
+
+    const h: any = {
+      'Content-Type': 'application/json',
+      'x-auth-token': token,
+    };
+
+    if (farmaciaId) h['x-farmacia-id'] = farmaciaId;
+
+    return new HttpHeaders(h);
+  }
+
+
   // services/producto.service.ts
   crearProducto(payload: any) {
     return this.http.post<any>(`${environment.apiUrl}/productos`, payload);
@@ -125,10 +151,17 @@ export class ProductoService {
     this.imgCache.clear();
   }
 
-buscarProductoNombre(term: string) {
-  const params = new HttpParams().set('q', term);
-  return this.http.get<any[]>(`${this.apiUrl}/buscar`, { params });
-}
+  buscarProductoNombre(term: string) {
+    const params = new HttpParams().set('q', term);
+    return this.http.get<any[]>(`${this.apiUrl}/buscar`, { params });
+  }
+
+  buscarMedicamentosReceta(q: string) {
+    return this.http.get<any>(
+      `${this.apiUrl}/buscar-medicamentos?q=${encodeURIComponent(q)}`,
+      { headers: this.headers() }
+    );
+  }
+
 
 }
-

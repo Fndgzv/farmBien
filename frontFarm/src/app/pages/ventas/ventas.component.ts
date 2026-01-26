@@ -544,7 +544,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       this.existencias[item.producto] = Number(inv.existencia ?? this.existencias[item.producto] ?? 0);
 
       // INAPAM basado en inventario
-      if (this.descuentoMenorA25Inv(inv)) await this.preguntaINAPAMInv(inv);
+      // if (this.descuentoMenorA25Inv(inv)) await this.preguntaINAPAMInv(inv);
 
       if (productoBase.categoria === 'Recargas' || productoBase.categoria === 'Servicio Médico') {
         this.ptjeDescuento = 0;
@@ -1063,7 +1063,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     let precioFinalUnit = precioOriginal;
 
     // INAPAM pregunta basada en inventario
-    if (this.descuentoMenorA25Inv(inv2)) await this.preguntaINAPAMInv(inv2);
+    // if (this.descuentoMenorA25Inv(inv2)) await this.preguntaINAPAMInv(inv2);
 
     if (producto.categoria === 'Recargas' || producto.categoria === 'Servicio Médico') {
       this.ptjeDescuento = 0;
@@ -1133,7 +1133,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (!inv?.descuentoINAPAM) return;
     if (this.yaPreguntoInapam) return;
 
-    this.bloquearScanner = true;                 // 🔒 bloquea lector
+    this.bloquearScanner = true;
     this.clearBarcodeFocusTimer();
     this.codigoBarrasRef?.nativeElement?.blur();
 

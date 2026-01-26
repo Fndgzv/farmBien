@@ -5,7 +5,7 @@
 
         <div class="col-md-1">
             <label>Farmacia</label>
-            <select class="form-control" formControlName="farmacia" required>
+            <select class="form-control" formControlName="farmacia" required (change)="buscar()">
                 <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
             </select>
         </div>
@@ -62,7 +62,7 @@
         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">INAPAM</label>
             <div class="position-relative">
-                <select class="form-control pe-4 flex-grow-1" formControlName="inapam">
+                <select class="form-control pe-4 flex-grow-1" formControlName="inapam" (change)="buscar()">
                     <option value="">--</option>
                     <option value="true">Sí</option>
                     <option value="false">No</option>
@@ -78,7 +78,7 @@
         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">Genérico?</label>
             <div class="position-relative">
-                <select class="form-control pe-4 flex-grow-1" formControlName="generico">
+                <select class="form-control pe-4 flex-grow-1" formControlName="generico" (change)="buscar()">
                     <option value="">--</option>
                     <option value="true">Sí</option>
                     <option value="false">No</option>

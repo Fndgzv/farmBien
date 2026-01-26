@@ -2,7 +2,7 @@
 const FichaConsultorio = require("../models/FichaConsultorio");
 const Producto = require("../models/Producto");
 const Paciente = require("../models/Paciente");
-
+const mongoose = require("mongoose");
 
 function getFarmaciaActiva(req) {
   const fromUser = req.usuario?.farmacia;          // empleado/medico
@@ -225,18 +225,28 @@ exports.tomarParaAtencion = async (req, res) => {
   }
 };
 
+async function medicoOcupado(farmaciaId, medicoId) {
+  return await FichaConsultorio.exists({
+    farmaciaId,
+    medicoId,
+    estado: { $in: ["EN_ATENCION"] }, // agrega "LISTA_PARA_COBRO" si aplica
+  });
+}
+
 exports.llamarFicha = async (req, res) => {
   try {
     const { id } = req.params;
     const farmaciaId = getFarmaciaActiva(req);
     if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
 
+    // ✅ bloqueo: si ya está atendiendo otra, no puede llamar
+    const ocupado = await medicoOcupado(farmaciaId, req.usuario._id);
+    if (ocupado) {
+      return res.status(409).json({ msg: "Ya estás atendiendo a un paciente. Finaliza o regresa la ficha antes de llamar a otro." });
+    }
+
     const ficha = await FichaConsultorio.findOneAndUpdate(
-      {
-        _id: id,
-        farmaciaId,
-        estado: "EN_ESPERA",
-      },
+      { _id: id, farmaciaId, estado: "EN_ESPERA" },
       {
         $set: {
           estado: "EN_ATENCION",
@@ -249,14 +259,71 @@ exports.llamarFicha = async (req, res) => {
       { new: true }
     );
 
-    if (!ficha) {
-      return res.status(400).json({ msg: "No se pudo llamar: la ficha ya no está en espera." });
-    }
-
+    if (!ficha) return res.status(400).json({ msg: "No se pudo llamar: la ficha ya no está en espera." });
     return res.json({ ok: true, ficha });
   } catch (err) {
     console.error("llamarFicha:", err);
     return res.status(500).json({ msg: "Error al llamar ficha" });
+  }
+};
+
+
+exports.regresarAListaDeEspera = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) return res.status(400).json({ ok: false, msg: "Falta farmacia activa" });
+
+    const usuario = req.usuario;
+    const rol = usuario?.rol;
+
+    // 1) Buscar primero para validar reglas (y tener mensajes claros)
+    const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
+    if (!ficha) return res.status(404).json({ ok: false, msg: "Ficha no encontrada" });
+
+    // 2) No permitir en estados finales o de cobro
+    if (["ATENDIDA", "CANCELADA"].includes(ficha.estado)) {
+      return res.status(400).json({ ok: false, msg: `No se puede regresar una ficha en estado ${ficha.estado}` });
+    }
+    if (ficha.estado === "EN_COBRO") {
+      return res.status(400).json({ ok: false, msg: "La ficha está en cobro; primero libérala en caja." });
+    }
+
+    // 3) Solo permitir regresar si está en atención o lista para cobro (según tu flujo real)
+    const estadosPermitidos = ["EN_ATENCION", "LISTA_PARA_COBRO"];
+    if (!estadosPermitidos.includes(ficha.estado)) {
+      return res.status(400).json({ ok: false, msg: `No se puede regresar desde estado ${ficha.estado}` });
+    }
+
+    // 4) Si es médico, solo si él la tiene tomada (admin puede siempre)
+    if (rol === "medico") {
+      if (ficha.medicoId && String(ficha.medicoId) !== String(usuario._id)) {
+        return res.status(403).json({ ok: false, msg: "Esta ficha está tomada por otro médico." });
+      }
+    }
+
+    // 5) Actualizar: vuelve a espera y, opcionalmente, al final de la cola
+    ficha.estado = "EN_ESPERA";
+    ficha.medicoId = null;
+    ficha.llamadoAt = null;
+    ficha.inicioAtencionAt = null;
+    ficha.finAtencionAt = null;
+
+    // ✅ si quieres que vuelva al FINAL de la cola:
+    // ficha.llegadaAt = new Date();
+
+    // ✅ recomendado: limpiar servicios/notas si regresa a espera
+    ficha.servicios = [];
+    ficha.notasMedico = "";
+
+    ficha.actualizadaPor = usuario._id;
+
+    await ficha.save();
+
+    return res.json({ ok: true, ficha });
+  } catch (err) {
+    console.error("regresarAListaDeEspera:", err);
+    return res.status(500).json({ ok: false, msg: "Error al regresar la ficha a lista de espera" });
   }
 };
 
@@ -300,6 +367,7 @@ exports.tomarParaCobro = async (req, res) => {
     return res.status(500).json({ msg: "Error al tomar ficha para cobro" });
   }
 };
+
 
 /**
  * POST /api/fichas-consultorio/:id/liberar-cobro
@@ -460,3 +528,44 @@ exports.buscar = async (req, res) => {
 };
 
 
+exports.vincularPaciente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const { pacienteId } = req.body || {};
+    if (!pacienteId || !mongoose.isValidObjectId(pacienteId)) {
+      return res.status(400).json({ msg: "pacienteId inválido" });
+    }
+
+    const paciente = await Paciente.findById(pacienteId)
+      .select("_id nombre apellidos contacto.telefono")
+      .lean();
+
+    if (!paciente) return res.status(404).json({ msg: "Paciente no encontrado" });
+
+    // ✅ solo permitir si la ficha está en atención o espera (tu decides)
+    const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
+    if (!ficha) return res.status(404).json({ msg: "Ficha no encontrada" });
+
+    if (["ATENDIDA", "CANCELADA", "EN_COBRO"].includes(ficha.estado)) {
+      return res.status(400).json({ msg: `No se puede vincular paciente en estado ${ficha.estado}` });
+    }
+
+    ficha.pacienteId = pacienteId;
+
+    // opcional: sincronizar nombre/teléfono si quieres consistencia visual
+    const nombreCompleto = `${paciente.nombre || ""} ${paciente.apellidos || ""}`.trim();
+    if (nombreCompleto) ficha.pacienteNombre = nombreCompleto;
+    if (paciente?.contacto?.telefono) ficha.pacienteTelefono = paciente.contacto.telefono;
+
+    ficha.actualizadaPor = req.usuario._id;
+    await ficha.save();
+
+    return res.json({ ok: true, ficha });
+  } catch (err) {
+    console.error("vincularPaciente:", err);
+    return res.status(500).json({ msg: "Error al vincular paciente" });
+  }
+};

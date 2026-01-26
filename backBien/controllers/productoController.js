@@ -1204,4 +1204,85 @@ exports.eliminarProducto = async (req, res) => {
   }
 };
 
+exports.serviciosMedicos = async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+
+    const filtro = { categoria: "Servicio Médico" };
+
+    if (q) {
+      // búsqueda simple por nombre o código
+      filtro.$or = [
+        { nombre: { $regex: q, $options: "i" } },
+        { codigoBarras: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const productos = await Producto.find(filtro)
+      .select("_id nombre precioVenta categoria")
+      .sort({ nombre: 1 })
+      .limit(30)
+      .lean();
+
+    return res.json({ ok: true, productos });
+  } catch (err) {
+    console.error("serviciosMedicos:", err);
+    return res.status(500).json({ ok: false, msg: "Error al cargar servicios médicos" });
+  }
+};
+
+
+const norm = (s) =>
+  String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().trim();
+
+exports.buscarMedicamentosReceta = async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (!q) return res.status(400).json({ msg: "Falta q" });
+
+    const qNorm = norm(q);
+
+    // ✅ Categorías permitidas usando categoriaNorm
+    // - empieza con "antibiotico" (cubre "antibiótico", "antibiotico ...")
+    // - exactamente "iv" o "vi"
+    // - empieza con "iv " o "vi "
+    // - "suplementos" o empieza con "suplementos "
+    const filtroCategoria = {
+      $or: [
+        { categoriaNorm: { $regex: /^antibiotico/ } },
+        { categoriaNorm: "iv" },
+        { categoriaNorm: "vi" },
+        { categoriaNorm: { $regex: /^iv\s+/ } },
+        { categoriaNorm: { $regex: /^vi\s+/ } },
+        { categoriaNorm: "suplementos" },
+        { categoriaNorm: { $regex: /^suplementos\s+/ } },
+      ],
+    };
+
+    // Búsqueda por nombre / código / ingrediente activo (si existe en tu schema)
+    const filtroTexto = {
+      $or: [
+        { nombreNorm: { $regex: qNorm, $options: "i" } },
+        { nombre: { $regex: q, $options: "i" } },
+        { codigoBarras: { $regex: q, $options: "i" } },
+        { ingreActivo: { $regex: q, $options: "i" } },
+      ],
+    };
+
+    const productos = await Producto.find({
+      ...filtroCategoria,
+      ...filtroTexto,
+    })
+      .limit(25)
+      .select("_id nombre codigoBarras ingreActivo")
+      .lean();
+
+    return res.json({ ok: true, productos });
+  } catch (err) {
+    console.error("buscarMedicamentosReceta:", err);
+    return res.status(500).json({ msg: "Error al buscar medicamentos" });
+  }
+};
 

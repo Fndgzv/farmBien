@@ -3,13 +3,15 @@ const mongoose = require('mongoose');
 
 const RecetaSchema = new mongoose.Schema({
     medicamento: { type: mongoose.Schema.Types.ObjectId, ref: 'Producto', required: true },
-    dosis: String
+    dosis: String,
+    frecuencia: String,
+    temporalidad: String
 });
 
 const ServicioMedicoSchema = new mongoose.Schema({
     farmacia: { type: mongoose.Schema.Types.ObjectId, ref: 'Farmacia' },
     medico: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' },
-    paciente: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario', required: false }, // Asociar paciente con cliente si aplica
+    paciente: { type: mongoose.Schema.Types.ObjectId, ref: 'Paciente' },
     servicio: String,
     precio: Number,
     fecha: { type: Date, default: Date.now },

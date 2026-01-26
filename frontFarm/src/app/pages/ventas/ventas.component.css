@@ -177,7 +177,7 @@
   border-radius: 8px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   text-align: center;
-  width: 400px;
+  /* width: 400px; */
   align-items: center;
   background-color: var(--fondo-modal);
   padding: 5px;
@@ -188,6 +188,32 @@
   top: -6px;
   right: -6px;
   z-index: 5;
+}
+
+.modal-header-custom{
+  position: relative;
+}
+
+.btn-cerrar{
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  z-index: 5;
+}
+
+/* reserva el “hueco” del botón */
+.titulo-modal{
+  text-align: center;
+  padding-right: 220px;   /* ajusta según el tamaño del botón */
+  padding-left: 220px;    /* opcional para que quede centrado real */
+}
+
+/* reserva el “hueco” del botón */
+.titulo-modal-ficha{
+  text-align: center;
+  padding-right: 255px;   /* ajusta según el tamaño del botón */
+  padding-left: 255px;    /* opcional para que quede centrado real */
 }
 
 .select {

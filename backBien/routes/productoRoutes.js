@@ -2,7 +2,8 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middlewares/authMiddleware');
-const isAdmin = require("../middlewares/isAdmin")
+const isAdmin = require("../middlewares/isAdmin");
+const checkRole = require("../middlewares/checkRole");
 
 const {
   obtenerProductos,
@@ -19,7 +20,9 @@ const {
   searchProductos,
   buscarPorCodigoBarras,
   eliminarProducto,
-  buscarProductos
+  buscarProductos,
+  serviciosMedicos,
+  buscarMedicamentosReceta
 } = require('../controllers/productoController');
 
 // ⚠️ Rutas específicas SIEMPRE antes que las genéricas con :id
@@ -42,6 +45,18 @@ router.post('/', authMiddleware, isAdmin,crearProducto);
 router.put('/actualizar-masivo', authMiddleware, isAdmin,actualizarProductos);
 router.put('/actualizar-producto/:id([0-9a-fA-F]{24})', authMiddleware, isAdmin, actualizarProducto);
 router.delete('/:id', authMiddleware, isAdmin, eliminarProducto);
+
+router.get("/servicios-medicos", authMiddleware, checkRole(["admin", "empleado", "medico"]),
+  serviciosMedicos
+);
+
+router.get(
+  "/buscar-medicamentos",
+  authMiddleware,
+  checkRole(["admin", "medico"]),
+  buscarMedicamentosReceta
+);
+
 
 // --- por ÚLTIMO la genérica por id ---
 router.get('/:id([0-9a-fA-F]{24})', authMiddleware,obtenerProductoPorId);

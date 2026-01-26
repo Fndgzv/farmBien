@@ -1,3 +1,5 @@
+// backBien\controllers\pacientes.controller.js
+const mongoose = require("mongoose");
 const Paciente = require("../models/Paciente");
 
 function getFarmaciaActiva(req) {
@@ -83,3 +85,149 @@ exports.crearBasico = async (req, res) => {
     return res.status(500).json({ msg: "Error al crear paciente" });
   }
 };
+
+function getFarmaciaActiva(req) {
+  const fromUser = req.usuario?.farmacia;
+  const fromHeader = req.headers["x-farmacia-id"];
+  const farmaciaId = fromHeader || fromUser;
+  return farmaciaId ? String(farmaciaId) : null;
+}
+
+exports.obtenerExpediente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ msg: "ID inválido" });
+
+    const p = await Paciente.findById(id)
+      .select("nombre apellidos contacto datosGenerales antecedentes signosVitales notasClinicas ultimasRecetas activo")
+      .lean();
+
+    if (!p) return res.status(404).json({ msg: "Paciente no encontrado" });
+
+    // ✅ últimos signos vitales (últimos 5)
+    const sv = Array.isArray(p.signosVitales) ? [...p.signosVitales] : [];
+    sv.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    const signosVitalesRecientes = sv.slice(0, 5);
+
+    // ✅ últimas notas clínicas (últimas 5)
+    const nc = Array.isArray(p.notasClinicas) ? [...p.notasClinicas] : [];
+    nc.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    const notasClinicasRecientes = nc.slice(0, 5);
+
+    return res.json({
+      ok: true,
+      paciente: {
+        _id: p._id,
+        nombre: p.nombre,
+        apellidos: p.apellidos,
+        contacto: p.contacto,
+        datosGenerales: p.datosGenerales,
+        antecedentes: p.antecedentes,
+        activo: p.activo,
+      },
+      signosVitalesRecientes,
+      notasClinicasRecientes,
+      ultimasRecetas: p.ultimasRecetas || [],
+    });
+  } catch (err) {
+    console.error("obtenerExpediente:", err);
+    return res.status(500).json({ msg: "Error al obtener expediente" });
+  }
+};
+
+exports.agregarSignosVitales = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    const medicoId = req.usuario?._id;
+
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ msg: "ID inválido" });
+
+    const body = req.body || {};
+
+    // cálculo simple IMC si vienen peso/talla
+    const pesoKg = body.pesoKg != null ? Number(body.pesoKg) : null;
+    const tallaCm = body.tallaCm != null ? Number(body.tallaCm) : null;
+    let imc = body.imc != null ? Number(body.imc) : null;
+    if ((pesoKg && tallaCm) && !imc) {
+      const m = tallaCm / 100;
+      imc = m > 0 ? +(pesoKg / (m * m)).toFixed(2) : null;
+    }
+
+    const sv = {
+      fecha: new Date(),
+      pesoKg: pesoKg ?? undefined,
+      tallaCm: tallaCm ?? undefined,
+      imc: imc ?? undefined,
+      temperatura: body.temperatura ?? undefined,
+      presionSis: body.presionSis ?? undefined,
+      presionDia: body.presionDia ?? undefined,
+      fc: body.fc ?? undefined,
+      fr: body.fr ?? undefined,
+      spo2: body.spo2 ?? undefined,
+      glucosaCapilar: body.glucosaCapilar ?? undefined,
+      notas: (body.notas || "").trim(),
+      tomadoPor: medicoId,
+      farmaciaId: farmaciaId || undefined,
+    };
+
+    const paciente = await Paciente.findByIdAndUpdate(
+      id,
+      { $push: { signosVitales: { $each: [sv], $position: 0, $slice: 50 } } }, // guarda últimos 50
+      { new: true }
+    ).select("_id");
+
+    if (!paciente) return res.status(404).json({ msg: "Paciente no encontrado" });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("agregarSignosVitales:", err);
+    return res.status(500).json({ msg: "Error al guardar signos vitales" });
+  }
+}
+
+  exports.agregarNotaClinica = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    const medicoId = req.usuario?._id;
+
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ msg: "ID inválido" });
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const {
+      motivoConsulta,
+      padecimientoActual,
+      exploracionFisica,
+      diagnosticos = [],
+      plan,
+    } = req.body || {};
+
+    const nota = {
+      fecha: new Date(),
+      motivoConsulta: (motivoConsulta || "").trim(),
+      padecimientoActual: (padecimientoActual || "").trim(),
+      exploracionFisica: (exploracionFisica || "").trim(),
+      diagnosticos: Array.isArray(diagnosticos) ? diagnosticos.map(x => String(x).trim()).filter(Boolean) : [],
+      plan: (plan || "").trim(),
+      medicoId,
+      farmaciaId,
+    };
+
+    const paciente = await Paciente.findByIdAndUpdate(
+      id,
+      { $push: { notasClinicas: { $each: [nota], $position: 0, $slice: 50 } } },
+      { new: true }
+    ).select("_id");
+
+    if (!paciente) return res.status(404).json({ msg: "Paciente no encontrado" });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("agregarNotaClinica:", err);
+    return res.status(500).json({ msg: "Error al guardar nota clínica" });
+  }
+};
+

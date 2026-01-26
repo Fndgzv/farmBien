@@ -63,13 +63,31 @@ export class FichasConsultorioService {
     return this.http.post(`${this.apiUrl}/${id}/llamar`, {}, { headers: this.headers() });
   }
 
+  regresarAListaDeEspera(id: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/${id}/regresar-a-espera`, {}, { headers: this.headers() });
+  }
+
   // (Opcional) Buscar ficha por folio/tel/nombre en cobro
   buscar(q: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/buscar`, { headers: this.headers(), params: { q } });
   }
 
   actualizarServicios(id: string, payload: any): Observable<any> {
-  return this.http.patch(`${this.apiUrl}/${id}/servicios`, payload, { headers: this.headers() });
+    return this.http.patch(`${this.apiUrl}/${id}/servicios`, payload, { headers: this.headers() });
+  }
+
+  buscarServiciosMedicos(q: string) {
+    return this.http.get<any>(`${environment.apiUrl}/productos/servicios-medicos?q=${encodeURIComponent(q || '')}`, {
+      headers: this.headers()
+    });
+  }
+
+  vincularPaciente(fichaId: string, pacienteId: string): Observable<any> {
+  return this.http.patch(
+    `${this.apiUrl}/${fichaId}/vincular-paciente`,
+    { pacienteId },
+    { headers: this.headers() }
+  );
 }
 
 }

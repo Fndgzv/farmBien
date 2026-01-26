@@ -223,40 +223,36 @@
 
   <!-- ===================== MODAL: FICHAS PARA COBRO ===================== -->
   <!-- <div *ngIf="mostrarModalFichas" class="modal-overlay">
-    <div class="modal-content" style="width: 720px; max-width: 98vw;">
+    <div class="modal-content" style="width: 820px; max-width: 98vw;">
 
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h2 class="mb-0">Fichas listas para cobro</h2>
+      <div class="modal-header-custom position-relative mb-2">
+        <h2 class="mb-0 titulo-modal">Fichas listas para cobro</h2>
 
-        <button (click)="cerrarModalFichas()" class="btn-rojo-tache" matTooltip="Cerrar">
+        <button (click)="cerrarModalFichas()" class="btn-rojo-chico btn-cerrar" matTooltip="Cerrar">
           <i class="fas fa-times"></i>
         </button>
       </div>
 
-      <div class="p-2 border rounded" style="max-height: 65vh; overflow: auto;">
+      <div class="p-2 border rounded" style="max-height: 65vh; overflow: auto; width: 780px;">
 
         <div *ngIf="!fichasParaCobro" class="text-center text-muted p-4">
           No hay fichas listas para cobro.
         </div>
 
-        <table *ngIf="fichasParaCobro" class="table table-sm table-hover align-middle mb-0">
+        <table *ngIf="fichasParaCobro" class="tabla">
           <thead>
             <tr>
-              <th>Paciente</th>
-              <th class="text-center">Urg.</th>
-              <th class="text-center">Llegada</th>
-              <th class="text-end">Acción</th>
+              <th style="width: 36%">Paciente</th>
+              <th style="width: 20%;" class="text-center">Pref.</th>
+              <th style="width: 20%;" class="text-center">Llegada</th>
+              <th style="width: 24%;" class="text-center">Acción</th>
             </tr>
           </thead>
 
           <tbody>
             <tr *ngFor="let f of fichasParaCobro">
               <td>
-                <div class="fw-bold">{{ f.pacienteNombre }}</div>
-                <small class="text-muted" *ngIf="f.pacienteTelefono">{{ f.pacienteTelefono }}</small>
-                <div *ngIf="f.motivo" class="text-muted" style="font-size: 12px;">
-                  {{ f.motivo }}
-                </div>
+                <div>{{ f.pacienteNombre }}</div>
               </td>
 
               <td class="text-center">
@@ -271,8 +267,8 @@
                 </small>
               </td>
 
-              <td class="text-end">
-                <button class="btn btn-sm btn-primary" (click)="tomarFichaParaCobro(f)">
+              <td class="text-center">
+                <button class="btn-amarillo-chico" (click)="tomarFichaParaCobro(f)">
                   Tomar
                 </button>
               </td>
@@ -283,7 +279,7 @@
       </div>
 
       <div class="text-muted mt-2" style="font-size: 12px;">
-        Tip: “Tomar” <b>bloquea la ficha</b> y <b>agrega sus servicios al carrito</b>.
+        Tip: “Tomar” <b>agrega sus servicios al carrito</b>.
       </div>
     </div>
   </div> -->
@@ -294,30 +290,29 @@
   <!-- <div *ngIf="mostrarModalPedirFicha" class="modal-overlay">
     <div class="modal-content" style="width: 800px; max-width: 98vw;">
 
-      <div class="d-flex justify-content-between align-items-center mb-2 position-relative">
-        <h2 class="mb-0">Pedir ficha médica</h2>
+      <div class="modal-header-custom position-relative mb-2">
+        <h2 class="mb-0 titulo-modal-ficha">Pedir ficha médica</h2>
 
-        <button type="button"
-                (click)="cerrarModalPedirFicha()"
-                class="btn-rojo-tache modal-x"
-                matTooltip="Cerrar">
+        <button type="button" (click)="cerrarModalPedirFicha()" class="btn-rojo-chico btn-cerrar" matTooltip="Cerrar">
           <i class="fas fa-times"></i>
         </button>
       </div>
 
       <div class="row g-2 align-items-end mb-2">
-        <div class="col-md-8">
+        <div class="col-md-9">
           <label class="form-label mb-1">Buscar paciente (CURP o Nombre)</label>
           <input type="text" class="form-control" [(ngModel)]="busquedaPaciente" (keyup.enter)="buscarPaciente()"
             placeholder="Ej. ABCD001122HDFXXX09 o Juan Pérez">
         </div>
 
-        <div class="col-md-4 d-flex gap-2">
-          <button class="btn-verde" (click)="buscarPaciente()">
-            Buscar
+        <div class="col-md-1 d-flex gap-2">
+          <button class="btn-rojo-tache" (click)="limpiarBusquedaPaciente()" matTooltip="Limpiar paciente">
+            <i class="fas fa-times"></i>
           </button>
-          <button class="btn-gris" (click)="limpiarBusquedaPaciente()">
-            Limpiar
+        </div>
+        <div class="col-md-2 d-flex">
+          <button class="btn-gris" style="margin-left: 6rem;" (click)="buscarPaciente()">
+            Buscar
           </button>
         </div>
       </div>
@@ -326,7 +321,7 @@
         <div *ngIf="buscandoPaciente" class="text-muted text-center p-2">Buscando…</div>
 
         <div class="text-muted text-center p-2"
-            *ngIf="busquedaPacienteHecha && !buscandoPaciente && !pacienteEncontrado && (pacientesEncontrados.length === 0)">
+          *ngIf="busquedaPacienteHecha && !buscandoPaciente && !pacienteEncontrado && (pacientesEncontrados.length === 0)">
           Sin resultados. Puedes darlo de alta básico abajo.
         </div>
 
@@ -348,13 +343,13 @@
           </div>
         </div>
 
-        <table *ngIf="pacientesEncontrados.length" class="table table-sm table-hover align-middle mb-0">
+        <table *ngIf="pacientesEncontrados.length" class="tabla" style="font-size: small;">
           <thead>
             <tr>
-              <th>Paciente</th>
-              <th>CURP</th>
-              <th>Tel</th>
-              <th class="text-end">Acción</th>
+              <th style="width: 40%;">Paciente</th>
+              <th style="width: 20%;">CURP</th>
+              <th style="width: 20%;">Tel</th>
+              <th style="width: 20%;">Acción</th>
             </tr>
           </thead>
           <tbody>
@@ -362,8 +357,8 @@
               <td>{{ p.nombre }} {{ p.apellidos }}</td>
               <td>{{ p.datosGenerales?.curp || '-' }}</td>
               <td>{{ p.contacto?.telefono || '-' }}</td>
-              <td class="text-end">
-                <button class="btn btn-success btn-sm" (click)="seleccionarPaciente(p)">
+              <td>
+                <button class="btn-amarillo-chico" (click)="seleccionarPaciente(p)">
                   Seleccionar
                 </button>
               </td>
@@ -408,7 +403,7 @@
           </div>
 
           <div class="col-md-6 d-flex align-items-end">
-            <button class="btn btn-outline-primary w-100" (click)="crearPacienteBasico()">
+            <button class="btn-amarillo w-100" (click)="crearPacienteBasico()">
               Dar de alta
             </button>
           </div>
@@ -416,13 +411,13 @@
       </div>
 
       <div class="row g-2 mb-3">
-        <div class="col-md-3 d-flex align-items-center gap-2">
+        <div class="col-md-4 d-flex align-items-center" style="margin-top: 2rem;" >
           <input type="checkbox" id="urgenciaFicha" [(ngModel)]="fichaUrgencia">
-          <label for="urgenciaFicha" class="mb-0 fw-bold text-danger">Urgencia</label>
+          <label for="urgenciaFicha" class="fw-bold text-danger">Preferencia</label>
         </div>
 
-        <div class="col-md-9">
-          <label class="form-label mb-1">Motivo (opcional)</label>
+        <div class="col-md-8">
+          <label class="form-label">Motivo (opcional)</label>
           <input type="text" class="form-control" [(ngModel)]="fichaMotivo" placeholder="Ej. dolor, inyección, etc.">
         </div>
       </div>

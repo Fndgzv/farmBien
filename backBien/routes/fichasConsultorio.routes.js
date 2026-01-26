@@ -56,6 +56,13 @@ router.post(
   ctrl.llamarFicha
 );
 
+router.post(
+  "/:id/regresar-a-espera",
+  auth,
+  checkRole(["admin", "medico"]),
+  ctrl.regresarAListaDeEspera
+);
+
 router.get(
   "/listas-para-cobro",
   auth,
@@ -77,5 +84,11 @@ router.post(
   ctrl.cancelarFicha
 );
 
+router.patch(
+  "/:id/vincular-paciente",
+  auth,
+  checkRole(["admin", "medico"]),
+  ctrl.vincularPaciente
+);
 
 module.exports = router;
