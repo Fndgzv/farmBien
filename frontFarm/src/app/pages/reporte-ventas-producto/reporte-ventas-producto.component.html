@@ -4,15 +4,6 @@
   </div>
   <form (ngSubmit)="buscar()" class="row align-items-end">
     <div class="row filtros">
-      <div class="col-md-2">
-        <label class="form-label">Farmacia</label>
-        <select class="form-select" [(ngModel)]="farmaciaId" name="farmaciaId">
-          <option value="">Todas</option>
-          <option *ngFor="let f of farmacias" [ngValue]="f._id">
-            {{ f.nombre }}
-          </option>
-        </select>
-      </div>
 
       <!-- Producto (Angular Material Autocomplete) -->
       <div class="col-md-4">
@@ -53,16 +44,24 @@
         </mat-form-field>
       </div>
 
-
+      <div class="col-md-2">
+        <label class="form-label">Farmacia</label>
+        <select class="form-select" [(ngModel)]="farmaciaId" name="farmaciaId" (change)="buscar()">
+          <option value="">Todas</option>
+          <option *ngFor="let f of farmacias" [ngValue]="f._id">
+            {{ f.nombre }}
+          </option>
+        </select>
+      </div>
 
       <div class="col-md-2">
         <label class="form-label">Fecha inicial</label>
-        <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni"/>
+        <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" (change)="buscar()"/>
       </div>
 
       <div class="col-md-2">
         <label class="form-label">Fecha final</label>
-        <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin"/>
+        <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" (change)="buscar()" />
       </div>
 
       <div class="col-md-1 d-flex" style="margin-top: -10px;">
