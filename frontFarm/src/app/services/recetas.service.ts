@@ -7,7 +7,7 @@ import { environment } from '../../environments/environment';
 export class RecetasService {
   private apiUrl = `${environment.apiUrl}/recetas`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   private headers() {
     const token = localStorage.getItem('auth_token') || '';
@@ -18,7 +18,7 @@ export class RecetasService {
       try {
         const parsed = uf ? JSON.parse(uf) : null;
         farmaciaId = parsed?._id || '';
-      } catch {}
+      } catch { }
     }
 
     const h: any = {
@@ -33,4 +33,10 @@ export class RecetasService {
   crear(payload: any): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}`, payload, { headers: this.headers() });
   }
+
+  // ✅ GET /api/recetas/:id
+  obtenerPorId(id: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/${id}`, { headers: this.headers() });
+  }
+
 }

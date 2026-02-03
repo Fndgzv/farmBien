@@ -347,9 +347,22 @@ export class DevolucionesComponent implements OnInit {
             return false;
           }
           return true;
-        } catch (e) {
-          console.error('❌ Error al verificar firma:', e);
-          Swal.showValidationMessage('Error al verificar la firma. Intenta más tarde.');
+        } catch (err: any) {
+          console.error('❌ Error al verificar firma:', err);
+
+          const status = err?.status;
+          const msg = err?.error?.mensaje || err?.error?.msg || err?.message || '';
+
+          if (status === 0) {
+            Swal.showValidationMessage('No hay conexión con el servidor (red/CORS/proxy).');
+          } else if (status === 401) {
+            Swal.showValidationMessage('Sesión inválida/expirada. Cierra sesión e inicia de nuevo (revisa la hora del equipo).');
+          } else if (status === 403) {
+            Swal.showValidationMessage('No autorizado para verificar firma.');
+          } else {
+            Swal.showValidationMessage(`Error al verificar firma (${status || '??'}). ${msg}`.trim());
+          }
+
           if (confirmButton) confirmButton.disabled = false;
           return false;
         }

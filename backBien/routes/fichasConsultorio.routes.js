@@ -14,11 +14,39 @@ router.post(
   ctrl.crearFicha
 );
 
+router.get(
+  "/cola",
+  auth,
+  checkRole(["admin", "medico"]),
+  ctrl.obtenerCola
+);
+
+router.get(
+  "/listas-para-cobro",
+  auth,
+  checkRole(["admin", "empleado"]),
+  ctrl.listasParaCobro
+);
+
+router.get(
+  "/buscar",
+  auth,
+  checkRole(["admin", "empleado"]),
+  ctrl.buscar
+);
+
 router.patch(
   "/:id/servicios",
   auth,
   checkRole(["admin", "medico"]),
   ctrl.actualizarServicios
+);
+
+router.patch(
+  "/:id/finalizar",
+  auth,
+  checkRole(["admin", "medico"]),
+  ctrl.finalizarConsulta
 );
 
 router.post(
@@ -34,13 +62,6 @@ router.post(
   checkRole(["admin", "empleado"]),
   ctrl.liberarCobro
 )
-
-router.get(
-  "/cola",
-  auth,
-  checkRole(["admin", "medico"]),
-  ctrl.obtenerCola
-);
 
 router.post(
   "/:id/tomar-para-atencion",
@@ -63,20 +84,6 @@ router.post(
   ctrl.regresarAListaDeEspera
 );
 
-router.get(
-  "/listas-para-cobro",
-  auth,
-  checkRole(["admin", "empleado"]),
-  ctrl.listasParaCobro
-);
-
-router.get(
-  "/buscar",
-  auth,
-  checkRole(["admin", "empleado"]),
-  ctrl.buscar
-);
-
 router.post(
   "/:id/cancelar",
   auth,
@@ -90,5 +97,13 @@ router.patch(
   checkRole(["admin", "medico"]),
   ctrl.vincularPaciente
 );
+
+router.post(
+  "/:id/reanudar",
+  auth,
+  checkRole(["admin", "medico"]),
+  ctrl.reanudarFicha
+);
+
 
 module.exports = router;

@@ -2,11 +2,9 @@
 <div class="row mb-2">
   <div class="col">
     <h1 class="titulo mb-0">Consultorio</h1>
-    <small *ngIf="farmaciaNombre">Farmacia: {{ farmaciaNombre }}</small>
   </div>
-  <div class="col d-flex justify-content-end gap-2">
-    <!-- <button class="btn btn-outline-secondary" (click)="cargarCola()">Refrescar</button> -->
-    <button class="btn-verde" (click)="cargarCola()">Refrescar</button>
+  <div class="col" style="text-align: end;">
+    <small><strong *ngIf="farmaciaNombre">Farmacia: {{ farmaciaNombre }}</strong></small>
   </div>
 </div>
 
@@ -18,19 +16,37 @@
       <strong>Lista de espera</strong>
       <span class="badge bg-primary">{{ cola.length }}</span>
 
-      <span class="badge bg-warning" *ngIf="hayUrgenciasEnCola"> Hay pacientes con preferencia </span>
+      <span class="badge" *ngIf="hayUrgenciasEnCola"
+            style="
+              background-color: rgb(46, 48, 1);
+              height: 32px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color:aliceblue">
+              Hay pacientes con preferencia
+      </span>
       <span class="text-muted small" *ngIf="medicoOcupado">
         (ocupado con {{ fichaActual?.pacienteNombre }})
       </span>
     </div>
 
-    <div class="d-flex align-items-center gap-2">
-      <span class="text-muted small">
-        {{ colaExpandida ? 'Ocultar' : 'Mostrar' }}
-      </span>
-      <span class="fs-5">
-        {{ colaExpandida ? '▾' : '▸' }}
-      </span>
+    <div class="d-flex align-items-center gap-2" (click)="$event.stopPropagation()">
+      <button
+        type="button"
+        (click)="cargarCola()"
+            style="
+              background-color: rgb(46, 48, 1);
+              height: 32px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color:aliceblue;"
+      >
+        Refrescar
+      </button>
+      <span (click)="toggleCola()" class="text-muted small">{{ colaExpandida ? 'Ocultar' : 'Mostrar' }}</span>
+      <span (click)="toggleCola()" class="fs-5">{{ colaExpandida ? '▾' : '▸' }}</span>
     </div>
   </div>
 
@@ -48,33 +64,34 @@
       <table class="tabla">
         <thead class="table-light">
           <tr>
-            <th style="min-width: 220px;">Paciente</th>
-            <th style="min-width: 220px;">Motivo</th>
-            <th style="width: 120px;">Tipo</th>
-            <th style="min-width: 160px;">Llegada</th>
-            <th style="width: 140px;">Espera</th>
-            <!--  <th style="width: 140px;" class="text-end">Acción</th> -->
-            <th></th>
+            <th style="width: 30%;">Paciente</th>
+            <th style="width: 25%;">Motivo</th>
+            <th style="width: 12%;">Tipo</th>
+            <th style="width: 12%;">Llegada</th>
+            <th style="width: 12%;">Espera</th>
+            <th>Acción</th>
           </tr>
         </thead>
 
         <tbody>
           <tr *ngFor="let f of cola" class="table-row-hover">
             <td>
-              <div class="fw-semibold">{{ f.pacienteNombre }}</div>
-              <!-- <div class="text-muted small" *ngIf="f.pacienteTelefono">
-                {{ f.pacienteTelefono }}
-              </div> -->
+              <div>{{ f.pacienteNombre }}</div>
             </td>
 
             <td>
               <div class="text-truncate" style="max-width: 360px;" [title]="f.motivo || '-'">
                 {{ f.motivo || '-' }}
               </div>
+
+              <!-- (Opcional) indicador pequeño si está en atención -->
+              <div class="small text-muted" *ngIf="f.estado === 'EN_ATENCION' && esMia(f)">
+                En atención (tuya)
+              </div>
             </td>
 
             <td>
-              <span class="badge" [class.bg-warning]="f.urgencia" [class.bg-primary]="!f.urgencia">
+              <span class="badge" [class.bg-danger]="f.urgencia" [class.bg-primary]="!f.urgencia">
                 {{ f.urgencia ? 'Preferente' : 'Normal' }}
               </span>
             </td>
@@ -90,18 +107,26 @@
             </td>
 
             <td class="text-end">
-              <button class="btn-gris" [disabled]="medicoOcupado" (click)="llamar(f)">
-                Llamar
+              <button [class]="f.estado === 'EN_ATENCION' ? 'btn-amarillo-chico' : 'btn-gris-chico'"
+                [disabled]="medicoOcupado && f.estado !== 'EN_ATENCION'"
+                (click)="f.estado === 'EN_ATENCION' ? reanudar(f) : llamar(f)">
+                {{ f.estado === 'EN_ATENCION' ? 'Reanudar' : 'Llamar' }}
               </button>
+
+              <!-- (Opcional) Si llegara EN_ATENCION pero no es mía (no debería por backend) -->
+              <!-- <span *ngIf="f.estado === 'EN_ATENCION' && !esMia(f)" class="text-muted small">
+                En atención
+              </span> -->
             </td>
           </tr>
 
           <tr *ngIf="!cola.length">
             <td colspan="6" class="text-center p-3 text-muted">
-              No hay pacientes en espera
+              No hay pacientes en cola
             </td>
           </tr>
         </tbody>
+
       </table>
     </div>
 
@@ -148,11 +173,11 @@
     </div>
 
     <!-- EXPEDIENTE -->
-    <div class="card mb-3 shadow-sm" *ngIf="fichaActual" id="expediente">
+    <div class="card mb-3 shadow-sm" style="background:#c3e8fb" *ngIf="fichaActual" id="expediente">
 
       <div class="card-header d-flex justify-content-between align-items-center" role="button" (click)="toggleExp()"
-        style="user-select:none;">
-        <div class="d-flex flex-column">
+        style="user-select:none; background:#4fbeff">
+        <div class="d-flex align-items-center gap-2">
           <strong>Expediente</strong>
           <span class="text-muted small">
             {{ nombrePacienteExpediente() }}
@@ -214,43 +239,43 @@
           <!-- ================== ANTECEDENTES ================== -->
           <div *ngIf="expedienteTab==='ANT'">
             <div class="row g-3">
-              <div class="col-md-6">
-                <div class="p-3 border rounded-3 bg-light">
+              <div class="col-md-6" >
+                <div class="p-3 border rounded-3" style="background: #93d6fd">
                   <div class="fw-semibold mb-1">Alergias</div>
                   <div>{{ fmtLista(paciente?.antecedentes?.alergias) }}</div>
                 </div>
               </div>
 
               <div class="col-md-6">
-                <div class="p-3 border rounded-3 bg-light">
+                <div class="p-3 border rounded-3" style="background: #93d6fd">
                   <div class="fw-semibold mb-1">Enfermedades crónicas</div>
                   <div>{{ fmtLista(paciente?.antecedentes?.enfermedadesCronicas) }}</div>
                 </div>
               </div>
 
               <div class="col-md-6">
-                <div class="p-3 border rounded-3 bg-light">
+                <div class="p-3 border rounded-3" style="background: #93d6fd">
                   <div class="fw-semibold mb-1">Medicamentos actuales</div>
                   <div>{{ fmtLista(paciente?.antecedentes?.medicamentosActuales) }}</div>
                 </div>
               </div>
 
               <div class="col-md-6">
-                <div class="p-3 border rounded-3 bg-light">
+                <div class="p-3 border rounded-3" style="background: #93d6fd">
                   <div class="fw-semibold mb-1">Cirugías previas</div>
                   <div>{{ fmtLista(paciente?.antecedentes?.cirugiasPrevias) }}</div>
                 </div>
               </div>
 
               <div class="col-md-6">
-                <div class="p-3 border rounded-3 bg-light">
+                <div class="p-3 border rounded-3" style="background: #93d6fd">
                   <div class="fw-semibold mb-1">Antecedentes familiares</div>
                   <div>{{ fmtLista(paciente?.antecedentes?.antecedentesFamiliares) }}</div>
                 </div>
               </div>
 
               <div class="col-md-6">
-                <div class="p-3 border rounded-3 bg-light">
+                <div class="p-3 border rounded-3" style="background: #93d6fd">
                   <div class="fw-semibold mb-1">Hábitos</div>
                   <div class="small text-muted">
                     Tabaquismo: <strong>{{ paciente?.antecedentes?.tabaquismo || '—' }}</strong>
@@ -337,91 +362,114 @@
     <!-- SIGNOS VITALES (CAPTURA) -->
     <div class="card mb-3 shadow-sm" *ngIf="fichaActual">
       <div class="card-header d-flex justify-content-between align-items-center" role="button" (click)="toggleSV()"
-        style="user-select:none;">
+        style="user-select:none; background: rgb(190, 228, 220)">
         <div class="d-flex align-items-center gap-2">
           <strong>Signos vitales</strong>
         </div>
 
         <div class="d-flex align-items-center gap-2" (click)="$event.stopPropagation()">
-          <!-- tus botones (no deben colapsar al dar click) -->
-          <button *ngIf="svExpandida" class="btn btn-outline-secondary btn-sm" type="button" (click)="limpiarSignos()"
-            [disabled]="guardandoSignos">
-            Limpiar
-          </button>
-
-          <button *ngIf="svExpandida" class="btn btn-primary btn-sm" type="button" (click)="guardarSignosVitales()"
-            [disabled]="guardandoSignos || !fichaActual?.pacienteId">
-            {{ guardandoSignos ? 'Guardando…' : 'Guardar signos' }}
+          <button *ngIf="svExpandida" class="d-flex align-items-center gap-2" type="button" (click)="limpiarSignos()"
+            [disabled]="guardandoSignos"
+            style="
+              background-color: rgb(46, 48, 1);
+              height: 32px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color:aliceblue;">
+              Limpiar
           </button>
           <span class="text-muted small" (click)="toggleSV()">{{ svExpandida ? 'Ocultar' : 'Mostrar' }}</span>
           <span class="fs-5 ms-2" (click)="toggleSV()">{{ svExpandida ? '▾' : '▸' }}</span>
         </div>
       </div>
 
-      <div class="card-body" [class.d-none]="!svExpandida">
-        <div class="alert alert-warning mb-0">
+      <div class="card-body" [class.d-none]="!svExpandida" style="background: rgb(190, 228, 190);">
+        <!-- <div class="alert alert-warning mb-0">
           Para registrar signos vitales primero debes <strong>vincular el paciente</strong>.
-        </div>
+        </div> -->
 
         <div class="card-body" *ngIf="fichaActual?.pacienteId">
           <div class="row g-3">
 
             <div class="col-md-4">
               <label class="form-label">Peso (kg)</label>
-              <input class="form-control" type="number" min="0" step="0.1" [(ngModel)]="signos.pesoKg"
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" min="0" step="0.1" [(ngModel)]="signos.pesoKg"
                 (input)="recalcularIMC()">
             </div>
 
             <div class="col-md-4">
               <label class="form-label">Talla (cm)</label>
-              <input class="form-control" type="number" min="0" step="0.1" [(ngModel)]="signos.tallaCm"
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" min="0" step="0.1" [(ngModel)]="signos.tallaCm"
                 (input)="recalcularIMC()">
             </div>
 
             <div class="col-md-4">
               <label class="form-label">IMC</label>
-              <input class="form-control" type="number" [value]="signos.imc ?? ''" readonly>
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" [value]="signos.imc ?? ''" readonly>
               <div class="form-text">Se calcula automático</div>
             </div>
 
             <div class="col-md-3">
               <label class="form-label">Temperatura (°C)</label>
-              <input class="form-control" type="number" step="0.1" [(ngModel)]="signos.temperatura">
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" step="0.1" [(ngModel)]="signos.temperatura">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">TA Sistólica</label>
-              <input class="form-control" type="number" min="0" [(ngModel)]="signos.presionSis">
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" min="0" [(ngModel)]="signos.presionSis">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">TA Diastólica</label>
-              <input class="form-control" type="number" min="0" [(ngModel)]="signos.presionDia">
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" min="0" [(ngModel)]="signos.presionDia">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">FC (lpm)</label>
-              <input class="form-control" type="number" min="0" [(ngModel)]="signos.fc">
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" min="0" [(ngModel)]="signos.fc">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">FR (rpm)</label>
-              <input class="form-control" type="number" min="0" [(ngModel)]="signos.fr">
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" min="0" [(ngModel)]="signos.fr">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">SpO₂ (%)</label>
-              <input class="form-control" type="number" min="0" max="100" [(ngModel)]="signos.spo2">
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" min="0" max="100" [(ngModel)]="signos.spo2">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">Glucosa capilar (mg/dL)</label>
-              <input class="form-control" type="number" min="0" [(ngModel)]="signos.glucosaCapilar">
+              <input class="form-control"
+                style="background: rgb(210, 248, 236);"
+                type="number" min="0" [(ngModel)]="signos.glucosaCapilar">
             </div>
 
             <div class="col-12">
               <label class="form-label">Notas</label>
-              <textarea class="form-control" rows="2" [(ngModel)]="signos.notas"
+              <textarea class="form-control" rows="2"
+                style="background: rgb(210, 248, 236);"
+                [(ngModel)]="signos.notas"
                 placeholder="Ej. paciente en ayuno, técnica, observaciones..."></textarea>
             </div>
           </div>
@@ -432,15 +480,11 @@
     <!-- RECETA MÉDICA -->
     <div class="card mb-3 shadow-sm" *ngIf="fichaActual">
       <div class="card-header d-flex justify-content-between align-items-center" role="button" (click)="toggleRX()"
-        style="user-select:none;">
+        style="user-select:none; background: #2e04fe; color: white;">
         <strong>Receta médica</strong>
         <div class="d-flex align-items-center gap-2" (click)="$event.stopPropagation()">
-          <!-- <button *ngIf="rxExpandida" class="btn btn-success btn-sm"
-            [disabled]="generandoReceta || !fichaActual?.pacienteId" (click)="generarReceta()">
-            {{ generandoReceta ? 'Generando…' : 'Generar receta' }}
-          </button> -->
-          <span class="text-muted small" (click)="toggleRX()">{{ rxExpandida ? 'Ocultar' : 'Mostrar' }}</span>
-          <span class="fs-5" (click)="toggleRX()">{{ rxExpandida ? '▾' : '▸' }}</span>
+          <span style="color: white" class="small" (click)="toggleRX()">{{ rxExpandida ? 'Ocultar' : 'Mostrar' }}</span>
+          <span style="color: white" class="fs-5" (click)="toggleRX()">{{ rxExpandida ? '▾' : '▸' }}</span>
         </div>
       </div>
 
@@ -451,34 +495,44 @@
           </div>
         </div>
 
-        <div class="card-body" *ngIf="fichaActual?.pacienteId">
+        <div class="card-body" style="background: rgb(69, 182, 252);" *ngIf="fichaActual?.pacienteId">
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Motivo de consulta</label>
-              <input class="form-control" [(ngModel)]="receta.motivoConsulta"
+              <input class="form-control"
+                style="background: #93d6fd;"
+                [(ngModel)]="receta.motivoConsulta"
                 placeholder="Ej. dolor de garganta, revisión..." />
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Cita de seguimiento (opcional)</label>
-              <input class="form-control" type="date" [(ngModel)]="receta.citaSeguimiento" />
+              <input class="form-control"
+                style="background: #93d6fd;"
+                type="date" [(ngModel)]="receta.citaSeguimiento" />
             </div>
 
             <div class="col-md-6">
-              <label class="form-label">Diagnósticos (uno por línea o separados por coma)</label>
-              <textarea class="form-control" rows="3" [(ngModel)]="receta.diagnosticosTexto"
+              <label class="form-label">Diagnósticos (separados por coma)</label>
+              <textarea class="form-control" rows="1"
+                style="background: #93d6fd;"
+                [(ngModel)]="receta.diagnosticosTexto"
                 placeholder="Ej.\nFaringitis\nRinitis alérgica"></textarea>
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Observaciones</label>
-              <textarea class="form-control" rows="3" [(ngModel)]="receta.observaciones"
+              <textarea class="form-control" rows="1"
+                style="background: #93d6fd;"
+                [(ngModel)]="receta.observaciones"
                 placeholder="Notas clínicas, hallazgos, etc. (opcional)"></textarea>
             </div>
 
             <div class="col-12">
               <label class="form-label">Indicaciones generales</label>
-              <textarea class="form-control" rows="2" [(ngModel)]="receta.indicacionesGenerales"
+              <textarea class="form-control" rows="1"
+                style="background: #93d6fd;"
+                [(ngModel)]="receta.indicacionesGenerales"
                 placeholder="Ej. reposo, dieta, hidratación, signos de alarma..."></textarea>
             </div>
           </div>
@@ -487,23 +541,24 @@
 
           <div class="d-flex justify-content-between align-items-center mb-2">
             <strong>Medicamentos</strong>
-            <button class="btn btn-outline-primary btn-sm" (click)="agregarMedicamento()">
+            <button class="btn btn-sm btn-medicamento"
+                    (click)="agregarMedicamento()">
               + Agregar medicamento
             </button>
           </div>
 
           <div class="table-responsive">
-            <table class="table table-sm align-middle">
+            <table class="tabla" style="font-size: small;">
               <thead class="table-light">
                 <tr>
-                  <th style="min-width: 240px;">Medicamento</th>
-                  <th style="min-width: 160px;">Vía</th>
-                  <th style="min-width: 120px;">Dosis</th>
-                  <th style="min-width: 150px;">Frecuencia</th>
-                  <th style="min-width: 150px;">Duración</th>
+                  <th style="width: 30%;">Medicamento</th>
+                  <th style="width: 12%;">Vía</th>
+                  <th style="width: 12%;">Dosis</th>
+                  <th style="width: 12%;">Frecuencia</th>
+                  <th style="width: 12%;">Duración</th>
                   <!-- <th style="width: 100px;">Cant</th> -->
-                  <th style="min-width: 200px;">Indicaciones</th>
-                  <th style="width: 90px;" class="text-end">Acc</th>
+                  <th style="width: 12%;">Indicaciones</th>
+                  <th style="width: 10%;" class="text-end">Acc</th>
                 </tr>
               </thead>
               <tbody>
@@ -528,30 +583,33 @@
 
                     <!-- MODO CATALOGO -->
                     <div *ngIf="m.modo==='CATALOGO'" class="position-relative">
-                      <input class="form-control" [(ngModel)]="m.q" (input)="buscarMedicamentos(i)"
+                      <input class="form-control" [(ngModel)]="m.q"
+                        style="background: #93d6fd; font-size: small;"
+                        (input)="buscarMedicamentos(i)"
                         (focus)="onFocusMedicamento(i)" (blur)="ocultarResultados(i)"
-                        placeholder="Buscar medicamento (nombre, código o ingrediente activo)">
+                        placeholder="Buscar medicamento">
 
                       <!-- dropdown resultados -->
                       <div class="list-group position-absolute w-100 shadow"
-                        style="z-index: 20; max-height: 260px; overflow:auto;"
+                        style="z-index: 20; max-height: 260px; overflow:auto; font-size: small;"
                         *ngIf="(m.resultados?.length || 0) > 0 && buscandoMedIdx===i">
                         <button type="button" class="list-group-item list-group-item-action"
+                          style="font-size: small;"
                           *ngFor="let p of m.resultados" (mousedown)="$event.preventDefault()"
                           (click)="seleccionarMedicamento(i, p)">
-                          <div class="d-flex justify-content-between">
+                          <!-- <div class="d-flex justify-content-between">
                             <div class="fw-semibold">{{ p.nombre }}</div>
                             <small class="text-muted">{{ p.codigoBarras || '' }}</small>
-                          </div>
-                          <div class="small text-muted">
+                          </div> -->
+                          <div>
                             {{ p.ingreActivo || 'Sin ing. activo' }}
                           </div>
                         </button>
                       </div>
 
-                      <div class="form-text" *ngIf="!m.productoId">
+                      <!-- <div class="form-text" *ngIf="!m.productoId">
                         Escribe al menos 2 letras. Solo aparecen categorías: Antibiótico / IV / VI / Suplementos.
-                      </div>
+                      </div> -->
 
                       <!-- snapshot visible -->
                       <!-- <div class="mt-1 small" *ngIf="m.productoId">
@@ -565,30 +623,40 @@
                     <!-- MODO OTRO -->
                     <div *ngIf="m.modo==='OTRO'">
                       <input class="form-control" [(ngModel)]="m.nombreLibre"
+                        style="background: #93d6fd; font-size: small;"
                         placeholder="Escribe el medicamento (texto libre)">
                       <div class="form-text">Aquí no se valida contra catálogo.</div>
                     </div>
                   </td>
 
                   <td>
-                    <select class="form-select" [(ngModel)]="m.via">
+                    <select class="form-select" [(ngModel)]="m.via"
+                      style="background: #93d6fd; font-size: small;">
                       <option *ngFor="let v of VIAS_ADMIN" [value]="v">{{ v }}</option>
                     </select>
 
-                    <input class="form-control mt-1" *ngIf="m.via === 'OTRA'" [(ngModel)]="m.viaOtra"
+                    <input class="form-control mt-1"
+                      style="background: #93d6fd; font-size: small;"
+                      *ngIf="m.via === 'OTRA'" [(ngModel)]="m.viaOtra"
                       placeholder="Especifica vía..." />
                   </td>
 
                   <td>
-                    <input class="form-control" [(ngModel)]="m.dosis" placeholder="Ej. 2 Tabletas" />
+                    <input class="form-control" [(ngModel)]="m.dosis"
+                      style="background: #93d6fd; font-size: small;"
+                      placeholder="Ej. 2 Tabletas" />
                   </td>
 
                   <td>
-                    <input class="form-control" [(ngModel)]="m.frecuencia" placeholder="Ej. c/8h" />
+                    <input class="form-control" [(ngModel)]="m.frecuencia"
+                      style="background: #93d6fd; font-size: small;"
+                      placeholder="Ej. c/8h" />
                   </td>
 
                   <td>
-                    <input class="form-control" [(ngModel)]="m.duracion" placeholder="Ej. 7 días" />
+                    <input class="form-control" [(ngModel)]="m.duracion"
+                      style="background: #93d6fd; font-size: small;"
+                      placeholder="Ej. 7 días" />
                   </td>
 
                   <!-- <td>
@@ -596,7 +664,9 @@
                 </td> -->
 
                   <td>
-                    <input class="form-control" [(ngModel)]="m.indicaciones" placeholder="Ej. con alimentos" />
+                    <input class="form-control" [(ngModel)]="m.indicaciones"
+                      style="background: #93d6fd; font-size: small;"
+                      placeholder="Ej. con alimentos" />
                     <!-- <div class="form-check mt-1">
                     <input class="form-check-input" type="checkbox" [(ngModel)]="m.esControlado" [id]="'ctrl_'+i">
                     <label class="form-check-label small" [for]="'ctrl_'+i">Controlado</label>
@@ -611,7 +681,7 @@
                 </tr>
 
                 <tr *ngIf="(receta.medicamentos || []).length === 0">
-                  <td colspan="8" class="text-center text-muted p-3">
+                  <td colspan="8" class="text-center" style="color:#2e04fe">
                     Agrega al menos un medicamento.
                   </td>
                 </tr>
@@ -623,13 +693,21 @@
     </div>
 
     <!-- Servicios médicos realizados al paciente -->
-    <div class="card mb-3 shadow-sm" *ngIf="fichaActual">
+    <div class="card mb-3 shadow-sm" style="background: rgb(252, 162, 240);" *ngIf="fichaActual">
       <div class="card-header d-flex justify-content-between align-items-center" role="button" (click)="toggleServ()"
-        style="user-select:none;">
+        style="user-select:none; background: rgb(252, 162, 251);">
         <strong>Servicios médicos realizados al paciente</strong>
 
         <div class="d-flex align-items-center gap-2" (click)="$event.stopPropagation()">
-          <button *ngIf="servExpandida" class="btn btn-sm btn-outline-primary" (click)="agregarRenglonServicio()">
+          <button *ngIf="servExpandida" class="d-flex align-items-center gap-2"
+                  style="
+                    background-color: rgb(46, 48, 1);
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color:aliceblue;"  
+                  (click)="agregarRenglonServicio()">
             + Agregar servicio
           </button>
           <span class="text-muted small" (click)="toggleServ()">{{ servExpandida ? 'Ocultar' : 'Mostrar' }}</span>
@@ -638,19 +716,19 @@
       </div>
 
       <div [class.d-none]="!servExpandida">
-        <table class="table table-sm">
+        <table class="tablaSM">
           <thead>
             <tr>
-              <th style="width: 45%;">Servicio</th>
-              <th style="width: 90px;">Cant</th>
-              <th>Notas</th>
-              <th style="width: 90px;">Acc</th>
+              <th style="width: 60%;">Servicio</th>
+              <th style="width: 10%;">Cant</th>
+              <th style="width: 20%;">Notas</th>
+              <th style="width: 10%;">Acc</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let s of servicios; let i = index">
               <td style="position: relative;">
-                <input class="form-control" placeholder="Buscar servicio médico por nombre…" [(ngModel)]="s.query"
+                <input class="form-control" style="background:#f8d8fd;" placeholder="Buscar servicio médico por nombre…" [(ngModel)]="s.query"
                   (input)="onInputServicio(i)" (blur)="blurServicio(i)" autocomplete="off">
 
                 <div class="form-text" *ngIf="!s.productoId && (s.query || '').trim()">
@@ -660,12 +738,14 @@
                 <!-- dropdown sugerencias -->
                 <div class="list-group" *ngIf="(s.sugerencias?.length || 0) > 0"
                   style="position:absolute; z-index: 10; width: 100%; max-height: 220px; overflow:auto;">
-                  <button type="button" class="list-group-item list-group-item-action" *ngFor="let p of s.sugerencias"
+                  <button type="button" class="list-group-item list-group-item-action" 
+                    *ngFor="let p of s.sugerencias"
+                    style="background:#f8d8f0;"
                     (mousedown)="seleccionarServicio(i, p)">
                     {{ p.nombre }}
-                    <span class="float-end text-muted" *ngIf="p.precioVenta != null">
+                    <!-- <span class="float-end text-muted" *ngIf="p.precioVenta != null">
                       ${{ p.precioVenta }}
-                    </span>
+                    </span> -->
                   </button>
                 </div>
 
@@ -674,11 +754,15 @@
 
 
               <td>
-                <input class="form-control" type="number" min="1" [(ngModel)]="s.cantidad">
+                <input class="form-control"
+                  style="background:#f8d8fd;"
+                  type="number" min="1" [(ngModel)]="s.cantidad">
               </td>
 
               <td>
-                <input class="form-control" [(ngModel)]="s.notas" placeholder="Opcional">
+                <input class="form-control" [(ngModel)]="s.notas"
+                  style="background:#f8d8fd;"
+                  placeholder="Opcional">
               </td>
 
               <td>
@@ -691,7 +775,7 @@
     </div>
 
     <div class="d-flex justify-content-end gap-2">
-      <button class="btn-gris" (click)="regresarACola()">Regresar a lista de espera</button>
+      <button class="btn-gris" (click)="regresarACola()">Regresar a fila de espera</button>
       <button class="btn-verde" [disabled]="guardando" (click)="guardarYEnviarACaja()">
         {{ guardando ? 'Guardando…' : 'Finalizar y enviar a caja' }}
       </button>

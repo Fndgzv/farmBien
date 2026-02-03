@@ -17,12 +17,16 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatIconModule } from '@angular/material/icon';
 import Swal from 'sweetalert2';
 import { MatTooltip } from '@angular/material/tooltip';
+import { FaIconComponent } from '@fortawesome/angular-fontawesome';
+import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
+import { faTimes } from '@fortawesome/free-solid-svg-icons';
 
 
 @Component({
   selector: 'app-reporte-ventas-producto',
   imports: [CommonModule, FormsModule, ReactiveFormsModule, NgFor, NgIf,
-    MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule, MatTooltip],
+    MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule, MatTooltip,
+    FaIconComponent],
   templateUrl: './reporte-ventas-producto.component.html',
   styleUrl: './reporte-ventas-producto.component.css'
 })
@@ -72,9 +76,13 @@ export class ReporteVentasProductoComponent {
   goNext() { if (this.page < this.totalPages) this.page++; }
   goLast() { this.page = this.totalPages; }
 
+  faTimes = faTimes;
+
   constructor(private farmaciaService: FarmaciaService,
     private reportes: ReportesService,
-    private productosSrv: ProductoService) { }
+    private productosSrv: ProductoService,
+    library: FaIconLibrary
+    ) { }
 
   ngOnInit(): void {
 
@@ -346,13 +354,20 @@ export class ReporteVentasProductoComponent {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
-  onOptionSelected(p: ProductoLite) {
-    if (!p) return;
-    this.productoId = p._id;
-    this.codigoBarras = p.codigoBarras || '';
-    this.nombre = p.nombre;
-    this.productCtrl.setValue(p); // conserva el objeto en el input
-  }
+onOptionSelected(p: ProductoLite) {
+  if (!p) return;
+
+  this.productoId = p._id;
+  this.codigoBarras = p.codigoBarras || '';
+  this.nombre = p.nombre || '';
+
+  // Mantén el objeto en el input, pero sin disparar valueChanges
+  this.productCtrl.setValue(p, { emitEvent: false });
+
+  // ✅ Ejecuta la búsqueda al seleccionar
+  this.buscar();
+}
+
 
   limpiarProducto() {
     this.productCtrl.setValue('');      // limpia input
@@ -360,6 +375,23 @@ export class ReporteVentasProductoComponent {
     this.productoId = null;
     this.codigoBarras = '';
     this.nombre = '';
+
+    this.rows = [];
+    this.totalCantidad = 0;
+    this.totalImporte = 0;
+    this.totalCosto = 0;
+    this.totalUtilidad = 0;
+    this.totalMargenPct = null;
+    this.totalItems = 0;
+    this.page = 1;
+
+    this.rows = [];
+    this.totalCantidad = 0;
+    this.totalImporte = 0;
+    this.totalCosto = 0;
+    this.totalUtilidad = 0;
+    this.totalMargenPct = null;
+
   }
 
 }

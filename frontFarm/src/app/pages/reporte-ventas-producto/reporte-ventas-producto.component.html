@@ -19,10 +19,30 @@
         <label class="form-label d-block">Producto</label>
 
         <mat-form-field appearance="outline" class="compact-field wide-field">
-          <input matInput [formControl]="productCtrl" [matAutocomplete]="auto"
-            placeholder="Escribe código de barras o nombre" />
-          <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayProducto"
-            (optionSelected)="onOptionSelected($event.option.value)">
+          <input
+            matInput
+            [formControl]="productCtrl"
+            [matAutocomplete]="auto"
+            placeholder="Escribe código de barras o nombre"
+          />
+
+          <button
+            *ngIf="productCtrl.value"
+            matSuffix
+            type="button"
+            class="btn-rojo-chico"
+            (click)="limpiarProducto()"
+            style="width: 30px; height: 30px;"
+            aria-label="Limpiar producto"
+          >
+            <fa-icon [icon]="faTimes"></fa-icon>
+          </button>
+
+          <mat-autocomplete
+            #auto="matAutocomplete"
+            [displayWith]="displayProducto"
+            (optionSelected)="onOptionSelected($event.option.value)"
+          >
             <mat-option *ngFor="let p of opcionesProductos" [value]="p">
               <div class="d-flex justify-content-between w-100">
                 <span>{{ p.nombre }}</span>
@@ -31,22 +51,18 @@
             </mat-option>
           </mat-autocomplete>
         </mat-form-field>
-        <!-- 
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="limpiarProducto()"
-          [disabled]="!productCtrl.value">
-          Limpiar
-        </button> -->
       </div>
+
 
 
       <div class="col-md-2">
         <label class="form-label">Fecha inicial</label>
-        <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" />
+        <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni"/>
       </div>
 
       <div class="col-md-2">
         <label class="form-label">Fecha final</label>
-        <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
+        <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin"/>
       </div>
 
       <div class="col-md-1 d-flex" style="margin-top: -10px;">

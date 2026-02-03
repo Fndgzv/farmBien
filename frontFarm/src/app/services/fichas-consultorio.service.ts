@@ -54,13 +54,19 @@ export class FichasConsultorioService {
     return this.http.post(`${this.apiUrl}/${id}/liberar-cobro`, {}, { headers: this.headers() });
   }
 
-  // (Opcional) Cola para el médico
-  obtenerCola(estado: string = 'EN_ESPERA'): Observable<any> {
-    return this.http.get(`${this.apiUrl}/cola`, { headers: this.headers(), params: { estado } });
+  obtenerCola(incluirMiAtencion: boolean = true): Observable<any> {
+    return this.http.get(`${this.apiUrl}/cola`, {
+      headers: this.headers(),
+      params: { incluirMiAtencion: incluirMiAtencion ? '1' : '0' }
+    });
   }
 
   llamarFicha(id: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/${id}/llamar`, {}, { headers: this.headers() });
+  }
+
+  reanudarFicha(id: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/${id}/reanudar`, {}, { headers: this.headers() });
   }
 
   regresarAListaDeEspera(id: string): Observable<any> {
@@ -83,11 +89,15 @@ export class FichasConsultorioService {
   }
 
   vincularPaciente(fichaId: string, pacienteId: string): Observable<any> {
-  return this.http.patch(
-    `${this.apiUrl}/${fichaId}/vincular-paciente`,
-    { pacienteId },
-    { headers: this.headers() }
-  );
-}
+    return this.http.patch(
+      `${this.apiUrl}/${fichaId}/vincular-paciente`,
+      { pacienteId },
+      { headers: this.headers() }
+    );
+  }
+
+  finalizarConsulta(id: string, payload: any): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/${id}/finalizar`, payload, { headers: this.headers() });
+  }
 
 }

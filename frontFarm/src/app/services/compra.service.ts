@@ -21,6 +21,10 @@ export class CompraService {
   }
 
   crearCompra(payload: any) {
+    console.log('end point ', this.base);
+    
+    console.log('datos de compra:', payload);
+    
     return this.http.post<any>(this.base, payload);
   }
 

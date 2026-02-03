@@ -2,6 +2,8 @@
 const FichaConsultorio = require("../models/FichaConsultorio");
 const Producto = require("../models/Producto");
 const Paciente = require("../models/Paciente");
+const Receta = require("../models/Receta");
+
 const mongoose = require("mongoose");
 
 function getFarmaciaActiva(req) {
@@ -11,6 +13,45 @@ function getFarmaciaActiva(req) {
   if (!farmaciaId) return null;
   return String(farmaciaId);
 }
+
+const cleanStr = (v) => String(v ?? "").trim();
+
+const cleanArr = (v) => {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((x) => cleanStr(x))
+    .filter(Boolean);
+};
+
+const pickAntecedentes = (antRaw) => {
+  if (!antRaw || typeof antRaw !== "object") return null;
+
+  const tabaquismo = cleanStr(antRaw.tabaquismo);
+  const alcohol = cleanStr(antRaw.alcohol);
+
+  const ant = {
+    alergias: cleanArr(antRaw.alergias),
+    enfermedadesCronicas: cleanArr(antRaw.enfermedadesCronicas),
+    cirugiasPrevias: cleanArr(antRaw.cirugiasPrevias),
+    medicamentosActuales: cleanArr(antRaw.medicamentosActuales),
+    antecedentesFamiliares: cleanArr(antRaw.antecedentesFamiliares),
+
+    // enums: si no viene válido, NO lo mandes (para no romper)
+    tabaquismo: ["No", "Si", "Ex"].includes(tabaquismo) ? tabaquismo : undefined,
+    alcohol: ["No", "Si", "Ocasional"].includes(alcohol) ? alcohol : undefined,
+  };
+
+  const hayAlgo =
+    ant.alergias.length ||
+    ant.enfermedadesCronicas.length ||
+    ant.cirugiasPrevias.length ||
+    ant.medicamentosActuales.length ||
+    ant.antecedentesFamiliares.length ||
+    ant.tabaquismo != null ||
+    ant.alcohol != null;
+
+  return hayAlgo ? ant : null;
+};
 
 
 /**
@@ -60,20 +101,15 @@ exports.crearFicha = async (req, res) => {
   }
 };
 
-/**
- * PATCH /api/fichas-consultorio/:id/servicios
- * Médico captura servicios y deja ficha LISTA_PARA_COBRO
- *
- * Reglas:
- * - servicios deben ser categoría "Servicio Médico"
- */
+
+// PATCH /api/fichas-consultorio/:id/servicios
 exports.actualizarServicios = async (req, res) => {
   try {
     const { id } = req.params;
     const farmaciaId = getFarmaciaActiva(req);
     if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
 
-    const { servicios = [], notasMedico } = req.body;
+    const { servicios = [], notasMedico, motivo, finalizar = false } = req.body; // 👈 NUEVO
 
     const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
     if (!ficha) return res.status(404).json({ msg: "Ficha no encontrada" });
@@ -81,18 +117,14 @@ exports.actualizarServicios = async (req, res) => {
     if (["ATENDIDA", "CANCELADA"].includes(ficha.estado)) {
       return res.status(400).json({ msg: "La ficha ya no se puede modificar" });
     }
-
     if (ficha.estado === "EN_COBRO") {
       return res.status(400).json({ msg: "La ficha ya está en cobro, no se puede modificar" });
     }
 
-    // ✅ Ahora NO es forzoso traer consulta (ni siquiera servicios)
-    // Solo validamos que "servicios" sea arreglo
     if (!Array.isArray(servicios)) {
       return res.status(400).json({ msg: "Servicios inválidos" });
     }
 
-    // Si viene vacío, simplemente guardamos vacío (permitido)
     let serviciosSnapshot = [];
 
     if (servicios.length > 0) {
@@ -106,17 +138,13 @@ exports.actualizarServicios = async (req, res) => {
 
       const map = new Map(productos.map((p) => [String(p._id), p]));
 
-      serviciosSnapshot = [];
-
       for (const s of servicios) {
         const p = map.get(String(s.productoId));
         if (!p) return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
 
         const cat = (p.categoria || "").trim();
         if (cat !== "Servicio Médico") {
-          return res.status(400).json({
-            msg: `El producto ${p.nombre} no es de categoría Servicio Médico`,
-          });
+          return res.status(400).json({ msg: `El producto ${p.nombre} no es de categoría Servicio Médico` });
         }
 
         const cantidad = Math.max(parseInt(s.cantidad ?? 1, 10) || 1, 1);
@@ -135,20 +163,30 @@ exports.actualizarServicios = async (req, res) => {
     ficha.servicios = serviciosSnapshot;
     ficha.notasMedico = (notasMedico || "").trim();
 
+    // 👇 opcional: permitir ajustar motivo si lo mandas
+    if (motivo != null) ficha.motivo = (motivo || "").trim();
+
     ficha.medicoId = req.usuario._id;
     ficha.inicioAtencionAt = ficha.inicioAtencionAt || new Date();
-    if (serviciosSnapshot.length > 0) {
-      ficha.finAtencionAt = new Date();
-      ficha.estado = "LISTA_PARA_COBRO";
-    } else {
-      // ✅ Si NO hay servicios: se queda en atención y NO toca finAtencionAt
-      ficha.estado = "EN_ATENCION";
-    }
-
     ficha.actualizadaPor = req.usuario._id;
 
-    await ficha.save();
+    const hayServicios = serviciosSnapshot.length > 0;
 
+    if (finalizar) {
+      // ✅ Finalizar consulta:
+      ficha.finAtencionAt = new Date();
+      ficha.estado = hayServicios ? "LISTA_PARA_COBRO" : "ATENDIDA";
+    } else {
+      // ✅ Guardado parcial (si lo siguieras usando en otro lado)
+      if (hayServicios) {
+        ficha.finAtencionAt = new Date();
+        ficha.estado = "LISTA_PARA_COBRO";
+      } else {
+        ficha.estado = "EN_ATENCION";
+      }
+    }
+
+    await ficha.save();
     return res.json({ ok: true, ficha });
   } catch (err) {
     console.error("actualizarServicios:", err);
@@ -157,21 +195,30 @@ exports.actualizarServicios = async (req, res) => {
 };
 
 /**
- * GET /api/fichas-consultorio/cola?estado=EN_ESPERA
+ * GET /api/fichas-consultorio/cola?estado=EN_ESPERA * EN_ATENCION del medico
  * Lista FIFO con urgencia primero
  */
+// GET /api/fichas-consultorio/cola
 exports.obtenerCola = async (req, res) => {
   try {
     const farmaciaId = getFarmaciaActiva(req);
     if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
 
-    const estado = req.query.estado || "EN_ESPERA";
+    const userId = String(req.usuario?._id || "");
+    const rol = req.usuario?.rol;
 
-    const fichas = await FichaConsultorio.find({ farmaciaId, estado })
+    // Por defecto: mostrar EN_ESPERA + (mi EN_ATENCION si soy medico)
+    const incluirMiAtencion = String(req.query.incluirMiAtencion || "1") === "1";
+
+    const or = [{ estado: "EN_ESPERA" }];
+
+    if (rol === "medico" && incluirMiAtencion) {
+      or.push({ estado: "EN_ATENCION", medicoId: userId });
+    }
+
+    const fichas = await FichaConsultorio.find({ farmaciaId, $or: or })
       .sort({ urgencia: -1, llegadaAt: 1 })
-      .select(
-        "pacienteNombre pacienteTelefono motivo urgencia estado llegadaAt medicoId servicios serviciosTotal"
-      )
+      .select("pacienteNombre pacienteTelefono motivo urgencia estado llegadaAt medicoId servicios serviciosTotal")
       .lean();
 
     return res.json({ ok: true, fichas });
@@ -267,6 +314,36 @@ exports.llamarFicha = async (req, res) => {
   }
 };
 
+// POST /api/fichas-consultorio/:id/reanudar
+exports.reanudarFicha = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const userId = String(req.usuario?._id || "");
+    const rol = req.usuario?.rol;
+
+    if (rol !== "medico" && rol !== "admin") {
+      return res.status(403).json({ msg: "Sin permisos" });
+    }
+
+    const filtro = { _id: id, farmaciaId, estado: "EN_ATENCION" };
+
+    // Si es médico: solo puede reanudar su propia ficha
+    if (rol === "medico") filtro.medicoId = userId;
+
+    const ficha = await FichaConsultorio.findOne(filtro).lean();
+    if (!ficha) {
+      return res.status(404).json({ msg: "No se pudo reanudar: ficha no encontrada o no te pertenece" });
+    }
+
+    return res.json({ ok: true, ficha });
+  } catch (err) {
+    console.error("reanudarFicha:", err);
+    return res.status(500).json({ msg: "Error al reanudar ficha" });
+  }
+};
 
 exports.regresarAListaDeEspera = async (req, res) => {
   try {
@@ -567,5 +644,283 @@ exports.vincularPaciente = async (req, res) => {
   } catch (err) {
     console.error("vincularPaciente:", err);
     return res.status(500).json({ msg: "Error al vincular paciente" });
+  }
+};
+
+/**
+ * POST /api/fichas-consultorio/:id/finalizar
+ * Guarda TODO lo capturado al final:
+ * - ficha: motivo, notasMedico, servicios(snapshot)
+ * - paciente: agrega signos vitales (si hay)
+ * - receta: crea receta y la vincula al paciente (si hay)
+ * Cambia estado:
+ * - si hay servicios => LISTA_PARA_COBRO
+ * - si no hay nada para cobrar => ATENDIDA
+ */
+exports.finalizarConsulta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const medicoId = req.usuario?._id;
+
+    const {
+      motivo,
+      notasMedico,
+      servicios = [],
+      signosVitales = null,
+      antecedentes = null,
+      receta = null,
+    } = req.body || {};
+
+    const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
+    if (!ficha) return res.status(404).json({ msg: "Ficha no encontrada" });
+
+    if (["ATENDIDA", "CANCELADA"].includes(ficha.estado)) {
+      return res.status(400).json({ msg: "La ficha ya no se puede modificar" });
+    }
+    if (ficha.estado === "EN_COBRO") {
+      return res.status(400).json({ msg: "La ficha ya está en cobro, no se puede finalizar" });
+    }
+
+    // ============================
+    // 1) Servicios (snapshot)
+    // ============================
+    if (!Array.isArray(servicios)) {
+      return res.status(400).json({ msg: "Servicios inválidos" });
+    }
+
+    let serviciosSnapshot = [];
+    if (servicios.length > 0) {
+      const productoIds = servicios.map((s) => s.productoId).filter(Boolean);
+      if (productoIds.length === 0) {
+        return res.status(400).json({ msg: "Servicios inválidos: faltan productoId" });
+      }
+
+      const productos = await Producto.find({ _id: { $in: productoIds } })
+        .select("nombre codigoBarras categoria precioVenta")
+        .lean();
+
+      const map = new Map(productos.map((p) => [String(p._id), p]));
+
+      for (const s of servicios) {
+        const p = map.get(String(s.productoId));
+        if (!p) return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
+
+        const cat = (p.categoria || "").trim();
+        if (cat !== "Servicio Médico") {
+          return res.status(400).json({
+            msg: `El producto ${p.nombre} no es de categoría Servicio Médico`,
+          });
+        }
+
+        const cantidad = Math.max(parseInt(s.cantidad ?? 1, 10) || 1, 1);
+
+        serviciosSnapshot.push({
+          productoId: p._id,
+          nombre: p.nombre,
+          codigoBarras: p.codigoBarras,
+          precio: p.precioVenta ?? 0,
+          cantidad,
+          notas: (s.notas || "").trim(),
+        });
+      }
+    }
+
+    // ============================
+    // 2) Guarda campos en ficha
+    // ============================
+    if (motivo != null) ficha.motivo = String(motivo || "").trim();
+    ficha.notasMedico = String(notasMedico || "").trim();
+    ficha.servicios = serviciosSnapshot;
+
+    ficha.medicoId = medicoId;
+    ficha.inicioAtencionAt = ficha.inicioAtencionAt || new Date();
+    ficha.finAtencionAt = new Date();
+
+    // ============================
+    // 3) Signos vitales -> Paciente (si hay pacienteId)
+    // ============================
+    let signosGuardados = false;
+
+    const pacienteId = ficha.pacienteId ? String(ficha.pacienteId) : null;
+
+    if (signosVitales && pacienteId) {
+      // "hay algo" (suave)
+      const sv = signosVitales || {};
+      const hayAlgoSV =
+        sv.pesoKg != null ||
+        sv.tallaCm != null ||
+        sv.imc != null ||
+        sv.temperatura != null ||
+        sv.presionSis != null ||
+        sv.presionDia != null ||
+        sv.fc != null ||
+        sv.fr != null ||
+        sv.spo2 != null ||
+        sv.glucosaCapilar != null ||
+        String(sv.notas || "").trim();
+
+      if (hayAlgoSV) {
+        const pesoKg = sv.pesoKg != null ? Number(sv.pesoKg) : null;
+        const tallaCm = sv.tallaCm != null ? Number(sv.tallaCm) : null;
+        let imc = sv.imc != null ? Number(sv.imc) : null;
+
+        if ((pesoKg && tallaCm) && !imc) {
+          const m = tallaCm / 100;
+          imc = m > 0 ? +(pesoKg / (m * m)).toFixed(2) : null;
+        }
+
+        const svDoc = {
+          fecha: new Date(),
+          pesoKg: pesoKg ?? undefined,
+          tallaCm: tallaCm ?? undefined,
+          imc: imc ?? undefined,
+          temperatura: sv.temperatura != null ? Number(sv.temperatura) : undefined,
+          presionSis: sv.presionSis != null ? Number(sv.presionSis) : undefined,
+          presionDia: sv.presionDia != null ? Number(sv.presionDia) : undefined,
+          fc: sv.fc != null ? Number(sv.fc) : undefined,
+          fr: sv.fr != null ? Number(sv.fr) : undefined,
+          spo2: sv.spo2 != null ? Number(sv.spo2) : undefined,
+          glucosaCapilar: sv.glucosaCapilar != null ? Number(sv.glucosaCapilar) : undefined,
+          notas: String(sv.notas || "").trim(),
+          tomadoPor: medicoId,
+          farmaciaId: farmaciaId || undefined,
+        };
+
+        await Paciente.findByIdAndUpdate(
+          pacienteId,
+          { $push: { signosVitales: { $each: [svDoc], $position: 0, $slice: 50 } } },
+          { new: true }
+        ).select("_id");
+
+        signosGuardados = true;
+      }
+    }
+
+    // ============================
+    // 3.5) Antecedentes -> Paciente (si hay pacienteId)
+    // ============================
+    let antecedentesGuardados = false;
+
+    if (antecedentes && pacienteId) {
+      const ant = pickAntecedentes(antecedentes);
+
+      if (ant) {
+        // OJO: aquí puedes decidir si haces REEMPLAZO TOTAL o MERGE.
+        // ✅ Reemplazo total (simple y claro):
+        await Paciente.findByIdAndUpdate(
+          pacienteId,
+          { $set: { antecedentes: ant } },
+          { new: true }
+        ).select("_id");
+
+        antecedentesGuardados = true;
+      }
+    }
+
+    // ============================
+    // 4) Receta -> crea Receta y vincula a paciente (si hay pacienteId)
+    // ============================
+    let recetaIdCreada = null;
+
+    if (receta && pacienteId) {
+      const r = receta || {};
+      const diagnosticos = Array.isArray(r.diagnosticos)
+        ? r.diagnosticos.map((d) => String(d).trim()).filter(Boolean)
+        : [];
+
+      const medicamentosRaw = Array.isArray(r.medicamentos) ? r.medicamentos : [];
+
+      const medicamentos = medicamentosRaw
+        .map((m) => {
+          const via = String(m.via || "").trim();
+          const viaOtra = String(m.viaOtra || "").trim();
+
+          return {
+            productoId: m.productoId || undefined,
+            nombreLibre: String(m.nombreLibre || "").trim(),
+            dosis: String(m.dosis || "").trim(),
+            via,
+            viaOtra: via === "OTRA" ? viaOtra : undefined, // ✅ SOLO si aplica
+            frecuencia: String(m.frecuencia || "").trim(),
+            duracion: String(m.duracion || "").trim(),
+            cantidad: m.cantidad != null ? Number(m.cantidad) : undefined,
+            indicaciones: String(m.indicaciones || "").trim(),
+            esControlado: !!m.esControlado,
+          };
+        })
+        // ✅ via + (productoId o nombreLibre) + si via=OTRA entonces viaOtra requerida
+        .filter((m) =>
+          !!m.via &&
+          (!!m.productoId || !!m.nombreLibre) &&
+          (m.via !== "OTRA" || !!m.viaOtra)
+        );
+
+      // Validación suave: si trae receta "completa mínima"
+      // (si está incompleta, simplemente NO se crea)
+      const motivoConsulta = String(r.motivoConsulta || "").trim();
+      const tieneMinimo = !!motivoConsulta && diagnosticos.length > 0 && medicamentos.length > 0;
+
+      if (tieneMinimo) {
+        const recetaDoc = await Receta.create({
+          fecha: new Date(),
+          pacienteId,
+          medicoId,
+          farmaciaId,
+          motivoConsulta,
+          diagnosticos,
+          observaciones: String(r.observaciones || "").trim(),
+          medicamentos,
+          indicacionesGenerales: String(r.indicacionesGenerales || "").trim(),
+          citaSeguimiento: r.citaSeguimiento ? new Date(r.citaSeguimiento) : null,
+          creadaPor: medicoId,
+        });
+
+        recetaIdCreada = recetaDoc._id;
+
+        const diagPrincipal = diagnosticos.length ? String(diagnosticos[0]).trim() : "";
+
+        await Paciente.findByIdAndUpdate(pacienteId, {
+          $addToSet: { recetas: recetaDoc._id },
+          $push: {
+            ultimasRecetas: {
+              $each: [{
+                recetaId: recetaDoc._id,
+                fecha: recetaDoc.fecha,
+                medicoId,
+                diagnosticoPrincipal: diagPrincipal
+              }],
+              $position: 0,
+              $slice: 10
+            }
+          }
+        });
+      }
+    }
+
+    // ============================
+    // 5) Estado final de ficha
+    // ============================
+    const hayServiciosParaCobro = serviciosSnapshot.length > 0;
+
+    ficha.estado = hayServiciosParaCobro ? "LISTA_PARA_COBRO" : "ATENDIDA";
+    ficha.actualizadaPor = medicoId;
+
+    await ficha.save();
+
+    return res.json({
+      ok: true,
+      ficha,
+      estadoFinal: ficha.estado,
+      recetaId: recetaIdCreada,
+      signosGuardados,
+      antecedentesGuardados,
+      serviciosTotal: ficha.serviciosTotal ?? 0,
+    });
+  } catch (err) {
+    console.error("finalizarConsulta:", err);
+    return res.status(500).json({ msg: "Error al finalizar la consulta" });
   }
 };

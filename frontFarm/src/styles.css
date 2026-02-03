@@ -280,6 +280,16 @@ button {
   box-shadow: none;
 }
 
+.btn-medicamento {
+  background-color: #f8d8f0;
+}
+
+.btn-medicamento:hover {
+  background-color: #f0bfe0;
+  color: #003ae6;
+}
+
+
 /* En styles.css o styles.scss */
 :root {
   --fondo-modal: #f1fbfb;
@@ -402,6 +412,59 @@ button {
   color: red;
 }
 
+.tablaSM {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin-top: 10px !important;
+}
+
+.tablaSM th,
+.tablaSM td {
+  border: 1px solid #1e1d1d !important;
+  padding: 5px !important;
+  text-align: center !important;
+}
+
+.tablaSM tr:nth-child(odd) {
+  background-color: rgb(233, 184, 254) !important;
+  /* Color para filas impares */
+}
+
+.tablaSM tr:nth-child(even) {
+  background-color: rgb(252, 162, 251) !important;
+  /* Color para filas pares */
+}
+
+.tablaSM th {
+  background-color: rgb(220, 162, 250) !important;
+}
+
+.tablaRx {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin-top: 10px !important;
+}
+
+.tablaRx th,
+.tablaRx td {
+  border: 1px solid #1e1d1d !important;
+  padding: 5px !important;
+  text-align: center !important;
+}
+
+.tablaRx tr:nth-child(odd) {
+  background-color: rgb(233, 184, 254) !important;
+  /* Color para filas impares */
+}
+
+.tablaRx tr:nth-child(even) {
+  background-color: rgb(252, 162, 251) !important;
+  /* Color para filas pares */
+}
+
+.tablaRx th {
+  background-color: rgb(220, 162, 250) !important;
+}
 
 .paginacion {
   text-align: center;

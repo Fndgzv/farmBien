@@ -8,7 +8,6 @@ import { FichasConsultorioService } from '../../services/fichas-consultorio.serv
 import { PacientesService } from '../../services/pacientes.service';
 import { RecetasService } from '../../services/recetas.service';
 import { ProductoService } from '../../services/producto.service';
-import { faL } from '@fortawesome/free-solid-svg-icons';
 
 type ServicioMedico = { _id: string; nombre: string; precioVenta?: number };
 
@@ -154,11 +153,49 @@ export class MedicoConsultorioComponent implements OnInit {
 
   async cargarCola() {
     try {
-      const resp = await firstValueFrom(this.fichasService.obtenerCola('EN_ESPERA'));
+      const resp = await firstValueFrom(this.fichasService.obtenerCola(true));
       this.cola = resp?.fichas ?? [];
+      this.colaExpandida = true;
+
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo cargar la cola', 'error');
+    }
+  }
+
+
+  private get miUsuarioId(): string {
+    // usa lo que ya tengas; ejemplo típico:
+    const u = localStorage.getItem('auth_user');
+    try { return u ? JSON.parse(u)?._id : ''; } catch { return ''; }
+  }
+
+  esMia(f: any): boolean {
+    const miId = this.miUsuarioId;
+    return !!miId && !!f?.medicoId && String(f.medicoId) === String(miId);
+  }
+
+  async reanudar(f: any) {
+    try {
+      const resp = await firstValueFrom(this.fichasService.reanudarFicha(f._id));
+      this.fichaActual = resp?.ficha;
+
+      this.colapsarColaSiHayAtencion();
+      this.abrirSeccionesAtencion();
+
+      // ✅ IMPORTANTE: aquí ya no hay nada en memoria porque refrescaste,
+      // así que reseteas UI como cuando llamas:
+      this.notasMedico = '';
+      this.motivoEditable = this.fichaActual?.motivo || '';
+      this.servicios = [this.nuevoRenglonServicio()];
+
+      await this.cargarExpedienteSiHayPaciente();
+
+      this.colapsarColaSiHayAtencion();
+      await this.cargarCola();
+    } catch (e: any) {
+      console.error(e);
+      Swal.fire('No se pudo reanudar', e?.error?.msg || 'Error', 'error');
     }
   }
 
@@ -173,8 +210,22 @@ export class MedicoConsultorioComponent implements OnInit {
     };
   }
 
+  get medicoOcupado(): boolean {
+    // 1) si en UI ya estás atendiendo una ficha
+    if (this.fichaActual?.estado === 'EN_ATENCION') return true;
+
+    // 2) si no hay fichaActual (por refresh), pero la cola trae una EN_ATENCION mía
+    return (this.cola || []).some(f => f?.estado === 'EN_ATENCION' && this.esMia(f));
+  }
+
   async llamar(f: any) {
     try {
+
+      if (this.medicoOcupado) {
+        Swal.fire('Ocupado', 'Ya estás atendiendo a un paciente. Reanuda o finaliza antes de llamar a otro.', 'info');
+        return;
+      }
+
       const resp = await firstValueFrom(this.fichasService.llamarFicha(f._id));
       this.fichaActual = resp?.ficha;
 
@@ -311,25 +362,133 @@ export class MedicoConsultorioComponent implements OnInit {
     }, 150);
   }
 
+  private hayAlgoEnSignos(): boolean {
+    const s = this.signos;
+    return (
+      s.pesoKg != null ||
+      s.tallaCm != null ||
+      s.imc != null ||
+      s.temperatura != null ||
+      s.presionSis != null ||
+      s.presionDia != null ||
+      s.fc != null ||
+      s.fr != null ||
+      s.spo2 != null ||
+      s.glucosaCapilar != null ||
+      !!String(s.notas || '').trim()
+    );
+  }
+  private buildPayloadRecetaFinal() {
+    const payload = this.buildPayloadReceta();
+
+    const motivo = (payload.motivoConsulta || '').trim();
+    const diagnosticos = Array.isArray(payload.diagnosticos)
+      ? payload.diagnosticos.map(d => (d || '').trim()).filter(Boolean)
+      : [];
+    const meds = Array.isArray(payload.medicamentos) ? payload.medicamentos : [];
+
+    payload.diagnosticos = diagnosticos;
+
+    const diagnosticosOk = diagnosticos.length > 0;
+    const medsOk = meds.length > 0;
+
+    const hayAlgo =
+      !!motivo ||
+      diagnosticosOk ||
+      medsOk ||
+      !!(payload.observaciones || '').trim() ||
+      !!(payload.indicacionesGenerales || '').trim();
+
+    const completaMin = !!motivo && diagnosticosOk && medsOk;
+
+    return { hayAlgo, completaMin, payload };
+  }
+
   async guardarYEnviarACaja() {
     if (!this.fichaActual?._id) return;
-    const serviciosOk = this.servicios
-      .map(s => ({ ...s, productoId: (s.productoId || '').trim() }))
-      .filter(s => s.productoId);
-
-    if (serviciosOk.length === 0) {
-      Swal.fire('Faltan servicios', 'Agrega al menos un servicio médico.', 'warning');
-      return;
-    }
 
     const nombre = this.fichaActual?.pacienteNombre || 'el paciente';
+    const tienePaciente = !!this.fichaActual?.pacienteId;
+
+    // -------------------------
+    // 1) Servicios (si hay)
+    // -------------------------
+    const serviciosOk = (this.servicios || [])
+      .map(s => ({ ...s, productoId: (s.productoId || '').trim() }))
+      .filter(s => !!s.productoId)
+      .map(s => ({
+        productoId: s.productoId,
+        cantidad: s.cantidad,
+        notas: (s.notas || '').trim(),
+      }));
+
+    const hayServicios = serviciosOk.length > 0;
+
+    // -------------------------
+    // 2) Notas médico
+    // -------------------------
+    const hayNotasMedico = !!(this.notasMedico || '').trim();
+
+    // -------------------------
+    // 3) Signos vitales (solo si hay paciente)
+    // -------------------------
+    const haySignosCapturados = this.hayAlgoEnSignos();
+    const signosSeGuardaran = haySignosCapturados && tienePaciente;
+
+    // -------------------------
+    // 4) Receta (solo si hay paciente y está completa mínimo)
+    // -------------------------
+    const rxInfo = this.buildPayloadRecetaFinal();
+    const recetaSeGuardara = tienePaciente && rxInfo.completaMin;
+    const recetaIncompleta = rxInfo.hayAlgo && !rxInfo.completaMin;
+
+    // -------------------------
+    // 5) Checklist de "no capturado"
+    // -------------------------
+    const faltantes: string[] = [];
+
+    if (tienePaciente) {
+      if (!haySignosCapturados) faltantes.push("Signos vitales");
+      if (!rxInfo.hayAlgo) faltantes.push("Receta médica");
+    } else {
+      if (!hayNotasMedico) faltantes.push("Notas del médico");
+      if (!hayServicios) faltantes.push('Servicios médicos — "No recibirá usted honorarios por esta consulta"');
+    }
+
+    // Avisos especiales
+    const avisos: string[] = [];
+
+    if (haySignosCapturados && !tienePaciente) {
+      avisos.push("Capturaste signos vitales, pero el paciente NO está vinculado. No se podrán guardar.");
+    }
+    if (rxInfo.hayAlgo && !tienePaciente) {
+      avisos.push("Capturaste receta, pero el paciente NO está vinculado. No se podrá guardar ni imprimir.");
+    }
+    if (recetaIncompleta) {
+      avisos.push("La receta está INCOMPLETA (falta motivo/diagnósticos/medicamentos). No se guardará ni se imprimirá.");
+    }
+
+    const htmlFaltantes = faltantes.length
+      ? `<div style="text-align:left"><b>No se capturó:</b><ul>${faltantes.map(x => `<li>${x}</li>`).join('')}</ul></div>`
+      : `<div style="text-align:left"><b>Todo listo.</b></div>`;
+
+    const htmlAvisos = avisos.length
+      ? `<div style="text-align:left; margin-top:10px"><b>Notas:</b><ul>${avisos.map(x => `<li>${x}</li>`).join('')}</ul></div>`
+      : '';
 
     const r = await Swal.fire({
       icon: 'question',
-      title: '¿Finalizar atención?',
-      html: `Se enviará la ficha de <b>${nombre}</b> a caja para cobro.`,
+      title: '¿Finalizar consulta?',
+      html: `
+      <div style="text-align:left">
+        Se finalizará la consulta de <b>${nombre}</b>.
+      </div>
+      <hr/>
+      ${htmlFaltantes}
+      ${htmlAvisos}
+    `,
       showCancelButton: true,
-      confirmButtonText: 'Sí, enviar a caja',
+      confirmButtonText: 'Sí, finalizar',
       cancelButtonText: 'No',
       reverseButtons: true,
       allowOutsideClick: false,
@@ -338,47 +497,107 @@ export class MedicoConsultorioComponent implements OnInit {
 
     if (!r.isConfirmed) return;
 
+    // -------------------------
+    // 6) Payload final al backend
+    // -------------------------
+    const payloadFinal: any = {
+      motivo: (this.motivoEditable || '').trim(),
+      notasMedico: (this.notasMedico || '').trim(),
+      servicios: serviciosOk,
+      signosVitales: signosSeGuardaran ? {
+        pesoKg: this.signos.pesoKg ?? undefined,
+        tallaCm: this.signos.tallaCm ?? undefined,
+        imc: this.signos.imc ?? undefined,
+        temperatura: this.signos.temperatura ?? undefined,
+        presionSis: this.signos.presionSis ?? undefined,
+        presionDia: this.signos.presionDia ?? undefined,
+        fc: this.signos.fc ?? undefined,
+        fr: this.signos.fr ?? undefined,
+        spo2: this.signos.spo2 ?? undefined,
+        glucosaCapilar: this.signos.glucosaCapilar ?? undefined,
+        notas: (this.signos.notas || '').trim(),
+      } : null,
+      receta: recetaSeGuardara ? rxInfo.payload : null,
+    };
+
     this.guardando = true;
     try {
-      const payload = {
-        servicios: serviciosOk.map(s => ({
-          productoId: s.productoId,
-          cantidad: s.cantidad,
-          notas: (s.notas || '').trim(),
-        })),
-        notasMedico: (this.notasMedico || '').trim(),
-        motivo: (this.motivoEditable || '').trim(),
-      };
+      const resp = await firstValueFrom(this.fichasService.finalizarConsulta(this.fichaActual._id, payloadFinal));
 
-      await firstValueFrom(this.fichasService.actualizarServicios(this.fichaActual._id, payload));
+      const estadoFinal = resp?.estadoFinal;
+      const recetaId = resp?.recetaId;
 
-      Swal.fire('Listo', 'Ficha enviada a caja para cobro.', 'success');
+      // 7) Si hay receta, pedir impresora e imprimir
+      if (recetaId) {
+        const rPrint = await Swal.fire({
+          icon: 'info',
+          title: 'Imprimir receta',
+          text: 'Por favor, prepare la impresora para imprimir la receta.',
+          confirmButtonText: 'Imprimir',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        });
 
+        if (rPrint.isConfirmed) {
+          // 👇 Aquí conectamos tu impresión real
+          await this.imprimirReceta(recetaId);
+        }
+      }
+
+      // 8) Mensaje final al médico
+      const msgs: string[] = [];
+
+      if (estadoFinal === "LISTA_PARA_COBRO") {
+        msgs.push("Indique al paciente que pase a pagar a caja.");
+      } else {
+        msgs.push("El paciente fue atendido.");
+        if (!recetaId && !hayServicios) {
+          msgs.push("No tuvo receta ni servicios médicos.");
+        }
+      }
+
+      if (recetaId) {
+        msgs.push("Si gusta, puede pasar a caja a surtir su receta.");
+      }
+
+      await Swal.fire({
+        icon: 'success',
+        title: 'Listo',
+        html: `<div style="text-align:left"><ul>${msgs.map(m => `<li>${m}</li>`).join('')}</ul></div>`,
+        confirmButtonText: 'Aceptar',
+        allowOutsideClick: false,
+      });
+
+      // limpiar pantalla y recargar cola
       this.cancelarAtencion();
       await this.cargarCola();
+
     } catch (e: any) {
       console.error(e);
-      Swal.fire('Error', e?.error?.msg || 'No se pudo guardar', 'error');
+      Swal.fire('Error', e?.error?.msg || 'No se pudo finalizar la consulta', 'error');
     } finally {
       this.guardando = false;
     }
   }
 
+
   private pad2(n: number) { return String(n).padStart(2, '0'); }
 
   tiempoEnEspera(f: any): string {
+    // ✅ si está en atención, no mostramos tiempo de espera
+    if (f?.estado === 'EN_ATENCION') return 'En atención';
+
     const t = f?.llegadaAt ? new Date(f.llegadaAt).getTime() : null;
     if (!t || Number.isNaN(t)) return '—';
+
     const diff = Date.now() - t;
     if (diff < 0) return '—';
+
     const totalMin = Math.floor(diff / 60000);
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
-    return h > 0 ? `${h}h ${this.pad2(m)}m` : `${m}m`;
-  }
 
-  get medicoOcupado(): boolean {
-    return !!this.fichaActual && this.fichaActual?.estado === 'EN_ATENCION';
+    return h > 0 ? `${h}h ${this.pad2(m)}m` : `${m}m`;
   }
 
   toggleCola() {
@@ -626,23 +845,43 @@ export class MedicoConsultorioComponent implements OnInit {
     const medicamentosOk = (this.receta.medicamentos || [])
       .map(m => {
         const esCat = m.modo === 'CATALOGO' && !!m.productoId;
+        const esOtro = m.modo === 'OTRO';
+
+        const productoId = esCat ? m.productoId : undefined;
+
+        // ✅ OTRO => nombreLibre obligatorio
+        // ✅ CATALOGO => NO mandes nombreLibre (evita basura)
+        const nombreLibre = esOtro ? (m.nombreLibre || '').trim() : undefined;
+
+        const via = (m.via || '').trim();
+        const viaOtra = via === 'OTRA' ? (m.viaOtra || '').trim() : undefined;
+
+        const cantidadRaw = (m as any).cantidad; // por si viene string desde el input
+        const cantidad =
+          cantidadRaw == null || cantidadRaw === ''
+            ? undefined
+            : (() => {
+              const n = Number(cantidadRaw);
+              return Number.isFinite(n) ? n : undefined;
+            })();
+
 
         return {
-          productoId: esCat ? m.productoId : undefined,
-          nombreLibre: (m.nombreLibre || '').trim() || (esCat ? (m.nombreLibre || '').trim() : ''),
+          productoId,
+          nombreLibre,
 
           dosis: (m.dosis || '').trim(),
-          via: m.via,
-          viaOtra: (m.via === 'OTRA' ? (m.viaOtra || '').trim() : undefined),
+          via,
+          viaOtra,
           frecuencia: (m.frecuencia || '').trim(),
           duracion: (m.duracion || '').trim(),
-          cantidad: (m.cantidad ?? null) === null ? undefined : Number(m.cantidad),
+          cantidad: Number.isFinite(cantidad as any) ? cantidad : undefined,
           indicaciones: (m.indicaciones || '').trim(),
           esControlado: !!m.esControlado,
         };
       })
       .filter(m =>
-        // válido si: (productoId) o (nombreLibre)
+        // ✅ válido si: (productoId) o (nombreLibre)
         (!!m.productoId || !!m.nombreLibre) &&
         !!m.via &&
         (m.via !== 'OTRA' || !!m.viaOtra)
@@ -651,7 +890,6 @@ export class MedicoConsultorioComponent implements OnInit {
     const diagnosticos = this.parseDiagnosticos(this.receta.diagnosticosTexto);
 
     return {
-      pacienteId: this.fichaActual?.pacienteId,
       motivoConsulta: (this.receta.motivoConsulta || this.motivoEditable || '').trim(),
       diagnosticos,
       observaciones: (this.receta.observaciones || '').trim(),
@@ -681,6 +919,14 @@ export class MedicoConsultorioComponent implements OnInit {
 
     if (!payload.medicamentos.length) {
       Swal.fire('Faltan medicamentos', 'Agrega al menos un medicamento.', 'warning');
+      return;
+    }
+
+    const tieneOtroSinNombre = (payload.medicamentos || []).some((m: any) =>
+      !m.productoId && !(m.nombreLibre || '').trim()
+    );
+    if (tieneOtroSinNombre) {
+      Swal.fire('Falta medicamento', 'Hay un medicamento en "OTRO" sin nombre.', 'warning');
       return;
     }
 
@@ -775,7 +1021,8 @@ export class MedicoConsultorioComponent implements OnInit {
     m.ingreActivo = p?.ingreActivo || '';
     m.codigoBarras = p?.codigoBarras || '';
 
-    m.q = `${m.nombreLibre}${m.ingreActivo ? ' — ' + m.ingreActivo : ''}`;
+    /* m.q = `${m.nombreLibre}${m.ingreActivo ? ' — ' + m.ingreActivo : ''}`; */
+    m.q = `${m.ingreActivo}`
     m.resultados = [];
   }
 
@@ -917,5 +1164,371 @@ export class MedicoConsultorioComponent implements OnInit {
     this.rxExpandida = true;
     this.servExpandida = true;
   }
+
+
+  private escapeHtml(v: any): string {
+    return String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  private formatFecha(d: any): string {
+    try {
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return '';
+      return dt.toLocaleString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch { return ''; }
+  }
+
+  async imprimirReceta(recetaId: string) {
+    const resp = await firstValueFrom(this.recetasService.obtenerPorId(recetaId));
+    const rx = resp?.receta;
+    if (!rx) throw new Error('No llegó la receta');
+
+    const farm = rx.farmaciaId || {};
+    const pac = rx.pacienteId || {};
+    const med = rx.medicoId || {};
+
+    const pacienteNombre = `${pac.nombre || ''} ${pac.apellidos || ''}`.trim();
+    const medicoNombre = `${med.nombre || ''} ${med.apellidos || ''}`.trim();
+
+    const medicamentosHtml = (rx.medicamentos || []).map((m: any, i: number) => {
+      const nombreMed = (m.productoId?.nombre || m.nombreLibre || '').trim();
+      const via = m.via === 'OTRA' ? `OTRA: ${m.viaOtra || ''}` : m.via;
+      const indic = (m.indicaciones || '').trim();
+
+      return `
+      <div class="item">
+        <div class="n"><b>${i + 1}.</b> ${this.esc(nombreMed)}</div>
+        <div class="d">
+          <span><b>Dosis:</b> ${this.esc(m.dosis || '')}</span>
+          <span><b>Vía:</b> ${this.esc(via || '')}</span>
+        </div>
+        <div class="d">
+          <span><b>Frecuencia:</b> ${this.esc(m.frecuencia || '')}</span>
+          <span><b>Duración:</b> ${this.esc(m.duracion || '')}</span>
+          ${m.cantidad != null ? `<span><b>Cant:</b> ${m.cantidad}</span>` : ``}
+        </div>
+        ${indic ? `<div class="ind"><b>Indicaciones:</b> ${this.esc(indic)}</div>` : ``}
+      </div>
+    `;
+    }).join('');
+
+    const diagnosticos = Array.isArray(rx.diagnosticos) ? rx.diagnosticos.filter(Boolean) : [];
+    const diagHtml = diagnosticos.length
+      ? `<div class="box"><b>Diagnóstico(s):</b> ${this.esc(diagnosticos.join(', '))}</div>`
+      : ``;
+
+    const obs = (rx.observaciones || '').trim();
+    const indGen = (rx.indicacionesGenerales || '').trim();
+
+    const html = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Receta</title>
+  <style>
+    @page { size: 5.5in 8.5in; margin: 10mm; }
+    body { font-family: Arial, sans-serif; font-size: 11pt; color:#111; }
+    .header { text-align:center; margin-bottom: 8px; }
+    .h1 { font-size: 14pt; font-weight: 700; }
+    .h2 { font-size: 12pt; font-weight: 700; margin-top: 2px; }
+    .muted { font-size: 10pt; color:#444; }
+    .row { display:flex; justify-content:space-between; gap: 10px; }
+    .box { border:1px solid #ddd; border-radius: 8px; padding: 8px; margin: 6px 0; }
+    .item { border-bottom: 1px dashed #ddd; padding: 6px 0; }
+    .item:last-child { border-bottom: none; }
+    .n { font-size: 12pt; }
+    .d { display:flex; flex-wrap:wrap; gap: 10px; margin-top: 2px; }
+    .ind { margin-top: 2px; }
+    .sign { margin-top: 18px; display:flex; justify-content:space-between; gap:10px; }
+    .line { width: 60%; border-top:1px solid #111; margin-top: 22px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="h1">${this.esc(farm.titulo1 || farm.nombre || 'Farmacia')}</div>
+    ${farm.titulo2 ? `<div class="h2">${this.esc(farm.titulo2)}</div>` : ``}
+    <div class="muted">Fecha: ${new Date(rx.fecha).toLocaleString('es-MX')}</div>
+  </div>
+
+  <div class="box">
+    <div><b>Paciente:</b> ${this.esc(pacienteNombre || '—')}</div>
+    ${pac?.contacto?.telefono ? `<div><b>Tel:</b> ${this.esc(pac.contacto.telefono)}</div>` : ``}
+    ${rx.motivoConsulta ? `<div><b>Motivo:</b> ${this.esc(rx.motivoConsulta)}</div>` : ``}
+  </div>
+
+  ${diagHtml}
+
+  <div class="box">
+    <b>Tratamiento:</b>
+    ${medicamentosHtml || '<div class="muted">—</div>'}
+  </div>
+
+  ${indGen ? `<div class="box"><b>Indicaciones generales:</b> ${this.esc(indGen)}</div>` : ``}
+  ${obs ? `<div class="box"><b>Observaciones:</b> ${this.esc(obs)}</div>` : ``}
+
+  <div class="sign">
+    <div style="width:60%">
+      <div class="line"></div>
+      <div class="muted">${this.esc(medicoNombre || 'Médico')}</div>
+    </div>
+    <div style="width:40%; text-align:right" class="muted">
+      Folio: ${this.esc(rx.folio || rx._id || '')}
+    </div>
+  </div>
+
+  <script>
+    window.onload = () => {
+      setTimeout(() => window.print(), 150);
+    };
+    window.onafterprint = () => window.close();
+  </script>
+</body>
+</html>
+`;
+
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) throw new Error('No se pudo abrir ventana de impresión (popup bloqueado)');
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
+  private esc(v: any) {
+    return String(v ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+
+  private buildRecetaHtmlMediaCarta(receta: any): string {
+    const farmacia = receta?.farmacia || receta?.farmaciaSnapshot || {};
+    const medico = receta?.medico || receta?.medicoSnapshot || {};
+    const paciente = receta?.paciente || receta?.pacienteSnapshot || {};
+
+    const meds = Array.isArray(receta?.medicamentos) ? receta.medicamentos : [];
+    const dx = Array.isArray(receta?.diagnosticos) ? receta.diagnosticos : [];
+
+    const rowsMeds = meds.map((m: any, i: number) => {
+      const nombre = this.escapeHtml(m.nombreLibre || m.nombre || '');
+      const ingre = this.escapeHtml(m.ingreActivo || '');
+      const dosis = this.escapeHtml(m.dosis || '');
+      const via = this.escapeHtml(m.viaOtra ? `${m.via} (${m.viaOtra})` : (m.via || ''));
+      const frec = this.escapeHtml(m.frecuencia || '');
+      const dur = this.escapeHtml(m.duracion || '');
+      const cant = (m.cantidad ?? '') !== '' ? this.escapeHtml(m.cantidad) : '';
+      const ind = this.escapeHtml(m.indicaciones || '');
+
+      return `
+      <tr>
+        <td class="n">${i + 1}</td>
+        <td>
+          <div class="med-nombre">${nombre}</div>
+          ${ingre ? `<div class="med-sub">Ingrediente activo: ${ingre}</div>` : ''}
+          ${ind ? `<div class="med-sub">Indicaciones: ${ind}</div>` : ''}
+        </td>
+        <td class="c">${dosis}</td>
+        <td class="c">${via}</td>
+        <td class="c">${frec}</td>
+        <td class="c">${dur}</td>
+        <td class="c">${cant}</td>
+      </tr>
+    `;
+    }).join('');
+
+    const folio = this.escapeHtml(receta?.folio || receta?._id || '');
+    const fecha = this.escapeHtml(this.formatFecha(receta?.fecha || receta?.createdAt));
+
+    const motivo = this.escapeHtml(receta?.motivoConsulta || '');
+    const obs = this.escapeHtml(receta?.observaciones || '');
+    const indGen = this.escapeHtml(receta?.indicacionesGenerales || '');
+
+    const pacienteNombre = this.escapeHtml(
+      receta?.pacienteNombre ||
+      paciente?.nombreCompleto ||
+      `${paciente?.nombre ?? ''} ${paciente?.apellidos ?? ''}`.trim()
+    );
+
+    const pacienteTel = this.escapeHtml(paciente?.contacto?.telefono || receta?.pacienteTelefono || '');
+    const pacienteEdad = this.escapeHtml(receta?.pacienteEdad || '');
+    const pacienteSexo = this.escapeHtml(receta?.pacienteSexo || paciente?.datosGenerales?.sexo || '');
+
+    const medicoNombre = this.escapeHtml(medico?.nombre || receta?.medicoNombre || '');
+    const medicoCedula = this.escapeHtml(receta?.cedula || medico?.cedula || '');
+
+    const farmaciaNombre = this.escapeHtml(farmacia?.nombre || receta?.farmaciaNombre || '');
+    const farmaciaTitulo1 = this.escapeHtml(farmacia?.titulo1 || '');
+    const farmaciaTitulo2 = this.escapeHtml(farmacia?.titulo2 || '');
+
+    const dxHtml = dx.length
+      ? `<ul class="dx">${dx.map((d: string) => `<li>${this.escapeHtml(d)}</li>`).join('')}</ul>`
+      : `<div class="muted">—</div>`;
+
+    return `
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Receta</title>
+  <style>
+    /* Media carta (US Half Letter): 5.5in x 8.5in */
+    @page { size: 5.5in 8.5in; margin: 10mm; }
+    html, body { padding: 0; margin: 0; font-family: Arial, Helvetica, sans-serif; color: #111; }
+    .page { width: 100%; box-sizing: border-box; }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10mm;
+      align-items: flex-start;
+      border-bottom: 1px solid #bbb;
+      padding-bottom: 6mm;
+      margin-bottom: 6mm;
+    }
+    .h-left { flex: 1; }
+    .h-right { width: 45%; text-align: right; }
+
+    .titulo { font-size: 13pt; font-weight: 700; line-height: 1.2; }
+    .subtitulo { font-size: 10pt; margin-top: 2mm; }
+    .muted { color: #666; }
+
+    .kv { font-size: 9.5pt; line-height: 1.35; }
+    .kv b { font-weight: 700; }
+
+    .section { margin: 4mm 0; }
+    .label { font-size: 9.5pt; font-weight: 700; margin-bottom: 1.5mm; }
+    .box {
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      padding: 3mm;
+      font-size: 9.5pt;
+      min-height: 10mm;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    th, td { border: 1px solid #bbb; padding: 2mm; vertical-align: top; }
+    th { background: #f2f2f2; font-weight: 700; text-align: left; }
+    .n { width: 6mm; text-align: center; }
+    .c { width: 16mm; }
+    .med-nombre { font-weight: 700; }
+    .med-sub { margin-top: 1mm; font-size: 8.6pt; color: #333; }
+
+    .dx { margin: 0; padding-left: 16px; }
+    .footer {
+      margin-top: 6mm;
+      border-top: 1px solid #bbb;
+      padding-top: 5mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 10mm;
+      font-size: 9pt;
+    }
+    .firma {
+      width: 55%;
+      text-align: center;
+    }
+    .linea {
+      border-top: 1px solid #111;
+      margin-top: 14mm;
+    }
+
+    /* Evita que se rompan filas grandes */
+    tr { page-break-inside: avoid; }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="top">
+      <div class="h-left">
+        <div class="titulo">${farmaciaTitulo1 || farmaciaNombre || 'Farmacia'}</div>
+        ${farmaciaTitulo2 ? `<div class="titulo">${farmaciaTitulo2}</div>` : ''}
+        ${farmaciaNombre && (farmaciaTitulo1 || farmaciaTitulo2) ? `<div class="subtitulo">${farmaciaNombre}</div>` : ''}
+        <div class="subtitulo muted">RECETA MÉDICA</div>
+      </div>
+
+      <div class="h-right kv">
+        <div><b>Folio:</b> ${folio}</div>
+        <div><b>Fecha:</b> ${fecha}</div>
+        <div style="margin-top:2mm;"><b>Médico:</b> ${medicoNombre || '—'}</div>
+        ${medicoCedula ? `<div><b>Cédula:</b> ${medicoCedula}</div>` : ''}
+      </div>
+    </div>
+
+    <div class="section kv">
+      <div><b>Paciente:</b> ${pacienteNombre || '—'}</div>
+      <div style="display:flex; gap:8mm; flex-wrap:wrap; margin-top:1mm;">
+        <div><b>Tel:</b> ${pacienteTel || '—'}</div>
+        <div><b>Edad:</b> ${pacienteEdad || '—'}</div>
+        <div><b>Sexo:</b> ${pacienteSexo || '—'}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="label">Motivo de consulta</div>
+      <div class="box">${motivo || '<span class="muted">—</span>'}</div>
+    </div>
+
+    <div class="section">
+      <div class="label">Diagnósticos</div>
+      <div class="box">${dxHtml}</div>
+    </div>
+
+    <div class="section">
+      <div class="label">Medicamentos</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="n">#</th>
+            <th>Medicamento</th>
+            <th class="c">Dosis</th>
+            <th class="c">Vía</th>
+            <th class="c">Frecuencia</th>
+            <th class="c">Duración</th>
+            <th class="c">Cant.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsMeds || `<tr><td colspan="7" class="muted">—</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="label">Indicaciones generales</div>
+      <div class="box">${indGen || '<span class="muted">—</span>'}</div>
+    </div>
+
+    <div class="section">
+      <div class="label">Observaciones</div>
+      <div class="box">${obs || '<span class="muted">—</span>'}</div>
+    </div>
+
+    <div class="footer">
+      <div class="kv muted">
+        Documento generado en sistema.
+      </div>
+      <div class="firma">
+        <div class="linea"></div>
+        <div>Firma y sello</div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
+  `;
+  }
+
 
 }
