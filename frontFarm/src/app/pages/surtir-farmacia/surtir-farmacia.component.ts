@@ -93,11 +93,11 @@ export class SurtirFarmaciaComponent implements OnInit {
   }
 
   limpiarFiltros() {
-    this.form.patchValue({ categoria: '', ubicacion: '' });
+    this.form.patchValue({ categoria: '', ubicacion: '', ubicacionFarmacia: '' });
   }
 
   private toggleFarmacia(disabled: boolean) {
-    ['farmaciaId', 'categoria', 'ubicacion'].forEach(k => { // NUEVO
+    ['farmaciaId', 'categoria', 'ubicacion', 'ubicacionFarmacia'].forEach(k => { // NUEVO
       const ctrl = this.form.get(k)!;
       disabled ? ctrl.disable() : ctrl.enable();
     });
