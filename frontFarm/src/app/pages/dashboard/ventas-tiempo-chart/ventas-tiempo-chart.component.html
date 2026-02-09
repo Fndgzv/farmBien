@@ -79,14 +79,14 @@
 <div *ngIf="horaPico">
   🟢 {{ etiquetaAlta }}:
   {{ formatearPeriodo(horaPico.periodo) }} –
-  ${{ horaPico.ingresos }}
+  utilidad: ${{ horaPico.utilidad }}
   ({{ horaPico.ventas }} ventas)
 </div>
 
 <div *ngIf="horaMuerta">
   🔴 {{ etiquetaBaja }}:
   {{ formatearPeriodo(horaMuerta.periodo) }} –
-  ${{ horaMuerta.ingresos }}
+  utilidad: ${{ horaMuerta.utilidad }}
   ({{ horaMuerta.ventas }} ventas)
 </div>
 

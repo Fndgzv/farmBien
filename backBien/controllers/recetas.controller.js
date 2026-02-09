@@ -12,6 +12,13 @@ function getFarmaciaActiva(req) {
   return farmaciaId ? String(farmaciaId) : null;
 }
 
+function getFarmaciaActiva(req) {
+  const fromUser = req.usuario?.farmacia;
+  const fromHeader = req.headers["x-farmacia-id"];
+  const farmaciaId = fromHeader || fromUser;
+  return farmaciaId ? String(farmaciaId) : null;
+}
+
 exports.obtenerPorId = async (req, res) => {
   try {
     const { id } = req.params;
@@ -20,18 +27,36 @@ exports.obtenerPorId = async (req, res) => {
 
     const receta = await Receta.findOne({ _id: id, farmaciaId })
       .populate({ path: "pacienteId", select: "nombre apellidos contacto datosGenerales" })
-      .populate({ path: "medicoId", select: "nombre apellidos cedula profesional titulo1 titulo2" })
+      .populate({ path: "medicoId", select: "nombre apellidos cedula titulo1 titulo2" })
       .populate({ path: "farmaciaId", select: "nombre titulo1 titulo2 direccion telefono imagen" })
+      .populate({ path: "medicamentos.productoId", select: "nombre ingreActivo codigoBarras" })
       .lean();
 
     if (!receta) return res.status(404).json({ msg: "Receta no encontrada" });
 
-    return res.json({ ok: true, receta });
+    const pacienteId = receta?.pacienteId?._id || receta?.pacienteId;
+
+    let extraPaciente = { alergias: [], ultimoSV: null };
+
+    if (pacienteId) {
+      const p = await Paciente.findById(pacienteId)
+        .select("antecedentes signosVitales")
+        .lean();
+
+      extraPaciente.alergias = p?.antecedentes?.alergias || [];
+
+      // ✅ como se guarda con $position:0, el más reciente queda en [0]
+      extraPaciente.ultimoSV =
+        Array.isArray(p?.signosVitales) && p.signosVitales.length ? p.signosVitales[0] : null;
+    }
+
+    return res.json({ ok: true, receta, extraPaciente });
   } catch (err) {
     console.error("obtenerPorId receta:", err);
     return res.status(500).json({ msg: "Error al obtener receta" });
   }
 };
+
 
 exports.listarPorPaciente = async (req, res) => {
   try {

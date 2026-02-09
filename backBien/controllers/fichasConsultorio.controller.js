@@ -6,6 +6,25 @@ const Receta = require("../models/Receta");
 
 const mongoose = require("mongoose");
 
+// ============================
+// Helpers Antecedentes (suave)
+// ============================
+const toArr = (v) =>
+  Array.isArray(v)
+    ? v.map(x => String(x || '').trim()).filter(Boolean)
+    : [];
+
+// normaliza enums (no explota si llega algo raro)
+const normTabaquismo = (v) => {
+  const s = String(v || '').trim();
+  return (s === 'Si' || s === 'Ex') ? s : 'No';
+};
+
+const normAlcohol = (v) => {
+  const s = String(v || '').trim();
+  return (s === 'Si' || s === 'Ocasional') ? s : 'No';
+};
+
 function getFarmaciaActiva(req) {
   const fromUser = req.usuario?.farmacia;          // empleado/medico
   const fromHeader = req.headers["x-farmacia-id"]; // admin
@@ -647,16 +666,7 @@ exports.vincularPaciente = async (req, res) => {
   }
 };
 
-/**
- * POST /api/fichas-consultorio/:id/finalizar
- * Guarda TODO lo capturado al final:
- * - ficha: motivo, notasMedico, servicios(snapshot)
- * - paciente: agrega signos vitales (si hay)
- * - receta: crea receta y la vincula al paciente (si hay)
- * Cambia estado:
- * - si hay servicios => LISTA_PARA_COBRO
- * - si no hay nada para cobrar => ATENDIDA
- */
+
 exports.finalizarConsulta = async (req, res) => {
   try {
     const { id } = req.params;
@@ -670,7 +680,7 @@ exports.finalizarConsulta = async (req, res) => {
       notasMedico,
       servicios = [],
       signosVitales = null,
-      antecedentes = null,
+      antecedentes = null, // ✅
       receta = null,
     } = req.body || {};
 
@@ -747,7 +757,6 @@ exports.finalizarConsulta = async (req, res) => {
     const pacienteId = ficha.pacienteId ? String(ficha.pacienteId) : null;
 
     if (signosVitales && pacienteId) {
-      // "hay algo" (suave)
       const sv = signosVitales || {};
       const hayAlgoSV =
         sv.pesoKg != null ||
@@ -807,9 +816,8 @@ exports.finalizarConsulta = async (req, res) => {
     if (antecedentes && pacienteId) {
       const ant = pickAntecedentes(antecedentes);
 
+      // ✅ si NO hay nada, NO tocamos antecedentes existentes
       if (ant) {
-        // OJO: aquí puedes decidir si haces REEMPLAZO TOTAL o MERGE.
-        // ✅ Reemplazo total (simple y claro):
         await Paciente.findByIdAndUpdate(
           pacienteId,
           { $set: { antecedentes: ant } },
@@ -827,40 +835,77 @@ exports.finalizarConsulta = async (req, res) => {
 
     if (receta && pacienteId) {
       const r = receta || {};
+
+      const motivoConsulta = String(r.motivoConsulta || "").trim();
+
       const diagnosticos = Array.isArray(r.diagnosticos)
-        ? r.diagnosticos.map((d) => String(d).trim()).filter(Boolean)
+        ? r.diagnosticos.map(d => String(d).trim()).filter(Boolean)
         : [];
 
+      // ✅ 1) primero declaras medicamentosRaw
       const medicamentosRaw = Array.isArray(r.medicamentos) ? r.medicamentos : [];
 
+      // ✅ 2) luego sacas los productoIds (solo los que vienen)
+      const prodIds = medicamentosRaw
+        .map(m => m?.productoId)
+        .filter(Boolean);
+
+      // ✅ 3) buscas productos para snapshot
+      const productos = prodIds.length
+        ? await Producto.find({ _id: { $in: prodIds } })
+          .select("nombre ingreActivo codigoBarras")
+          .lean()
+        : [];
+
+      const prodMap = new Map(productos.map(p => [String(p._id), p]));
+
+      // ✅ 4) armas medicamentos con nombre SIEMPRE
       const medicamentos = medicamentosRaw
         .map((m) => {
-          const via = String(m.via || "").trim();
-          const viaOtra = String(m.viaOtra || "").trim();
+          const via = String(m?.via || "").trim();
+          const viaOtra = String(m?.viaOtra || "").trim();
+
+          const prod = m?.productoId ? prodMap.get(String(m.productoId)) : null;
+
+          const nombreFinal = prod
+            ? String(prod.nombre || "").trim()            // catálogo
+            : String(m?.nombreLibre || "").trim();        // OTRO
+
+          const cantidadNum =
+            m?.cantidad == null || m.cantidad === ""
+              ? undefined
+              : (Number.isFinite(Number(m.cantidad)) ? Number(m.cantidad) : undefined);
 
           return {
-            productoId: m.productoId || undefined,
-            nombreLibre: String(m.nombreLibre || "").trim(),
-            dosis: String(m.dosis || "").trim(),
+            productoId: m?.productoId || undefined,
+
+            // ✅ snapshot siempre en nombreLibre
+            // (en tu modelo Receta, nombreLibre existe y es String)
+            nombreLibre: nombreFinal,
+
+            // opcional: si quieres snapshot de ingre/cb (no rompe aunque no estén en schema,
+            // pero si tu schema NO lo contempla, NO lo mandes)
+            // ingreActivo: prod?.ingreActivo,
+            // codigoBarras: prod?.codigoBarras,
+
+            dosis: String(m?.dosis || "").trim(),
             via,
-            viaOtra: via === "OTRA" ? viaOtra : undefined, // ✅ SOLO si aplica
-            frecuencia: String(m.frecuencia || "").trim(),
-            duracion: String(m.duracion || "").trim(),
-            cantidad: m.cantidad != null ? Number(m.cantidad) : undefined,
-            indicaciones: String(m.indicaciones || "").trim(),
-            esControlado: !!m.esControlado,
+            viaOtra: via === "OTRA" ? viaOtra : undefined,
+            frecuencia: String(m?.frecuencia || "").trim(),
+            duracion: String(m?.duracion || "").trim(),
+            cantidad: cantidadNum,
+            indicaciones: String(m?.indicaciones || "").trim(),
+            esControlado: !!m?.esControlado,
           };
         })
-        // ✅ via + (productoId o nombreLibre) + si via=OTRA entonces viaOtra requerida
         .filter((m) =>
+          // ✅ válido si: trae nombre, trae vía, y si vía=OTRA => viaOtra
+          !!m.nombreLibre &&
           !!m.via &&
-          (!!m.productoId || !!m.nombreLibre) &&
           (m.via !== "OTRA" || !!m.viaOtra)
         );
 
-      // Validación suave: si trae receta "completa mínima"
-      // (si está incompleta, simplemente NO se crea)
-      const motivoConsulta = String(r.motivoConsulta || "").trim();
+      // ✅ validación mínima: si está incompleta, NO se crea receta (suave)
       const tieneMinimo = !!motivoConsulta && diagnosticos.length > 0 && medicamentos.length > 0;
 
       if (tieneMinimo) {
@@ -899,6 +944,7 @@ exports.finalizarConsulta = async (req, res) => {
         });
       }
     }
+
 
     // ============================
     // 5) Estado final de ficha

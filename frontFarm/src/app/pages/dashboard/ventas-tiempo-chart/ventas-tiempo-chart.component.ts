@@ -231,12 +231,20 @@ export class VentasTiempoChartComponent implements OnInit {
         }
 
         this.horaPico = validos.reduce((a, b) =>
+            b.utilidad > a.utilidad ? b : a
+        );
+
+        this.horaMuerta = validos.reduce((a, b) =>
+            b.utilidad < a.utilidad ? b : a
+        );
+
+        /* this.horaPico = validos.reduce((a, b) =>
             b.ingresos > a.ingresos ? b : a
         );
 
         this.horaMuerta = validos.reduce((a, b) =>
             b.ingresos < a.ingresos ? b : a
-        );
+        ); */
     }
 
     formatearPeriodo(periodo: string): string {

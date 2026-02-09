@@ -82,6 +82,7 @@ export class SurtirFarmaciaComponent implements OnInit {
       farmaciaId: [null, Validators.required],
       categoria: [''],
       ubicacion: [''],
+      ubicacionFarmacia: [''],
     });
   }
 
@@ -96,28 +97,22 @@ export class SurtirFarmaciaComponent implements OnInit {
   }
 
   private toggleFarmacia(disabled: boolean) {
-    ['farmaciaId','categoria','ubicacion'].forEach(k => { // NUEVO
+    ['farmaciaId', 'categoria', 'ubicacion'].forEach(k => { // NUEVO
       const ctrl = this.form.get(k)!;
       disabled ? ctrl.disable() : ctrl.enable();
     });
   }
-  
+
   onAceptar() {
     if (this.form.invalid) return;
     this.cargando = true;
-    const { farmaciaId, categoria, ubicacion } = this.form.value;
 
-    this.surtidoService.obtenerPendientes(farmaciaId, { categoria, ubicacion }).subscribe({
+    const { farmaciaId, categoria, ubicacion, ubicacionFarmacia } = this.form.value;
+
+    this.surtidoService.obtenerPendientes(farmaciaId, { categoria, ubicacion, ubicacionFarmacia }).subscribe({
       next: ({ pendientes }) => {
-        // Inicializa omitir = false
-        this.pendientes = (pendientes || []).map((p: any) => ({
-          ...p,
-          omitir: false
-        }));
-
-        console.log('Pendientes', pendientes);
-
-        this.rows = this.pendientes; // fuente de la tabla/paginación
+        this.pendientes = (pendientes || []).map((p: any) => ({ ...p, omitir: false }));
+        this.rows = this.pendientes;
         this.resetPagination();
         this.cargando = false;
 
@@ -155,85 +150,85 @@ export class SurtirFarmaciaComponent implements OnInit {
     this.rows.forEach(r => r.omitir = false);
   }
 
-onSurtir() {
-  const { farmaciaId, categoria, ubicacion } = this.form.value;
-  const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
+  onSurtir() {
+    const { farmaciaId, categoria, ubicacion, ubicacionFarmacia } = this.form.value;
+    const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
 
-  const detalles = this.rows.map(r => ({
-    producto: r.producto,
-    omitir: !!r.omitir
-  }));
+    const detalles = this.rows.map(r => ({
+      producto: r.producto,
+      omitir: !!r.omitir
+    }));
 
-  Swal.fire({
-    icon: 'question',
-    title: 'Confirmar surtido',
-    html: `
+    Swal.fire({
+      icon: 'question',
+      title: 'Confirmar surtido',
+      html: `
       Se surtirá a la farmacia <strong>${farmNombre}</strong> respetando las omisiones marcadas.<br>
       <small>Omitidos: ${this.totalOmitidos} / ${this.rows.length}</small>
     `,
-    showCancelButton: true,
-    confirmButtonText: 'Continuar',
-    cancelButtonText: 'Cancelar',
-    allowOutsideClick: false,
-    allowEscapeKey: false
-  }).then(result => {
-    if (!result.isConfirmed) {
-      this.toggleFarmacia(false);
-      return;
-    }
-
-    // Abrir loader (modal nuevo)
-    Swal.fire({
-      title: 'Surtido en progreso...',
-      html: 'Generando hoja y actualizando inventarios.',
+      showCancelButton: true,
+      confirmButtonText: 'Continuar',
+      cancelButtonText: 'Cancelar',
       allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => Swal.showLoading()
-    });
+      allowEscapeKey: false
+    }).then(result => {
+      if (!result.isConfirmed) {
+        this.toggleFarmacia(false);
+        return;
+      }
 
-    this.surtidoService.surtirFarmacia(farmaciaId, detalles, { categoria, ubicacion })
-      .pipe(
-        // ¡OJO! aquí NO cerramos el Swal. Sólo limpiamos estado si quieres.
-        finalize(() => {
-          // cualquier bandera/estado UI que quieras restablecer
-        })
-      )
-      .subscribe({
-        next: (res: any) => {
-          // Cerrar SOLO el loader
-          Swal.close();
-
-          // Ahora sí mostramos la pregunta de impresión
-          Swal.fire({
-            icon: 'success',
-            title: 'Surtido completado',
-            html: '¿Deseas imprimir la hoja de surtido?',
-            showCancelButton: true,
-            confirmButtonText: 'Sí',
-            cancelButtonText: 'No',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-          }).then((d) => {
-            if (d.isConfirmed && res?.surtido) {
-              this.imprimirReal(res.surtido);
-            }
-            this.pendientes = [];
-            this.form.reset({ farmaciaId: null });
-            this.toggleFarmacia(false);
-          });
-        },
-        error: (err) => {
-          console.error(err);
-          // Cerrar SOLO el loader
-          Swal.close();
-
-          const msg = err?.error?.detalle || err?.error?.mensaje || 'No se pudo surtir la farmacia.';
-          Swal.fire('Aviso', msg, 'warning');
-          this.toggleFarmacia(false);
-        }
+      // Abrir loader (modal nuevo)
+      Swal.fire({
+        title: 'Surtido en progreso...',
+        html: 'Generando hoja y actualizando inventarios.',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => Swal.showLoading()
       });
-  });
-}
+
+      this.surtidoService.surtirFarmacia(farmaciaId, detalles, { categoria, ubicacion, ubicacionFarmacia })
+        .pipe(
+          // ¡OJO! aquí NO cerramos el Swal. Sólo limpiamos estado si quieres.
+          finalize(() => {
+            // cualquier bandera/estado UI que quieras restablecer
+          })
+        )
+        .subscribe({
+          next: (res: any) => {
+            // Cerrar SOLO el loader
+            Swal.close();
+
+            // Ahora sí mostramos la pregunta de impresión
+            Swal.fire({
+              icon: 'success',
+              title: 'Surtido completado',
+              html: '¿Deseas imprimir la hoja de surtido?',
+              showCancelButton: true,
+              confirmButtonText: 'Sí',
+              cancelButtonText: 'No',
+              allowOutsideClick: false,
+              allowEscapeKey: false
+            }).then((d) => {
+              if (d.isConfirmed && res?.surtido) {
+                this.imprimirReal(res.surtido);
+              }
+              this.pendientes = [];
+              this.form.reset({ farmaciaId: null });
+              this.toggleFarmacia(false);
+            });
+          },
+          error: (err) => {
+            console.error(err);
+            // Cerrar SOLO el loader
+            Swal.close();
+
+            const msg = err?.error?.detalle || err?.error?.mensaje || 'No se pudo surtir la farmacia.';
+            Swal.fire('Aviso', msg, 'warning');
+            this.toggleFarmacia(false);
+          }
+        });
+    });
+  }
 
 
   onCancelar() {
@@ -249,40 +244,43 @@ onSurtir() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-// ===== Helpers =====
-private norm(s: any): string { return String(s ?? '').toLowerCase().trim(); }
-private cmp(a: string, b: string) { return (a > b ? 1 : a < b ? -1 : 0); }
+  // ===== Helpers =====
+  private norm(s: any): string { return String(s ?? '').toLowerCase().trim(); }
+  private cmp(a: string, b: string) { return (a > b ? 1 : a < b ? -1 : 0); }
 
-// ===== Previa (usa this.rows) =====
-// ===== Previa (usa this.rows, filtra omitidos y disponible>0) =====
-private buildHTMLPrevia(): string {
-  const { farmaciaId, categoria, ubicacion } = this.form.getRawValue();
-  const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
-  const ahora = this.fmtFecha();
+  // ===== Previa (usa this.rows) =====
+  // ===== Previa (usa this.rows, filtra omitidos y disponible>0) =====
+  private buildHTMLPrevia(): string {
+    const { farmaciaId, categoria, ubicacion, ubicacionFarmacia } = this.form.getRawValue();
+    const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
+    const ahora = this.fmtFecha();
 
-  const filtrosHtml = `
+    const filtrosHtml = `
     ${categoria ? `<div>Filtro categoría: <b>${categoria}</b></div>` : ''}
     ${ubicacion ? `<div>Filtro ubicación: <b>${ubicacion}</b></div>` : ''}
+    ${ubicacionFarmacia ? `<div>Filtro ubicación farmacia: <b>${ubicacionFarmacia}</b></div>` : ''}
   `;
 
-  const filasData = this.rows
-    .filter(r => !r.omitir && (r.disponibleEnAlmacen ?? 0) > 0)
-    .sort((a, b) =>
-      this.cmp(this.norm(a.ubicacion), this.norm(b.ubicacion)) ||
-      this.cmp(this.norm(a.nombre),    this.norm(b.nombre))
-    );
+    const filasData = this.rows
+      .filter(r => !r.omitir && (r.disponibleEnAlmacen ?? 0) > 0)
+      .sort((a, b) =>
+        this.cmp(this.norm(a.ubicacionFarmacia), this.norm(b.ubicacionFarmacia)) ||
+        this.cmp(this.norm(a.ubicacion), this.norm(b.ubicacion)) ||
+        this.cmp(this.norm(a.nombre), this.norm(b.nombre))
+      );
 
-  const filas = filasData.map(r => `
+    const filas = filasData.map(r => `
     <tr>
       <td>${r.codigoBarras || ''}</td>
       <td>${r.nombre || ''}</td>
       <td class="num">${r.falta ?? 0}</td>
       <td class="writein">&nbsp;</td>
       <td>${r.ubicacion || '-'}</td>
+      <td>${r.ubicacionFarmacia || '-'}</td>
     </tr>
   `).join('');
 
-  return `
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -309,7 +307,8 @@ private buildHTMLPrevia(): string {
   thead th.cant   { width: 110px; text-align: right; }
   thead th.surt   { width: 78px; }
   td.writein      { width: 70px; border-bottom: 1px solid #999; padding: 3px 6px; line-height: 1.2; text-align: center; }
-  thead th.ubic   { width: 180px; }
+  thead th.ubic   { width: 160px; }
+  thead th.ubf { width: 160px; }
   tfoot td { border-top: 2px solid #000; font-weight: bold; padding-top: 4px; }
   @media print {
     @page { size: Letter portrait; margin: 8mm; }
@@ -336,15 +335,16 @@ private buildHTMLPrevia(): string {
         <th>Producto</th>
         <th class="cant">Cant. a surtir</th>
         <th class="surt">Cant. surtida</th>
-        <th class="ubic">Ubicación en almacén</th>
+        <th class="ubic">Ubicación almacén</th>
+        <th class="ubf">Ubicación farmacia</th>
       </tr>
     </thead>
     <tbody>
-      ${filas || `<tr><td colspan="5">Sin items para surtir</td></tr>`}
+      ${filas || `<tr><td colspan="6">Sin items para surtir</td></tr>`}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="5">Registros: ${filasData.length}</td>
+        <td colspan="6">Registros: ${filasData.length}</td>
       </tr>
     </tfoot>
   </table>
@@ -355,35 +355,38 @@ private buildHTMLPrevia(): string {
   </div>
 </body>
 </html>`;
-}
+  }
 
-// ===== Real (usa surtido.items) =====
-private buildHTMLReal(surtido: any): string {
-  const { farmaciaId, categoria, ubicacion } = this.form.getRawValue();
-  const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
-  const fecha = surtido?.fechaSurtido ? this.fmtFecha(new Date(surtido.fechaSurtido)) : this.fmtFecha();
+  // ===== Real (usa surtido.items) =====
+  private buildHTMLReal(surtido: any): string {
+    const { farmaciaId, categoria, ubicacion, ubicacionFarmacia } = this.form.getRawValue();
+    const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
+    const fecha = surtido?.fechaSurtido ? this.fmtFecha(new Date(surtido.fechaSurtido)) : this.fmtFecha();
 
-  const filtrosHtml = `
+    const filtrosHtml = `
     ${categoria ? `<div>Filtro categoría: <b>${categoria}</b></div>` : ''}
     ${ubicacion ? `<div>Filtro ubicación: <b>${ubicacion}</b></div>` : ''}
+    ${ubicacionFarmacia ? `<div>Filtro ubicación farmacia: <b>${ubicacionFarmacia}</b></div>` : ''}
   `;
 
-  const items = (surtido?.items || []).slice().sort((a: any, b: any) =>
-    this.cmp(this.norm(a?.producto?.ubicacion), this.norm(b?.producto?.ubicacion)) ||
-    this.cmp(this.norm(a?.producto?.nombre),    this.norm(b?.producto?.nombre))
-  );
+    const items = (surtido?.items || []).slice().sort((a: any, b: any) =>
+      this.cmp(this.norm(a?.ubicacionFarmacia), this.norm(b?.ubicacionFarmacia)) ||
+      this.cmp(this.norm(a?.producto?.ubicacion), this.norm(b?.producto?.ubicacion)) ||
+      this.cmp(this.norm(a?.producto?.nombre), this.norm(b?.producto?.nombre))
+    );
 
-  const filas = items.map((it: any) => `
+    const filas = items.map((it: any) => `
     <tr>
       <td>${it?.producto?.codigoBarras || ''}</td>
       <td>${it?.producto?.nombre || ''}</td>
       <td class="num">${it?.cantidad ?? 0}</td>
       <td class="writein">&nbsp;</td>
       <td>${it?.producto?.ubicacion || '-'}</td>
+      <td>${it?.ubicacionFarmacia || '-'}</td>
     </tr>
   `).join('');
 
-  return `
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -405,7 +408,8 @@ private buildHTMLReal(surtido: any): string {
   thead th.cant   { width: 110px; text-align: right; }
   thead th.surt   { width: 78px; }
   td.writein      { width: 70px; border-bottom: 1px solid #999; padding: 3px 6px; line-height: 1.2; text-align: center; }
-  thead th.ubic   { width: 180px; }
+  thead th.ubic   { width: 160px; }
+  thead th.ubf { width: 160px; }
   tfoot td { border-top: 2px solid #000; font-weight: bold; padding-top: 4px; }
   @media print {
     @page { size: Letter portrait; margin: 8mm; }
@@ -433,15 +437,16 @@ private buildHTMLReal(surtido: any): string {
         <th>Producto</th>
         <th class="cant">Cant. a surtir</th>
         <th class="surt">Cant. surtida</th>
-        <th class="ubic">Ubicación en almacén</th>
+        <th class="ubic">Ubicación almacén</th>
+        <th class="ubf">Ubicación farmacia</th>
       </tr>
     </thead>
     <tbody>
-      ${filas || `<tr><td colspan="5">Sin items</td></tr>`}
+      ${filas || `<tr><td colspan="6">Sin items</td></tr>`}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="5">Productos surtidos: ${items.length}</td>
+        <td colspan="6">Productos surtidos: ${items.length}</td>
       </tr>
     </tfoot>
   </table>
@@ -452,7 +457,7 @@ private buildHTMLReal(surtido: any): string {
   </div>
 </body>
 </html>`;
-}
+  }
 
   // ====== 2.3) Abrir ventana y disparar impresión ======
   private printHTML(html: string) {
@@ -477,14 +482,14 @@ private buildHTMLReal(surtido: any): string {
     this.printHTML(html);
   }
 
-exportarExcel(): void {
+  exportarExcel(): void {
     if (!this.rows?.length) {
       Swal.fire('Aviso', 'No hay datos para exportar', 'info');
       return;
     }
     const { farmaciaId, categoria, ubicacion } = this.form.getRawValue(); // NUEVO
     const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
-    const fechaStamp = new Date().toISOString().slice(0,19).replace('T',' ');
+    const fechaStamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     // Encabezado con filtros
     const ws = XLSX.utils.aoa_to_sheet([]);
@@ -499,17 +504,17 @@ exportarExcel(): void {
 
     // ... resto de tu export (igual que ya tenías) ...
     const data = this.rows.map(r => ({
-      'Código de barras'     : r.codigoBarras || '',
-      'Producto'             : r.nombre || '',
-      'Categoría'            : r.categoria || '',
-      'Ubicación almacén'    : r.ubicacion || '',
-      'Ubicación farmacia'   : r.ubicacionFarmacia || '',
-      'Existencia actual'    : r.existenciaActual ?? 0,
-      'Stock Mín'            : r.stockMin ?? 0,
-      'Stock Máx'            : r.stockMax ?? 0,
-      'Falta'                : r.falta ?? 0,
+      'Código de barras': r.codigoBarras || '',
+      'Producto': r.nombre || '',
+      'Categoría': r.categoria || '',
+      'Ubicación almacén': r.ubicacion || '',
+      'Ubicación farmacia': r.ubicacionFarmacia || '',
+      'Existencia actual': r.existenciaActual ?? 0,
+      'Stock Mín': r.stockMin ?? 0,
+      'Stock Máx': r.stockMax ?? 0,
+      'Falta': r.falta ?? 0,
       'Disponible en almacén': r.disponibleEnAlmacen ?? 0,
-      'Omitir'               : r.omitir ? 'Sí' : 'No',
+      'Omitir': r.omitir ? 'Sí' : 'No',
     }));
     XLSX.utils.sheet_add_json(ws, data, { origin: 'A7', skipHeader: false });
     // ... (mismos anchos, formatos y totales que ya pusiste) ...
@@ -517,7 +522,7 @@ exportarExcel(): void {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Surtido');
     const safeFarm = (farmNombre || 'sin-farmacia').replace(/[\\/:*?"<>|]/g, '_');
-    const file = `surtido_${safeFarm}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.xlsx`;
+    const file = `surtido_${safeFarm}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`;
     XLSX.writeFile(wb, file);
   }
 

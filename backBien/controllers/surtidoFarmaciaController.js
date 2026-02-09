@@ -4,28 +4,7 @@ const SurtidoFarmacia = require('../models/SurtidoFarmacia');
 const Producto = require('../models/Producto');
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 
-const norm = (s) => (s ?? '')
-  .toString()
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLowerCase()
-  .replace(/\s+/g, ' ')
-  .trim();
-
-const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-
 // helpers: split y containsAll
-function words(str) {
-  return norm(str).split(' ').filter(Boolean);
-}
-function containsAll(haystack, needle) {
-  const H = norm(haystack || '');
-  const ws = words(needle || '');
-  for (const w of ws) {
-    if (!H.includes(w)) return false;
-  }
-  return true;
-}
 
 exports.surtirFarmacia = async (req, res) => {
   try {
@@ -39,8 +18,9 @@ exports.surtirFarmacia = async (req, res) => {
       farmaciaId,
       confirm = false,
       detalles = [],
-      categoria,     // filtra por Producto.categoria
-      ubicacion      // AHORA filtra por Producto.ubicacion (almacén)
+      categoria,
+      ubicacion,
+      ubicacionFarmacia
     } = req.body;
 
     // Mapa de omisiones por producto (default false)
@@ -75,7 +55,8 @@ exports.surtirFarmacia = async (req, res) => {
 
       let ok = true;
       if (categoria) ok = ok && containsAll(prod.categoria ?? '', categoria);
-      if (ubicacion) ok = ok && containsAll(prod.ubicacion ?? '', ubicacion); // <- almacén
+      if (ubicacion) ok = ok && containsAll(prod.ubicacion ?? '', ubicacion);
+      if (ubicacionFarmacia) ok = ok && containsAll(inv.ubicacionFarmacia ?? '', ubicacionFarmacia);
       return ok;
     };
 
@@ -107,6 +88,7 @@ exports.surtirFarmacia = async (req, res) => {
     // === ORDENAR POR categoría -> producto.ubicacion -> nombre ===
     pendientes.sort((a, b) =>
       cmp(norm(a.categoria), norm(b.categoria)) ||
+      cmp(norm(a.ubicacionFarmacia), norm(b.ubicacionFarmacia)) ||
       cmp(norm(a.ubicacion), norm(b.ubicacion)) ||
       cmp(norm(a.nombre),    norm(b.nombre))
     );
@@ -114,7 +96,11 @@ exports.surtirFarmacia = async (req, res) => {
     // 4) Si no confirman, solo devolvemos pendientes
     if (!confirm) {
       return res.json({
-        filtros: { categoria: categoria ?? null, ubicacion: ubicacion ?? null }, // <- cambia etiqueta
+        filtros: {
+          categoria: categoria ?? null,
+          ubicacion: ubicacion ?? null,
+          ubicacionFarmacia: ubicacionFarmacia ?? null
+        },
         pendientes
       });
     }
@@ -210,7 +196,11 @@ exports.surtirFarmacia = async (req, res) => {
 
       return res.json({
         mensaje: 'Farmacia surtida correctamente (solo con cantidades disponibles y sin omitir).',
-        filtros: { categoria: categoria ?? null, ubicacion: ubicacion ?? null }, // <- ahora refleja almacén
+        filtros: {
+          categoria: categoria ?? null,
+          ubicacion: ubicacion ?? null,
+          ubicacionFarmacia: ubicacionFarmacia ?? null
+        },
         pendientes,
         surtido: sObj
       });

@@ -16,15 +16,14 @@
       <strong>Lista de espera</strong>
       <span class="badge bg-primary">{{ cola.length }}</span>
 
-      <span class="badge" *ngIf="hayUrgenciasEnCola"
-            style="
+      <span class="badge" *ngIf="hayUrgenciasEnCola" style="
               background-color: rgb(46, 48, 1);
               height: 32px;
               display: flex;
               align-items: center;
               justify-content: center;
               color:aliceblue">
-              Hay pacientes con preferencia
+        Hay pacientes con preferencia
       </span>
       <span class="text-muted small" *ngIf="medicoOcupado">
         (ocupado con {{ fichaActual?.pacienteNombre }})
@@ -32,17 +31,13 @@
     </div>
 
     <div class="d-flex align-items-center gap-2" (click)="$event.stopPropagation()">
-      <button
-        type="button"
-        (click)="cargarCola()"
-            style="
+      <button type="button" (click)="cargarCola()" style="
               background-color: rgb(46, 48, 1);
               height: 32px;
               display: flex;
               align-items: center;
               justify-content: center;
-              color:aliceblue;"
-      >
+              color:aliceblue;">
         Refrescar
       </button>
       <span (click)="toggleCola()" class="text-muted small">{{ colaExpandida ? 'Ocultar' : 'Mostrar' }}</span>
@@ -238,7 +233,7 @@
 
           <!-- ================== ANTECEDENTES ================== -->
           <div *ngIf="expedienteTab==='ANT'">
-            <div class="row g-3">
+            <!-- <div class="row g-3">
               <div class="col-md-6" >
                 <div class="p-3 border rounded-3" style="background: #93d6fd">
                   <div class="fw-semibold mb-1">Alergias</div>
@@ -284,11 +279,67 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </div> -->
 
             <div class="alert alert-warning mt-3 mb-0" *ngIf="!paciente?.antecedentes">
               No hay antecedentes registrados.
             </div>
+
+            <div class="card mb-3" *ngIf="fichaActual?.pacienteId">
+              <div class="card-body">
+                <div class="fw-semibold mb-2">Capturar / actualizar antecedentes</div>
+
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label small">Alergias (una por renglón o separadas por coma)</label>
+                    <textarea class="form-control" rows="2" [(ngModel)]="antForm.alergiasTxt"></textarea>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small">Enfermedades crónicas</label>
+                    <textarea class="form-control" rows="2" [(ngModel)]="antForm.enfermedadesCronicasTxt"></textarea>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small">Medicamentos actuales</label>
+                    <textarea class="form-control" rows="2" [(ngModel)]="antForm.medicamentosActualesTxt"></textarea>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small">Cirugías previas</label>
+                    <textarea class="form-control" rows="2" [(ngModel)]="antForm.cirugiasPreviasTxt"></textarea>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small">Antecedentes familiares</label>
+                    <textarea class="form-control" rows="2" [(ngModel)]="antForm.antecedentesFamiliaresTxt"></textarea>
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label small">Tabaquismo</label>
+                    <select class="form-select" [(ngModel)]="antForm.tabaquismo">
+                      <option value="No">No</option>
+                      <option value="Si">Sí</option>
+                      <option value="Ex">Ex</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label small">Alcohol</label>
+                    <select class="form-select" [(ngModel)]="antForm.alcohol">
+                      <option value="No">No</option>
+                      <option value="Si">Sí</option>
+                      <option value="Ocasional">Ocasional</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="alert alert-info mt-2 mb-0">
+                  Se guardarán cuando finalices la consulta.
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <!-- ================== SIGNOS VITALES ================== -->
@@ -338,20 +389,27 @@
             <div class="list-group">
               <div class="list-group-item d-flex justify-content-between align-items-start"
                 *ngFor="let r of (expediente?.ultimasRecetas || [])">
+
                 <div>
                   <div class="fw-semibold">{{ r.diagnosticoPrincipal || 'Receta' }}</div>
                   <div class="small text-muted">{{ r.fecha | date:'short' }}</div>
+                  <div class="small text-muted">ID: {{ r.recetaId }}</div>
                 </div>
-                <span class="badge bg-secondary">ID: {{ r.recetaId }}</span>
+
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary btn-sm" (click)="verReceta(r.recetaId)">
+                    Ver
+                  </button>
+                  <button class="btn btn-outline-secondary btn-sm" (click)="imprimirReceta(r.recetaId)">
+                    Imprimir
+                  </button>
+                </div>
+
               </div>
 
               <div class="text-center text-muted p-3" *ngIf="(expediente?.ultimasRecetas || []).length === 0">
                 No hay recetas previas.
               </div>
-            </div>
-
-            <div class="form-text mt-2">
-              *Luego agregamos botón “Ver/Imprimir” usando <code>/recetas/:id</code>.
             </div>
           </div>
 
@@ -369,15 +427,14 @@
 
         <div class="d-flex align-items-center gap-2" (click)="$event.stopPropagation()">
           <button *ngIf="svExpandida" class="d-flex align-items-center gap-2" type="button" (click)="limpiarSignos()"
-            [disabled]="guardandoSignos"
-            style="
+            [disabled]="guardandoSignos" style="
               background-color: rgb(46, 48, 1);
               height: 32px;
               display: flex;
               align-items: center;
               justify-content: center;
               color:aliceblue;">
-              Limpiar
+            Limpiar
           </button>
           <span class="text-muted small" (click)="toggleSV()">{{ svExpandida ? 'Ocultar' : 'Mostrar' }}</span>
           <span class="fs-5 ms-2" (click)="toggleSV()">{{ svExpandida ? '▾' : '▸' }}</span>
@@ -394,82 +451,68 @@
 
             <div class="col-md-4">
               <label class="form-label">Peso (kg)</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" min="0" step="0.1" [(ngModel)]="signos.pesoKg"
-                (input)="recalcularIMC()">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" step="0.1"
+                [(ngModel)]="signos.pesoKg" (input)="recalcularIMC()">
             </div>
 
             <div class="col-md-4">
               <label class="form-label">Talla (cm)</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" min="0" step="0.1" [(ngModel)]="signos.tallaCm"
-                (input)="recalcularIMC()">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" step="0.1"
+                [(ngModel)]="signos.tallaCm" (input)="recalcularIMC()">
             </div>
 
             <div class="col-md-4">
               <label class="form-label">IMC</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" [value]="signos.imc ?? ''" readonly>
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number"
+                [value]="signos.imc ?? ''" readonly>
               <div class="form-text">Se calcula automático</div>
             </div>
 
             <div class="col-md-3">
               <label class="form-label">Temperatura (°C)</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" step="0.1" [(ngModel)]="signos.temperatura">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" step="0.1"
+                [(ngModel)]="signos.temperatura">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">TA Sistólica</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" min="0" [(ngModel)]="signos.presionSis">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+                [(ngModel)]="signos.presionSis">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">TA Diastólica</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" min="0" [(ngModel)]="signos.presionDia">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+                [(ngModel)]="signos.presionDia">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">FC (lpm)</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" min="0" [(ngModel)]="signos.fc">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+                [(ngModel)]="signos.fc">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">FR (rpm)</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" min="0" [(ngModel)]="signos.fr">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+                [(ngModel)]="signos.fr">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">SpO₂ (%)</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" min="0" max="100" [(ngModel)]="signos.spo2">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" max="100"
+                [(ngModel)]="signos.spo2">
             </div>
 
             <div class="col-md-3">
               <label class="form-label">Glucosa capilar (mg/dL)</label>
-              <input class="form-control"
-                style="background: rgb(210, 248, 236);"
-                type="number" min="0" [(ngModel)]="signos.glucosaCapilar">
+              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+                [(ngModel)]="signos.glucosaCapilar">
             </div>
 
             <div class="col-12">
               <label class="form-label">Notas</label>
-              <textarea class="form-control" rows="2"
-                style="background: rgb(210, 248, 236);"
-                [(ngModel)]="signos.notas"
+              <textarea class="form-control" rows="2" style="background: rgb(210, 248, 236);" [(ngModel)]="signos.notas"
                 placeholder="Ej. paciente en ayuno, técnica, observaciones..."></textarea>
             </div>
           </div>
@@ -499,39 +542,31 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Motivo de consulta</label>
-              <input class="form-control"
-                style="background: #93d6fd;"
-                [(ngModel)]="receta.motivoConsulta"
+              <input class="form-control" style="background: #93d6fd;" [(ngModel)]="receta.motivoConsulta"
                 placeholder="Ej. dolor de garganta, revisión..." />
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Cita de seguimiento (opcional)</label>
-              <input class="form-control"
-                style="background: #93d6fd;"
-                type="date" [(ngModel)]="receta.citaSeguimiento" />
+              <input class="form-control" style="background: #93d6fd;" type="date"
+                [(ngModel)]="receta.citaSeguimiento" />
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Diagnósticos (separados por coma)</label>
-              <textarea class="form-control" rows="1"
-                style="background: #93d6fd;"
-                [(ngModel)]="receta.diagnosticosTexto"
-                placeholder="Ej.\nFaringitis\nRinitis alérgica"></textarea>
+              <textarea class="form-control" rows="1" style="background: #93d6fd;"
+                [(ngModel)]="receta.diagnosticosTexto" placeholder="Ej.\nFaringitis\nRinitis alérgica"></textarea>
             </div>
 
             <div class="col-md-6">
               <label class="form-label">Observaciones</label>
-              <textarea class="form-control" rows="1"
-                style="background: #93d6fd;"
-                [(ngModel)]="receta.observaciones"
+              <textarea class="form-control" rows="1" style="background: #93d6fd;" [(ngModel)]="receta.observaciones"
                 placeholder="Notas clínicas, hallazgos, etc. (opcional)"></textarea>
             </div>
 
             <div class="col-12">
               <label class="form-label">Indicaciones generales</label>
-              <textarea class="form-control" rows="1"
-                style="background: #93d6fd;"
+              <textarea class="form-control" rows="1" style="background: #93d6fd;"
                 [(ngModel)]="receta.indicacionesGenerales"
                 placeholder="Ej. reposo, dieta, hidratación, signos de alarma..."></textarea>
             </div>
@@ -541,8 +576,7 @@
 
           <div class="d-flex justify-content-between align-items-center mb-2">
             <strong>Medicamentos</strong>
-            <button class="btn btn-sm btn-medicamento"
-                    (click)="agregarMedicamento()">
+            <button class="btn btn-sm btn-medicamento" (click)="agregarMedicamento()">
               + Agregar medicamento
             </button>
           </div>
@@ -583,18 +617,15 @@
 
                     <!-- MODO CATALOGO -->
                     <div *ngIf="m.modo==='CATALOGO'" class="position-relative">
-                      <input class="form-control" [(ngModel)]="m.q"
-                        style="background: #93d6fd; font-size: small;"
-                        (input)="buscarMedicamentos(i)"
-                        (focus)="onFocusMedicamento(i)" (blur)="ocultarResultados(i)"
+                      <input class="form-control" [(ngModel)]="m.q" style="background: #93d6fd; font-size: small;"
+                        (input)="buscarMedicamentos(i)" (focus)="onFocusMedicamento(i)" (blur)="ocultarResultados(i)"
                         placeholder="Buscar medicamento">
 
                       <!-- dropdown resultados -->
                       <div class="list-group position-absolute w-100 shadow"
                         style="z-index: 20; max-height: 260px; overflow:auto; font-size: small;"
                         *ngIf="(m.resultados?.length || 0) > 0 && buscandoMedIdx===i">
-                        <button type="button" class="list-group-item list-group-item-action"
-                          style="font-size: small;"
+                        <button type="button" class="list-group-item list-group-item-action" style="font-size: small;"
                           *ngFor="let p of m.resultados" (mousedown)="$event.preventDefault()"
                           (click)="seleccionarMedicamento(i, p)">
                           <!-- <div class="d-flex justify-content-between">
@@ -630,32 +661,26 @@
                   </td>
 
                   <td>
-                    <select class="form-select" [(ngModel)]="m.via"
-                      style="background: #93d6fd; font-size: small;">
+                    <select class="form-select" [(ngModel)]="m.via" style="background: #93d6fd; font-size: small;">
                       <option *ngFor="let v of VIAS_ADMIN" [value]="v">{{ v }}</option>
                     </select>
 
-                    <input class="form-control mt-1"
-                      style="background: #93d6fd; font-size: small;"
-                      *ngIf="m.via === 'OTRA'" [(ngModel)]="m.viaOtra"
-                      placeholder="Especifica vía..." />
+                    <input class="form-control mt-1" style="background: #93d6fd; font-size: small;"
+                      *ngIf="m.via === 'OTRA'" [(ngModel)]="m.viaOtra" placeholder="Especifica vía..." />
                   </td>
 
                   <td>
-                    <input class="form-control" [(ngModel)]="m.dosis"
-                      style="background: #93d6fd; font-size: small;"
+                    <input class="form-control" [(ngModel)]="m.dosis" style="background: #93d6fd; font-size: small;"
                       placeholder="Ej. 2 Tabletas" />
                   </td>
 
                   <td>
                     <input class="form-control" [(ngModel)]="m.frecuencia"
-                      style="background: #93d6fd; font-size: small;"
-                      placeholder="Ej. c/8h" />
+                      style="background: #93d6fd; font-size: small;" placeholder="Ej. c/8h" />
                   </td>
 
                   <td>
-                    <input class="form-control" [(ngModel)]="m.duracion"
-                      style="background: #93d6fd; font-size: small;"
+                    <input class="form-control" [(ngModel)]="m.duracion" style="background: #93d6fd; font-size: small;"
                       placeholder="Ej. 7 días" />
                   </td>
 
@@ -665,8 +690,7 @@
 
                   <td>
                     <input class="form-control" [(ngModel)]="m.indicaciones"
-                      style="background: #93d6fd; font-size: small;"
-                      placeholder="Ej. con alimentos" />
+                      style="background: #93d6fd; font-size: small;" placeholder="Ej. con alimentos" />
                     <!-- <div class="form-check mt-1">
                     <input class="form-check-input" type="checkbox" [(ngModel)]="m.esControlado" [id]="'ctrl_'+i">
                     <label class="form-check-label small" [for]="'ctrl_'+i">Controlado</label>
@@ -699,15 +723,13 @@
         <strong>Servicios médicos realizados al paciente</strong>
 
         <div class="d-flex align-items-center gap-2" (click)="$event.stopPropagation()">
-          <button *ngIf="servExpandida" class="d-flex align-items-center gap-2"
-                  style="
+          <button *ngIf="servExpandida" class="d-flex align-items-center gap-2" style="
                     background-color: rgb(46, 48, 1);
                     height: 32px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    color:aliceblue;"  
-                  (click)="agregarRenglonServicio()">
+                    color:aliceblue;" (click)="agregarRenglonServicio()">
             + Agregar servicio
           </button>
           <span class="text-muted small" (click)="toggleServ()">{{ servExpandida ? 'Ocultar' : 'Mostrar' }}</span>
@@ -728,8 +750,8 @@
           <tbody>
             <tr *ngFor="let s of servicios; let i = index">
               <td style="position: relative;">
-                <input class="form-control" style="background:#f8d8fd;" placeholder="Buscar servicio médico por nombre…" [(ngModel)]="s.query"
-                  (input)="onInputServicio(i)" (blur)="blurServicio(i)" autocomplete="off">
+                <input class="form-control" style="background:#f8d8fd;" placeholder="Buscar servicio médico por nombre…"
+                  [(ngModel)]="s.query" (input)="onInputServicio(i)" (blur)="blurServicio(i)" autocomplete="off">
 
                 <div class="form-text" *ngIf="!s.productoId && (s.query || '').trim()">
                   Selecciona un servicio de la lista.
@@ -738,10 +760,8 @@
                 <!-- dropdown sugerencias -->
                 <div class="list-group" *ngIf="(s.sugerencias?.length || 0) > 0"
                   style="position:absolute; z-index: 10; width: 100%; max-height: 220px; overflow:auto;">
-                  <button type="button" class="list-group-item list-group-item-action" 
-                    *ngFor="let p of s.sugerencias"
-                    style="background:#f8d8f0;"
-                    (mousedown)="seleccionarServicio(i, p)">
+                  <button type="button" class="list-group-item list-group-item-action" *ngFor="let p of s.sugerencias"
+                    style="background:#f8d8f0;" (mousedown)="seleccionarServicio(i, p)">
                     {{ p.nombre }}
                     <!-- <span class="float-end text-muted" *ngIf="p.precioVenta != null">
                       ${{ p.precioVenta }}
@@ -754,15 +774,11 @@
 
 
               <td>
-                <input class="form-control"
-                  style="background:#f8d8fd;"
-                  type="number" min="1" [(ngModel)]="s.cantidad">
+                <input class="form-control" style="background:#f8d8fd;" type="number" min="1" [(ngModel)]="s.cantidad">
               </td>
 
               <td>
-                <input class="form-control" [(ngModel)]="s.notas"
-                  style="background:#f8d8fd;"
-                  placeholder="Opcional">
+                <input class="form-control" [(ngModel)]="s.notas" style="background:#f8d8fd;" placeholder="Opcional">
               </td>
 
               <td>
@@ -779,6 +795,116 @@
       <button class="btn-verde" [disabled]="guardando" (click)="guardarYEnviarACaja()">
         {{ guardando ? 'Guardando…' : 'Finalizar y enviar a caja' }}
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VER RECETA -->
+<div class="modal fade" id="modalVerReceta" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header" style="background:#4fbeff;">
+        <h5 class="modal-title">Receta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body" style="background:#f7fbff;">
+        <div *ngIf="cargandoReceta" class="text-center p-4">
+          Cargando receta...
+        </div>
+
+        <div *ngIf="!cargandoReceta && recetaVista">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <div class="p-3 border rounded-3 bg-white">
+                <div class="fw-semibold">{{ recetaVista?.farmaciaId?.titulo1 || recetaVista?.farmaciaId?.nombre }}</div>
+                <div class="text-muted small" *ngIf="recetaVista?.farmaciaId?.titulo2">{{
+                  recetaVista?.farmaciaId?.titulo2 }}</div>
+                <div class="text-muted small">Fecha: {{ recetaVista?.fecha | date:'short' }}</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-3 border rounded-3 bg-white">
+                <div><b>Paciente:</b> {{ recetaVista?.pacienteId?.nombre }} {{ recetaVista?.pacienteId?.apellidos }}
+                </div>
+                <div class="text-muted small" *ngIf="recetaVista?.pacienteId?.contacto?.telefono">Tel: {{
+                  recetaVista?.pacienteId?.contacto?.telefono }}</div>
+                <div class="text-muted small" *ngIf="recetaVista?.pacienteId?.datosGenerales?.curp">CURP: {{
+                  recetaVista?.pacienteId?.datosGenerales?.curp }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 border rounded-3 bg-white mt-2">
+            <div><b>Motivo:</b> {{ recetaVista?.motivoConsulta || '—' }}</div>
+            <div class="mt-2">
+              <b>Diagnósticos:</b>
+              <span *ngIf="(recetaVista?.diagnosticos || []).length">{{ (recetaVista?.diagnosticos || []).join(', ')
+                }}</span>
+              <span *ngIf="!(recetaVista?.diagnosticos || []).length">—</span>
+            </div>
+          </div>
+
+          <div class="p-3 border rounded-3 bg-white mt-2">
+            <div class="fw-semibold mb-2">Tratamiento</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>#</th>
+                    <th>Medicamento</th>
+                    <th>Dosis</th>
+                    <th>Vía</th>
+                    <th>Frecuencia</th>
+                    <th>Duración</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let m of (recetaVista?.medicamentos || []); let i = index">
+                    <td>{{ i + 1 }}</td>
+                    <td>
+                      <div class="fw-semibold">
+                        {{ m?.productoId?.nombre || m?.nombreLibre || '—' }}
+                      </div>
+                      <div class="text-muted small" *ngIf="m?.indicaciones">
+                        Indicaciones: {{ m.indicaciones }}
+                      </div>
+                    </td>
+                    <td>{{ m?.dosis || '—' }}</td>
+                    <td>
+                      <span *ngIf="m?.via !== 'OTRA'">{{ m?.via || '—' }}</span>
+                      <span *ngIf="m?.via === 'OTRA'">OTRA: {{ m?.viaOtra || '—' }}</span>
+                    </td>
+                    <td>{{ m?.frecuencia || '—' }}</td>
+                    <td>{{ m?.duracion || '—' }}</td>
+                  </tr>
+
+                  <tr *ngIf="(recetaVista?.medicamentos || []).length === 0">
+                    <td colspan="7" class="text-center text-muted p-3">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-2" *ngIf="recetaVista?.indicacionesGenerales">
+              <b>Indicaciones generales:</b> {{ recetaVista.indicacionesGenerales }}
+            </div>
+            <div class="mt-2" *ngIf="recetaVista?.observaciones">
+              <b>Observaciones:</b> {{ recetaVista.observaciones }}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button class="btn btn-primary" [disabled]="!recetaVista" (click)="imprimirReceta(recetaVista._id)">
+          Imprimir
+        </button>
+      </div>
+
     </div>
   </div>
 </div>
