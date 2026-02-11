@@ -424,8 +424,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.nombreCliente = c.nombre || '';
     this.telefonoCliente = c.telefono || '';
     this.montoMonederoCliente = Number(c.totalMonedero || 0);
-    this.recalcularRenglones();
     this.hayCliente = true;
+    this.recalcularRenglones();
     this.focusBarcode(60, true);
   }
 
@@ -875,6 +875,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.captionButtomReanudar = '';
     this.ventaForm.controls['cliente'].setValue('');
     this.hayCliente = false;
+    this.limpiarCliente();
     this.focusBarcode(0, true);
   }
 
