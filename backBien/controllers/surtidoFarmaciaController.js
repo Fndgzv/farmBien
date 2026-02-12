@@ -39,7 +39,7 @@ exports.surtirFarmacia = async (req, res) => {
     const ubicFarmaPorProd = new Map(
       inventarios
         .filter(inv => inv?.producto?._id)
-        .map(inv => [ String(inv.producto._id), inv.ubicacionFarmacia || '' ])
+        .map(inv => [String(inv.producto._id), inv.ubicacionFarmacia || ''])
     );
 
     // helpers locales por si no existen en el archivo
@@ -60,37 +60,56 @@ exports.surtirFarmacia = async (req, res) => {
       return ok;
     };
 
-    // 2) Filtrar los que están <= stockMin y cumplen filtros
-    const bajos = inventarios.filter(inv =>
-      (inv.existencia ?? 0) <= (inv.stockMin ?? 0) && pasaFiltros(inv)
-    );
+    // 2) Filtrar los que están <= stockMin, cumplen filtros y realmente necesitan surtido
+    const bajos = inventarios.filter(inv => {
+      if (!pasaFiltros(inv)) return false;
 
-    // 3) Generar "pendientes"
-    const pendientes = bajos.map(inv => ({
-      producto: inv.producto?._id,
-      nombre: inv.producto?.nombre,
-      codigoBarras: inv.producto?.codigoBarras,
-      categoria: inv.producto?.categoria,
-      ubicacion: inv.producto?.ubicacion,               // <- ubicación en almacén (filtro)
-      ubicacionFarmacia: inv.ubicacionFarmacia || '',   // informativo
-      existenciaActual: inv.existencia ?? 0,
-      stockMin: inv.stockMin ?? 0,
-      stockMax: inv.stockMax ?? 0,
-      falta: Math.max(0, (inv.stockMax ?? 0) - (inv.existencia ?? 0)),
-      disponibleEnAlmacen: Array.isArray(inv.producto?.lotes)
-        ? inv.producto.lotes.reduce((sum, l) => sum + (l.cantidad ?? 0), 0)
-        : 0,
-      omitir: omitirMap.has(String(inv.producto?._id || ''))
-        ? omitirMap.get(String(inv.producto?._id || ''))
-        : false
-    }));
+      const existencia = inv.existencia ?? 0;
+      const stockMin = inv.stockMin ?? 0;
+      const stockMax = inv.stockMax ?? 0;
+
+      const falta = Math.max(0, stockMax - existencia);
+
+      return existencia <= stockMin && falta > 0;
+    });
+
+    // 3) Generar "pendientes" (y quitar los que no se pueden surtir)
+    const pendientes = bajos
+      .map(inv => {
+        const falta = Math.max(0, (inv.stockMax ?? 0) - (inv.existencia ?? 0));
+
+        const disponibleEnAlmacen = Array.isArray(inv.producto?.lotes)
+          ? inv.producto.lotes.reduce((sum, l) => sum + (l.cantidad ?? 0), 0)
+          : 0;
+
+        const podranSurtirse = Math.min(falta, disponibleEnAlmacen);
+
+        return ({
+          producto: inv.producto?._id,
+          nombre: inv.producto?.nombre,
+          codigoBarras: inv.producto?.codigoBarras,
+          categoria: inv.producto?.categoria,
+          ubicacion: inv.producto?.ubicacion,
+          ubicacionFarmacia: inv.ubicacionFarmacia || '',
+          existenciaActual: inv.existencia ?? 0,
+          stockMin: inv.stockMin ?? 0,
+          stockMax: inv.stockMax ?? 0,
+          falta,
+          disponibleEnAlmacen,
+          podranSurtirse,
+          omitir: omitirMap.has(String(inv.producto?._id || ''))
+            ? omitirMap.get(String(inv.producto?._id || ''))
+            : false
+        });
+      })
+      .filter(p => (p.podranSurtirse ?? 0) > 0); // ✅ aquí se eliminan los renglones “0”
 
     // === ORDENAR POR categoría -> producto.ubicacion -> nombre ===
     pendientes.sort((a, b) =>
       cmp(norm(a.categoria), norm(b.categoria)) ||
       cmp(norm(a.ubicacionFarmacia), norm(b.ubicacionFarmacia)) ||
       cmp(norm(a.ubicacion), norm(b.ubicacion)) ||
-      cmp(norm(a.nombre),    norm(b.nombre))
+      cmp(norm(a.nombre), norm(b.nombre))
     );
 
     // 4) Si no confirman, solo devolvemos pendientes
@@ -190,7 +209,7 @@ exports.surtirFarmacia = async (req, res) => {
         sObj.items.sort((a, b) =>
           cmp(norm(a.producto?.categoria), norm(b.producto?.categoria)) ||
           cmp(norm(a.producto?.ubicacion), norm(b.producto?.ubicacion)) ||
-          cmp(norm(a.producto?.nombre),    norm(b.producto?.nombre))
+          cmp(norm(a.producto?.nombre), norm(b.producto?.nombre))
         );
       }
 

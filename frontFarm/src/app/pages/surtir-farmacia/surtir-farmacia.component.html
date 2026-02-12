@@ -69,15 +69,15 @@
     <thead>
       <tr>
         <th>Omit</th>
-        <th>Producto</th>
-        <th>Cód. Barras</th>
+        <th>Producto - CB</th>
         <th>Categoría</th>
         <th>Ubic almac</th>
         <th>Ubic farma</th>
         <th>Existencia</th>
         <th>Stock Mínimo</th>
         <th>Stock Máximo</th>
-        <th>Cantidad a Surtir</th>
+        <th>Faltante</th>
+        <th>Podrán surtir</th>
         <th>Disponible Almacén</th>
       </tr>
     </thead>
@@ -87,8 +87,10 @@
           <input type="checkbox" class="chk-omit" [(ngModel)]="p.omitir" name="omitir_{{ p.producto }}"
             [attr.aria-label]="'Omitir ' + p.nombre" matTooltip="Si está activado, este producto no se surtirá" />
         </td>
-        <td>{{ p.nombre }}</td>
-        <td>{{ p.codigoBarras }}</td>
+        <td>
+          <div>{{ p.nombre }}</div>
+          <small class="codigo-mini">{{ p.codigoBarras }}</small>
+        </td>
         <td>{{ p.categoria }}</td>
         <td>{{ p.ubicacion }}</td>
         <td>{{ p.ubicacionFarmacia }}</td>
@@ -96,6 +98,7 @@
         <td>{{ p.stockMin }}</td>
         <td>{{ p.stockMax }}</td>
         <td class="falta">{{ p.falta }}</td>
+        <td class="podranSurtir">{{ p.podranSurtirse }}</td>
         <td>{{ p.disponibleEnAlmacen }}</td>
       </tr>
     </tbody>

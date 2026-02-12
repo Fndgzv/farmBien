@@ -28,6 +28,7 @@ interface Pendiente {
   stockMin: number;
   stockMax: number;
   falta: number;
+  podranSurtirse: number;
   disponibleEnAlmacen: number;
   // NUEVO:
   omitir: boolean;
@@ -115,6 +116,9 @@ export class SurtirFarmaciaComponent implements OnInit {
         this.rows = this.pendientes;
         this.resetPagination();
         this.cargando = false;
+
+        console.log('productos pendientes de surtir: ',pendientes);
+        
 
         if (this.rows.length === 0) {
           Swal.fire({
@@ -262,7 +266,7 @@ export class SurtirFarmaciaComponent implements OnInit {
   `;
 
     const filasData = this.rows
-      .filter(r => !r.omitir && (r.disponibleEnAlmacen ?? 0) > 0)
+      .filter(r => !r.omitir && (r.podranSurtirse ?? 0) > 0)
       .sort((a, b) =>
         this.cmp(this.norm(a.ubicacionFarmacia), this.norm(b.ubicacionFarmacia)) ||
         this.cmp(this.norm(a.ubicacion), this.norm(b.ubicacion)) ||
@@ -270,15 +274,14 @@ export class SurtirFarmaciaComponent implements OnInit {
       );
 
     const filas = filasData.map(r => `
-    <tr>
-      <td>${r.codigoBarras || ''}</td>
-      <td>${r.nombre || ''}</td>
-      <td class="num">${r.falta ?? 0}</td>
-      <td class="writein">&nbsp;</td>
-      <td>${r.ubicacion || '-'}</td>
-      <td>${r.ubicacionFarmacia || '-'}</td>
-    </tr>
-  `).join('');
+      <tr>
+        <td>${r.codigoBarras || ''}</td>
+        <td>${r.nombre || ''}</td>
+        <td class="num">${r.podranSurtirse ?? 0}</td>
+        <td>${r.ubicacion || '-'}</td>
+        <td>${r.ubicacionFarmacia || '-'}</td>
+      </tr>
+    `).join('');
 
     return `
 <!DOCTYPE html>
@@ -305,10 +308,8 @@ export class SurtirFarmaciaComponent implements OnInit {
   }  
   thead th.codigo { width: 110px; }
   thead th.cant   { width: 110px; text-align: right; }
-  thead th.surt   { width: 78px; }
-  td.writein      { width: 70px; border-bottom: 1px solid #999; padding: 3px 6px; line-height: 1.2; text-align: center; }
-  thead th.ubic   { width: 160px; }
-  thead th.ubf { width: 160px; }
+  thead th.ubic   { width: 180px; }
+  thead th.ubf { width: 180px; }
   tfoot td { border-top: 2px solid #000; font-weight: bold; padding-top: 4px; }
   @media print {
     @page { size: Letter portrait; margin: 8mm; }
@@ -334,17 +335,16 @@ export class SurtirFarmaciaComponent implements OnInit {
         <th class="codigo">Código</th>
         <th>Producto</th>
         <th class="cant">Cant. a surtir</th>
-        <th class="surt">Cant. surtida</th>
         <th class="ubic">Ubicación almacén</th>
         <th class="ubf">Ubicación farmacia</th>
       </tr>
     </thead>
     <tbody>
-      ${filas || `<tr><td colspan="6">Sin items para surtir</td></tr>`}
+      ${filas || `<tr><td colspan="5">Sin items para surtir</td></tr>`}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="6">Registros: ${filasData.length}</td>
+        <td colspan="5">Registros: ${filasData.length}</td>
       </tr>
     </tfoot>
   </table>

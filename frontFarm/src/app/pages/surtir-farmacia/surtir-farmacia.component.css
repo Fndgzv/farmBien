@@ -89,3 +89,14 @@ button[disabled] {
     color: darkred;
     font-weight:500;
 }
+
+.podranSurtir {
+    color: rgb(249, 44, 44);
+    font-weight:500;
+}
+
+.codigo-mini {
+  display: block;
+  font-size: 11px;
+  color: #6c757d; /* gris suave */
+}
