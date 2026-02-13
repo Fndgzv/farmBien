@@ -1,3 +1,4 @@
+/* frontFarm/src/app/pages/surtir-farmacia\surtir-farmacia.component.css */
 .surtir-farmacia {
     max-width: 100%;
     margin: 1rem auto;
@@ -86,14 +87,48 @@ button[disabled] {
 }
 
 .falta {
-    color: darkred;
+    color: rgb(254, 10, 10);
     font-weight:500;
 }
 
 .podranSurtir {
-    color: rgb(249, 44, 44);
+    color: rgb(1, 46, 11);
     font-weight:500;
 }
+
+.faltanAlmacen {
+  color: #f9681f;       /* ámbar/café */
+  font-weight: 600;
+}
+
+.faltanAlmacen.alto {
+  color: rgb(254, 10, 10);
+  font-weight: 700;
+}
+
+/* headers clickeables */
+.th-sort {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 12px;
+  transition: background 0.15s ease;
+}
+
+.th-sort:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sort-arrow {
+  font-size: 12px;
+  opacity: 0.6;
+  margin-left: 6px;
+}
+
+.th-sort:hover .sort-arrow {
+  opacity: 1;
+}
+
 
 .codigo-mini {
   display: block;

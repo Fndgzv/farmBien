@@ -30,7 +30,7 @@ interface Pendiente {
   falta: number;
   podranSurtirse: number;
   disponibleEnAlmacen: number;
-  // NUEVO:
+  faltanEnAlmacen: number;
   omitir: boolean;
 }
 
@@ -46,6 +46,12 @@ interface Pendiente {
   styleUrl: './surtir-farmacia.component.css'
 })
 export class SurtirFarmaciaComponent implements OnInit {
+
+  getSortArrow(key: any): string {
+    if (this.sortKey !== key) return '↕';     // no activa
+    return this.sortDir === 1 ? '↑' : '↓';    // activa
+  }
+
   form: FormGroup;
   farmacias: any[] = [];
   pendientes: Pendiente[] = [];
@@ -112,13 +118,20 @@ export class SurtirFarmaciaComponent implements OnInit {
 
     this.surtidoService.obtenerPendientes(farmaciaId, { categoria, ubicacion, ubicacionFarmacia }).subscribe({
       next: ({ pendientes }) => {
-        this.pendientes = (pendientes || []).map((p: any) => ({ ...p, omitir: false }));
+        this.pendientes = (pendientes || []).map((p: any) => {
+          const falta = Number(p?.falta ?? 0);
+          const podran = Number(p?.podranSurtirse ?? 0);
+          return {
+            ...p, omitir: false,
+            faltanEnAlmacen: Math.max(0, falta - podran)
+          };
+        });
         this.rows = this.pendientes;
+        this.applySort();
         this.resetPagination();
         this.cargando = false;
 
-        console.log('productos pendientes de surtir: ',pendientes);
-        
+        console.log('productos pendientes de surtir: ', pendientes);
 
         if (this.rows.length === 0) {
           Swal.fire({
@@ -233,7 +246,6 @@ export class SurtirFarmaciaComponent implements OnInit {
         });
     });
   }
-
 
   onCancelar() {
     this.pendientes = [];
@@ -379,8 +391,7 @@ export class SurtirFarmaciaComponent implements OnInit {
     <tr>
       <td>${it?.producto?.codigoBarras || ''}</td>
       <td>${it?.producto?.nombre || ''}</td>
-      <td class="num">${it?.cantidad ?? 0}</td>
-      <td class="writein">&nbsp;</td>
+      <td class="num">${it?.podranSurtirse ?? 0}</td>
       <td>${it?.producto?.ubicacion || '-'}</td>
       <td>${it?.ubicacionFarmacia || '-'}</td>
     </tr>
@@ -406,8 +417,6 @@ export class SurtirFarmaciaComponent implements OnInit {
   td.writein { width: 110px; }
   thead th.codigo { width: 110px; }
   thead th.cant   { width: 110px; text-align: right; }
-  thead th.surt   { width: 78px; }
-  td.writein      { width: 70px; border-bottom: 1px solid #999; padding: 3px 6px; line-height: 1.2; text-align: center; }
   thead th.ubic   { width: 160px; }
   thead th.ubf { width: 160px; }
   tfoot td { border-top: 2px solid #000; font-weight: bold; padding-top: 4px; }
@@ -436,17 +445,16 @@ export class SurtirFarmaciaComponent implements OnInit {
         <th class="codigo">Código</th>
         <th>Producto</th>
         <th class="cant">Cant. a surtir</th>
-        <th class="surt">Cant. surtida</th>
         <th class="ubic">Ubicación almacén</th>
         <th class="ubf">Ubicación farmacia</th>
       </tr>
     </thead>
     <tbody>
-      ${filas || `<tr><td colspan="6">Sin items</td></tr>`}
+      ${filas || `<tr><td colspan="5">Sin items</td></tr>`}
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="6">Productos surtidos: ${items.length}</td>
+        <td colspan="5">Productos surtidos: ${items.length}</td>
       </tr>
     </tfoot>
   </table>
@@ -512,8 +520,10 @@ export class SurtirFarmaciaComponent implements OnInit {
       'Existencia actual': r.existenciaActual ?? 0,
       'Stock Mín': r.stockMin ?? 0,
       'Stock Máx': r.stockMax ?? 0,
-      'Falta': r.falta ?? 0,
+      'Faltante (farmacia)': r.falta ?? 0,
+      'Podrán surtir': r.podranSurtirse ?? 0,
       'Disponible en almacén': r.disponibleEnAlmacen ?? 0,
+      'Faltan en almacén': r.faltanEnAlmacen ?? 0,
       'Omitir': r.omitir ? 'Sí' : 'No',
     }));
     XLSX.utils.sheet_add_json(ws, data, { origin: 'A7', skipHeader: false });
@@ -525,5 +535,38 @@ export class SurtirFarmaciaComponent implements OnInit {
     const file = `surtido_${safeFarm}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.xlsx`;
     XLSX.writeFile(wb, file);
   }
+
+  sortKey: 'categoria' | 'disponibleEnAlmacen' | 'existenciaActual' | 'falta' | 'podranSurtirse' | 'faltanEnAlmacen' | 'ubicacion' | 'ubicacionFarmacia' = 'categoria';
+  sortDir: 1 | -1 = 1;
+
+  setSort(key: typeof this.sortKey) {
+    if (this.sortKey === key) this.sortDir = (this.sortDir === 1 ? -1 : 1);
+    else { this.sortKey = key; this.sortDir = 1; }
+
+    this.applySort();
+  }
+
+  private applySort() {
+    const dir = this.sortDir;
+    const key = this.sortKey;
+
+    const isNum = new Set([
+      'disponibleEnAlmacen', 'existenciaActual', 'falta', 'podranSurtirse', 'faltanEnAlmacen'
+    ]);
+
+    this.rows = (this.rows || []).slice().sort((a: any, b: any) => {
+      const av = a?.[key];
+      const bv = b?.[key];
+
+      if (isNum.has(key)) return (Number(av ?? 0) - Number(bv ?? 0)) * dir;
+
+      const as = this.norm(av);
+      const bs = this.norm(bv);
+      return (as > bs ? 1 : as < bs ? -1 : 0) * dir;
+    });
+
+    this.resetPagination();
+  }
+
 
 }

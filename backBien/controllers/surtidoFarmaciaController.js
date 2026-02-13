@@ -4,8 +4,6 @@ const SurtidoFarmacia = require('../models/SurtidoFarmacia');
 const Producto = require('../models/Producto');
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 
-// helpers: split y containsAll
-
 exports.surtirFarmacia = async (req, res) => {
   try {
     // 0) Solo admin
@@ -101,8 +99,7 @@ exports.surtirFarmacia = async (req, res) => {
             ? omitirMap.get(String(inv.producto?._id || ''))
             : false
         });
-      })
-      .filter(p => (p.podranSurtirse ?? 0) > 0); // ✅ aquí se eliminan los renglones “0”
+      });
 
     // === ORDENAR POR categoría -> producto.ubicacion -> nombre ===
     pendientes.sort((a, b) =>

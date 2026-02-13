@@ -66,21 +66,56 @@
   </div>
 
   <table *ngIf="pendientes.length" class="tabla">
-    <thead>
-      <tr>
-        <th>Omit</th>
-        <th>Producto - CB</th>
-        <th>Categoría</th>
-        <th>Ubic almac</th>
-        <th>Ubic farma</th>
-        <th>Existencia</th>
-        <th>Stock Mínimo</th>
-        <th>Stock Máximo</th>
-        <th>Faltante</th>
-        <th>Podrán surtir</th>
-        <th>Disponible Almacén</th>
-      </tr>
-    </thead>
+  <thead>
+    <tr>
+      <th>Omit</th>
+      <th>Producto - CB</th>
+
+      <th class="th-sort" (click)="setSort('categoria')">
+        Categoría
+        <span class="sort-arrow">{{ getSortArrow('categoria') }}</span>
+      </th>
+
+      <th class="th-sort" (click)="setSort('ubicacion')">
+        Ubic almac
+        <span class="sort-arrow">{{ getSortArrow('ubicacion') }}</span>
+      </th>
+
+      <th class="th-sort" (click)="setSort('ubicacionFarmacia')">
+        Ubic farma
+        <span class="sort-arrow">{{ getSortArrow('ubicacionFarmacia') }}</span>
+      </th>
+
+      <th class="th-sort" (click)="setSort('existenciaActual')">
+        Existencia
+        <span class="sort-arrow">{{ getSortArrow('existenciaActual') }}</span>
+      </th>
+
+      <th>Stock Mínimo</th>
+      <th>Stock Máximo</th>
+
+      <th class="th-sort" (click)="setSort('falta')">
+        Faltante
+        <span class="sort-arrow">{{ getSortArrow('falta') }}</span>
+      </th>
+
+      <th class="th-sort" (click)="setSort('podranSurtirse')">
+        Podrán surtir
+        <span class="sort-arrow">{{ getSortArrow('podranSurtirse') }}</span>
+      </th>
+
+      <th class="th-sort" (click)="setSort('disponibleEnAlmacen')">
+        Disponible Almacén
+        <span class="sort-arrow">{{ getSortArrow('disponibleEnAlmacen') }}</span>
+      </th>
+
+      <th class="th-sort" (click)="setSort('faltanEnAlmacen')">
+        Faltan en almacén
+        <span class="sort-arrow">{{ getSortArrow('faltanEnAlmacen') }}</span>
+      </th>
+    </tr>
+  </thead>
+
     <tbody>
       <tr *ngFor="let p of pagedRows; trackBy: trackByProd" [class.omitido]="p.omitir">
         <td style="text-align:center;">
@@ -88,7 +123,7 @@
             [attr.aria-label]="'Omitir ' + p.nombre" matTooltip="Si está activado, este producto no se surtirá" />
         </td>
         <td>
-          <div>{{ p.nombre }}</div>
+          <div style="font-size: smaller;">{{ p.nombre }}</div>
           <small class="codigo-mini">{{ p.codigoBarras }}</small>
         </td>
         <td>{{ p.categoria }}</td>
@@ -100,6 +135,10 @@
         <td class="falta">{{ p.falta }}</td>
         <td class="podranSurtir">{{ p.podranSurtirse }}</td>
         <td>{{ p.disponibleEnAlmacen }}</td>
+        <td class="faltanAlmacen" [class.alto]="p.faltanEnAlmacen > 9">
+            {{ p.faltanEnAlmacen }}
+        </td>
+
       </tr>
     </tbody>
   </table>
