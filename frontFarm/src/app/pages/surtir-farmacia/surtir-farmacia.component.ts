@@ -391,7 +391,7 @@ export class SurtirFarmaciaComponent implements OnInit {
     <tr>
       <td>${it?.producto?.codigoBarras || ''}</td>
       <td>${it?.producto?.nombre || ''}</td>
-      <td class="num">${it?.podranSurtirse ?? 0}</td>
+      <td class="num">${it?.cantidad ?? 0}</td>
       <td>${it?.producto?.ubicacion || '-'}</td>
       <td>${it?.ubicacionFarmacia || '-'}</td>
     </tr>

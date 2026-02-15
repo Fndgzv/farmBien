@@ -1574,7 +1574,7 @@ export class MedicoConsultorioComponent implements OnInit {
   }
 
   private calcEdad(pac: any): string {
-    const fn = pac?.datosGenerales?.fechaNacimiento; // ✅ este es el bueno
+    const fn = pac?.datosGenerales?.fechaNacimiento;
     if (!fn) return '—';
     const d = new Date(fn);
     if (isNaN(d.getTime())) return '—';
