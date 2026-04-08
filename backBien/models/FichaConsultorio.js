@@ -6,9 +6,9 @@ const ServicioEnFichaSchema = new Schema(
   {
     productoId: { type: Schema.Types.ObjectId, ref: "Producto", required: true },
 
-    // snapshots (para que si cambias el producto/precio después, no se rompa el historial)
     nombre: { type: String, trim: true, required: true },
     codigoBarras: { type: String, trim: true },
+    categoria: { type: String, trim: true },
     precio: { type: Number, min: 0, required: true },
 
     cantidad: { type: Number, min: 1, default: 1 },
@@ -23,8 +23,14 @@ const FichaConsultorioSchema = new Schema(
 
     farmaciaId: { type: Schema.Types.ObjectId, ref: "Farmacia", required: true, index: true },
 
+    // Nombre completo para compatibilidad con el sistema actual
     pacienteNombre: { type: String, required: true, trim: true, index: true },
     pacienteNombreNorm: { type: String, trim: true, index: true },
+
+    // Nuevos campos separados
+    pacienteAPaterno: { type: String, trim: true, default: "" },
+    pacienteAMaterno: { type: String, trim: true, default: "" },
+
     pacienteTelefono: { type: String, trim: true, index: true },
     pacienteId: { type: Schema.Types.ObjectId, ref: "Paciente" },
 
@@ -39,25 +45,21 @@ const FichaConsultorioSchema = new Schema(
       index: true,
     },
 
-    // Atención
     medicoId: { type: Schema.Types.ObjectId, ref: "Usuario", index: true },
     llamadoAt: { type: Date },
     inicioAtencionAt: { type: Date },
     finAtencionAt: { type: Date },
 
-    // Servicios capturados por el médico
     servicios: { type: [ServicioEnFichaSchema], default: [] },
-    serviciosTotal: { type: Number, min: 0, default: 0 }, // 👈 opcional pero útil
+    serviciosTotal: { type: Number, min: 0, default: 0 },
     notasMedico: { type: String, trim: true },
 
-    // Cobro / Venta
     ventaId: { type: Schema.Types.ObjectId, ref: "Venta", index: true },
     cobradaAt: { type: Date },
 
     cobroPor: { type: Schema.Types.ObjectId, ref: "Usuario" },
-    cobroAt: { type: Date }, // 👈 faltaba
+    cobroAt: { type: Date },
 
-    // Auditoría
     creadaPor: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
     actualizadaPor: { type: Schema.Types.ObjectId, ref: "Usuario" },
 
@@ -78,7 +80,6 @@ FichaConsultorioSchema.pre("save", function (next) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
-  // recalcula total (snapshot)
   if (Array.isArray(this.servicios)) {
     this.serviciosTotal = this.servicios.reduce((acc, s) => {
       const precio = Number(s.precio ?? 0);
@@ -92,7 +93,6 @@ FichaConsultorioSchema.pre("save", function (next) {
   next();
 });
 
-// Validaciones suaves de consistencia de estado
 FichaConsultorioSchema.pre("validate", function (next) {
   if (this.estado === "EN_COBRO") {
     if (!this.cobroPor) this.invalidate("cobroPor", "cobroPor es requerido cuando estado=EN_COBRO");

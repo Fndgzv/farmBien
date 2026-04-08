@@ -6,25 +6,6 @@ const Receta = require("../models/Receta");
 
 const mongoose = require("mongoose");
 
-// ============================
-// Helpers Antecedentes (suave)
-// ============================
-const toArr = (v) =>
-  Array.isArray(v)
-    ? v.map(x => String(x || '').trim()).filter(Boolean)
-    : [];
-
-// normaliza enums (no explota si llega algo raro)
-const normTabaquismo = (v) => {
-  const s = String(v || '').trim();
-  return (s === 'Si' || s === 'Ex') ? s : 'No';
-};
-
-const normAlcohol = (v) => {
-  const s = String(v || '').trim();
-  return (s === 'Si' || s === 'Ocasional') ? s : 'No';
-};
-
 function getFarmaciaActiva(req) {
   const fromUser = req.usuario?.farmacia;          // empleado/medico
   const fromHeader = req.headers["x-farmacia-id"]; // admin
@@ -41,6 +22,7 @@ const cleanArr = (v) => {
     .map((x) => cleanStr(x))
     .filter(Boolean);
 };
+
 
 const pickAntecedentes = (antRaw) => {
   if (!antRaw || typeof antRaw !== "object") return null;
@@ -72,43 +54,53 @@ const pickAntecedentes = (antRaw) => {
   return hayAlgo ? ant : null;
 };
 
-
 /**
  * POST /api/fichas-consultorio
- * Caja crea ficha (sin cobrar) => EN_ESPERA
+ * Caja crea ficha sin buscar si ya existe el paciente => EN_ESPERA
  */
 exports.crearFicha = async (req, res) => {
   try {
     const farmaciaId = getFarmaciaActiva(req);
-    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
-
-    const { pacienteNombre, pacienteTelefono, motivo, urgencia = false, pacienteId } = req.body;
-
-    let pacienteNombreFinal = (pacienteNombre || "").trim();
-    let pacienteTelefonoFinal = (pacienteTelefono || "").trim();
-
-    if (pacienteId) {
-      const p = await Paciente.findById(pacienteId)
-        .select("nombre apellidos contacto.telefono")
-        .lean();
-
-      if (!p) return res.status(404).json({ msg: "Paciente no encontrado" });
-
-      pacienteNombreFinal = `${p.nombre || ""} ${p.apellidos || ""}`.trim();
-      pacienteTelefonoFinal = (p?.contacto?.telefono || pacienteTelefonoFinal || "").trim();
+    if (!farmaciaId) {
+      return res.status(400).json({ msg: "Falta farmacia activa" });
     }
 
-    if (!pacienteNombreFinal) {
-      return res.status(400).json({ msg: "pacienteNombre es requerido" });
+    const {
+      pacienteNombre,
+      pacienteAPaterno,
+      pacienteAMaterno,
+      pacienteTelefono,
+      motivo,
+      urgencia = false,
+    } = req.body;
+
+    const nombre = (pacienteNombre || "").trim();
+    const aPaterno = (pacienteAPaterno || "").trim();
+    const aMaterno = (pacienteAMaterno || "").trim();
+    const telefono = (pacienteTelefono || "").trim();
+    const motivoFinal = (motivo || "").trim();
+
+    if (!nombre) {
+      return res.status(400).json({ msg: "El nombre del paciente es requerido" });
     }
+
+    if (!aPaterno) {
+      return res.status(400).json({ msg: "El apellido paterno es requerido" });
+    }
+
+    const nombreCompleto = [nombre, aPaterno, aMaterno]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
 
     const ficha = await FichaConsultorio.create({
       farmaciaId,
-      pacienteNombre: pacienteNombreFinal,
-      pacienteTelefono: pacienteTelefonoFinal,
-      motivo: (motivo || "").trim(),
+      pacienteNombre: nombreCompleto,
+      pacienteAPaterno: aPaterno,
+      pacienteAMaterno: aMaterno,
+      pacienteTelefono: telefono,
+      motivo: motivoFinal,
       urgencia: !!urgencia,
-      pacienteId: pacienteId || undefined,
       creadaPor: req.usuario._id,
       actualizadaPor: req.usuario._id,
     });
@@ -120,7 +112,6 @@ exports.crearFicha = async (req, res) => {
   }
 };
 
-
 // PATCH /api/fichas-consultorio/:id/servicios
 exports.actualizarServicios = async (req, res) => {
   try {
@@ -128,7 +119,7 @@ exports.actualizarServicios = async (req, res) => {
     const farmaciaId = getFarmaciaActiva(req);
     if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
 
-    const { servicios = [], notasMedico, motivo, finalizar = false } = req.body; // 👈 NUEVO
+    const { servicios = [], notasMedico, motivo, finalizar = false } = req.body;
 
     const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
     if (!ficha) return res.status(404).json({ msg: "Ficha no encontrada" });
@@ -136,6 +127,7 @@ exports.actualizarServicios = async (req, res) => {
     if (["ATENDIDA", "CANCELADA"].includes(ficha.estado)) {
       return res.status(400).json({ msg: "La ficha ya no se puede modificar" });
     }
+
     if (ficha.estado === "EN_COBRO") {
       return res.status(400).json({ msg: "La ficha ya está en cobro, no se puede modificar" });
     }
@@ -144,26 +136,35 @@ exports.actualizarServicios = async (req, res) => {
       return res.status(400).json({ msg: "Servicios inválidos" });
     }
 
+    // =========================
+    // 1) Construir snapshots NUEVOS de servicios médicos
+    // =========================
     let serviciosSnapshot = [];
 
     if (servicios.length > 0) {
       const productoIds = servicios.map((s) => s.productoId).filter(Boolean);
+
       if (productoIds.length === 0) {
         return res.status(400).json({ msg: "Servicios inválidos: faltan productoId" });
       }
 
       const productos = await Producto.find({ _id: { $in: productoIds } })
-        .select("nombre codigoBarras categoria precioVenta");
+        .select("nombre codigoBarras categoria precioVenta")
+        .lean();
 
       const map = new Map(productos.map((p) => [String(p._id), p]));
 
       for (const s of servicios) {
         const p = map.get(String(s.productoId));
-        if (!p) return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
+        if (!p) {
+          return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
+        }
 
         const cat = (p.categoria || "").trim();
         if (cat !== "Servicio Médico") {
-          return res.status(400).json({ msg: `El producto ${p.nombre} no es de categoría Servicio Médico` });
+          return res.status(400).json({
+            msg: `El producto ${p.nombre} no es de categoría Servicio Médico`
+          });
         }
 
         const cantidad = Math.max(parseInt(s.cantidad ?? 1, 10) || 1, 1);
@@ -172,40 +173,77 @@ exports.actualizarServicios = async (req, res) => {
           productoId: p._id,
           nombre: p.nombre,
           codigoBarras: p.codigoBarras,
-          precio: p.precioVenta ?? 0,
+          categoria: p.categoria || "",
+          precio: Number(p.precioVenta ?? 0),
           cantidad,
           notas: (s.notas || "").trim(),
         });
       }
     }
 
-    ficha.servicios = serviciosSnapshot;
-    ficha.notasMedico = (notasMedico || "").trim();
+    // =========================
+    // 2) Conservar conceptos existentes que NO sean Servicio Médico
+    // =========================
+    let conceptosNoMedicosExistentes = [];
 
-    // 👇 opcional: permitir ajustar motivo si lo mandas
-    if (motivo != null) ficha.motivo = (motivo || "").trim();
+    if (Array.isArray(ficha.servicios) && ficha.servicios.length > 0) {
+      const idsExistentes = ficha.servicios
+        .map((x) => x.productoId)
+        .filter(Boolean)
+        .map((x) => String(x));
+
+      if (idsExistentes.length > 0) {
+        const productosExistentes = await Producto.find({ _id: { $in: idsExistentes } })
+          .select("_id categoria")
+          .lean();
+
+        const categoriaMap = new Map(
+          productosExistentes.map((p) => [String(p._id), (p.categoria || "").trim()])
+        );
+
+        conceptosNoMedicosExistentes = ficha.servicios.filter((item) => {
+          const categoria = categoriaMap.get(String(item.productoId)) || "";
+          return categoria !== "Servicio Médico";
+        });
+      }
+    }
+
+    // =========================
+    // 3) Unir: conservar no-médicos + reemplazar médicos
+    // =========================
+    ficha.servicios = [
+      ...conceptosNoMedicosExistentes,
+      ...serviciosSnapshot
+    ];
+
+    // =========================
+    // 4) Solo actualizar notas/motivo si vienen en el request
+    // =========================
+    if (notasMedico != null) {
+      ficha.notasMedico = (notasMedico || "").trim();
+    }
+
+    if (motivo != null) {
+      ficha.motivo = (motivo || "").trim();
+    }
 
     ficha.medicoId = req.usuario._id;
     ficha.inicioAtencionAt = ficha.inicioAtencionAt || new Date();
     ficha.actualizadaPor = req.usuario._id;
 
-    const hayServicios = serviciosSnapshot.length > 0;
+    const hayConceptos = Array.isArray(ficha.servicios) && ficha.servicios.length > 0;
 
     if (finalizar) {
-      // ✅ Finalizar consulta:
       ficha.finAtencionAt = new Date();
-      ficha.estado = hayServicios ? "LISTA_PARA_COBRO" : "ATENDIDA";
+      ficha.estado = hayConceptos ? "LISTA_PARA_COBRO" : "ATENDIDA";
     } else {
-      // ✅ Guardado parcial (si lo siguieras usando en otro lado)
-      if (hayServicios) {
-        ficha.finAtencionAt = new Date();
-        ficha.estado = "LISTA_PARA_COBRO";
-      } else {
-        ficha.estado = "EN_ATENCION";
-      }
+      // Si el médico solo guarda sin finalizar, mantenemos la ficha en atención
+      ficha.estado = "EN_ATENCION";
+      ficha.finAtencionAt = undefined;
     }
 
     await ficha.save();
+
     return res.json({ ok: true, ficha });
   } catch (err) {
     console.error("actualizarServicios:", err);
@@ -213,11 +251,185 @@ exports.actualizarServicios = async (req, res) => {
   }
 };
 
+// PATCH /api/fichas-consultorio/:id/conceptos
+exports.actualizarConceptosFicha = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) {
+      return res.status(400).json({ msg: "Falta farmacia activa" });
+    }
+
+    const {
+      servicios = [],
+      notasMedico,
+      motivo,
+      finalizar = false,
+      modoAgregar = false,
+    } = req.body;
+
+    const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
+    if (!ficha) {
+      return res.status(404).json({ msg: "Ficha no encontrada" });
+    }
+
+    if (["ATENDIDA", "CANCELADA"].includes(ficha.estado)) {
+      return res.status(400).json({ msg: "La ficha ya no se puede modificar" });
+    }
+
+    if (ficha.estado === "EN_COBRO") {
+      return res.status(400).json({ msg: "La ficha ya está en cobro, no se puede modificar" });
+    }
+
+    if (!Array.isArray(servicios)) {
+      return res.status(400).json({ msg: "Conceptos inválidos" });
+    }
+
+    // =========================
+    // 1) Construir snapshots NUEVOS de conceptos no médicos
+    // =========================
+    let conceptosNoMedicosNuevos = [];
+
+    if (servicios.length > 0) {
+      const productoIds = servicios.map((s) => s.productoId).filter(Boolean);
+
+      if (productoIds.length === 0) {
+        return res.status(400).json({ msg: "Conceptos inválidos: faltan productoId" });
+      }
+
+      const productos = await Producto.find({ _id: { $in: productoIds } })
+        .select("nombre codigoBarras categoria precioVenta")
+        .lean();
+
+      const map = new Map(productos.map((p) => [String(p._id), p]));
+
+      for (const s of servicios) {
+        const p = map.get(String(s.productoId));
+        if (!p) {
+          return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
+        }
+
+        const cat = (p.categoria || "").trim();
+        if (cat === "Servicio Médico") {
+          return res.status(400).json({
+            msg: `El producto ${p.nombre} pertenece a Servicio Médico; use la captura del médico para ese concepto`
+          });
+        }
+
+        const cantidad = Math.max(parseInt(s.cantidad ?? 1, 10) || 1, 1);
+
+        conceptosNoMedicosNuevos.push({
+          productoId: p._id,
+          nombre: p.nombre,
+          codigoBarras: p.codigoBarras,
+          categoria: p.categoria || "",
+          precio: Number(p.precioVenta ?? 0),
+          cantidad,
+          notas: (s.notas || "").trim(),
+        });
+      }
+    }
+
+    // =========================
+    // 2) Separar lo existente en:
+    //    - médicos
+    //    - no médicos
+    // =========================
+    let serviciosMedicosExistentes = [];
+    let conceptosNoMedicosExistentes = [];
+
+    if (Array.isArray(ficha.servicios) && ficha.servicios.length > 0) {
+      const idsExistentes = ficha.servicios
+        .map((x) => x.productoId)
+        .filter(Boolean)
+        .map((x) => String(x));
+
+      if (idsExistentes.length > 0) {
+        const productosExistentes = await Producto.find({ _id: { $in: idsExistentes } })
+          .select("_id categoria")
+          .lean();
+
+        const categoriaMap = new Map(
+          productosExistentes.map((p) => [String(p._id), (p.categoria || "").trim()])
+        );
+
+        for (const item of ficha.servicios) {
+          const categoria = categoriaMap.get(String(item.productoId)) || "";
+
+          if (categoria === "Servicio Médico") {
+            serviciosMedicosExistentes.push(item);
+          } else {
+            conceptosNoMedicosExistentes.push(item);
+          }
+        }
+      }
+    }
+
+    // =========================
+    // 3) Armar arreglo final
+    // =========================
+    let conceptosNoMedicosFinales = [];
+
+    if (modoAgregar) {
+      conceptosNoMedicosFinales = [
+        ...conceptosNoMedicosExistentes,
+        ...conceptosNoMedicosNuevos,
+      ];
+    } else {
+      conceptosNoMedicosFinales = conceptosNoMedicosNuevos;
+    }
+
+    ficha.servicios = [
+      ...serviciosMedicosExistentes,
+      ...conceptosNoMedicosFinales,
+    ];
+
+    // =========================
+    // 4) Notas / motivo solo si vienen
+    // =========================
+    if (notasMedico != null) {
+      ficha.notasMedico = (notasMedico || "").trim();
+    }
+
+    if (motivo != null) {
+      ficha.motivo = (motivo || "").trim();
+    }
+
+    // Solo asignar médico si quien edita es médico y aún no existe
+    if (!ficha.medicoId && req.usuario?.rol === "medico") {
+      ficha.medicoId = req.usuario._id;
+    }
+
+    ficha.inicioAtencionAt = ficha.inicioAtencionAt || new Date();
+    ficha.actualizadaPor = req.usuario._id;
+
+    const hayConceptos = Array.isArray(ficha.servicios) && ficha.servicios.length > 0;
+
+    if (finalizar) {
+      ficha.finAtencionAt = new Date();
+      ficha.estado = hayConceptos ? "LISTA_PARA_COBRO" : "ATENDIDA";
+    } else {
+      ficha.estado = "EN_ATENCION";
+      ficha.finAtencionAt = undefined;
+    }
+
+    await ficha.save();
+
+    return res.json({
+      ok: true,
+      ficha,
+    });
+  } catch (err) {
+    console.error("actualizarConceptosFicha:", err);
+    return res.status(500).json({ msg: "Error al actualizar conceptos de la ficha" });
+  }
+};
+
 /**
- * GET /api/fichas-consultorio/cola?estado=EN_ESPERA * EN_ATENCION del medico
- * Lista FIFO con urgencia primero
+ * GET /api/fichas-consultorio/cola
+ * - Caja: ?estado=EN_ESPERA
+ * - Médico: por defecto EN_ESPERA + su propia EN_ATENCION
  */
-// GET /api/fichas-consultorio/cola
 exports.obtenerCola = async (req, res) => {
   try {
     const farmaciaId = getFarmaciaActiva(req);
@@ -225,19 +437,40 @@ exports.obtenerCola = async (req, res) => {
 
     const userId = String(req.usuario?._id || "");
     const rol = req.usuario?.rol;
+    const estado = (req.query.estado || "").trim();
 
-    // Por defecto: mostrar EN_ESPERA + (mi EN_ATENCION si soy medico)
-    const incluirMiAtencion = String(req.query.incluirMiAtencion || "1") === "1";
+    let filtro = { farmaciaId };
 
-    const or = [{ estado: "EN_ESPERA" }];
+    if (estado) {
+      filtro.estado = estado;
+    } else {
+      const incluirMiAtencion = String(req.query.incluirMiAtencion || "1") === "1";
 
-    if (rol === "medico" && incluirMiAtencion) {
-      or.push({ estado: "EN_ATENCION", medicoId: userId });
+      const or = [{ estado: "EN_ESPERA" }];
+
+      if (rol === "medico" && incluirMiAtencion) {
+        or.push({ estado: "EN_ATENCION", medicoId: userId });
+      }
+
+      filtro.$or = or;
     }
 
-    const fichas = await FichaConsultorio.find({ farmaciaId, $or: or })
+    const fichas = await FichaConsultorio.find(filtro)
       .sort({ urgencia: -1, llegadaAt: 1 })
-      .select("pacienteNombre pacienteTelefono motivo urgencia estado llegadaAt medicoId servicios serviciosTotal")
+      .select(`
+        folio
+        pacienteNombre
+        pacienteAPaterno
+        pacienteAMaterno
+        pacienteTelefono
+        motivo
+        urgencia
+        estado
+        llegadaAt
+        medicoId
+        servicios
+        serviciosTotal
+      `)
       .lean();
 
     return res.json({ ok: true, fichas });
@@ -246,7 +479,6 @@ exports.obtenerCola = async (req, res) => {
     return res.status(500).json({ msg: "Error al obtener cola" });
   }
 };
-
 
 /**
  * POST /api/fichas-consultorio/:id/tomar-para-atencion
@@ -423,12 +655,6 @@ exports.regresarAListaDeEspera = async (req, res) => {
   }
 };
 
-
-/**
- * POST /api/fichas-consultorio/:id/tomar-para-cobro
- * Caja “toma” una ficha lista para cobro, evita doble cobro.
- * Solo si estado=LISTA_PARA_COBRO y sin ventaId.
- */
 exports.tomarParaCobro = async (req, res) => {
   try {
     const { id } = req.params;
@@ -636,12 +862,11 @@ exports.vincularPaciente = async (req, res) => {
     }
 
     const paciente = await Paciente.findById(pacienteId)
-      .select("_id nombre apellidos contacto.telefono")
+      .select("_id nombre apPaterno apMaterno contacto.telefono")
       .lean();
 
     if (!paciente) return res.status(404).json({ msg: "Paciente no encontrado" });
 
-    // ✅ solo permitir si la ficha está en atención o espera (tu decides)
     const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
     if (!ficha) return res.status(404).json({ msg: "Ficha no encontrada" });
 
@@ -651,10 +876,19 @@ exports.vincularPaciente = async (req, res) => {
 
     ficha.pacienteId = pacienteId;
 
-    // opcional: sincronizar nombre/teléfono si quieres consistencia visual
-    const nombreCompleto = `${paciente.nombre || ""} ${paciente.apellidos || ""}`.trim();
+    const nombreCompleto = [
+      paciente.nombre || "",
+      paciente.apPaterno || "",
+      paciente.apMaterno || ""
+    ].filter(Boolean).join(" ").trim();
+
     if (nombreCompleto) ficha.pacienteNombre = nombreCompleto;
-    if (paciente?.contacto?.telefono) ficha.pacienteTelefono = paciente.contacto.telefono;
+    ficha.pacienteAPaterno = paciente.apPaterno || "";
+    ficha.pacienteAMaterno = paciente.apMaterno || "";
+
+    if (paciente?.contacto?.telefono) {
+      ficha.pacienteTelefono = paciente.contacto.telefono;
+    }
 
     ficha.actualizadaPor = req.usuario._id;
     await ficha.save();
@@ -665,7 +899,6 @@ exports.vincularPaciente = async (req, res) => {
     return res.status(500).json({ msg: "Error al vincular paciente" });
   }
 };
-
 
 exports.finalizarConsulta = async (req, res) => {
   try {
@@ -680,8 +913,9 @@ exports.finalizarConsulta = async (req, res) => {
       notasMedico,
       servicios = [],
       signosVitales = null,
-      antecedentes = null, // ✅
+      antecedentes = null,
       receta = null,
+      paciente = null,
     } = req.body || {};
 
     const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
@@ -829,11 +1063,90 @@ exports.finalizarConsulta = async (req, res) => {
     }
 
     // ============================
-    // 4) Receta -> crea Receta y vincula a paciente (si hay pacienteId)
+    // 3.7) Datos paciente/contacto -> Paciente (si hay pacienteId)
+    // ============================
+    let pacienteActualizado = false;
+
+    const normalizeName = (s) =>
+      String(s ?? "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    if (paciente && pacienteId) {
+      const p = paciente || {};
+      const set = {};
+
+      // nombre/apellidos
+      const valStr = (x) => (x == null ? "" : String(x)).trim();
+      const hasStr = (x) => valStr(x).length > 0;
+
+      if (hasStr(p.nombre)) set["nombre"] = valStr(p.nombre);
+      if (hasStr(p.apPaterno)) set["apPaterno"] = valStr(p.apPaterno);
+      if (p.apMaterno != null) set["apMaterno"] = valStr(p.apMaterno);
+
+      // contacto
+      if (p.contacto && typeof p.contacto === "object") {
+        const c = p.contacto;
+
+        if (c.telefono != null) set["contacto.telefono"] = String(c.telefono).trim();
+        if (c.email != null) set["contacto.email"] = String(c.email).trim().toLowerCase();
+        if (c.direccion != null) set["contacto.direccion"] = String(c.direccion).trim();
+
+        if (c.emergencia && typeof c.emergencia === "object") {
+          const e = c.emergencia;
+          if (e.nombre != null) set["contacto.emergencia.nombre"] = String(e.nombre).trim();
+          if (e.telefono != null) set["contacto.emergencia.telefono"] = String(e.telefono).trim();
+          if (e.parentesco != null) set["contacto.emergencia.parentesco"] = String(e.parentesco).trim();
+        }
+      }
+
+      // datosGeneralesrecetaIdCreada 
+      if (p.datosGenerales && typeof p.datosGenerales === "object") {
+        const dg = p.datosGenerales;
+
+        if (dg.fechaNacimiento) set["datosGenerales.fechaNacimiento"] = new Date(dg.fechaNacimiento);
+        if (dg.sexo != null) set["datosGenerales.sexo"] = String(dg.sexo).trim();
+        if (dg.curp != null) set["datosGenerales.curp"] = String(dg.curp).trim().toUpperCase();
+        if (dg.ocupacion != null) set["datosGenerales.ocupacion"] = String(dg.ocupacion).trim();
+        if (dg.escolaridad != null) set["datosGenerales.escolaridad"] = String(dg.escolaridad).trim();
+      }
+
+      const nombreNuevo = set["nombre"];
+      const apPaternoNuevo = set["apPaterno"];
+      const apMaternoNuevo = set["apMaterno"];
+
+      if (nombreNuevo != null || apPaternoNuevo != null || apMaternoNuevo != null) {
+        const actual = await Paciente.findById(pacienteId).select("nombre apPaterno apMaterno").lean();
+
+        const n = (nombreNuevo != null ? nombreNuevo : (actual?.nombre || "")).trim();
+        const ap = (apPaternoNuevo != null ? apPaternoNuevo : (actual?.apPaterno || "")).trim();
+        const am = (apMaternoNuevo != null ? apMaternoNuevo : (actual?.apMaterno || "")).trim();
+
+        const full = `${n} ${ap} ${am}`.trim();
+        set["nombreCompletoNorm"] = normalizeName(full);
+      }
+
+      if (Object.keys(set).length > 0) {
+        await Paciente.findByIdAndUpdate(
+          pacienteId,
+          { $set: set },
+          { new: false }
+        ).select("_id");
+        pacienteActualizado = true;
+      }
+    }
+
+    // ============================
+    // 4) Receta
+    // - con pacienteId: guarda en historial
+    // - sin pacienteId: arma receta temporal para impresión
     // ============================
     let recetaIdCreada = null;
+    let recetaPaso = null;
 
-    if (receta && pacienteId) {
+    if (receta) {
       const r = receta || {};
 
       const motivoConsulta = String(r.motivoConsulta || "").trim();
@@ -842,15 +1155,10 @@ exports.finalizarConsulta = async (req, res) => {
         ? r.diagnosticos.map(d => String(d).trim()).filter(Boolean)
         : [];
 
-      // ✅ 1) primero declaras medicamentosRaw
       const medicamentosRaw = Array.isArray(r.medicamentos) ? r.medicamentos : [];
 
-      // ✅ 2) luego sacas los productoIds (solo los que vienen)
-      const prodIds = medicamentosRaw
-        .map(m => m?.productoId)
-        .filter(Boolean);
+      const prodIds = medicamentosRaw.map(m => m?.productoId).filter(Boolean);
 
-      // ✅ 3) buscas productos para snapshot
       const productos = prodIds.length
         ? await Producto.find({ _id: { $in: prodIds } })
           .select("nombre ingreActivo codigoBarras")
@@ -859,92 +1167,94 @@ exports.finalizarConsulta = async (req, res) => {
 
       const prodMap = new Map(productos.map(p => [String(p._id), p]));
 
-      // ✅ 4) armas medicamentos con nombre SIEMPRE
-      const medicamentos = medicamentosRaw
-        .map((m) => {
-          const via = String(m?.via || "").trim();
-          const viaOtra = String(m?.viaOtra || "").trim();
+      const medicamentosMapeados = medicamentosRaw.map((m) => {
+        const via = String(m?.via || "").trim();
+        const viaOtra = String(m?.viaOtra || "").trim();
 
-          const prod = m?.productoId ? prodMap.get(String(m.productoId)) : null;
+        const prod = m?.productoId ? prodMap.get(String(m.productoId)) : null;
 
-          const nombreFinal = prod
-            ? String(prod.nombre || "").trim()            // catálogo
-            : String(m?.nombreLibre || "").trim();        // OTRO
+        const nombreFinal = prod
+          ? String(prod.nombre || "").trim()
+          : String(m?.nombreLibre || "").trim();
 
-          const cantidadNum =
-            m?.cantidad == null || m.cantidad === ""
-              ? undefined
-              : (Number.isFinite(Number(m.cantidad)) ? Number(m.cantidad) : undefined);
+        const cantidadNum =
+          m?.cantidad == null || m.cantidad === ""
+            ? undefined
+            : (Number.isFinite(Number(m.cantidad)) ? Number(m.cantidad) : undefined);
 
-          return {
-            productoId: m?.productoId || undefined,
+        return {
+          productoId: m?.productoId || undefined,
+          nombreLibre: nombreFinal,
+          dosis: String(m?.dosis || "").trim(),
+          via,
+          viaOtra: via === "OTRA" ? viaOtra : undefined,
+          frecuencia: String(m?.frecuencia || "").trim(),
+          duracion: String(m?.duracion || "").trim(),
+          cantidad: cantidadNum,
+          indicaciones: String(m?.indicaciones || "").trim(),
+          esControlado: !!m?.esControlado,
+        };
+      });
 
-            // ✅ snapshot siempre en nombreLibre
-            // (en tu modelo Receta, nombreLibre existe y es String)
-            nombreLibre: nombreFinal,
+      const medicamentosValidos = medicamentosMapeados.filter((m) =>
+        !!m.nombreLibre &&
+        !!m.via &&
+        (m.via !== "OTRA" || !!m.viaOtra)
+      );
 
-            // opcional: si quieres snapshot de ingre/cb (no rompe aunque no estén en schema,
-            // pero si tu schema NO lo contempla, NO lo mandes)
-            // ingreActivo: prod?.ingreActivo,
-            // codigoBarras: prod?.codigoBarras,
-
-            dosis: String(m?.dosis || "").trim(),
-            via,
-            viaOtra: via === "OTRA" ? viaOtra : undefined,
-            frecuencia: String(m?.frecuencia || "").trim(),
-            duracion: String(m?.duracion || "").trim(),
-            cantidad: cantidadNum,
-            indicaciones: String(m?.indicaciones || "").trim(),
-            esControlado: !!m?.esControlado,
-          };
-        })
-        .filter((m) =>
-          // ✅ válido si: trae nombre, trae vía, y si vía=OTRA => viaOtra
-          !!m.nombreLibre &&
-          !!m.via &&
-          (m.via !== "OTRA" || !!m.viaOtra)
-        );
-
-      // ✅ validación mínima: si está incompleta, NO se crea receta (suave)
-      const tieneMinimo = !!motivoConsulta && diagnosticos.length > 0 && medicamentos.length > 0;
+      const tieneMinimo = medicamentosValidos.length > 0;
 
       if (tieneMinimo) {
-        const recetaDoc = await Receta.create({
-          fecha: new Date(),
-          pacienteId,
-          medicoId,
-          farmaciaId,
-          motivoConsulta,
-          diagnosticos,
-          observaciones: String(r.observaciones || "").trim(),
-          medicamentos,
-          indicacionesGenerales: String(r.indicacionesGenerales || "").trim(),
-          citaSeguimiento: r.citaSeguimiento ? new Date(r.citaSeguimiento) : null,
-          creadaPor: medicoId,
-        });
+        if (pacienteId) {
+          const recetaDoc = await Receta.create({
+            fecha: new Date(),
+            pacienteId,
+            medicoId,
+            farmaciaId,
+            motivoConsulta,
+            diagnosticos,
+            observaciones: String(r.observaciones || "").trim(),
+            medicamentos: medicamentosValidos,
+            indicacionesGenerales: String(r.indicacionesGenerales || "").trim(),
+            citaSeguimiento: r.citaSeguimiento ? new Date(r.citaSeguimiento) : null,
+            creadaPor: medicoId,
+          });
 
-        recetaIdCreada = recetaDoc._id;
+          recetaIdCreada = recetaDoc._id;
 
-        const diagPrincipal = diagnosticos.length ? String(diagnosticos[0]).trim() : "";
+          const diagPrincipal = diagnosticos.length
+            ? String(diagnosticos[0]).trim()
+            : (medicamentosValidos[0]?.nombreLibre || "Receta");
 
-        await Paciente.findByIdAndUpdate(pacienteId, {
-          $addToSet: { recetas: recetaDoc._id },
-          $push: {
-            ultimasRecetas: {
-              $each: [{
-                recetaId: recetaDoc._id,
-                fecha: recetaDoc.fecha,
-                medicoId,
-                diagnosticoPrincipal: diagPrincipal
-              }],
-              $position: 0,
-              $slice: 10
+          await Paciente.findByIdAndUpdate(pacienteId, {
+            $addToSet: { recetas: recetaDoc._id },
+            $push: {
+              ultimasRecetas: {
+                $each: [{
+                  recetaId: recetaDoc._id,
+                  fecha: recetaDoc.fecha,
+                  medicoId,
+                  diagnosticoPrincipal: diagPrincipal
+                }],
+                $position: 0,
+                $slice: 10
+              }
             }
-          }
-        });
+          });
+        } else {
+          // Paciente de paso: no guardamos en historial, solo armamos para impresión
+          recetaPaso = {
+            fecha: new Date(),
+            motivoConsulta,
+            diagnosticos,
+            observaciones: String(r.observaciones || "").trim(),
+            medicamentos: medicamentosValidos,
+            indicacionesGenerales: String(r.indicacionesGenerales || "").trim(),
+            citaSeguimiento: r.citaSeguimiento ? new Date(r.citaSeguimiento) : null,
+          };
+        }
       }
     }
-
 
     // ============================
     // 5) Estado final de ficha
@@ -961,9 +1271,11 @@ exports.finalizarConsulta = async (req, res) => {
       ficha,
       estadoFinal: ficha.estado,
       recetaId: recetaIdCreada,
+      recetaPaso,
       signosGuardados,
       antecedentesGuardados,
       serviciosTotal: ficha.serviciosTotal ?? 0,
+      pacienteActualizado,
     });
   } catch (err) {
     console.error("finalizarConsulta:", err);

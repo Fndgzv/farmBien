@@ -17,7 +17,7 @@ router.post(
 router.get(
   "/cola",
   auth,
-  checkRole(["admin", "medico"]),
+  checkRole(["admin", "medico", "empleado"]),
   ctrl.obtenerCola
 );
 
@@ -40,6 +40,13 @@ router.patch(
   auth,
   checkRole(["admin", "medico"]),
   ctrl.actualizarServicios
+);
+
+router.patch(
+  "/:id/conceptos",
+  auth,
+  checkRole("admin", "empleado", "medico"),
+  ctrl.actualizarConceptosFicha
 );
 
 router.patch(

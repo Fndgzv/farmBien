@@ -21,6 +21,8 @@ const DatosGeneralesSchema = new Schema(
     fechaNacimiento: { type: Date },
     sexo: { type: String, enum: ["M", "F", "Otro", "NoEspecifica"], default: "NoEspecifica" },
     curp: { type: String, trim: true, uppercase: true },
+    curpEsProvisional: { type: Boolean, default: false },
+    entidadNacimiento: { type: String, trim: true, uppercase: true },
     ocupacion: { type: String, trim: true },
     escolaridad: { type: String, trim: true },
   },
@@ -88,30 +90,23 @@ const RecetaResumenSchema = new Schema(
 
 const PacienteSchema = new Schema(
   {
-    // Identidad
     nombre: { type: String, required: true, trim: true },
-    apellidos: { type: String, trim: true },
-    nombreCompletoNorm: { type: String, trim: true }, // para búsqueda (lower/sin acentos)
+    apPaterno: { type: String, trim: true },
+    apMaterno: { type: String, trim: true },
+
+    nombreCompletoNorm: { type: String, trim: true },
     contacto: { type: ContactoSchema, default: {} },
     datosGenerales: { type: DatosGeneralesSchema, default: {} },
 
-    // Relación con farmacias (por si atiendes en varias)
     farmaciasVinculadas: [{ type: Schema.Types.ObjectId, ref: "Farmacia", index: true }],
 
-    // Historial médico (mínimo por ahora)
     antecedentes: { type: AntecedentesSchema, default: {} },
-
-    // Expediente
     signosVitales: { type: [SignosVitalesSchema], default: [] },
     notasClinicas: { type: [NotaClinicaSchema], default: [] },
 
-    // Historial de recetas (referencias)
     recetas: [{ type: Schema.Types.ObjectId, ref: "Receta", index: true }],
-
-    // Resumen rápido (últimas N recetas)
     ultimasRecetas: { type: [RecetaResumenSchema], default: [] },
 
-    // Estado
     activo: { type: Boolean, default: true },
   },
   { timestamps: true }
@@ -122,9 +117,8 @@ PacienteSchema.index({ "contacto.telefono": 1 });
 PacienteSchema.index({ "datosGenerales.curp": 1 }, { sparse: true });
 PacienteSchema.index({ nombreCompletoNorm: 1 });
 
-// Pre-save: generar normalizado (puedes reemplazar con tu helper real)
 PacienteSchema.pre("save", function (next) {
-  const full = `${this.nombre ?? ""} ${this.apellidos ?? ""}`.trim();
+  const full = `${this.nombre ?? ""} ${this.apPaterno ?? ""} ${this.apMaterno ?? ""}`.trim();
   this.nombreCompletoNorm = full
     .toLowerCase()
     .normalize("NFD")

@@ -25,13 +25,26 @@ const Producto = mongoose.model('Producto', ProductoSchema);
   try {
     const filtro = {
       $or: [
-        { categoria: 'Antibiótico' },
+        /* { categoria: 'Antibiótico' },
         { categoria: 'Antibiotico' },
         { categoria: 'Suplementos' },
         { categoria: 'SUPLEMENTOS' },
+        { categoria: /^SUPLEMENTOS / },
+        { categoria: /^Suplementos / },
         { categoria: 'IV' },
+        { categoria: 'iv' },
         { categoria: 'VI' },
-        { categoria: /^VI / } // empieza con VI + espacio
+        { categoria: 'vi' }, */
+        // { categoria: /^VI / }, // empieza con VI + espacio
+        // { categoria: /^vi / } // empieza con vi + espacio
+        /* { categoria: /^Desodorante / },
+        { categoria: 'Desodorante' } */
+        { categoria: /^Curación / },
+        { categoria: 'Curacion' },
+        { categoria: 'Curación' },
+        { categoria: 'Curaciones' }
+
+
       ]
     };
 

@@ -2,8 +2,6 @@
 const mongoose = require("mongoose");
 const Receta = require("../models/Receta");
 const Paciente = require("../models/Paciente");
-const Farmacia = require("../models/Farmacia");
-const Usuario = require("../models/Usuario");
 
 function getFarmaciaActiva(req) {
   const fromUser = req.usuario?.farmacia;
@@ -26,7 +24,7 @@ exports.obtenerPorId = async (req, res) => {
     if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
 
     const receta = await Receta.findOne({ _id: id, farmaciaId })
-      .populate({ path: "pacienteId", select: "nombre apellidos contacto datosGenerales" })
+      .populate({ path: "pacienteId", select: "nombre apPaterno apMaterno contacto datosGenerales" })
       .populate({ path: "medicoId", select: "nombre apellidos cedula titulo1 titulo2" })
       .populate({ path: "farmaciaId", select: "nombre titulo1 titulo2 direccion telefono imagen" })
       .populate({ path: "medicamentos.productoId", select: "nombre ingreActivo codigoBarras" })
@@ -100,7 +98,7 @@ exports.crear = async (req, res) => {
     }
 
     // Verifica paciente existe
-    const paciente = await Paciente.findById(pacienteId).select("_id nombre apellidos").lean();
+    const paciente = await Paciente.findById(pacienteId).select("_id nombre apPaterno apMaterno").lean();
     if (!paciente) return res.status(404).json({ msg: "Paciente no encontrado" });
 
     // Crea receta

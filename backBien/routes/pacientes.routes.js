@@ -5,7 +5,7 @@ const checkRole = require("../middlewares/checkRole");
 const ctrl = require("../controllers/pacientes.controller");
 
 router.get("/buscar", auth, checkRole(["admin", "empleado", "medico"]), ctrl.buscar);
-router.post("/", auth, checkRole(["admin", "empleado"]), ctrl.crearBasico);
+router.post("/", auth, checkRole(["admin", "empleado"]), ctrl.crearConsultorio);
 
 router.get(
   "/:id/expediente",

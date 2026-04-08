@@ -1,4 +1,4 @@
-// backBien\controllers\pacientes.controller.js
+// backBien/controllers/pacientes.controller.js
 const mongoose = require("mongoose");
 const Paciente = require("../models/Paciente");
 
@@ -11,36 +11,158 @@ function getFarmaciaActiva(req) {
 
 const norm = (s) =>
   String(s || "")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase().trim();
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+
+const normLower = (s) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+function soloLetras(s = "") {
+  return norm(s).replace(/[^A-ZÑ\s]/g, "").trim();
+}
+
+function primeraVocalInterna(str = "") {
+  const s = soloLetras(str).slice(1);
+  const m = s.match(/[AEIOU]/);
+  return m ? m[0] : "X";
+}
+
+function primeraConsonanteInterna(str = "") {
+  const s = soloLetras(str).slice(1);
+  const m = s.match(/[BCDFGHJKLMNÑPQRSTVWXYZ]/);
+  return m ? m[0] : "X";
+}
+
+function primerNombreUsable(nombre = "") {
+  const partes = soloLetras(nombre).split(/\s+/).filter(Boolean);
+  if (partes.length >= 2 && ["JOSE", "MARIA", "MA"].includes(partes[0])) {
+    return partes[1];
+  }
+  return partes[0] || "X";
+}
+
+function fechaYYMMDD(fechaNacimiento) {
+  const d = new Date(fechaNacimiento);
+  if (isNaN(d.getTime())) return null;
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}${mm}${dd}`;
+}
+
+// Claves CURP de entidad
+const ENTIDADES_CURP = {
+  AGUASCALIENTES: "AS",
+  "BAJA CALIFORNIA": "BC",
+  "BAJA CALIFORNIA SUR": "BS",
+  CAMPECHE: "CC",
+  COAHUILA: "CL",
+  COLIMA: "CM",
+  CHIAPAS: "CS",
+  CHIHUAHUA: "CH",
+  "CIUDAD DE MEXICO": "DF",
+  DURANGO: "DG",
+  GUANAJUATO: "GT",
+  GUERRERO: "GR",
+  HIDALGO: "HG",
+  JALISCO: "JC",
+  MEXICO: "MC",
+  MICHOACAN: "MN",
+  MORELOS: "MS",
+  NAYARIT: "NT",
+  "NUEVO LEON": "NL",
+  OAXACA: "OC",
+  PUEBLA: "PL",
+  QUERETARO: "QT",
+  "QUINTANA ROO": "QR",
+  "SAN LUIS POTOSI": "SP",
+  SINALOA: "SL",
+  SONORA: "SR",
+  TABASCO: "TC",
+  TAMAULIPAS: "TS",
+  TLAXCALA: "TL",
+  VERACRUZ: "VZ",
+  YUCATAN: "YN",
+  ZACATECAS: "ZS",
+  EXTRANJERO: "NE",
+};
+
+function sexoCURP(sexo = "") {
+  // Tu frontend usa M/F para sexo biológico en paciente
+  // CURP usa H = hombre, M = mujer
+  if (sexo === "M") return "H";
+  if (sexo === "F") return "M";
+  return "X";
+}
+
+function entidadCURP(entidadNacimiento = "") {
+  const key = soloLetras(entidadNacimiento);
+  return ENTIDADES_CURP[key] || (/^[A-Z]{2}$/.test(key) ? key : "NE");
+}
+
+function generarCurpProvisional({
+  nombre,
+  apPaterno,
+  apMaterno,
+  fechaNacimiento,
+  sexo,
+  entidadNacimiento
+}) {
+  const n = primerNombreUsable(nombre);
+  const ap = soloLetras(apPaterno || "X");
+  const am = soloLetras(apMaterno || "X");
+
+  const p1 = ap[0] || "X";
+  const p2 = primeraVocalInterna(ap);
+  const p3 = am[0] || "X";
+  const p4 = n[0] || "X";
+
+  const fecha = fechaYYMMDD(fechaNacimiento);
+  if (!fecha) return null;
+
+  const sx = sexoCURP(sexo);
+  const ent = entidadCURP(entidadNacimiento);
+
+  const c1 = primeraConsonanteInterna(ap);
+  const c2 = primeraConsonanteInterna(am);
+  const c3 = primeraConsonanteInterna(n);
+
+  // CURP provisional interna
+  return `${p1}${p2}${p3}${p4}${fecha}${sx}${ent}${c1}${c2}${c3}00`;
+}
 
 exports.buscar = async (req, res) => {
   try {
-    const farmaciaId = getFarmaciaActiva(req);
     const q = String(req.query.q || "").trim();
     if (!q) return res.status(400).json({ msg: "Falta q" });
 
-    // 1) si parece CURP (>= 10 chars), buscamos exacto
-    const qUp = q.toUpperCase();
+    const qUp = norm(q);
 
-    // busca por CURP
-    const byCurp = await Paciente.findOne({ "datosGenerales.curp": qUp })
-      .select("nombre apellidos contacto.telefono datosGenerales.curp")
+    // 1) CURP exacta
+    const byCurp = await Paciente.findOne({
+      activo: true,
+      "datosGenerales.curp": qUp
+    })
+      .select("nombre apPaterno apMaterno contacto.telefono datosGenerales.curp datosGenerales.curpEsProvisional")
       .lean();
 
     if (byCurp) return res.json({ ok: true, paciente: byCurp });
 
-    // 2) búsqueda por nombre (normalizado) limitada
-    const qNorm = norm(q);
+    // 2) búsqueda por nombre completo normalizado
+    const qNorm = normLower(q);
 
     const pacientes = await Paciente.find({
       activo: true,
-      // opcional: si quieres filtrar por farmacia vinculada
-      // farmaciasVinculadas: farmaciaId,
       nombreCompletoNorm: { $regex: qNorm, $options: "i" },
     })
       .limit(20)
-      .select("nombre apellidos contacto.telefono datosGenerales.curp")
+      .select("nombre apPaterno apMaterno contacto.telefono datosGenerales.curp datosGenerales.curpEsProvisional")
       .lean();
 
     return res.json({ ok: true, pacientes });
@@ -50,25 +172,94 @@ exports.buscar = async (req, res) => {
   }
 };
 
-exports.crearBasico = async (req, res) => {
+exports.crearConsultorio = async (req, res) => {
   try {
     const farmaciaId = getFarmaciaActiva(req);
-    const { nombre, apellidos = "", telefono = "", curp = "" } = req.body;
 
-    if (!nombre?.trim()) return res.status(400).json({ msg: "nombre es requerido" });
+    const {
+      nombre,
+      apPaterno,
+      apMaterno = "",
+      telefono = "",
+      fechaNacimiento,
+      sexo = "NoEspecifica",
+      entidadNacimiento = "",
+      curp = "",
+      generarCurp = false,
+    } = req.body || {};
 
-    const curpUp = curp ? String(curp).trim().toUpperCase() : "";
+    const nombreTxt = String(nombre || "").trim();
+    const apPatTxt = String(apPaterno || "").trim();
+    const apMatTxt = String(apMaterno || "").trim();
+    const telTxt = String(telefono || "").trim();
+    const curpManual = norm(curp);
 
-    if (curpUp) {
-      const existe = await Paciente.findOne({ "datosGenerales.curp": curpUp });
-      if (existe) return res.json({ ok: true, paciente: existe, yaExistia: true });
+    if (!nombreTxt) {
+      return res.status(400).json({ msg: "nombre es requerido" });
+    }
+
+    if (!apPatTxt) {
+      return res.status(400).json({ msg: "apPaterno es requerido" });
+    }
+
+    let curpFinal = curpManual;
+    let curpEsProvisional = false;
+    const entidadFinal = entidadCURP(entidadNacimiento);
+
+    if (!curpFinal) {
+      if (!fechaNacimiento) {
+        return res.status(400).json({ msg: "fechaNacimiento es requerida para generar CURP provisional" });
+      }
+      if (!sexo || sexo === "NoEspecifica") {
+        return res.status(400).json({ msg: "sexo es requerido para generar CURP provisional" });
+      }
+      if (!entidadNacimiento) {
+        return res.status(400).json({ msg: "entidadNacimiento es requerida para generar CURP provisional" });
+      }
+      if (!generarCurp) {
+        return res.status(400).json({ msg: "Debes proporcionar CURP o solicitar generación provisional" });
+      }
+
+      curpFinal = generarCurpProvisional({
+        nombre: nombreTxt,
+        apPaterno: apPatTxt,
+        apMaterno: apMatTxt,
+        fechaNacimiento,
+        sexo,
+        entidadNacimiento,
+      });
+
+      if (!curpFinal) {
+        return res.status(400).json({ msg: "No se pudo generar CURP provisional" });
+      }
+
+      curpEsProvisional = true;
+    }
+
+    const existe = await Paciente.findOne({
+      "datosGenerales.curp": curpFinal
+    })
+      .select("_id nombre apPaterno apMaterno datosGenerales.curp")
+      .lean();
+
+    if (existe) {
+      return res.json({ ok: true, paciente: existe, yaExistia: true });
     }
 
     const paciente = await Paciente.create({
-      nombre: nombre.trim(),
-      apellidos: apellidos.trim(),
-      contacto: { telefono: telefono.trim() },
-      datosGenerales: { curp: curpUp || undefined },
+      nombre: nombreTxt,
+      apPaterno: apPatTxt,
+      apMaterno: apMatTxt,
+      contacto: {
+        telefono: telTxt
+      },
+      datosGenerales: {
+        fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : undefined,
+        sexo,
+        curp: curpFinal,
+        curpEsProvisional,
+        entidadNacimiento: entidadFinal,
+      },
       farmaciasVinculadas: farmaciaId ? [farmaciaId] : [],
       antecedentes: {},
       signosVitales: [],
@@ -78,40 +269,34 @@ exports.crearBasico = async (req, res) => {
       activo: true,
     });
 
-    return res.json({ ok: true, paciente });
+    return res.json({ ok: true, paciente, yaExistia: false });
   } catch (err) {
-    console.error("crearPacienteBasico:", err);
-    if (err?.code === 11000) return res.status(400).json({ msg: "Ya existe un paciente con ese CURP" });
+    console.error("crearPacienteConsultorio:", err);
+    if (err?.code === 11000) {
+      return res.status(400).json({ msg: "Ya existe un paciente con ese CURP" });
+    }
     return res.status(500).json({ msg: "Error al crear paciente" });
   }
 };
 
-function getFarmaciaActiva(req) {
-  const fromUser = req.usuario?.farmacia;
-  const fromHeader = req.headers["x-farmacia-id"];
-  const farmaciaId = fromHeader || fromUser;
-  return farmaciaId ? String(farmaciaId) : null;
-}
-
 exports.obtenerExpediente = async (req, res) => {
   try {
     const { id } = req.params;
-    const farmaciaId = getFarmaciaActiva(req);
 
-    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ msg: "ID inválido" });
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ msg: "ID inválido" });
+    }
 
     const p = await Paciente.findById(id)
-      .select("nombre apellidos contacto datosGenerales antecedentes signosVitales notasClinicas ultimasRecetas activo")
+      .select("nombre apPaterno apMaterno contacto datosGenerales antecedentes signosVitales notasClinicas ultimasRecetas activo")
       .lean();
 
     if (!p) return res.status(404).json({ msg: "Paciente no encontrado" });
 
-    // ✅ últimos signos vitales (últimos 5)
     const sv = Array.isArray(p.signosVitales) ? [...p.signosVitales] : [];
     sv.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
     const signosVitalesRecientes = sv.slice(0, 5);
 
-    // ✅ últimas notas clínicas (últimas 5)
     const nc = Array.isArray(p.notasClinicas) ? [...p.notasClinicas] : [];
     nc.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
     const notasClinicasRecientes = nc.slice(0, 5);
@@ -121,7 +306,8 @@ exports.obtenerExpediente = async (req, res) => {
       paciente: {
         _id: p._id,
         nombre: p.nombre,
-        apellidos: p.apellidos,
+        apPaterno: p.apPaterno,
+        apMaterno: p.apMaterno,
         contacto: p.contacto,
         datosGenerales: p.datosGenerales,
         antecedentes: p.antecedentes,
@@ -147,7 +333,6 @@ exports.agregarSignosVitales = async (req, res) => {
 
     const body = req.body || {};
 
-    // cálculo simple IMC si vienen peso/talla
     const pesoKg = body.pesoKg != null ? Number(body.pesoKg) : null;
     const tallaCm = body.tallaCm != null ? Number(body.tallaCm) : null;
     let imc = body.imc != null ? Number(body.imc) : null;
@@ -175,7 +360,7 @@ exports.agregarSignosVitales = async (req, res) => {
 
     const paciente = await Paciente.findByIdAndUpdate(
       id,
-      { $push: { signosVitales: { $each: [sv], $position: 0, $slice: 50 } } }, // guarda últimos 50
+      { $push: { signosVitales: { $each: [sv], $position: 0, $slice: 50 } } },
       { new: true }
     ).select("_id");
 
@@ -186,9 +371,9 @@ exports.agregarSignosVitales = async (req, res) => {
     console.error("agregarSignosVitales:", err);
     return res.status(500).json({ msg: "Error al guardar signos vitales" });
   }
-}
+};
 
-  exports.agregarNotaClinica = async (req, res) => {
+exports.agregarNotaClinica = async (req, res) => {
   try {
     const { id } = req.params;
     const farmaciaId = getFarmaciaActiva(req);
@@ -230,4 +415,3 @@ exports.agregarSignosVitales = async (req, res) => {
     return res.status(500).json({ msg: "Error al guardar nota clínica" });
   }
 };
-
