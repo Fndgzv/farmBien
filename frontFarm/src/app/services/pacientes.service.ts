@@ -1,5 +1,6 @@
+// frontFarm/src/app/services/pacientes.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -11,6 +12,18 @@ export interface PacienteResp {
   msg?: string;
 }
 
+export interface CrearPacienteConsultorioPayload {
+  nombre: string;
+  apPaterno: string;
+  apMaterno?: string;
+  telefono?: string;
+  fechaNacimiento?: string;
+  sexo?: string;
+  entidadNacimiento?: string;
+  curp?: string;
+  generarCurp?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PacientesService {
   private baseUrl = `${environment.apiUrl}/pacientes`;
@@ -20,10 +33,8 @@ export class PacientesService {
   private headers() {
     const token = localStorage.getItem('auth_token') || '';
 
-    // 1) Admin
     let farmaciaId = localStorage.getItem('farmaciaActivaId') || '';
 
-    // 2) Fallback user_farmacia
     if (!farmaciaId) {
       const uf = localStorage.getItem('user_farmacia');
       try {
@@ -43,25 +54,32 @@ export class PacientesService {
   }
 
   getExpediente(pacienteId: string): Observable<any> {
-    return this.http.get<any>(`${this.baseUrl}/${pacienteId}/expediente`, { headers: this.headers() });
+    return this.http.get<any>(`${this.baseUrl}/${pacienteId}/expediente`, {
+      headers: this.headers()
+    });
   }
 
   guardarSignosVitales(pacienteId: string, payload: any): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/${pacienteId}/signos-vitales`, payload, { headers: this.headers() });
+    return this.http.post<any>(`${this.baseUrl}/${pacienteId}/signos-vitales`, payload, {
+      headers: this.headers()
+    });
   }
 
   guardarNotaClinica(pacienteId: string, payload: any): Observable<any> {
-    return this.http.post<any>(`${this.baseUrl}/${pacienteId}/nota-clinica`, payload, { headers: this.headers() });
+    return this.http.post<any>(`${this.baseUrl}/${pacienteId}/nota-clinica`, payload, {
+      headers: this.headers()
+    });
   }
 
-  buscar(q: string) {
-    return this.http.get<any>(`${this.baseUrl}/buscar?q=${encodeURIComponent(q)}`, { headers: this.headers() });
+  buscar(q: string): Observable<PacienteResp> {
+    return this.http.get<PacienteResp>(`${this.baseUrl}/buscar?q=${encodeURIComponent(q)}`, {
+      headers: this.headers()
+    });
   }
 
-  crearBasico(payload: { nombre: string; apellidos?: string; telefono?: string; curp?: string }) {
-    return this.http.post<any>(`${this.baseUrl}`, payload, { headers: this.headers() });
+  crearConsultorio(payload: CrearPacienteConsultorioPayload): Observable<PacienteResp> {
+    return this.http.post<PacienteResp>(`${this.baseUrl}`, payload, {
+      headers: this.headers()
+    });
   }
-
 }
-
-

@@ -210,6 +210,25 @@ export class MedicoConsultorioComponent implements OnInit {
     return { hayAlgo, payload };
   }
 
+  pacForm = {
+    nombre: '',
+    apPaterno: '',
+    apMaterno: '',
+    telefono: '',
+    email: '',
+    direccion: '',
+    emergenciaNombre: '',
+    emergenciaTelefono: '',
+    emergenciaParentesco: '',
+    fechaNacimiento: '',
+    sexo: 'NoEspecifica',
+    curp: '',
+    curpEsProvisional: false,
+    entidadNacimiento: '',
+    ocupacion: '',
+    escolaridad: '',
+  };
+
 
   constructor(
     private fichasService: FichasConsultorioService,
@@ -236,21 +255,30 @@ export class MedicoConsultorioComponent implements OnInit {
 
   async cargarCola() {
     try {
-      const resp = await firstValueFrom(this.fichasService.obtenerCola(true));
+      const resp = await firstValueFrom(this.fichasService.obtenerColaMedico());
       this.cola = resp?.fichas ?? [];
       this.colaExpandida = true;
-
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'No se pudo cargar la cola', 'error');
     }
   }
 
-
   private get miUsuarioId(): string {
-    // usa lo que ya tengas; ejemplo típico:
-    const u = localStorage.getItem('auth_user');
-    try { return u ? JSON.parse(u)?._id : ''; } catch { return ''; }
+    const posibles = [
+      localStorage.getItem('auth_user'),
+      localStorage.getItem('usuario')
+    ];
+
+    for (const raw of posibles) {
+      try {
+        const obj = raw ? JSON.parse(raw) : null;
+        if (obj?._id) return String(obj._id);
+        if (obj?.id) return String(obj.id);
+      } catch { }
+    }
+
+    return '';
   }
 
   esMia(f: any): boolean {
@@ -491,14 +519,19 @@ export class MedicoConsultorioComponent implements OnInit {
       !!String(s.notas || '').trim()
     );
   }
+
   private buildPayloadRecetaFinal() {
     const payload = this.buildPayloadReceta();
 
     const motivo = (payload.motivoConsulta || '').trim();
+
     const diagnosticos = Array.isArray(payload.diagnosticos)
       ? payload.diagnosticos.map(d => (d || '').trim()).filter(Boolean)
       : [];
-    const meds = Array.isArray(payload.medicamentos) ? payload.medicamentos : [];
+
+    const meds = Array.isArray(payload.medicamentos)
+      ? payload.medicamentos
+      : [];
 
     payload.diagnosticos = diagnosticos;
 
@@ -512,9 +545,16 @@ export class MedicoConsultorioComponent implements OnInit {
       !!(payload.observaciones || '').trim() ||
       !!(payload.indicacionesGenerales || '').trim();
 
-    const completaMin = !!motivo && diagnosticosOk && medsOk;
+    // 🔥 NUEVA REGLA:
+    // mínima válida = al menos 1 medicamento
+    const tieneMedicamentos = medsOk;
 
-    return { hayAlgo, completaMin, payload };
+    return {
+      hayAlgo,
+      tieneMedicamentos,
+      completaMin: tieneMedicamentos,
+      payload
+    };
   }
 
   async guardarYEnviarACaja() {
@@ -552,21 +592,22 @@ export class MedicoConsultorioComponent implements OnInit {
     // 4) Receta (solo si hay paciente y está completa mínimo)
     // -------------------------
     const rxInfo = this.buildPayloadRecetaFinal();
-    const recetaSeGuardara = tienePaciente && rxInfo.completaMin;
-    const recetaIncompleta = rxInfo.hayAlgo && !rxInfo.completaMin;
-
+    const hayRecetaValida = rxInfo.tieneMedicamentos;
+    const recetaPacienteDePaso = !tienePaciente && hayRecetaValida;
+    const recetaIncompleta = rxInfo.hayAlgo && !rxInfo.tieneMedicamentos;
     // -------------------------
     // 5) Checklist de "no capturado"
     // -------------------------
     const faltantes: string[] = [];
     const antInfo = this.buildAntecedentesPayload();
+    const pacInfo = this.buildPacienteUpdatePayload();
     const antecedentesSeGuardaran = tienePaciente && antInfo.hayAlgo;
 
     if (tienePaciente) {
       if (!haySignosCapturados) faltantes.push("Signos vitales");
       if (!rxInfo.hayAlgo) faltantes.push("Receta médica");
       if (!antInfo.hayAlgo) faltantes.push("Antecedentes");
-    } else {
+      if (!pacInfo.hayAlgo) faltantes.push("Datos del paciente");
       if (!hayNotasMedico) faltantes.push("Notas del médico");
       if (!hayServicios) faltantes.push('Servicios médicos — "No recibirá usted honorarios por esta consulta"');
     }
@@ -577,11 +618,15 @@ export class MedicoConsultorioComponent implements OnInit {
     if (haySignosCapturados && !tienePaciente) {
       avisos.push("Capturaste signos vitales, pero el paciente NO está vinculado. No se podrán guardar.");
     }
-    if (rxInfo.hayAlgo && !tienePaciente) {
-      avisos.push("Capturaste receta, pero el paciente NO está vinculado. No se podrá guardar ni imprimir.");
+    if (rxInfo.hayAlgo && !tienePaciente && !hayRecetaValida) {
+      avisos.push("La receta del paciente de paso está incompleta.");
+    }
+
+    if (recetaPacienteDePaso) {
+      avisos.push("Se imprimirá una receta de paciente de paso, pero no se guardará en historial clínico.");
     }
     if (recetaIncompleta) {
-      avisos.push("La receta está INCOMPLETA (falta motivo/diagnósticos/medicamentos). No se guardará ni se imprimirá.");
+      avisos.push("La receta está INCOMPLETA (falta motivo, diagnósticos ó medicamentos)");
     }
 
     const htmlFaltantes = faltantes.length
@@ -607,12 +652,12 @@ export class MedicoConsultorioComponent implements OnInit {
       confirmButtonText: 'Sí, finalizar',
       cancelButtonText: 'No',
       reverseButtons: true,
-      allowOutsideClick: false,
       allowEscapeKey: true,
     });
 
     if (!r.isConfirmed) return;
 
+    const pacienteInfoSeGuardara = tienePaciente && pacInfo.hayAlgo;
     // -------------------------
     // 6) Payload final al backend
     // -------------------------
@@ -634,7 +679,8 @@ export class MedicoConsultorioComponent implements OnInit {
         notas: (this.signos.notas || '').trim(),
       } : null,
       antecedentes: antecedentesSeGuardaran ? antInfo.payload : null,
-      receta: recetaSeGuardara ? rxInfo.payload : null,
+      receta: hayRecetaValida ? rxInfo.payload : null,
+      paciente: pacienteInfoSeGuardara ? pacInfo.payload : null,
     };
 
     this.guardando = true;
@@ -643,9 +689,10 @@ export class MedicoConsultorioComponent implements OnInit {
 
       const estadoFinal = resp?.estadoFinal;
       const recetaId = resp?.recetaId;
+      const recetaPaso = resp?.recetaPaso || null;
 
       // 7) Si hay receta, pedir impresora e imprimir
-      if (recetaId) {
+      if (recetaId || recetaPaso) {
         const rPrint = await Swal.fire({
           icon: 'info',
           title: 'Imprimir receta',
@@ -656,11 +703,13 @@ export class MedicoConsultorioComponent implements OnInit {
         });
 
         if (rPrint.isConfirmed) {
-          // 👇 Aquí conectamos tu impresión real
-          await this.imprimirReceta(recetaId);
+          if (recetaId) {
+            await this.imprimirReceta(recetaId);
+          } else if (recetaPaso) {
+            await this.imprimirRecetaPaso(recetaPaso);
+          }
         }
       }
-
       // 8) Mensaje final al médico
       const msgs: string[] = [];
 
@@ -673,7 +722,7 @@ export class MedicoConsultorioComponent implements OnInit {
         }
       }
 
-      if (recetaId) {
+      if (recetaId || recetaPaso) {
         msgs.push("Si gusta, puede pasar a caja a surtir su receta.");
       }
 
@@ -696,7 +745,6 @@ export class MedicoConsultorioComponent implements OnInit {
       this.guardando = false;
     }
   }
-
 
   private pad2(n: number) { return String(n).padStart(2, '0'); }
 
@@ -730,6 +778,126 @@ export class MedicoConsultorioComponent implements OnInit {
     return (this.cola || []).some((c: any) => !!c?.urgencia);
   }
 
+  private buildPacienteUpdatePayload() {
+    const f = this.pacForm;
+
+    const nombre = (f.nombre || '').trim();
+    const apPaterno = (f.apPaterno || '').trim();
+    const apMaterno = (f.apMaterno || '').trim();
+
+    const contacto = {
+      telefono: (f.telefono || '').trim(),
+      email: (f.email || '').trim(),
+      direccion: (f.direccion || '').trim(),
+      emergencia: {
+        nombre: (f.emergenciaNombre || '').trim(),
+        telefono: (f.emergenciaTelefono || '').trim(),
+        parentesco: (f.emergenciaParentesco || '').trim(),
+      }
+    };
+
+    const datosGenerales = {
+      fechaNacimiento: f.fechaNacimiento ? new Date(f.fechaNacimiento).toISOString() : null,
+      sexo: (f.sexo || 'NoEspecifica'),
+      curp: (f.curp || '').trim().toUpperCase(),
+      entidadNacimiento: (f.entidadNacimiento || '').trim().toUpperCase(),
+      ocupacion: (f.ocupacion || '').trim(),
+      escolaridad: (f.escolaridad || '').trim(),
+    };
+
+    const hayNombre = !!(nombre || apPaterno || apMaterno);
+
+    const hayEmergencia =
+      !!(contacto.emergencia.nombre || contacto.emergencia.telefono || contacto.emergencia.parentesco);
+
+    const hayAlgoContacto =
+      !!(contacto.telefono || contacto.email || contacto.direccion || hayEmergencia);
+
+    const hayAlgoDG =
+      !!(
+        datosGenerales.fechaNacimiento ||
+        datosGenerales.curp ||
+        datosGenerales.entidadNacimiento ||
+        datosGenerales.ocupacion ||
+        datosGenerales.escolaridad ||
+        (datosGenerales.sexo && datosGenerales.sexo !== 'NoEspecifica')
+      );
+
+    const hayAlgo = hayNombre || hayAlgoContacto || hayAlgoDG;
+
+    const payload: any = {};
+
+    if (hayNombre) {
+      payload.nombre = nombre || undefined;
+      payload.apPaterno = apPaterno || undefined;
+      payload.apMaterno = apMaterno || undefined;
+    }
+
+    if (hayAlgoContacto) {
+      payload.contacto = {
+        telefono: contacto.telefono || undefined,
+        email: contacto.email || undefined,
+        direccion: contacto.direccion || undefined,
+        emergencia: hayEmergencia ? {
+          nombre: contacto.emergencia.nombre || undefined,
+          telefono: contacto.emergencia.telefono || undefined,
+          parentesco: contacto.emergencia.parentesco || undefined,
+        } : undefined,
+      };
+    }
+
+    if (hayAlgoDG) {
+      payload.datosGenerales = {
+        fechaNacimiento: datosGenerales.fechaNacimiento || undefined,
+        sexo: datosGenerales.sexo || undefined,
+        curp: datosGenerales.curp || undefined,
+        entidadNacimiento: datosGenerales.entidadNacimiento || undefined,
+        ocupacion: datosGenerales.ocupacion || undefined,
+        escolaridad: datosGenerales.escolaridad || undefined,
+      };
+    }
+
+    return { hayAlgo, payload };
+  }
+
+  private fillPacienteFormFromPaciente() {
+    const p: any = this.paciente || {};
+    const c = p.contacto || {};
+    const dg = p.datosGenerales || {};
+    const em = c.emergencia || {};
+
+    this.pacForm.nombre = p.nombre || '';
+    this.pacForm.apPaterno = p.apPaterno || '';
+    this.pacForm.apMaterno = p.apMaterno || '';
+
+    this.pacForm.telefono = c.telefono || '';
+    this.pacForm.email = c.email || '';
+    this.pacForm.direccion = c.direccion || '';
+
+    this.pacForm.emergenciaNombre = em.nombre || '';
+    this.pacForm.emergenciaTelefono = em.telefono || '';
+    this.pacForm.emergenciaParentesco = em.parentesco || '';
+
+    this.pacForm.fechaNacimiento = dg.fechaNacimiento
+      ? this.toDateInputValue(dg.fechaNacimiento)
+      : '';
+
+    this.pacForm.sexo = dg.sexo || 'NoEspecifica';
+    this.pacForm.curp = dg.curp || '';
+    this.pacForm.curpEsProvisional = !!dg.curpEsProvisional;
+    this.pacForm.entidadNacimiento = dg.entidadNacimiento || '';
+    this.pacForm.ocupacion = dg.ocupacion || '';
+    this.pacForm.escolaridad = dg.escolaridad || '';
+  }
+
+  private toDateInputValue(d: any): string {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return '';
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
 
   async cargarExpedienteSiHayPaciente() {
     const pid = this.fichaActual?.pacienteId;
@@ -776,8 +944,8 @@ export class MedicoConsultorioComponent implements OnInit {
     const r = await Swal.fire({
       title: 'Vincular paciente',
       input: 'text',
-      inputLabel: 'Busca por CURP, teléfono o nombre',
-      inputPlaceholder: 'Ej: ROAA900101HDFXXX09 o 5512345678 o Juan Pérez',
+      inputLabel: 'Busca por CURP o por nombre completo',
+      inputPlaceholder: 'Ej. ABCD900101HMCLRN00 o Juan Pérez López',
       showCancelButton: true,
       confirmButtonText: 'Buscar',
       cancelButtonText: 'Cancelar',
@@ -799,7 +967,6 @@ export class MedicoConsultorioComponent implements OnInit {
     try {
       const resp: any = await firstValueFrom(this.pacientesService.buscar(q));
 
-      // Caso 1: exacto (por CURP) -> viene paciente
       if (resp?.paciente?._id) {
         await this.vincularPacientePorId(resp.paciente._id);
         return;
@@ -807,13 +974,12 @@ export class MedicoConsultorioComponent implements OnInit {
 
       const lista = resp?.pacientes ?? [];
 
-      // Caso 2: hay lista para elegir
       if (lista.length > 0) {
         const html = `
         <div style="text-align:left; max-height:320px; overflow:auto;">
           ${lista.map((p: any, idx: number) => `
             <div style="padding:10px; border:1px solid #eee; border-radius:10px; margin-bottom:8px;">
-              <div><b>${p.nombre || ''} ${p.apellidos || ''}</b></div>
+              <div><b>${p.nombre || ''} ${p.apPaterno || ''} ${p.apMaterno || ''}</b></div>
               <div style="color:#666; font-size:12px;">
                 Tel: ${p?.contacto?.telefono || '-'} &nbsp; | &nbsp; CURP: ${p?.datosGenerales?.curp || '-'}
               </div>
@@ -845,27 +1011,38 @@ export class MedicoConsultorioComponent implements OnInit {
         return;
       }
 
-      // Caso 3: no hay resultados -> ofrecer crear rápido
       const r2 = await Swal.fire({
         icon: 'info',
         title: 'Sin resultados',
-        text: 'No encontré pacientes con esa búsqueda. ¿Deseas darlo de alta rápido?',
+        text: 'No encontré pacientes. ¿Deseas darlo de alta para abrir expediente?',
         showCancelButton: true,
-        confirmButtonText: 'Sí, dar de alta',
+        confirmButtonText: 'Sí, crear',
         cancelButtonText: 'No',
         allowOutsideClick: false
       });
 
       if (!r2.isConfirmed) return;
 
-      // Crear rápido: prefilla nombre/tel si quieres
+      const nombreBase = this.fichaActual?.pacienteNombre || '';
+      const apPatBase = this.fichaActual?.pacienteAPaterno || '';
+      const apMatBase = this.fichaActual?.pacienteAMaterno || '';
+      const telBase = this.fichaActual?.pacienteTelefono || '';
+
       const r3 = await Swal.fire({
-        title: 'Alta rápida de paciente',
+        title: 'Alta de paciente',
         html: `
-        <input id="p_nombre" class="swal2-input" placeholder="Nombre(s)" value="${(this.fichaActual?.pacienteNombre || '').split(' ')[0] || ''}">
-        <input id="p_apellidos" class="swal2-input" placeholder="Apellidos" value="">
-        <input id="p_tel" class="swal2-input" placeholder="Teléfono" value="${this.fichaActual?.pacienteTelefono || ''}">
-        <input id="p_curp" class="swal2-input" placeholder="CURP (opcional)" value="">
+        <input id="p_nombre" class="swal2-input" placeholder="Nombre(s)" value="${nombreBase}">
+        <input id="p_apPaterno" class="swal2-input" placeholder="Apellido paterno" value="${apPatBase}">
+        <input id="p_apMaterno" class="swal2-input" placeholder="Apellido materno" value="${apMatBase}">
+        <input id="p_tel" class="swal2-input" placeholder="Teléfono" value="${telBase}">
+        <input id="p_fechaNac" class="swal2-input" type="date" placeholder="Fecha de nacimiento">
+        <select id="p_sexo" class="swal2-input">
+          <option value="">Sexo</option>
+          <option value="M">Masculino</option>
+          <option value="F">Femenino</option>
+        </select>
+        <input id="p_entidad" class="swal2-input" placeholder="Entidad de nacimiento (ej. MEXICO, JALISCO)">
+        <input id="p_curp" class="swal2-input" placeholder="CURP (opcional, si no la tienes se genera provisional)">
       `,
         showCancelButton: true,
         confirmButtonText: 'Crear y vincular',
@@ -873,21 +1050,56 @@ export class MedicoConsultorioComponent implements OnInit {
         focusConfirm: false,
         preConfirm: () => {
           const nombre = (document.getElementById('p_nombre') as HTMLInputElement)?.value?.trim();
-          const apellidos = (document.getElementById('p_apellidos') as HTMLInputElement)?.value?.trim();
+          const apPaterno = (document.getElementById('p_apPaterno') as HTMLInputElement)?.value?.trim();
+          const apMaterno = (document.getElementById('p_apMaterno') as HTMLInputElement)?.value?.trim();
           const telefono = (document.getElementById('p_tel') as HTMLInputElement)?.value?.trim();
+          const fechaNacimiento = (document.getElementById('p_fechaNac') as HTMLInputElement)?.value?.trim();
+          const sexo = (document.getElementById('p_sexo') as HTMLSelectElement)?.value?.trim();
+          const entidadNacimiento = (document.getElementById('p_entidad') as HTMLInputElement)?.value?.trim();
           const curp = (document.getElementById('p_curp') as HTMLInputElement)?.value?.trim();
 
           if (!nombre) {
             Swal.showValidationMessage('Nombre(s) es requerido');
             return false as any;
           }
-          return { nombre, apellidos, telefono, curp };
+
+          if (!apPaterno) {
+            Swal.showValidationMessage('Apellido paterno es requerido');
+            return false as any;
+          }
+
+          if (!curp) {
+            if (!fechaNacimiento) {
+              Swal.showValidationMessage('Fecha de nacimiento es requerida si no capturas CURP');
+              return false as any;
+            }
+            if (!sexo) {
+              Swal.showValidationMessage('Sexo es requerido si no capturas CURP');
+              return false as any;
+            }
+            if (!entidadNacimiento) {
+              Swal.showValidationMessage('Entidad de nacimiento es requerida si no capturas CURP');
+              return false as any;
+            }
+          }
+
+          return {
+            nombre,
+            apPaterno,
+            apMaterno,
+            telefono,
+            fechaNacimiento,
+            sexo,
+            entidadNacimiento,
+            curp,
+            generarCurp: !curp
+          };
         }
       });
 
       if (!r3.isConfirmed) return;
 
-      const nuevo = await firstValueFrom(this.pacientesService.crearBasico(r3.value));
+      const nuevo = await firstValueFrom(this.pacientesService.crearConsultorio(r3.value));
       const pacienteId = nuevo?.paciente?._id;
       if (!pacienteId) throw new Error('No se pudo crear paciente');
 
@@ -898,12 +1110,17 @@ export class MedicoConsultorioComponent implements OnInit {
     }
   }
 
-  expedienteTab: 'ANT' | 'SV' | 'RX' = 'ANT';
+  expedienteTab: 'PAC' | 'ANT' | 'SV' | 'RX' = 'ANT';
+
+  setExpedienteTab(tab: 'PAC' | 'ANT' | 'SV' | 'RX') {
+    this.expedienteTab = tab;
+    if (tab === 'PAC') this.fillPacienteFormFromPaciente();
+  }
 
   nombrePacienteExpediente(): string {
     const p = this.paciente;
     if (!p) return this.fichaActual?.pacienteNombre || '';
-    return `${p?.nombre || ''} ${p?.apellidos || ''}`.trim();
+    return `${p?.nombre || ''} ${p?.apPaterno || ''} ${p?.apMaterno || ''}`.trim();
   }
 
   fmtLista(arr: any[] | undefined): string {
@@ -1098,6 +1315,7 @@ export class MedicoConsultorioComponent implements OnInit {
 
   onFocusMedicamento(i: number) {
     this.buscandoMedIdx = i;
+    setTimeout(() => { }, 0);
   }
 
   ocultarResultados(i: number) {
@@ -1295,7 +1513,7 @@ export class MedicoConsultorioComponent implements OnInit {
     const pac = rx.pacienteId || {};
     const med = rx.medicoId || {};
 
-    const pacienteNombre = `${pac.nombre || ''} ${pac.apellidos || ''}`.trim() || '—';
+    const pacienteNombre = `${pac.nombre || ''} ${pac.apPaterno || ''} ${pac.apMaterno || ''}`.trim() || '—';
     const medicoNombre = `${med.nombre || ''} ${med.apellidos || ''}`.trim() || '—';
     const cedula = (med?.cedula || med?.profesional || '').toString().trim();
 
@@ -1315,7 +1533,7 @@ export class MedicoConsultorioComponent implements OnInit {
     const recomendaciones =
       (rx.indicacionesGenerales || '').trim() ||
       (rx.observaciones || '').trim() ||
-      '—';
+      '';
 
     const direccion = (farm?.direccion || '').trim();
     const telefono = (farm?.telefono || '').trim();
@@ -1342,120 +1560,377 @@ export class MedicoConsultorioComponent implements OnInit {
   <meta charset="utf-8"/>
   <title>Receta</title>
   <style>
-    @page { size: 5.5in 8.5in; margin: 10mm; }
-    body { font-family: Arial, sans-serif; color:#111; margin:0; }
-    .page { position: relative; }
+    /* Papel CARTA, tú vas a usar solo la mitad superior */
+    @page { size: letter; margin: 10mm; }
 
-    .top { text-align:center; margin-top: 2mm; }
-    .titulo { font-size: 18pt; font-weight: 800; }
-    .sub { margin-top: 2mm; font-size: 10.5pt; letter-spacing: 0.5px; }
-    .line { border-top: 2px solid #d38ab7; margin: 6mm 0 5mm; }
+    html, body { margin:0; padding:0; }
+    body { font-family: Arial, sans-serif; color:#111; }
+
+    /* ✅ Contenedor: solo media hoja (alto 5.5in) con ancho completo */
+    .half-sheet{
+      height: 5.5in;
+      overflow: hidden;      /* oculta todo lo que se salga */
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    /* Contenido con margen interno (para que no quede pegado) */
+    .wrap{
+      padding: 0 6mm;
+      box-sizing: border-box;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top { text-align:center; margin-top: 1.5mm; }
+    .titulo { font-size: 17pt; font-weight: 800; line-height: 1.05; }
+    .sub { margin-top: 1mm; font-size: 10pt; letter-spacing: 0.3px; line-height: 1.15; }
+
+    .line { border-top: 2px solid #d38ab7; margin: 2.2mm 0 2.2mm; }
 
     /* watermark */
     .wm {
       position:absolute;
-      right: 8mm;
-      top: 38mm;
-      width: 65mm;
-      height: 65mm;
-      opacity: .12;
+      right: 6mm;
+      top: 35mm;
+      width: 60mm;
+      height: 60mm;
+      opacity: .10;
       pointer-events:none;
     }
 
-    .grid {
+    /* INFO */
+    .info { font-size: 10.2pt; }
+    .info-row{
       display:flex;
-      gap: 10mm;
       justify-content: space-between;
+      align-items: baseline;
+      gap: 6mm;
+      margin: 1.0mm 0;
     }
-    .left { width: 62%; }
-    .right { width: 35%; }
+    .info-left{ flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .info-right{ flex: 0 0 auto; white-space: nowrap; }
 
-    .lbl { color:#c54b9a; font-weight:700; font-size: 10.5pt; }
-    .field { border-bottom: 2px solid #d38ab7; height: 14px; margin: 2mm 0 4mm; }
+    .lbl { color:#c54b9a; font-weight:800; }
+    .val-sm { font-size: 8.6pt; font-weight: 400; margin-left: 1.2mm; }
+    .val-sm.one-line{
+      display:inline-block;
+      max-width: 120mm;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
+    }
 
-    .sv .row { display:flex; gap: 10mm; margin: 1.8mm 0; }
-    .sv .k { width: 22mm; color:#c54b9a; font-weight:700; font-size: 10.5pt; }
-    .sv .v { flex:1; border-bottom: 2px solid #d38ab7; height: 12px; font-size: 10.5pt; }
+    /* SV + MEDS */
+    .sv-meds { display:flex; gap: 4mm; align-items:flex-start; margin-top: 2mm; }
 
-    table { width:100%; border-collapse: collapse; margin-top: 6mm; font-size: 10pt; }
-    th { text-align:left; border-bottom: 2px solid #444; padding: 2mm 1mm; }
-    td { border-bottom: 1px solid #ddd; padding: 2mm 1mm; vertical-align: top; }
-    .n { width: 8mm; text-align:center; }
+    /* SV mínimos */
+    .sv { flex: 0 0 26mm; font-size: 8.0pt; }
+    .sv-title{ color:#c54b9a; font-weight:800; font-size: 8.6pt; margin: 0 0 1mm; }
+    .sv-grid{
+      display:grid;
+      grid-template-columns: 10mm auto;
+      column-gap: 0.5mm;
+      row-gap: 0.55mm;
+      align-items: end;
+    }
+    .sv-k { color:#c54b9a; font-weight:800; white-space: nowrap; }
+    .sv-v{
+      display:inline-block;
+      width: 12mm;
+      border-bottom: 1.3px solid #d38ab7;
+      height: 9px;
+      line-height: 9px;
+      padding-left: 0.5mm;
+      box-sizing: border-box;
+    }
+
+    table { width:100%; border-collapse: collapse; font-size: 8.8pt; }
+    thead th { text-align:left; border-bottom: 2px solid #444; padding: 1.2mm 0.6mm; }
+    tbody td { border-bottom: 1px solid #ddd; padding: 1.2mm 0.6mm; vertical-align: top; }
+    .n { width: 6mm; text-align:center; }
     .med { font-weight: 700; }
 
-    .rec { margin-top: 8mm; }
-    .rec .lbl2 { color:#c54b9a; font-weight:800; }
-    .box {
-      border-top: 2px solid #d38ab7;
-      min-height: 22mm;
-      padding-top: 2mm;
-      font-size: 10.5pt;
-      white-space: pre-wrap;
-    }
-
-    .footer {
-      position: fixed;
-      left: 0; right: 0; bottom: 0;
-      padding: 4mm 10mm;
+    /* footer dentro de media hoja */
+    .footer{
+      margin-top: auto;         /* lo manda al fondo de la media hoja */
+      padding-top: 2.5mm;
       border-top: 2px solid #d38ab7;
       display:flex;
       justify-content: space-between;
-      font-size: 9.5pt;
+      gap: 6mm;
+      font-size: 8.6pt;
       color:#444;
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="top">
-      <div class="titulo">${this.esc(medicoNombre)}</div>
-      <div class="sub">
-        MÉDICO ESPECIALISTA EN MEDICINA FAMILIAR
-        ${cedula ? ` &nbsp; - &nbsp; CÉDULA PROFESIONAL ${this.esc(cedula)}` : ``}
-      </div>
-    </div>
+  <div class="half-sheet">
 
-    <div class="line"></div>
-
-    <!-- watermark simple (puedes reemplazar por svg/imagen) -->
     <svg class="wm" viewBox="0 0 200 200">
       <path d="M100 20c-10 0-18 8-18 18s8 18 18 18 18-8 18-18-8-18-18-18zm0 40v120" stroke="#999" stroke-width="8" fill="none"/>
       <path d="M40 80c30 10 50 10 60 0" stroke="#999" stroke-width="8" fill="none"/>
       <path d="M160 80c-30 10-50 10-60 0" stroke="#999" stroke-width="8" fill="none"/>
     </svg>
 
-    <div class="grid" style="padding: 0 10mm;">
-      <div class="left">
-        <div class="lbl">Nombre del paciente:</div>
-        <div class="field">${this.esc(pacienteNombre)}</div>
-
-        <div class="lbl">Diagnóstico:</div>
-        <div class="field">${this.esc(diagnostico)}</div>
-
-        <div class="lbl">Alergias:</div>
-        <div class="field">${this.esc(alergias)}</div>
-
-        <div class="sv">
-          <div class="row"><div class="k">Peso:</div><div class="v">${sv?.pesoKg ?? '—'}</div></div>
-          <div class="row"><div class="k">Talla:</div><div class="v">${sv?.tallaCm ?? '—'}</div></div>
-          <div class="row"><div class="k">T/A:</div><div class="v">${this.fmtTA(sv)}</div></div>
-          <div class="row"><div class="k">F.C.:</div><div class="v">${sv?.fc ?? '—'}</div></div>
-          <div class="row"><div class="k">F.R.:</div><div class="v">${sv?.fr ?? '—'}</div></div>
-          <div class="row"><div class="k">Temp:</div><div class="v">${sv?.temperatura ?? '—'}</div></div>
-          <div class="row"><div class="k">Sat O2:</div><div class="v">${sv?.spo2 ?? '—'}</div></div>
+    <div class="wrap">
+      <div class="top">
+        <div class="titulo">${this.esc(medicoNombre)}</div>
+        <div class="sub">
+          MÉDICO ESPECIALISTA EN MEDICINA FAMILIAR
+          ${cedula ? ` &nbsp; - &nbsp; CÉDULA PROFESIONAL ${this.esc(cedula)}` : ``}
         </div>
       </div>
 
-      <div class="right">
-        <div class="lbl">Fecha:</div>
-        <div class="field">${this.esc(fecha)}</div>
+      <div class="line"></div>
 
-        <div class="lbl">Edad:</div>
-        <div class="field">${this.esc(edad)}</div>
+      <div class="info">
+        <div class="info-row">
+          <div class="info-left">
+            <span class="lbl">Paciente:</span>
+            <span class="val-sm one-line">${this.esc(pacienteNombre)}</span>
+          </div>
+          <div class="info-right">
+            <span class="lbl">Fecha:</span>
+            <span>${this.esc(fecha)}</span>
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-left">
+            <span class="lbl">Diagnóstico:</span>
+            <span class="val-sm one-line">${this.esc(diagnostico)}</span>
+          </div>
+          <div class="info-right">
+            <span class="lbl">Edad:</span>
+            <span>${this.esc(edad)}</span>
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-left" style="flex:1 1 100%;">
+            <span class="lbl">Alergías:</span>
+            <span class="val-sm one-line">${this.esc(alergias)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sv-meds">
+        <div class="sv">
+          <div class="sv-title">Signos vitales</div>
+          <div class="sv-grid">
+            <div class="sv-k">Peso:</div>  <div class="sv-v">${sv?.pesoKg ?? '—'}</div>
+            <div class="sv-k">Talla:</div> <div class="sv-v">${sv?.tallaCm ?? '—'}</div>
+            <div class="sv-k">T/A:</div>   <div class="sv-v">${this.fmtTA(sv)}</div>
+            <div class="sv-k">F.C.:</div>  <div class="sv-v">${sv?.fc ?? '—'}</div>
+            <div class="sv-k">F.R.:</div>  <div class="sv-v">${sv?.fr ?? '—'}</div>
+            <div class="sv-k">Temp:</div>  <div class="sv-v">${sv?.temperatura ?? '—'}</div>
+            <div class="sv-k">SpO2:</div>  <div class="sv-v">${sv?.spo2 ?? '—'}</div>
+          </div>
+        </div>
+
+        <div style="flex:1 1 auto; min-width:0;">
+          <table>
+            <thead>
+              <tr>
+                <th class="n">#</th>
+                <th>Medicamento</th>
+                <th>Dosis</th>
+                <th>Vía</th>
+                <th>Frecuencia</th>
+                <th>Duración</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsMeds || `<tr><td colspan="6" style="text-align:center;color:#666;padding:6mm;">— Sin medicamentos —</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      ${recomendaciones ? `
+        <div style="margin-top:3mm;">
+          <div style="color:#c54b9a;font-weight:800;font-size:9pt;">Recomendaciones:</div>
+          <div style="border-top:2px solid #d38ab7;min-height:12mm;padding-top:1.2mm;font-size:8.6pt;white-space:pre-wrap;">
+            ${this.esc(recomendaciones)}
+          </div>
+        </div>
+      ` : ``}
+
+      <div class="footer">
+        <div>¡Tu salud, nuestra prioridad!</div>
+        <div style="text-align:right;">
+          ${this.esc(direccion || '—')}
+          ${telefono ? ` · Tel: ${this.esc(telefono)}` : ``}
+        </div>
       </div>
     </div>
+  </div>
 
-    <div style="padding: 0 10mm;">
+  <script>
+    window.onload = () => setTimeout(() => window.print(), 150);
+    window.onafterprint = () => window.close();
+  </script>
+</body>
+</html>`;
+
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) throw new Error('No se pudo abrir ventana de impresión (popup bloqueado)');
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
+  async imprimirRecetaPaso(receta: any) {
+    const rx = receta || {};
+    const farmRaw = localStorage.getItem('user_farmacia');
+    const farm = farmRaw ? JSON.parse(farmRaw) : {};
+
+    const pacienteNombre = this.fichaActual?.pacienteNombre || 'Paciente de paso';
+    const medicoRaw = localStorage.getItem('auth_user');
+    let medico: any = {};
+    try {
+      medico = medicoRaw ? JSON.parse(medicoRaw) : {};
+    } catch { }
+
+    const medicoNombre = `${medico?.nombre || ''} ${medico?.apellidos || ''}`.trim() || '—';
+    const cedula = (medico?.cedula || '').toString().trim();
+    const fecha = new Date().toLocaleDateString('es-MX');
+
+    const diagnostico = Array.isArray(rx.diagnosticos) && rx.diagnosticos.length
+      ? rx.diagnosticos.join(', ')
+      : '—';
+
+    const rowsMeds = (rx.medicamentos || []).map((m: any, i: number) => {
+      const nombre = (m.nombreLibre || '').trim();
+      const via = m.via === 'OTRA' ? `OTRA: ${m.viaOtra || ''}` : (m.via || '');
+      return `
+      <tr>
+        <td class="n">${i + 1}</td>
+        <td class="med">${this.esc(nombre)}</td>
+        <td>${this.esc(m.dosis || '')}</td>
+        <td>${this.esc(via || '')}</td>
+        <td>${this.esc(m.frecuencia || '')}</td>
+        <td>${this.esc(m.duracion || '')}</td>
+      </tr>
+    `;
+    }).join('');
+
+    const recomendaciones =
+      (rx.indicacionesGenerales || '').trim() ||
+      (rx.observaciones || '').trim() ||
+      '';
+
+    const direccion = (farm?.direccion || '').trim();
+    const telefono = (farm?.telefono || '').trim();
+
+    const html = `
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Receta</title>
+  <style>
+    @page { size: letter; margin: 10mm; }
+    html, body { margin:0; padding:0; }
+    body { font-family: Arial, sans-serif; color:#111; }
+
+    .half-sheet{
+      height: 5.5in;
+      overflow: hidden;
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    .wrap{
+      padding: 0 6mm;
+      box-sizing: border-box;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top { text-align:center; margin-top: 1.5mm; }
+    .titulo { font-size: 17pt; font-weight: 800; line-height: 1.05; }
+    .sub { margin-top: 1mm; font-size: 10pt; letter-spacing: 0.3px; line-height: 1.15; }
+
+    .line { border-top: 2px solid #d38ab7; margin: 2.2mm 0 2.2mm; }
+
+    .info { font-size: 10.2pt; }
+    .info-row{
+      display:flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6mm;
+      margin: 1.0mm 0;
+    }
+    .info-left{ flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .info-right{ flex: 0 0 auto; white-space: nowrap; }
+
+    .lbl { color:#c54b9a; font-weight:800; }
+    .val-sm { font-size: 8.6pt; font-weight: 400; margin-left: 1.2mm; }
+    .val-sm.one-line{
+      display:inline-block;
+      max-width: 120mm;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: bottom;
+    }
+
+    table { width:100%; border-collapse: collapse; font-size: 8.8pt; margin-top: 3mm; }
+    thead th { text-align:left; border-bottom: 2px solid #444; padding: 1.2mm 0.6mm; }
+    tbody td { border-bottom: 1px solid #ddd; padding: 1.2mm 0.6mm; vertical-align: top; }
+    .n { width: 6mm; text-align:center; }
+    .med { font-weight: 700; }
+
+    .footer{
+      margin-top: auto;
+      padding-top: 2.5mm;
+      border-top: 2px solid #d38ab7;
+      display:flex;
+      justify-content: space-between;
+      gap: 6mm;
+      font-size: 8.6pt;
+      color:#444;
+    }
+  </style>
+</head>
+<body>
+  <div class="half-sheet">
+    <div class="wrap">
+      <div class="top">
+        <div class="titulo">${this.esc(medicoNombre)}</div>
+        <div class="sub">
+          RECETA MÉDICA
+          ${cedula ? ` &nbsp; - &nbsp; CÉDULA PROFESIONAL ${this.esc(cedula)}` : ``}
+        </div>
+      </div>
+
+      <div class="line"></div>
+
+      <div class="info">
+        <div class="info-row">
+          <div class="info-left">
+            <span class="lbl">Paciente:</span>
+            <span class="val-sm one-line">${this.esc(pacienteNombre)}</span>
+          </div>
+          <div class="info-right">
+            <span class="lbl">Fecha:</span>
+            <span>${this.esc(fecha)}</span>
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-left">
+            <span class="lbl">Diagnóstico:</span>
+            <span class="val-sm one-line">${this.esc(diagnostico)}</span>
+          </div>
+        </div>
+      </div>
+
       <table>
         <thead>
           <tr>
@@ -1468,29 +1943,33 @@ export class MedicoConsultorioComponent implements OnInit {
           </tr>
         </thead>
         <tbody>
-          ${rowsMeds || `<tr><td colspan="6" style="text-align:center;color:#666;padding:8mm;">— Sin medicamentos —</td></tr>`}
+          ${rowsMeds || `<tr><td colspan="6" style="text-align:center;color:#666;padding:6mm;">— Sin medicamentos —</td></tr>`}
         </tbody>
       </table>
 
-      <div class="rec">
-        <div class="lbl2">Recomendaciones:</div>
-        <div class="box">${this.esc(recomendaciones)}</div>
+      ${recomendaciones ? `
+        <div style="margin-top:3mm;">
+          <div style="color:#c54b9a;font-weight:800;font-size:9pt;">Recomendaciones:</div>
+          <div style="border-top:2px solid #d38ab7;min-height:12mm;padding-top:1.2mm;font-size:8.6pt;white-space:pre-wrap;">
+            ${this.esc(recomendaciones)}
+          </div>
+        </div>
+      ` : ``}
+
+      <div class="footer">
+        <div>¡Tu salud, nuestra prioridad!</div>
+        <div style="text-align:right;">
+          ${this.esc(direccion || '—')}
+          ${telefono ? ` · Tel: ${this.esc(telefono)}` : ``}
+        </div>
       </div>
     </div>
-
-    <div class="footer">
-      <div>¡Tu salud, nuestra prioridad!</div>
-      <div>
-        ${this.esc(direccion || '—')}
-        ${telefono ? ` · Tel: ${this.esc(telefono)}` : ``}
-      </div>
-    </div>
-
-    <script>
-      window.onload = () => setTimeout(() => window.print(), 150);
-      window.onafterprint = () => window.close();
-    </script>
   </div>
+
+  <script>
+    window.onload = () => setTimeout(() => window.print(), 150);
+    window.onafterprint = () => window.close();
+  </script>
 </body>
 </html>`;
 
@@ -1584,6 +2063,21 @@ export class MedicoConsultorioComponent implements OnInit {
     const m = hoy.getMonth() - d.getMonth();
     if (m < 0 || (m === 0 && hoy.getDate() < d.getDate())) e--;
     return String(e);
+  }
+
+
+  debeAbrirArriba(i: number): boolean {
+    // Solo cuando ese índice está “activo”
+    if (this.buscandoMedIdx !== i) return false;
+
+    const el = document.getElementById(`med-input-${i}`);
+    if (!el) return false;
+
+    const r = el.getBoundingClientRect();
+    const espacioAbajo = window.innerHeight - r.bottom;
+
+    // 260px dropdown + margen/colchón
+    return espacioAbajo < 300;
   }
 
 

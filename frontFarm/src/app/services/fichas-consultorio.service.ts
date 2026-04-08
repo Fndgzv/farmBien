@@ -6,8 +6,8 @@ import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class FichasConsultorioService {
-  // ✅ Opción 1: deja apiUrl ya apuntando al recurso
-  private apiUrl = `${environment.apiUrl}/fichas-consultorio`;
+
+  private baseUrl = `${environment.apiUrl}/fichas-consultorio`;
 
   constructor(private http: HttpClient) { }
 
@@ -38,48 +38,61 @@ export class FichasConsultorioService {
 
 
   listasParaCobro(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/listas-para-cobro`, { headers: this.headers() });
+    return this.http.get(`${this.baseUrl}/listas-para-cobro`, { headers: this.headers() });
   }
 
   tomarParaCobro(id: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${id}/tomar-para-cobro`, {}, { headers: this.headers() });
-  }
-
-  crearFicha(payload: any): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}`, payload, { headers: this.headers() });
+    return this.http.post(`${this.baseUrl}/${id}/tomar-para-cobro`, {}, { headers: this.headers() });
   }
 
   // (Opcional) Si lo vas a usar en caja para cancelar el cobro
   liberarCobro(id: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${id}/liberar-cobro`, {}, { headers: this.headers() });
+    return this.http.post(`${this.baseUrl}/${id}/liberar-cobro`, {}, { headers: this.headers() });
   }
 
-  obtenerCola(incluirMiAtencion: boolean = true): Observable<any> {
-    return this.http.get(`${this.apiUrl}/cola`, {
-      headers: this.headers(),
-      params: { incluirMiAtencion: incluirMiAtencion ? '1' : '0' }
-    });
+  obtenerColaEnEspera(): Observable<{ ok: boolean; fichas: any[] }> {
+    return this.http.get<{ ok: boolean; fichas: any[] }>(
+      `${this.baseUrl}/cola?estado=EN_ESPERA`,
+      { headers: this.headers() }
+    );
+  }
+
+  obtenerColaMedico(): Observable<{ ok: boolean; fichas: any[] }> {
+    return this.http.get<{ ok: boolean; fichas: any[] }>(
+      `${this.baseUrl}/cola`,
+      { headers: this.headers() }
+    );
+  }
+
+  crearFicha(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}`, payload, { headers: this.headers() });
   }
 
   llamarFicha(id: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${id}/llamar`, {}, { headers: this.headers() });
+    return this.http.post(`${this.baseUrl}/${id}/llamar`, {}, { headers: this.headers() });
   }
 
   reanudarFicha(id: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${id}/reanudar`, {}, { headers: this.headers() });
+    return this.http.post(`${this.baseUrl}/${id}/reanudar`, {}, { headers: this.headers() });
   }
 
   regresarAListaDeEspera(id: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/${id}/regresar-a-espera`, {}, { headers: this.headers() });
+    return this.http.post(`${this.baseUrl}/${id}/regresar-a-espera`, {}, { headers: this.headers() });
   }
 
   // (Opcional) Buscar ficha por folio/tel/nombre en cobro
   buscar(q: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/buscar`, { headers: this.headers(), params: { q } });
+    return this.http.get(`${this.baseUrl}/buscar`, { headers: this.headers(), params: { q } });
   }
 
   actualizarServicios(id: string, payload: any): Observable<any> {
-    return this.http.patch(`${this.apiUrl}/${id}/servicios`, payload, { headers: this.headers() });
+    return this.http.patch(`${this.baseUrl}/${id}/servicios`, payload, { headers: this.headers() });
+  }
+
+  actualizarConceptos(id: string, payload: any): Observable<any> {
+    return this.http.patch(`${this.baseUrl}/${id}/conceptos`, payload, {
+      headers: this.headers()
+    });
   }
 
   buscarServiciosMedicos(q: string) {
@@ -88,16 +101,30 @@ export class FichasConsultorioService {
     });
   }
 
+  buscarProductosConsulta(q: string) {
+    return this.http.get<any>(
+      `${environment.apiUrl}/productos/buscar?q=${encodeURIComponent(q || '')}`,
+      { headers: this.headers() }
+    );
+  }
+
   vincularPaciente(fichaId: string, pacienteId: string): Observable<any> {
     return this.http.patch(
-      `${this.apiUrl}/${fichaId}/vincular-paciente`,
+      `${this.baseUrl}/${fichaId}/vincular-paciente`,
       { pacienteId },
       { headers: this.headers() }
     );
   }
 
   finalizarConsulta(id: string, payload: any): Observable<any> {
-    return this.http.patch(`${this.apiUrl}/${id}/finalizar`, payload, { headers: this.headers() });
+    return this.http.patch(`${this.baseUrl}/${id}/finalizar`, payload, { headers: this.headers() });
+  }
+
+  obtenerFichasEnAtencion(): Observable<{ ok: boolean; fichas: any[] }> {
+    return this.http.get<{ ok: boolean; fichas: any[] }>(
+      `${this.baseUrl}/cola?estado=EN_ATENCION`,
+      { headers: this.headers() }
+    );
   }
 
 }

@@ -12,16 +12,20 @@
       </select>
     </div>
     <div class="col-6 d-flex justify-content-end gap-2">
-
-      <!-- <button (click)="abrirModalPedirFicha()" class="btn-gris">
+      <label>Servicios Consultorio: </label>
+      <button (click)="abrirModalPedirFicha()" class="btn-gris-chico">
         Pedir ficha
       </button>
 
-      <button (click)="abrirModalFichasParaCobro()" class="btn-amarillo">
-        Cobrar ficha
-      </button> -->
+      <button (click)="abrirModalInsumosConsulta()" class="btn-verde-chico">
+        Insumos-Consulta
+      </button>
 
-      <button (click)="abrirModalConsultaPrecio()" class="btn-gris consultar-precio">
+      <button (click)="abrirModalFichasParaCobro()" class="btn-amarillo-chico">
+        Cobrar ficha
+      </button>
+
+      <button (click)="abrirModalConsultaPrecio()" class="btn-consultar-precio">
         Consultar Precio
       </button>
     </div>
@@ -61,7 +65,7 @@
     <div class="col-md-2 position-relative">
       <input type="text" [(ngModel)]="telefonoCliente" (input)="buscarCliente()" class="form-control pe-5" />
       <button *ngIf="telefonoCliente" type="button" (click)="limpiarCliente()" matTooltip="Limpiar cliente"
-        class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+        class="btn-limpiar btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
         <fa-icon [icon]="faTimes"></fa-icon>
       </button>
     </div>
@@ -116,12 +120,12 @@
 
   <div *ngIf="mostrarModalConsultaPrecio" class="modal-overlay">
     <div class="modal-content" style="width: 600px;">
-      <h2>Consultar Precio</h2>
+      <h4>Consultar Precio</h4>
       <div class="input-container position-relative">
         <input type="text" [(ngModel)]="codigoConsulta" (keyup.enter)="consultarPrecio()" placeholder="Código de barras"
           class="input-field">
         <button (click)="limpiarBarras()" matTooltip="Limpiar cód. barras"
-          class="btn btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
+          class="btn-limpiar btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
           <fa-icon [icon]="faTimes"></fa-icon>
         </button>
       </div>
@@ -226,7 +230,7 @@
     <div class="modal-content" style="width: 820px; max-width: 98vw;">
 
       <div class="modal-header-custom position-relative mb-2">
-        <h2 class="mb-0 titulo-modal">Fichas listas para cobro</h2>
+        <h4 class="mb-0 titulo-modal">Fichas listas para cobro</h4>
 
         <button (click)="cerrarModalFichas()" class="btn-rojo-chico btn-cerrar" matTooltip="Cerrar">
           <i class="fas fa-times"></i>
@@ -286,155 +290,317 @@
   <!-- =================== FIN MODAL FICHAS =================== -->
 
 
-  <!-- ===================== MODAL: PEDIR FICHA (CAJA) ===================== -->
-  <div *ngIf="mostrarModalPedirFicha" class="modal-overlay">
-    <div class="modal-content" style="width: 800px; max-width: 98vw;">
+<!-- ===================== MODAL: PEDIR FICHA (CAJA) ===================== -->
+<div *ngIf="mostrarModalPedirFicha" class="modal-overlay">
+  <div class="modal-content" style="width: 980px; max-width: 98vw;">
 
-      <div class="modal-header-custom position-relative mb-2">
-        <h2 class="mb-0 titulo-modal-ficha">Pedir ficha médica</h2>
+    <div class="modal-header-custom position-relative mb-2">
+      <h4 class="mb-0 titulo-modal-ficha">Lista de espera / Pedir ficha médica</h4>
 
-        <button type="button" (click)="cerrarModalPedirFicha()" class="btn-rojo-chico btn-cerrar" matTooltip="Cerrar">
-          <i class="fas fa-times"></i>
-        </button>
+      <button
+        type="button"
+        (click)="cerrarModalPedirFicha()"
+        class="btn-rojo-chico btn-cerrar"
+        matTooltip="Cerrar">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="row g-3">
+      <!-- LISTA DE ESPERA -->
+      <div class="col-lg-7">
+        <div class="border rounded p-2 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-bold">Pacientes en espera</div>
+
+            <button class="btn-amarillo-chico" (click)="cargarFichasEnEspera()">
+              Actualizar
+            </button>
+          </div>
+
+          <div *ngIf="cargandoFichasEspera" class="text-center text-muted py-3">
+            Cargando lista de espera...
+          </div>
+
+          <div *ngIf="!cargandoFichasEspera && fichasEnEspera.length === 0" class="text-center text-muted py-3">
+            No hay pacientes en espera.
+          </div>
+
+          <div *ngIf="!cargandoFichasEspera && fichasEnEspera.length > 0" style="max-height: 380px; overflow: auto;">
+            <table class="tabla" style="font-size: small;">
+              <thead>
+                <tr>
+                  <th style="width: 8%;">#</th>
+                  <th style="width: 32%;">Paciente</th>
+                  <th style="width: 18%;">Teléfono</th>
+                  <th style="width: 22%;">Motivo</th>
+                  <th style="width: 10%;">Pref.</th>
+                  <th style="width: 10%;">Llegada</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let f of fichasEnEspera; let i = index">
+                  <td>{{ i + 1 }}</td>
+                  <td>{{ f.pacienteNombre || '-' }}</td>
+                  <td>{{ f.pacienteTelefono || '-' }}</td>
+                  <td>{{ f.motivo || '-' }}</td>
+                  <td>
+                    <span *ngIf="f.urgencia" class="badge bg-danger">Sí</span>
+                    <span *ngIf="!f.urgencia" class="badge bg-secondary">No</span>
+                  </td>
+                  <td>{{ f.llegadaAt | date:'shortTime' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <div class="row g-2 align-items-end mb-2">
-        <div class="col-md-9">
-          <label class="form-label mb-1">Buscar paciente (CURP o Nombre)</label>
-          <input type="text" class="form-control" [(ngModel)]="busquedaPaciente" (keyup.enter)="buscarPaciente()"
-            placeholder="Ej. ABCD001122HDFXXX09 o Juan Pérez">
-        </div>
+      <!-- FORMULARIO -->
+      <div class="col-lg-5">
+        <div class="border rounded p-3">
+          <div class="fw-bold mb-3">Agregar paciente a la lista</div>
 
-        <div class="col-md-1 d-flex gap-2">
-          <button class="btn-rojo-tache" (click)="limpiarBusquedaPaciente()" matTooltip="Limpiar paciente">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="col-md-2 d-flex">
-          <button class="btn-gris" style="margin-left: 6rem;" (click)="buscarPaciente()">
-            Buscar
-          </button>
-        </div>
-      </div>
-
-      <div class="border rounded p-2 mb-3" style="max-height: 250px; overflow:auto;">
-        <div *ngIf="buscandoPaciente" class="text-muted text-center p-2">Buscando…</div>
-
-        <div class="text-muted text-center p-2"
-          *ngIf="busquedaPacienteHecha && !buscandoPaciente && !pacienteEncontrado && (pacientesEncontrados.length === 0)">
-          Sin resultados. Puedes darlo de alta básico abajo.
-        </div>
-
-        <div *ngIf="pacienteEncontrado" class="p-2 border rounded bg-light">
-          <div class="d-flex justify-content-between align-items-center">
-            <div>
-              <div class="fw-bold">
-                {{ pacienteEncontrado.nombre }} {{ pacienteEncontrado.apellidos }}
-              </div>
-              <small class="text-muted">
-                CURP: {{ pacienteEncontrado.datosGenerales?.curp || '-' }} |
-                Tel: {{ pacienteEncontrado.contacto?.telefono || '-' }}
-              </small>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label mb-1">Nombre(s)</label>
+              <input
+                type="text"
+                class="form-control"
+                [(ngModel)]="nuevaFicha.nombre"
+                placeholder="Ej. Juan Carlos">
             </div>
 
-            <button class="btn btn-success btn-sm" (click)="seleccionarPaciente(pacienteEncontrado)">
-              Seleccionar
+            <div class="col-md-6">
+              <label class="form-label mb-1">Apellido paterno</label>
+              <input
+                type="text"
+                class="form-control"
+                [(ngModel)]="nuevaFicha.aPaterno"
+                placeholder="Ej. Pérez">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label mb-1">Apellido materno</label>
+              <input
+                type="text"
+                class="form-control"
+                [(ngModel)]="nuevaFicha.aMaterno"
+                placeholder="Ej. López">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label mb-1">Teléfono (opcional)</label>
+              <input
+                type="text"
+                class="form-control"
+                [(ngModel)]="nuevaFicha.telefono"
+                placeholder="Ej. 5551234567">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label mb-1">Motivo (opcional)</label>
+              <input
+                type="text"
+                class="form-control"
+                [(ngModel)]="nuevaFicha.motivo"
+                placeholder="Ej. consulta, dolor, inyección, curación...">
+            </div>
+
+            <!-- <div class="col-12 mt-2">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="urgenciaFicha"
+                  [(ngModel)]="nuevaFicha.urgencia">
+                <label class="form-check-label fw-bold text-danger" for="urgenciaFicha">
+                  Marcar con preferencia
+                </label>
+              </div>
+            </div> -->
+          </div>
+
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button class="btn-rojo" (click)="cerrarModalPedirFicha()">
+              Cerrar
             </button>
-          </div>
-        </div>
 
-        <table *ngIf="pacientesEncontrados.length" class="tabla" style="font-size: small;">
-          <thead>
-            <tr>
-              <th style="width: 40%;">Paciente</th>
-              <th style="width: 20%;">CURP</th>
-              <th style="width: 20%;">Tel</th>
-              <th style="width: 20%;">Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let p of pacientesEncontrados">
-              <td>{{ p.nombre }} {{ p.apellidos }}</td>
-              <td>{{ p.datosGenerales?.curp || '-' }}</td>
-              <td>{{ p.contacto?.telefono || '-' }}</td>
-              <td>
-                <button class="btn-amarillo-chico" (click)="seleccionarPaciente(p)">
-                  Seleccionar
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div *ngIf="pacienteSeleccionado" class="alert alert-success py-2">
-        Seleccionado:
-        <strong>{{ pacienteSeleccionado.nombre }} {{ pacienteSeleccionado.apellidos }}</strong>
-        <span class="text-muted">
-          ({{ pacienteSeleccionado.datosGenerales?.curp || 'sin CURP' }})
-        </span>
-        <button class="btn btn-link btn-sm" (click)="pacienteSeleccionado = null">
-          quitar
-        </button>
-      </div>
-
-      <div class="border rounded p-3 mb-3" *ngIf="!pacienteSeleccionado">
-        <div class="fw-bold mb-2">Alta básica (si no existe)</div>
-
-        <div class="row g-2">
-          <div class="col-md-4">
-            <label class="form-label mb-1">Nombre</label>
-            <input type="text" class="form-control" [(ngModel)]="nuevoPaciente.nombre">
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label mb-1">Apellidos</label>
-            <input type="text" class="form-control" [(ngModel)]="nuevoPaciente.apellidos">
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label mb-1">Teléfono</label>
-            <input type="text" class="form-control" [(ngModel)]="nuevoPaciente.telefono">
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label mb-1">CURP (opcional)</label>
-            <input type="text" class="form-control" [(ngModel)]="nuevoPaciente.curp">
-          </div>
-
-          <div class="col-md-6 d-flex align-items-end">
-            <button class="btn-amarillo w-100" (click)="crearPacienteBasico()">
-              Dar de alta
+            <button class="btn-verde" (click)="crearFichaDesdeCaja()" [disabled]="creandoFicha">
+              {{ creandoFicha ? 'Agregando...' : 'Agregar a la lista' }}
             </button>
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="row g-2 mb-3">
-        <div class="col-md-4 d-flex align-items-center" style="margin-top: 2rem;" >
-          <input type="checkbox" id="urgenciaFicha" [(ngModel)]="fichaUrgencia">
-          <label for="urgenciaFicha" class="fw-bold text-danger">Preferencia</label>
-        </div>
+  </div>
+</div>
+<!-- =================== FIN MODAL PEDIR FICHA =================== -->
 
-        <div class="col-md-8">
-          <label class="form-label">Motivo (opcional)</label>
-          <input type="text" class="form-control" [(ngModel)]="fichaMotivo" placeholder="Ej. dolor, inyección, etc.">
+<!-- ===================== MODAL: INSUMOS CONSULTA ===================== -->
+<div *ngIf="mostrarModalInsumosConsulta" class="modal-overlay">
+  <div class="modal-content" style="width: 1100px; max-width: 98vw;">
+    <div class="modal-header-custom position-relative mb-2">
+      <h4 class="mb-0">Insumos de consulta</h4>
+      <button
+        (click)="cerrarModalInsumosConsulta()"
+        class="btn-rojo-chico btn-cerrar-insumos" 
+        matTooltip="Cerrar">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="row g-3">
+      <!-- IZQUIERDA: FICHAS EN ATENCIÓN -->
+      <div class="col-lg-5">
+        <div class="border rounded p-2 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong>Pacientes en atención</strong>
+            <button class="btn-amarillo-chico" (click)="cargarFichasEnAtencion()">Actualizar</button>
+          </div>
+
+          <div *ngIf="cargandoFichasEnAtencion" class="text-center text-muted py-3">
+            Cargando pacientes...
+          </div>
+
+          <div *ngIf="!cargandoFichasEnAtencion && !fichasEnAtencion.length" class="text-center text-muted py-3">
+            No hay pacientes en atención.
+          </div>
+
+          <div *ngIf="!cargandoFichasEnAtencion && fichasEnAtencion.length" style="max-height: 420px; overflow:auto;">
+            <table class="tabla" style="font-size: small;">
+              <thead>
+                <tr>
+                  <th>Paciente</th>
+                  <th>Motivo</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let f of fichasEnAtencion"
+                    [class.table-active]="fichaSeleccionadaInsumos?._id === f._id">
+                  <td>{{ f.pacienteNombre || '-' }}</td>
+                  <td>{{ f.motivo || '-' }}</td>
+                  <td>
+                    <button class="btn-amarillo-chico" (click)="seleccionarFichaInsumos(f)">
+                      Seleccionar
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div *ngIf="fichaSeleccionadaInsumos" class="alert alert-success py-2 mt-2 mb-0">
+            Ficha seleccionada:
+            <strong>{{ fichaSeleccionadaInsumos.pacienteNombre }}</strong>
+          </div>
         </div>
       </div>
+      
+      <!-- DERECHA: INSUMOS -->
+      <div class="col-lg-7">
+        <div class="border rounded p-2 contenedor-insumos-consulta">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong>Insumos aplicados / utilizados</strong>
 
-      <div class="d-flex justify-content-end gap-2">
-        <button class="btn-rojo" (click)="cerrarModalPedirFicha()">
-          Cancelar
-        </button>
+            <button
+              class="btn-gris"
+              [disabled]="!fichaSeleccionadaInsumos"
+              (click)="agregarRenglonInsumo()">
+              + Agregar insumo
+            </button>
+          </div>
 
-        <button class="btn-verde" (click)="crearFichaDesdeCaja()" [disabled]="creandoFicha">
-          {{ creandoFicha ? 'Creando…' : 'Crear ficha' }}
-        </button>
+          <div *ngIf="!fichaSeleccionadaInsumos" class="text-muted text-center py-4">
+            Selecciona primero una ficha en atención.
+          </div>
+
+          <div *ngIf="fichaSeleccionadaInsumos" class="bloque-insumos-consulta">
+            <table class="tablaSM">
+              <thead>
+                <tr>
+                  <th style="width: 55%;">Producto</th>
+                  <th style="width: 10%;">Cant</th>
+                  <th style="width: 25%;">Notas</th>
+                  <th style="width: 10%;">Acc</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let s of insumosConsulta; let i = index">
+                  <td class="dropdown-cell">
+                    <input
+                      class="form-control"
+                      placeholder="Buscar producto por nombre..."
+                      [(ngModel)]="s.query"
+                      (input)="onInputInsumo(i)"
+                      (blur)="blurInsumo(i)"
+                      autocomplete="off">
+
+                    <div class="form-text" *ngIf="!s.productoId && (s.query || '').trim()">
+                      Selecciona un producto de la lista.
+                    </div>
+
+                    <div class="debug-sugerencias">
+                      Sugerencias: {{ s.sugerencias?.length || 0 }}
+                    </div>
+
+                    <div
+                      class="list-group shadow dropdown-results"
+                      *ngIf="(s.sugerencias?.length || 0) > 0">
+                      <button
+                        type="button"
+                        class="list-group-item list-group-item-action"
+                        *ngFor="let p of s.sugerencias"
+                        (mousedown)="seleccionarInsumo(i, p)">
+                        {{ p.nombre }}
+                        <span class="float-end text-muted" *ngIf="p.precioVenta != null">
+                          ${{ p.precioVenta }}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div class="form-text text-muted" *ngIf="s.buscando">Buscando…</div>
+                  </td>
+
+                  <td>
+                    <input class="form-control" type="number" min="1" [(ngModel)]="s.cantidad">
+                  </td>
+
+                  <td>
+                    <input class="form-control" [(ngModel)]="s.notas" placeholder="Opcional">
+                  </td>
+
+                  <td>
+                    <button class="btn btn-sm btn-outline-danger" (click)="quitarRenglonInsumo(i)">
+                      Quitar
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="d-flex justify-content-end gap-2 mt-3">
+              <button class="btn-rojo" (click)="cerrarModalInsumosConsulta()">
+                Cancelar
+              </button>
+
+              <button class="btn-verde"
+                      (click)="guardarInsumosConsulta()"
+                      [disabled]="guardandoInsumosConsulta">
+                {{ guardandoInsumosConsulta ? 'Guardando...' : 'Guardar insumos' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>
+
   </div>
-  <!-- =================== FIN MODAL PEDIR FICHA =================== -->
+</div>
+<!-- =================== FIN MODAL INSUMOS CONSULTA =================== -->
 
   <div class="ventas-container" [style.--thumb-scale]="thumbScale">
     <table class="tabla">

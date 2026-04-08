@@ -220,8 +220,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   fichaSeleccionada: any = null;
   fichaIdSeleccionada: string | null = null;
 
-  mostrarModalPedirFicha = false;
-
   busquedaPaciente = '';
   buscandoPaciente = false;
   busquedaPacienteHecha = false;
@@ -235,7 +233,31 @@ export class VentasComponent implements OnInit, AfterViewInit {
   fichaUrgencia = false;
   fichaMotivo = '';
 
+  mostrarModalPedirFicha = false;
   creandoFicha = false;
+  cargandoFichasEspera = false;
+
+  fichasEnEspera: any[] = [];
+
+  nuevaFicha = {
+    nombre: '',
+    aPaterno: '',
+    aMaterno: '',
+    telefono: '',
+    motivo: '',
+    urgencia: false
+  };
+
+  mostrarModalInsumosConsulta = false;
+  cargandoFichasEnAtencion = false;
+  guardandoInsumosConsulta = false;
+
+  fichasEnAtencion: any[] = [];
+  fichaSeleccionadaInsumos: any = null;
+
+  insumosConsulta: any[] = [];
+
+  timersInsumos = new Map<number, any>();
 
   buildImgUrlRef = buildImgUrl;
   placeholderSrc = 'assets/images/farmBienIcon.png';
@@ -296,7 +318,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     private ventaService: VentaService,
     private farmaciaService: FarmaciaService,
     private fichasService: FichasConsultorioService,
-    private pacientesService: PacientesService,
     private cdRef: ChangeDetectorRef) {
     this.ventaForm = this.fb.group({
       cliente: [''],
@@ -2564,142 +2585,71 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   abrirModalPedirFicha() {
     this.mostrarModalPedirFicha = true;
-    this.limpiarBusquedaPaciente();
-    this.pacienteSeleccionado = null;
-    this.nuevoPaciente = { nombre: '', apellidos: '', telefono: '', curp: '' };
-    this.fichaUrgencia = false;
-    this.fichaMotivo = '';
+    this.resetFormularioFicha();
+    this.cargarFichasEnEspera();
+  }
+
+  cargarFichasEnEspera() {
+    this.cargandoFichasEspera = true;
+
+    this.fichasService.obtenerColaEnEspera().subscribe({
+      next: (resp: any) => {
+        this.fichasEnEspera = resp?.fichas || [];
+        this.cargandoFichasEspera = false;
+      },
+      error: (err: any) => {
+        console.error(err);
+        this.cargandoFichasEspera = false;
+        Swal.fire('Error', err?.error?.msg || 'No se pudo cargar la lista de espera', 'error');
+      }
+    });
   }
 
   cerrarModalPedirFicha() {
     this.mostrarModalPedirFicha = false;
   }
 
-  limpiarBusquedaPaciente() {
-    this.busquedaPaciente = '';
-    this.buscandoPaciente = false;
-    this.busquedaPacienteHecha = false;
-    this.pacienteEncontrado = null;
-    this.pacientesEncontrados = [];
-    this.pacienteSeleccionado = null;
+  resetFormularioFicha() {
+    this.nuevaFicha = {
+      nombre: '',
+      aPaterno: '',
+      aMaterno: '',
+      telefono: '',
+      motivo: '',
+      urgencia: false
+    };
   }
 
+  crearFichaDesdeCaja() {
+    const nombre = (this.nuevaFicha.nombre || '').trim();
+    const aPaterno = (this.nuevaFicha.aPaterno || '').trim();
+    const aMaterno = (this.nuevaFicha.aMaterno || '').trim();
+    const telefono = (this.nuevaFicha.telefono || '').trim();
+    const motivo = (this.nuevaFicha.motivo || '').trim();
+    const urgencia = !!this.nuevaFicha.urgencia;
 
-  buscarPaciente() {
-    const q = (this.busquedaPaciente || '').trim();
-    if (!q) return;
-
-    this.buscandoPaciente = true;
-    this.busquedaPacienteHecha = true;
-    this.pacienteEncontrado = null;
-    this.pacientesEncontrados = [];
-
-    this.pacientesService.buscar(q).subscribe({
-      next: (resp: any) => {
-        if (resp?.paciente) {
-          this.pacienteEncontrado = resp.paciente;
-        } else {
-          this.pacientesEncontrados = resp?.pacientes || [];
-        }
-        this.buscandoPaciente = false;
-      },
-      error: (err: any) => {
-        console.error(err);
-        this.buscandoPaciente = false;
-        Swal.fire('Error', err?.error?.msg || 'No se pudo buscar paciente', 'error');
-      }
-    });
-  }
-
-  crearPacienteBasico() {
-    const nombre = (this.nuevoPaciente.nombre || '').trim();
     if (!nombre) {
-      Swal.fire('Falta nombre', 'Captura al menos el nombre del paciente.', 'warning');
+      Swal.fire('Falta nombre', 'Captura el nombre del paciente.', 'warning');
       return;
     }
 
     const payload = {
-      nombre,
-      apellidos: (this.nuevoPaciente.apellidos || '').trim(),
-      telefono: (this.nuevoPaciente.telefono || '').trim(),
-      curp: (this.nuevoPaciente.curp || '').trim(),
+      pacienteNombre: nombre,
+      pacienteAPaterno: aPaterno,
+      pacienteAMaterno: aMaterno,
+      pacienteTelefono: telefono,
+      motivo,
+      urgencia
     };
-
-    this.pacientesService.crearBasico(payload).subscribe({
-      next: (resp: any) => {
-        const p = resp?.paciente;
-        if (!p) return;
-
-        this.pacienteSeleccionado = p;
-        Swal.fire('OK', resp?.yaExistia ? 'Paciente ya existía, seleccionado.' : 'Paciente creado y seleccionado.', 'success');
-      },
-      error: (err: any) => {
-        console.error(err);
-        Swal.fire('Error', err?.error?.msg || 'No se pudo crear paciente', 'error');
-      }
-    });
-  }
-
-
-  seleccionarPaciente(p: any) {
-    this.pacienteSeleccionado = p;
-  }
-
-  crearFichaDesdeCaja() {
-    if (this.creandoFicha) return; // 🔒 evita doble click/enter
-
-    // ✅ Caso 1: ya seleccionó paciente de la lista
-    const pacienteId = this.pacienteSeleccionado?._id;
-
-    // ✅ Caso 2: alta directa (nombre obligatorio)
-    const nombre = (this.nuevoPaciente.nombre || '').trim();
-    const apellidos = (this.nuevoPaciente.apellidos || '').trim();
-    const nombreDirecto = `${nombre} ${apellidos}`.trim();
-
-    if (!pacienteId && !nombreDirecto) {
-      Swal.fire('Falta paciente', 'Busca/selecciona un paciente o dalo de alta básico.', 'warning');
-      return;
-    }
-
-    // (opcional) Si NO es urgencia, exigir motivo (tú decides)
-    // if (!this.fichaUrgencia && !(this.fichaMotivo || '').trim()) {
-    //   Swal.fire('Falta motivo', 'Captura el motivo de la consulta (o marca Urgencia).', 'warning');
-    //   return;
-    // }
 
     this.creandoFicha = true;
-
-    const payload: any = {
-      urgencia: !!this.fichaUrgencia,
-      motivo: (this.fichaMotivo || '').trim(),
-    };
-
-    if (pacienteId) {
-      payload.pacienteId = pacienteId;
-
-      // ✅ opcional: manda snapshot por si luego quieres mostrar en cola sin populate
-      // payload.pacienteNombre = `${this.pacienteSeleccionado?.nombre || ''} ${this.pacienteSeleccionado?.apellidos || ''}`.trim();
-      // payload.pacienteTelefono = this.pacienteSeleccionado?.contacto?.telefono || '';
-    } else {
-      payload.pacienteNombre = nombreDirecto;
-      payload.pacienteTelefono = (this.nuevoPaciente.telefono || '').trim();
-    }
 
     this.fichasService.crearFicha(payload).subscribe({
       next: (_resp: any) => {
         this.creandoFicha = false;
-
-        Swal.fire('Ficha creada', 'El paciente quedó en espera.', 'success');
-        this.cerrarModalPedirFicha();
-
-        // 🧹 Limpieza
-        this.pacienteEncontrado = null;
-        this.pacientesEncontrados = [];
-        this.pacienteSeleccionado = null;
-        this.busquedaPaciente = '';
-        this.nuevoPaciente = { nombre: '', apellidos: '', telefono: '', curp: '' };
-        this.fichaUrgencia = false;
-        this.fichaMotivo = '';
+        Swal.fire('Ficha creada', 'El paciente fue agregado a la lista de espera.', 'success');
+        this.resetFormularioFicha();
+        this.cargarFichasEnEspera();
       },
       error: (err: any) => {
         console.error(err);
@@ -2708,5 +2658,204 @@ export class VentasComponent implements OnInit, AfterViewInit {
       }
     });
   }
+
+  onInputInsumo(i: number) {
+    const row = this.insumosConsulta[i];
+    if (!row) return;
+
+    const q = (row.query || '').trim();
+
+    if (!q) {
+      row.sugerencias = [];
+      row.productoId = '';
+      return;
+    }
+
+    if (this.timersInsumos.has(i)) {
+      clearTimeout(this.timersInsumos.get(i));
+    }
+
+    this.timersInsumos.set(i, setTimeout(() => this.buscarInsumos(i), 250));
+  }
+
+  private async buscarInsumos(i: number) {
+    const row = this.insumosConsulta[i];
+    if (!row) return;
+
+    const q = (row.query || '').trim();
+    if (q.length < 2) {
+      row.sugerencias = [];
+      return;
+    }
+
+    row.buscando = true;
+    try {
+      const resp = await firstValueFrom(this.fichasService.buscarProductosConsulta(q));
+      console.log('resp productos:', resp);
+      row.sugerencias = resp?.productos ?? resp?.rows ?? [];
+    } catch (e) {
+      console.error(e);
+      row.sugerencias = [];
+    } finally {
+      row.buscando = false;
+    }
+  }
+
+  // ===================== INSUMOS CONSULTA =====================
+
+  nuevoRenglonInsumo() {
+    return {
+      productoId: '',
+      query: '',
+      cantidad: 1,
+      notas: '',
+      sugerencias: [],
+      buscando: false
+    };
+  }
+
+  abrirModalInsumosConsulta() {
+    this.mostrarModalInsumosConsulta = true;
+    this.fichaSeleccionadaInsumos = null;
+    this.insumosConsulta = [this.nuevoRenglonInsumo()];
+    this.cargarFichasEnAtencion();
+  }
+
+  cerrarModalInsumosConsulta() {
+    this.mostrarModalInsumosConsulta = false;
+    this.fichaSeleccionadaInsumos = null;
+    this.insumosConsulta = [];
+  }
+
+  cargarFichasEnAtencion() {
+    this.cargandoFichasEnAtencion = true;
+
+    this.fichasService.obtenerFichasEnAtencion().subscribe({
+      next: (resp: any) => {
+        this.fichasEnAtencion = resp?.fichas || [];
+        this.cargandoFichasEnAtencion = false;
+      },
+      error: (err: any) => {
+        console.error(err);
+        this.cargandoFichasEnAtencion = false;
+        Swal.fire('Error', err?.error?.msg || 'No se pudo cargar las fichas en atención', 'error');
+      }
+    });
+  }
+
+  seleccionarFichaInsumos(ficha: any) {    
+    this.fichaSeleccionadaInsumos = ficha;
+
+    const previos = Array.isArray(ficha?.servicios) ? ficha.servicios : [];
+
+    const soloNoMedicos = previos.filter((x: any) => {
+      const categoria = (x?.categoria || '').trim();
+      return categoria !== 'Servicio Médico';
+    });
+
+    if (soloNoMedicos.length) {
+      this.insumosConsulta = soloNoMedicos.map((x: any) => ({
+        productoId: x.productoId || '',
+        query: x.nombre || '',
+        cantidad: x.cantidad || 1,
+        notas: x.notas || '',
+        sugerencias: [],
+        buscando: false,
+        categoria: x.categoria || ''
+      }));
+    } else {
+      this.insumosConsulta = [this.nuevoRenglonInsumo()];
+    }
+  }
+
+  agregarRenglonInsumo() {
+    this.insumosConsulta.push(this.nuevoRenglonInsumo());
+  }
+
+  quitarRenglonInsumo(i: number) {
+    this.insumosConsulta.splice(i, 1);
+
+    if (!this.insumosConsulta.length) {
+      this.insumosConsulta.push(this.nuevoRenglonInsumo());
+    }
+  }
+
+  seleccionarInsumo(i: number, p: any) {
+    const row = this.insumosConsulta[i];
+    if (!row) return;
+
+    row.productoId = p._id;
+    row.query = p.nombre;
+    row.sugerencias = [];
+  }
+
+  blurInsumo(i: number) {
+    setTimeout(() => {
+      const row = this.insumosConsulta[i];
+      if (row) row.sugerencias = [];
+    }, 150);
+  }
+
+  async guardarInsumosConsulta() {
+    if (!this.fichaSeleccionadaInsumos?._id) {
+      Swal.fire('Falta ficha', 'Selecciona un paciente en atención.', 'warning');
+      return;
+    }
+
+    const conceptosOk = (this.insumosConsulta || [])
+      .map(x => ({
+        ...x,
+        productoId: (x.productoId || '').trim(),
+        notas: (x.notas || '').trim(),
+        cantidad: Number(x.cantidad || 1)
+      }))
+      .filter(x => !!x.productoId)
+      .map(x => ({
+        productoId: x.productoId,
+        cantidad: x.cantidad > 0 ? x.cantidad : 1,
+        notas: x.notas
+      }));
+
+    const r = await Swal.fire({
+      icon: 'question',
+      title: '¿Guardar insumos?',
+      html: `
+      <div style="text-align:left">
+        Se actualizarán los insumos de la ficha de
+        <b>${this.fichaSeleccionadaInsumos.pacienteNombre || 'Paciente'}</b>.
+      </div>
+    `,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, guardar',
+      cancelButtonText: 'No',
+      reverseButtons: true
+    });
+
+    if (!r.isConfirmed) return;
+
+    this.guardandoInsumosConsulta = true;
+
+    try {
+      const payload = {
+        servicios: conceptosOk,
+        finalizar: false,
+        modoAgregar: false
+      };
+
+      await firstValueFrom(
+        this.fichasService.actualizarConceptos(this.fichaSeleccionadaInsumos._id, payload)
+      );
+
+      await Swal.fire('Listo', 'Los insumos se actualizaron correctamente en la ficha.', 'success');
+
+      this.cerrarModalInsumosConsulta();
+    } catch (e: any) {
+      console.error(e);
+      Swal.fire('Error', e?.error?.msg || 'No se pudieron guardar los insumos', 'error');
+    } finally {
+      this.guardandoInsumosConsulta = false;
+    }
+  }
+  // =================== FIN INSUMOS CONSULTA ===================
 
 }

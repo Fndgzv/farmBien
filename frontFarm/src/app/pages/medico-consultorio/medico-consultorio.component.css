@@ -1,0 +1,21 @@
+.dropdown-results{
+  position: absolute;
+  left: 0;
+  right: 0;
+
+  top: 100%;
+  margin-top: 4px;
+
+  z-index: 9999;
+  max-height: 260px;
+  overflow: auto;
+  font-size: small;
+}
+
+/* abre hacia arriba cuando no hay espacio abajo */
+.drop-up .dropdown-results{
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}

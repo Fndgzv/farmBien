@@ -23,9 +23,22 @@
   margin-left: 15px;
 }
 
-.consultar-precio {
+.btn-consultar-precio {
   margin-left: auto;
   /* esto mueve el botón hasta el extremo derecho */
+  font-size: small;
+  font-weight: 400;
+  padding: 3px;
+  border-radius: 6px;
+  background: linear-gradient(45deg, #f9f8f5, #f9e6bf);
+  color: rgb(31, 92, 31);
+
+}
+
+.btn-consultar-precio:hover {
+  background: linear-gradient(45deg, #f9e6bf, #f9f8f5);
+  box-shadow: 0 4px 8px rgba(255, 204, 0, 0.5);
+  color: blue;
 }
 
 /* Contenedor en una fila, con poco espacio entre elementos */
@@ -62,9 +75,15 @@
 .cantidad-ajustada {
   animation: blinkStock 1s ease;
 }
+
 @keyframes blinkStock {
-  0% { background:#ffd6d6; }
-  100% { background:transparent; }
+  0% {
+    background: #ffd6d6;
+  }
+
+  100% {
+    background: transparent;
+  }
 }
 
 
@@ -123,7 +142,7 @@
 
 .left {
   text-align: left;
-  font-size:xx-large;
+  font-size: xx-large;
   color: blueviolet;
 }
 
@@ -133,7 +152,7 @@
 
 .right {
   text-align: right;
-  font-size:xx-large;
+  font-size: xx-large;
   color: blueviolet;
 }
 
@@ -183,18 +202,26 @@
   padding: 5px;
 }
 
-.modal-x{
+.modal-x {
   position: absolute;
   top: -6px;
   right: -6px;
   z-index: 5;
 }
 
-.modal-header-custom{
+.modal-header-custom {
   position: relative;
 }
 
-.btn-cerrar{
+.btn-cerrar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  z-index: 5;
+}
+
+.btn-cerrar-insumos {
   position: absolute;
   top: 0;
   right: 0;
@@ -203,17 +230,21 @@
 }
 
 /* reserva el “hueco” del botón */
-.titulo-modal{
+.titulo-modal {
   text-align: center;
-  padding-right: 220px;   /* ajusta según el tamaño del botón */
-  padding-left: 220px;    /* opcional para que quede centrado real */
+  padding-right: 220px;
+  /* ajusta según el tamaño del botón */
+  padding-left: 220px;
+  /* opcional para que quede centrado real */
 }
 
 /* reserva el “hueco” del botón */
-.titulo-modal-ficha{
+.titulo-modal-ficha {
   text-align: center;
-  padding-right: 255px;   /* ajusta según el tamaño del botón */
-  padding-left: 255px;    /* opcional para que quede centrado real */
+  padding-right: 255px;
+  /* ajusta según el tamaño del botón */
+  padding-left: 255px;
+  /* opcional para que quede centrado real */
 }
 
 .select {
@@ -310,7 +341,7 @@
   margin-right: 8px !important;
 }
 
-.btn {
+.btn-limpiar {
   width: 1.7rem;
   margin-right: 15px;
 }
@@ -486,8 +517,14 @@ th {
 }
 
 /* Por si tenías altura fija en filas */
-table tr{ height: auto; }
-td, th{ vertical-align: middle; }
+table tr {
+  height: auto;
+}
+
+td,
+th {
+  vertical-align: middle;
+}
 
 /* zoom imagen */
 .consulta-img-wrap {
@@ -583,12 +620,15 @@ td, th{ vertical-align: middle; }
 }
 
 .col-producto .prod-ubicacion {
-  display: block;          /* asegura salto de línea */
+  display: block;
+  /* asegura salto de línea */
   margin-top: 2px;
-  font-size: 12px;         /* letra pequeña */
-  color:red;
+  font-size: 12px;
+  /* letra pequeña */
+  color: red;
   line-height: 1.1;
-  overflow-wrap: anywhere; /* por si es larga */
+  overflow-wrap: anywhere;
+  /* por si es larga */
 }
 
 /* Que el texto del producto envuelva bien y no se amontone */
@@ -624,4 +664,86 @@ td, th{ vertical-align: middle; }
   .scale-select {
     width: 100px;
   }
+}
+
+/* =========================
+   MODAL INSUMOS CONSULTA
+   ========================= */
+
+.contenedor-insumos-consulta,
+.bloque-insumos-consulta {
+  overflow: visible !important;
+}
+
+.tablaSM {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  overflow: visible;
+}
+
+.tablaSM th,
+.tablaSM td {
+  border: 1px solid rgba(90, 0, 110, 0.35);
+  padding: 6px;
+  vertical-align: top;
+  overflow: visible;
+}
+
+.tablaSM th {
+  background: #d69cf0;
+  color: #222;
+  text-align: center;
+}
+
+.tablaSM td {
+  background: #ebc2f7;
+}
+
+.tablaSM td.dropdown-cell {
+  position: relative;
+  overflow: visible !important;
+}
+
+.dropdown-results {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  text-align: left;
+}
+
+.dropdown-results .list-group-item {
+  text-align: left;
+  white-space: normal;
+  font-size: 14px;
+  background: #fff;
+}
+
+.dropdown-results .list-group-item:hover {
+  background: #f3f3f3;
+}
+
+.debug-sugerencias {
+  font-size: 12px;
+  color: #8a2be2;
+  margin-top: 3px;
+}
+
+/* Evita que el modal recorte el dropdown */
+.modal-content,
+.modal-content .row,
+.modal-content .col-lg-7,
+.modal-content .col-lg-5,
+.modal-content .border,
+.modal-content .card,
+.modal-content .card-body {
+  overflow: visible !important;
 }
