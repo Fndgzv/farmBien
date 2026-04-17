@@ -298,6 +298,314 @@ button {
   --fondo-tabla-header: #4fbeff;
 }
 
+/* =============================
+   Utilidades UI reutilizables
+   ============================= */
+.ui-modal-shell {
+  border: 1px solid #d8e5f1;
+  box-shadow: 0 14px 34px rgba(12, 38, 68, 0.22);
+}
+
+.ui-panel-card {
+  border-radius: 12px !important;
+}
+
+.ui-section-title {
+  letter-spacing: 0.01em;
+}
+
+.ui-note-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.ui-btn-tight {
+  padding: 7px 12px;
+  border-radius: 9px;
+}
+
+.ui-icon-btn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ui-input-control {
+  border-color: #b6c8dc;
+  box-shadow: none;
+}
+
+.ui-input-control:focus {
+  border-color: #6d97c6;
+  box-shadow: 0 0 0 0.2rem rgba(109, 151, 198, 0.2);
+}
+
+.ui-feedback {
+  min-height: 1.05rem;
+}
+
+.ui-action-row {
+  align-items: center;
+}
+
+/* =============================
+   Modal: Insumos de consulta
+   ============================= */
+.insumos-modal {
+  position: relative;
+  width: min(1120px, 98vw);
+  max-height: 92vh;
+  padding: 16px 16px 18px;
+  border-radius: 14px;
+  text-align: left;
+  overflow: auto;
+}
+
+.insumos-modal__header {
+  position: relative;
+  padding: 8px 72px 14px;
+  border-bottom: 1px solid #d4e4f0;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.insumos-modal__title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #173455;
+  line-height: 1.1;
+}
+
+.insumos-modal__subtitle {
+  margin-top: 6px;
+  font-size: 0.95rem;
+  color: #4c627a;
+}
+
+.insumos-close-btn {
+  top: 14px;
+  right: 14px;
+  box-shadow: 0 8px 14px rgba(62, 15, 20, 0.28);
+}
+
+.insumos-layout {
+  margin-top: 4px;
+}
+
+.insumos-panel {
+  border-color: #d5e1ee !important;
+  background: linear-gradient(180deg, #f6fbff 0%, #edf6fd 100%);
+  box-shadow: 0 10px 20px rgba(23, 52, 85, 0.08);
+}
+
+.insumos-panel__title {
+  font-size: 1.05rem;
+  color: #1f3b5a;
+}
+
+.insumos-pacientes-scroll {
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.insumos-pacientes-tabla {
+  font-size: 0.9rem;
+}
+
+.insumos-pacientes-tabla td,
+.insumos-pacientes-tabla th {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.insumos-ficha-seleccionada {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #9fc8b0;
+  background: #dff4e6;
+  color: #123d2b;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.insumos-ficha-seleccionada__label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #2e6b4f;
+}
+
+.insumos-ficha-seleccionada__name {
+  font-size: 1.15rem;
+}
+
+.insumos-btn-add,
+.insumos-btn-refresh,
+.insumos-btn-select,
+.insumos-btn-remove {
+  min-height: 34px;
+  line-height: 1.1;
+}
+
+.insumos-btn-add {
+  min-width: 170px;
+}
+
+.insumos-empty-state {
+  border: 1px dashed #b6cadc;
+  border-radius: 10px;
+  background: #f7fbff;
+}
+
+.contenedor-insumos-consulta,
+.bloque-insumos-consulta {
+  overflow: visible !important;
+}
+
+.insumos-tabla {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  overflow: visible;
+}
+
+.insumos-tabla th,
+.insumos-tabla td {
+  border: 1px solid rgba(56, 90, 124, 0.35);
+  padding: 8px;
+  vertical-align: top;
+  overflow: visible;
+}
+
+.insumos-tabla th {
+  background: #c9a4eb;
+  color: #221d27;
+  text-align: center;
+  font-size: 1.02rem;
+}
+
+.insumos-tabla td {
+  background: #e9d3fb;
+}
+
+.insumos-tabla td.dropdown-cell {
+  position: relative;
+  overflow: visible !important;
+}
+
+.insumos-producto-cell {
+  text-align: left;
+}
+
+.insumos-field-group {
+  display: block;
+}
+
+.insumos-field-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #435e7b;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.insumos-input {
+  min-height: 40px;
+  border-radius: 8px;
+}
+
+.insumos-cantidad-input {
+  min-height: 40px;
+  text-align: center;
+}
+
+.insumos-feedback {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.insumos-btn-remove {
+  margin: 0 auto;
+}
+
+.dropdown-results {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  text-align: left;
+}
+
+.dropdown-results .list-group-item {
+  text-align: left;
+  white-space: normal;
+  font-size: 14px;
+  background: #fff;
+}
+
+.dropdown-results .list-group-item:hover {
+  background: #eef5fb;
+}
+
+.insumos-actions {
+  border-top: 1px solid #cedaea;
+  padding-top: 14px;
+}
+
+.insumos-btn-cancel,
+.insumos-btn-save {
+  min-width: 160px;
+  min-height: 42px;
+  font-size: 1.02rem;
+}
+
+/* Evita que el modal recorte el dropdown */
+.insumos-modal,
+.insumos-modal .row,
+.insumos-modal .col-lg-7,
+.insumos-modal .col-lg-5,
+.insumos-modal .border,
+.insumos-modal .card,
+.insumos-modal .card-body {
+  overflow: visible !important;
+}
+
+@media (max-width: 991px) {
+  .insumos-modal {
+    width: 98vw;
+    max-height: 95vh;
+    padding: 12px;
+  }
+
+  .insumos-modal__title {
+    font-size: 1.6rem;
+  }
+
+  .insumos-modal__header {
+    padding: 6px 60px 12px;
+  }
+
+  .insumos-tabla th,
+  .insumos-tabla td {
+    padding: 6px;
+  }
+}
+
 /* 📌 Tabla */
 .tabla {
   width: 100%;

@@ -137,6 +137,34 @@ function generarCurpProvisional({
   return `${p1}${p2}${p3}${p4}${fecha}${sx}${ent}${c1}${c2}${c3}00`;
 }
 
+const SEXOS_VALIDOS = ["M", "F", "Otro", "NoEspecifica"];
+const TABAQUISMO_VALIDO = ["No", "Si", "Ex"];
+const ALCOHOL_VALIDO = ["No", "Si", "Ocasional"];
+
+const cleanStr = (v) => String(v ?? "").trim();
+
+const cleanArr = (v) => {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((item) => cleanStr(item))
+    .filter(Boolean);
+};
+
+function buildAntecedentesDoc(antRaw = {}) {
+  const tabaquismo = cleanStr(antRaw?.tabaquismo);
+  const alcohol = cleanStr(antRaw?.alcohol);
+
+  return {
+    alergias: cleanArr(antRaw?.alergias),
+    enfermedadesCronicas: cleanArr(antRaw?.enfermedadesCronicas),
+    cirugiasPrevias: cleanArr(antRaw?.cirugiasPrevias),
+    medicamentosActuales: cleanArr(antRaw?.medicamentosActuales),
+    antecedentesFamiliares: cleanArr(antRaw?.antecedentesFamiliares),
+    tabaquismo: TABAQUISMO_VALIDO.includes(tabaquismo) ? tabaquismo : "No",
+    alcohol: ALCOHOL_VALIDO.includes(alcohol) ? alcohol : "No",
+  };
+}
+
 exports.buscar = async (req, res) => {
   try {
     const q = String(req.query.q || "").trim();
@@ -149,7 +177,7 @@ exports.buscar = async (req, res) => {
       activo: true,
       "datosGenerales.curp": qUp
     })
-      .select("nombre apPaterno apMaterno contacto.telefono datosGenerales.curp datosGenerales.curpEsProvisional")
+      .select("nombre apPaterno apMaterno contacto.telefono contacto.email datosGenerales.curp datosGenerales.curpEsProvisional datosGenerales.fechaNacimiento datosGenerales.sexo datosGenerales.entidadNacimiento")
       .lean();
 
     if (byCurp) return res.json({ ok: true, paciente: byCurp });
@@ -162,7 +190,7 @@ exports.buscar = async (req, res) => {
       nombreCompletoNorm: { $regex: qNorm, $options: "i" },
     })
       .limit(20)
-      .select("nombre apPaterno apMaterno contacto.telefono datosGenerales.curp datosGenerales.curpEsProvisional")
+      .select("nombre apPaterno apMaterno contacto.telefono contacto.email datosGenerales.curp datosGenerales.curpEsProvisional datosGenerales.fechaNacimiento datosGenerales.sexo datosGenerales.entidadNacimiento")
       .lean();
 
     return res.json({ ok: true, pacientes });
@@ -353,7 +381,6 @@ exports.agregarSignosVitales = async (req, res) => {
       fr: body.fr ?? undefined,
       spo2: body.spo2 ?? undefined,
       glucosaCapilar: body.glucosaCapilar ?? undefined,
-      notas: (body.notas || "").trim(),
       tomadoPor: medicoId,
       farmaciaId: farmaciaId || undefined,
     };
@@ -413,5 +440,158 @@ exports.agregarNotaClinica = async (req, res) => {
   } catch (err) {
     console.error("agregarNotaClinica:", err);
     return res.status(500).json({ msg: "Error al guardar nota clínica" });
+  }
+};
+
+exports.actualizarPaciente = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const farmaciaId = getFarmaciaActiva(req);
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ msg: "ID inválido" });
+    }
+
+    const body = req.body || {};
+    const set = {};
+    const unset = {};
+
+    const actual = await Paciente.findById(id)
+      .select("nombre apPaterno apMaterno contacto datosGenerales antecedentes activo")
+      .lean();
+
+    if (!actual) {
+      return res.status(404).json({ msg: "Paciente no encontrado" });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "nombre")) {
+      const nombre = cleanStr(body.nombre);
+      if (!nombre) return res.status(400).json({ msg: "nombre es requerido" });
+      set["nombre"] = nombre;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "apPaterno")) {
+      const apPaterno = cleanStr(body.apPaterno);
+      if (!apPaterno) return res.status(400).json({ msg: "apPaterno es requerido" });
+      set["apPaterno"] = apPaterno;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "apMaterno")) {
+      set["apMaterno"] = cleanStr(body.apMaterno);
+    }
+
+    if (body.contacto && typeof body.contacto === "object") {
+      const c = body.contacto;
+
+      if (Object.prototype.hasOwnProperty.call(c, "telefono")) {
+        set["contacto.telefono"] = cleanStr(c.telefono);
+      }
+      if (Object.prototype.hasOwnProperty.call(c, "email")) {
+        set["contacto.email"] = cleanStr(c.email).toLowerCase();
+      }
+      if (Object.prototype.hasOwnProperty.call(c, "direccion")) {
+        set["contacto.direccion"] = cleanStr(c.direccion);
+      }
+
+      if (c.emergencia && typeof c.emergencia === "object") {
+        const e = c.emergencia;
+        if (Object.prototype.hasOwnProperty.call(e, "nombre")) {
+          set["contacto.emergencia.nombre"] = cleanStr(e.nombre);
+        }
+        if (Object.prototype.hasOwnProperty.call(e, "telefono")) {
+          set["contacto.emergencia.telefono"] = cleanStr(e.telefono);
+        }
+        if (Object.prototype.hasOwnProperty.call(e, "parentesco")) {
+          set["contacto.emergencia.parentesco"] = cleanStr(e.parentesco);
+        }
+      }
+    }
+
+    if (body.datosGenerales && typeof body.datosGenerales === "object") {
+      const dg = body.datosGenerales;
+
+      if (Object.prototype.hasOwnProperty.call(dg, "fechaNacimiento")) {
+        if (dg.fechaNacimiento) {
+          const fecha = new Date(dg.fechaNacimiento);
+          if (isNaN(fecha.getTime())) {
+            return res.status(400).json({ msg: "fechaNacimiento inválida" });
+          }
+          set["datosGenerales.fechaNacimiento"] = fecha;
+        } else {
+          unset["datosGenerales.fechaNacimiento"] = 1;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(dg, "sexo")) {
+        const sexo = cleanStr(dg.sexo) || "NoEspecifica";
+        if (!SEXOS_VALIDOS.includes(sexo)) {
+          return res.status(400).json({ msg: "sexo inválido" });
+        }
+        set["datosGenerales.sexo"] = sexo;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(dg, "curp")) {
+        const curp = norm(dg.curp);
+        if (curp) {
+          set["datosGenerales.curp"] = curp;
+        } else {
+          unset["datosGenerales.curp"] = 1;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(dg, "curpEsProvisional")) {
+        set["datosGenerales.curpEsProvisional"] = !!dg.curpEsProvisional;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(dg, "entidadNacimiento")) {
+        const entidadNacimiento = cleanStr(dg.entidadNacimiento);
+        set["datosGenerales.entidadNacimiento"] = entidadNacimiento ? entidadCURP(entidadNacimiento) : "";
+      }
+
+      if (Object.prototype.hasOwnProperty.call(dg, "ocupacion")) {
+        set["datosGenerales.ocupacion"] = cleanStr(dg.ocupacion);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(dg, "escolaridad")) {
+        set["datosGenerales.escolaridad"] = cleanStr(dg.escolaridad);
+      }
+    }
+
+    if (body.antecedentes && typeof body.antecedentes === "object") {
+      set["antecedentes"] = buildAntecedentesDoc(body.antecedentes);
+    }
+
+    const nombreFinal = Object.prototype.hasOwnProperty.call(set, "nombre")
+      ? set["nombre"]
+      : cleanStr(actual.nombre);
+    const apPaternoFinal = Object.prototype.hasOwnProperty.call(set, "apPaterno")
+      ? set["apPaterno"]
+      : cleanStr(actual.apPaterno);
+    const apMaternoFinal = Object.prototype.hasOwnProperty.call(set, "apMaterno")
+      ? set["apMaterno"]
+      : cleanStr(actual.apMaterno);
+
+    const full = `${nombreFinal} ${apPaternoFinal} ${apMaternoFinal}`.trim();
+    set["nombreCompletoNorm"] = normLower(full);
+
+    const update = {};
+    if (Object.keys(set).length > 0) update.$set = set;
+    if (Object.keys(unset).length > 0) update.$unset = unset;
+    if (farmaciaId) update.$addToSet = { farmaciasVinculadas: farmaciaId };
+
+    const paciente = await Paciente.findByIdAndUpdate(id, update, {
+      new: true,
+      runValidators: true,
+    })
+      .select("nombre apPaterno apMaterno contacto datosGenerales antecedentes activo")
+      .lean();
+
+    return res.json({ ok: true, paciente });
+  } catch (err) {
+    console.error("actualizarPaciente:", err);
+    if (err?.code === 11000) {
+      return res.status(400).json({ msg: "Ya existe un paciente con ese CURP" });
+    }
+    return res.status(500).json({ msg: "Error al actualizar paciente" });
   }
 };

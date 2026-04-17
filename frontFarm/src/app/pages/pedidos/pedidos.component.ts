@@ -162,9 +162,15 @@ export class PedidosComponent implements OnInit {
       });
       return;
     }
-    this.filtroFolio = folio.trim();
-    // Solo disparamos la búsqueda cuando haya exactamente 6 caracteres alfanuméricos
-    if (/^[A-Za-z0-9]{6}$/.test(this.filtroFolio)) {
+    const folioNormalizado = String(folio || '')
+      .toUpperCase()
+      .replace(/[^A-Z]/g, '')
+      .slice(0, 6);
+
+    this.filtroFolio = folioNormalizado;
+
+    // Solo disparamos la búsqueda cuando haya exactamente 6 letras
+    if (/^[A-Z]{6}$/.test(this.filtroFolio)) {
       this.pedidosService
         .obtenerPedidos(this.farmaciaId, undefined, undefined, this.filtroFolio, 'inicial')
         .subscribe({

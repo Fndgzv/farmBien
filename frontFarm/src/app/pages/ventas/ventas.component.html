@@ -122,7 +122,7 @@
     <div class="modal-content" style="width: 600px;">
       <h4>Consultar Precio</h4>
       <div class="input-container position-relative">
-        <input type="text" [(ngModel)]="codigoConsulta" (keyup.enter)="consultarPrecio()" placeholder="Código de barras"
+        <input #codigoConsultaRef type="text" [(ngModel)]="codigoConsulta" (keyup.enter)="consultarPrecio()" placeholder="Código de barras"
           class="input-field">
         <button (click)="limpiarBarras()" matTooltip="Limpiar cód. barras"
           class="btn-limpiar btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
@@ -246,10 +246,9 @@
         <table *ngIf="fichasParaCobro" class="tabla">
           <thead>
             <tr>
-              <th style="width: 36%">Paciente</th>
-              <th style="width: 20%;" class="text-center">Pref.</th>
-              <th style="width: 20%;" class="text-center">Llegada</th>
-              <th style="width: 24%;" class="text-center">Acción</th>
+              <th style="width: 52%">Paciente</th>
+              <th style="width: 22%;" class="text-center">Llegada</th>
+              <th style="width: 26%;" class="text-center">Acción</th>
             </tr>
           </thead>
 
@@ -257,12 +256,6 @@
             <tr *ngFor="let f of fichasParaCobro">
               <td>
                 <div>{{ f.pacienteNombre }}</div>
-              </td>
-
-              <td class="text-center">
-                <span class="badge" [ngClass]="f.urgencia ? 'bg-danger' : 'bg-secondary'">
-                  {{ f.urgencia ? 'Sí' : 'No' }}
-                </span>
               </td>
 
               <td class="text-center">
@@ -331,23 +324,16 @@
               <thead>
                 <tr>
                   <th style="width: 8%;">#</th>
-                  <th style="width: 32%;">Paciente</th>
-                  <th style="width: 18%;">Teléfono</th>
-                  <th style="width: 22%;">Motivo</th>
-                  <th style="width: 10%;">Pref.</th>
-                  <th style="width: 10%;">Llegada</th>
+                  <th style="width: 40%;">Paciente</th>
+                  <th style="width: 32%;">Motivo</th>
+                  <th style="width: 20%;">Llegada</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let f of fichasEnEspera; let i = index">
                   <td>{{ i + 1 }}</td>
                   <td>{{ f.pacienteNombre || '-' }}</td>
-                  <td>{{ f.pacienteTelefono || '-' }}</td>
                   <td>{{ f.motivo || '-' }}</td>
-                  <td>
-                    <span *ngIf="f.urgencia" class="badge bg-danger">Sí</span>
-                    <span *ngIf="!f.urgencia" class="badge bg-secondary">No</span>
-                  </td>
                   <td>{{ f.llegadaAt | date:'shortTime' }}</td>
                 </tr>
               </tbody>
@@ -390,21 +376,25 @@
             </div>
 
             <div class="col-12">
-              <label class="form-label mb-1">Teléfono (opcional)</label>
-              <input
-                type="text"
-                class="form-control"
-                [(ngModel)]="nuevaFicha.telefono"
-                placeholder="Ej. 5551234567">
+              <label class="form-label mb-1">Motivo</label>
+              <select
+                class="form-select"
+                [(ngModel)]="nuevaFicha.motivo"
+                (ngModelChange)="onCambioMotivoFicha($event)">
+                <option [ngValue]="''">Selecciona un motivo</option>
+                <option *ngFor="let motivo of motivosFichaCatalogo" [ngValue]="motivo">
+                  {{ motivo }}
+                </option>
+              </select>
             </div>
 
-            <div class="col-12">
-              <label class="form-label mb-1">Motivo (opcional)</label>
+            <div class="col-12" *ngIf="nuevaFicha.motivo === motivoFichaOtro">
+              <label class="form-label mb-1">Motivo personalizado</label>
               <input
                 type="text"
                 class="form-control"
-                [(ngModel)]="nuevaFicha.motivo"
-                placeholder="Ej. consulta, dolor, inyección, curación...">
+                [(ngModel)]="nuevaFicha.motivoOtro"
+                placeholder="Escribe el motivo">
             </div>
 
             <!-- <div class="col-12 mt-2">
@@ -440,24 +430,29 @@
 
 <!-- ===================== MODAL: INSUMOS CONSULTA ===================== -->
 <div *ngIf="mostrarModalInsumosConsulta" class="modal-overlay">
-  <div class="modal-content" style="width: 1100px; max-width: 98vw;">
-    <div class="modal-header-custom position-relative mb-2">
-      <h4 class="mb-0">Insumos de consulta</h4>
-      <button
-        (click)="cerrarModalInsumosConsulta()"
-        class="btn-rojo-chico btn-cerrar-insumos" 
-        matTooltip="Cerrar">
-        <i class="fas fa-times"></i>
-      </button>
+  <div class="modal-content insumos-modal ui-modal-shell">
+    <button
+      type="button"
+      (click)="cerrarModalInsumosConsulta()"
+      class="btn-rojo-chico btn-cerrar-insumos insumos-close-btn"
+      matTooltip="Cerrar modal de insumos">
+      <i class="fas fa-times"></i>
+    </button>
+
+    <div class="insumos-modal__header">
+      <h4 class="mb-0 insumos-modal__title">Insumos de consulta</h4>
+      <p class="insumos-modal__subtitle mb-0">Registra productos utilizados por el paciente</p>
     </div>
 
-    <div class="row g-3">
+    <div class="row g-3 insumos-layout">
       <!-- IZQUIERDA: FICHAS EN ATENCIÓN -->
       <div class="col-lg-5">
-        <div class="border rounded p-2 h-100">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong>Pacientes en atención</strong>
-            <button class="btn-amarillo-chico" (click)="cargarFichasEnAtencion()">Actualizar</button>
+        <div class="border rounded p-3 h-100 insumos-panel insumos-panel--pacientes ui-panel-card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <strong class="insumos-panel__title ui-section-title">Pacientes en atención</strong>
+            <button type="button" class="btn-amarillo-chico insumos-btn-refresh ui-btn-tight" (click)="cargarFichasEnAtencion()">
+              Actualizar
+            </button>
           </div>
 
           <div *ngIf="cargandoFichasEnAtencion" class="text-center text-muted py-3">
@@ -468,8 +463,8 @@
             No hay pacientes en atención.
           </div>
 
-          <div *ngIf="!cargandoFichasEnAtencion && fichasEnAtencion.length" style="max-height: 420px; overflow:auto;">
-            <table class="tabla" style="font-size: small;">
+          <div *ngIf="!cargandoFichasEnAtencion && fichasEnAtencion.length" class="insumos-pacientes-scroll">
+            <table class="tabla insumos-pacientes-tabla">
               <thead>
                 <tr>
                   <th>Paciente</th>
@@ -483,7 +478,7 @@
                   <td>{{ f.pacienteNombre || '-' }}</td>
                   <td>{{ f.motivo || '-' }}</td>
                   <td>
-                    <button class="btn-amarillo-chico" (click)="seleccionarFichaInsumos(f)">
+                    <button type="button" class="btn-amarillo-chico insumos-btn-select ui-btn-tight" (click)="seleccionarFichaInsumos(f)">
                       Seleccionar
                     </button>
                   </td>
@@ -492,58 +487,63 @@
             </table>
           </div>
 
-          <div *ngIf="fichaSeleccionadaInsumos" class="alert alert-success py-2 mt-2 mb-0">
-            Ficha seleccionada:
-            <strong>{{ fichaSeleccionadaInsumos.pacienteNombre }}</strong>
+          <div *ngIf="fichaSeleccionadaInsumos" class="insumos-ficha-seleccionada ui-note-card mt-3">
+            <span class="insumos-ficha-seleccionada__label">Ficha seleccionada</span>
+            <strong class="insumos-ficha-seleccionada__name">{{ fichaSeleccionadaInsumos.pacienteNombre }}</strong>
           </div>
         </div>
       </div>
-      
+
       <!-- DERECHA: INSUMOS -->
       <div class="col-lg-7">
-        <div class="border rounded p-2 contenedor-insumos-consulta">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong>Insumos aplicados / utilizados</strong>
+        <div class="border rounded p-3 contenedor-insumos-consulta insumos-panel insumos-panel--captura ui-panel-card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <strong class="insumos-panel__title ui-section-title">Insumos aplicados / utilizados</strong>
 
             <button
-              class="btn-gris"
+              type="button"
+              class="btn-gris insumos-btn-add ui-btn-tight"
               [disabled]="!fichaSeleccionadaInsumos"
               (click)="agregarRenglonInsumo()">
               + Agregar insumo
             </button>
           </div>
 
-          <div *ngIf="!fichaSeleccionadaInsumos" class="text-muted text-center py-4">
+          <div *ngIf="!fichaSeleccionadaInsumos" class="text-muted text-center py-4 insumos-empty-state">
             Selecciona primero una ficha en atención.
           </div>
 
           <div *ngIf="fichaSeleccionadaInsumos" class="bloque-insumos-consulta">
-            <table class="tablaSM">
+            <table class="tablaSM insumos-tabla">
               <thead>
                 <tr>
-                  <th style="width: 55%;">Producto</th>
+                  <th style="width: 58%;">Producto</th>
                   <th style="width: 10%;">Cant</th>
-                  <th style="width: 25%;">Notas</th>
+                  <th style="width: 22%;">Notas</th>
                   <th style="width: 10%;">Acc</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let s of insumosConsulta; let i = index">
-                  <td class="dropdown-cell">
-                    <input
-                      class="form-control"
-                      placeholder="Buscar producto por nombre..."
-                      [(ngModel)]="s.query"
-                      (input)="onInputInsumo(i)"
-                      (blur)="blurInsumo(i)"
-                      autocomplete="off">
-
-                    <div class="form-text" *ngIf="!s.productoId && (s.query || '').trim()">
-                      Selecciona un producto de la lista.
+                  <td class="dropdown-cell insumos-producto-cell">
+                    <div class="insumos-field-group">
+                      <label class="insumos-field-label">Producto (nombre o código de barras)</label>
+                      <input
+                        class="form-control insumos-input ui-input-control"
+                        placeholder="Busca por nombre o captura/escanea código de barras..."
+                        [(ngModel)]="s.query"
+                        (input)="onInputInsumo(i)"
+                        (keyup.enter)="buscarInsumoInmediato(i)"
+                        (blur)="blurInsumo(i)"
+                        autocomplete="off">
                     </div>
 
-                    <div class="debug-sugerencias">
-                      Sugerencias: {{ s.sugerencias?.length || 0 }}
+                    <div class="form-text insumos-feedback ui-feedback" *ngIf="!s.productoId && (s.query || '').trim()">
+                      Escribe nombre o código y selecciona un producto para aplicar el insumo.
+                    </div>
+
+                    <div class="form-text text-muted insumos-feedback ui-feedback" *ngIf="s.feedbackBusqueda">
+                      {{ s.feedbackBusqueda }}
                     </div>
 
                     <div
@@ -555,6 +555,7 @@
                         *ngFor="let p of s.sugerencias"
                         (mousedown)="seleccionarInsumo(i, p)">
                         {{ p.nombre }}
+                        <small class="d-block text-muted" *ngIf="p.codigoBarras">Código: {{ p.codigoBarras }}</small>
                         <span class="float-end text-muted" *ngIf="p.precioVenta != null">
                           ${{ p.precioVenta }}
                         </span>
@@ -565,28 +566,33 @@
                   </td>
 
                   <td>
-                    <input class="form-control" type="number" min="1" [(ngModel)]="s.cantidad">
+                    <input class="form-control insumos-cantidad-input" type="number" min="1" [(ngModel)]="s.cantidad">
                   </td>
 
                   <td>
-                    <input class="form-control" [(ngModel)]="s.notas" placeholder="Opcional">
+                    <input class="form-control insumos-input ui-input-control" [(ngModel)]="s.notas" placeholder="Opcional">
                   </td>
 
                   <td>
-                    <button class="btn btn-sm btn-outline-danger" (click)="quitarRenglonInsumo(i)">
-                      Quitar
+                    <button
+                      type="button"
+                      class="btn-rojo-chico insumos-btn-remove ui-btn-tight ui-icon-btn"
+                      (click)="quitarRenglonInsumo(i)"
+                      matTooltip="Quitar">
+                      <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                      <span class="visually-hidden">Quitar</span>
                     </button>
                   </td>
                 </tr>
               </tbody>
             </table>
 
-            <div class="d-flex justify-content-end gap-2 mt-3">
-              <button class="btn-rojo" (click)="cerrarModalInsumosConsulta()">
+            <div class="d-flex justify-content-end gap-2 mt-4 insumos-actions ui-action-row">
+              <button type="button" class="btn-rojo insumos-btn-cancel ui-btn-tight" (click)="cerrarModalInsumosConsulta()">
                 Cancelar
               </button>
 
-              <button class="btn-verde"
+              <button type="button" class="btn-verde insumos-btn-save ui-btn-tight"
                       (click)="guardarInsumosConsulta()"
                       [disabled]="guardandoInsumosConsulta">
                 {{ guardandoInsumosConsulta ? 'Guardando...' : 'Guardar insumos' }}
@@ -817,3 +823,4 @@
 <div id="ticketVenta" class="ticket-impresion" *ngIf="mostrarTicket && ventaParaImpresion as data">
   <app-venta-ticket [venta]="data"></app-venta-ticket>
 </div>
+

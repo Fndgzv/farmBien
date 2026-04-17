@@ -11,6 +11,7 @@ import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faPen, faPlus } from '@fortawesome/free-solid-svg-icons';
 
 declare const bootstrap: any;
+
 @Component({
   selector: 'app-usuarios',
   imports: [CommonModule, ReactiveFormsModule, FormsModule, FontAwesomeModule, MatTooltipModule],
@@ -36,8 +37,21 @@ export class UsuariosComponent implements OnInit {
 
   ngOnInit(): void {
     this.inicializarFormulario();
+    this.configurarValidacionesPorRol();
     this.cargarUsuarios();
     this.cargarFarmacias();
+  }
+
+  get rolSeleccionado(): string {
+    return this.formUsuario.get('rol')?.value || '';
+  }
+
+  get requiereFarmacia(): boolean {
+    return ['empleado', 'medico', 'ajustaFarma'].includes(this.rolSeleccionado);
+  }
+
+  get esRolMedico(): boolean {
+    return this.rolSeleccionado === 'medico';
   }
 
   inicializarFormulario() {
@@ -50,11 +64,73 @@ export class UsuariosComponent implements OnInit {
       domicilio: [''],
       rol: ['', Validators.required],
       farmacia: [''],
-      cedulaProfesional: ['']
+      cedulaProfesional: [''],
+      titulo: [''],
+      escuela: ['']
     });
   }
 
-  obtenerNombreFarmacia(farmacia: string | { _id: string; nombre: string } | undefined): string {
+  configurarValidacionesPorRol() {
+    this.formUsuario.get('rol')?.valueChanges.subscribe((rol) => {
+      this.aplicarValidacionesPorRol(rol);
+    });
+
+    this.aplicarValidacionesPorRol(this.formUsuario.get('rol')?.value);
+  }
+
+  aplicarValidacionesPorRol(rol: string | null | undefined) {
+    const farmaciaControl = this.formUsuario.get('farmacia');
+    const cedulaControl = this.formUsuario.get('cedulaProfesional');
+    const tituloControl = this.formUsuario.get('titulo');
+    const escuelaControl = this.formUsuario.get('escuela');
+
+    if (['empleado', 'medico', 'ajustaFarma'].includes(rol || '')) {
+      farmaciaControl?.setValidators([Validators.required]);
+    } else {
+      farmaciaControl?.clearValidators();
+      farmaciaControl?.setValue('', { emitEvent: false });
+    }
+
+    if (rol === 'medico') {
+      cedulaControl?.setValidators([Validators.required]);
+      tituloControl?.setValidators([Validators.required]);
+      escuelaControl?.setValidators([Validators.required]);
+    } else {
+      cedulaControl?.clearValidators();
+      tituloControl?.clearValidators();
+      escuelaControl?.clearValidators();
+      cedulaControl?.setValue('', { emitEvent: false });
+      tituloControl?.setValue('', { emitEvent: false });
+      escuelaControl?.setValue('', { emitEvent: false });
+    }
+
+    farmaciaControl?.updateValueAndValidity({ emitEvent: false });
+    cedulaControl?.updateValueAndValidity({ emitEvent: false });
+    tituloControl?.updateValueAndValidity({ emitEvent: false });
+    escuelaControl?.updateValueAndValidity({ emitEvent: false });
+  }
+
+  resetFormularioUsuario() {
+    this.formUsuario.get('password')?.setValidators([Validators.minLength(6)]);
+    this.formUsuario.get('password')?.updateValueAndValidity({ emitEvent: false });
+
+    this.formUsuario.reset({
+      nombre: '',
+      usuario: '',
+      telefono: '',
+      email: '',
+      password: '',
+      domicilio: '',
+      rol: '',
+      farmacia: '',
+      cedulaProfesional: '',
+      titulo: '',
+      escuela: ''
+    });
+    this.aplicarValidacionesPorRol('');
+  }
+
+  obtenerNombreFarmacia(farmacia: string | { _id: string; nombre: string } | undefined | null): string {
     if (typeof farmacia === 'object' && farmacia?.nombre) {
       return farmacia.nombre;
     }
@@ -78,7 +154,7 @@ export class UsuariosComponent implements OnInit {
   abrirModalAgregar() {
     this.modoEdicion = false;
     this.usuarioEditandoId = null;
-    this.formUsuario.reset();
+    this.resetFormularioUsuario();
     this.mostrarModal();
   }
 
@@ -86,28 +162,35 @@ export class UsuariosComponent implements OnInit {
     this.modoEdicion = true;
     this.usuarioEditandoId = usuario._id || null;
 
-    // Normalizar campos para evitar errores
     const datos = {
       ...usuario,
+      password: '',
       farmacia: typeof usuario.farmacia === 'object' && usuario.farmacia !== null
         ? usuario.farmacia._id
-        : '',
+        : (usuario.farmacia || ''),
       cedulaProfesional: usuario.rol === 'medico'
         ? usuario.cedulaProfesional || ''
+        : '',
+      titulo: usuario.rol === 'medico'
+        ? usuario.titulo || ''
+        : '',
+      escuela: usuario.rol === 'medico'
+        ? usuario.escuela || ''
         : ''
     };
 
+    this.formUsuario.get('password')?.setValidators([Validators.minLength(6)]);
+    this.formUsuario.get('password')?.updateValueAndValidity({ emitEvent: false });
 
     this.formUsuario.patchValue(datos);
+    this.aplicarValidacionesPorRol(usuario.rol);
 
-    // Mostrar modal
     const modalElement = document.getElementById('modalUsuario');
     if (modalElement) {
       const modal = new bootstrap.Modal(modalElement, { backdrop: 'static', keyboard: false });
       modal.show();
     }
   }
-
 
   mostrarModal() {
     const modalElement = document.getElementById('modalUsuario');
@@ -121,15 +204,20 @@ export class UsuariosComponent implements OnInit {
   }
 
   guardar() {
-    if (this.formUsuario.invalid || this.guardando) return;
+    if (this.guardando) return;
+
+    if (this.formUsuario.invalid) {
+      this.formUsuario.markAllAsTouched();
+      return;
+    }
+
     this.guardando = true;
 
     const datosOriginal = this.formUsuario.value;
     const datos = this.limpiarDatosUsuarioPorRol({
       ...datosOriginal,
-      nuevaPassword: datosOriginal.password  // 👈 esto es CLAVE para que el backend reciba correctamente
+      nuevaPassword: datosOriginal.password
     });
-
 
     const finalizar = () => {
       const modalElement = document.getElementById('modalUsuario');
@@ -138,10 +226,9 @@ export class UsuariosComponent implements OnInit {
       this.guardando = false;
       this.usuarioEditandoId = null;
       this.modoEdicion = false;
-      this.formUsuario.reset();
+      this.resetFormularioUsuario();
     };
 
-    // Si NO es edición, forzamos validación de contraseña
     if (!this.modoEdicion) {
       const passwordControl = this.formUsuario.get('password');
       passwordControl?.setValidators([Validators.required, Validators.minLength(6)]);
@@ -157,7 +244,11 @@ export class UsuariosComponent implements OnInit {
     if (this.modoEdicion && this.usuarioEditandoId) {
       this.usuarioService.actualizarUsuario(this.usuarioEditandoId, datos).subscribe({
         next: () => Swal.fire('Actualizado', 'Usuario actualizado', 'success').then(finalizar),
-        error: () => { Swal.fire('Error', 'No se pudo actualizar', 'error'); this.guardando = false; }
+        error: (err) => {
+          const mensaje = err?.error?.mensaje || 'No se pudo actualizar';
+          Swal.fire('Error', mensaje, 'error');
+          this.guardando = false;
+        }
       });
     } else {
       this.usuarioService.crearUsuario(datos).subscribe({
@@ -178,41 +269,51 @@ export class UsuariosComponent implements OnInit {
       case 'admin':
         datos.farmacia = null;
         datos.cedulaProfesional = undefined;
+        datos.titulo = undefined;
+        datos.escuela = undefined;
         break;
 
       case 'empleado':
         if (!datos.farmacia) datos.farmacia = null;
         datos.cedulaProfesional = undefined;
+        datos.titulo = undefined;
+        datos.escuela = undefined;
         break;
 
       case 'medico':
         if (!datos.farmacia) datos.farmacia = null;
         if (!datos.cedulaProfesional) datos.cedulaProfesional = undefined;
+        if (!datos.titulo) datos.titulo = undefined;
+        if (!datos.escuela) datos.escuela = undefined;
         break;
 
       case 'ajustaAlmacen':
         datos.farmacia = null;
         datos.cedulaProfesional = undefined;
+        datos.titulo = undefined;
+        datos.escuela = undefined;
         break;
 
       case 'ajustaSoloAlmacen':
         datos.farmacia = null;
         datos.cedulaProfesional = undefined;
+        datos.titulo = undefined;
+        datos.escuela = undefined;
         break;
 
       case 'ajustaFarma':
         if (!datos.farmacia) datos.farmacia = null;
         datos.cedulaProfesional = undefined;
+        datos.titulo = undefined;
+        datos.escuela = undefined;
         break;
     }
 
-    // Valores vacíos en general también pueden limpiarse:
     if (!datos.email) datos.email = undefined;
     if (!datos.domicilio) datos.domicilio = undefined;
     if (!datos.telefono) datos.telefono = undefined;
+    if (!datos.password) datos.password = undefined;
 
     return datos;
   }
-
-
 }

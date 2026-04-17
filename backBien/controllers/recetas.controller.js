@@ -10,13 +10,6 @@ function getFarmaciaActiva(req) {
   return farmaciaId ? String(farmaciaId) : null;
 }
 
-function getFarmaciaActiva(req) {
-  const fromUser = req.usuario?.farmacia;
-  const fromHeader = req.headers["x-farmacia-id"];
-  const farmaciaId = fromHeader || fromUser;
-  return farmaciaId ? String(farmaciaId) : null;
-}
-
 exports.obtenerPorId = async (req, res) => {
   try {
     const { id } = req.params;
@@ -25,9 +18,9 @@ exports.obtenerPorId = async (req, res) => {
 
     const receta = await Receta.findOne({ _id: id, farmaciaId })
       .populate({ path: "pacienteId", select: "nombre apPaterno apMaterno contacto datosGenerales" })
-      .populate({ path: "medicoId", select: "nombre apellidos cedula titulo1 titulo2" })
+      .populate({ path: "medicoId", select: "nombre cedulaProfesional titulo escuela" })
       .populate({ path: "farmaciaId", select: "nombre titulo1 titulo2 direccion telefono imagen" })
-      .populate({ path: "medicamentos.productoId", select: "nombre ingreActivo codigoBarras" })
+      .populate({ path: "medicamentos.productoId", select: "nombre ingreActivo codigoBarras categoria" })
       .lean();
 
     if (!receta) return res.status(404).json({ msg: "Receta no encontrada" });
@@ -83,7 +76,6 @@ exports.crear = async (req, res) => {
 
     const {
       pacienteId,
-      motivoConsulta,
       diagnosticos = [],
       observaciones,
       medicamentos = [],
@@ -107,7 +99,6 @@ exports.crear = async (req, res) => {
       pacienteId,
       medicoId,
       farmaciaId,
-      motivoConsulta: (motivoConsulta || "").trim(),
       diagnosticos: Array.isArray(diagnosticos) ? diagnosticos.map(d => String(d).trim()).filter(Boolean) : [],
       observaciones: (observaciones || "").trim(),
       medicamentos,
@@ -145,4 +136,3 @@ exports.crear = async (req, res) => {
     return res.status(500).json({ msg: "Error al crear receta" });
   }
 };
-

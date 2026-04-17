@@ -4,6 +4,12 @@ const bcrypt = require('bcryptjs');
 const Usuario = require('../models/Usuario');
 const Farmacia = require('../models/Farmacia');
 
+const normalizarTexto = (valor) => {
+    if (valor === undefined || valor === null) return undefined;
+    const limpio = String(valor).trim();
+    return limpio ? limpio : undefined;
+};
+
 exports.obtenerUsuarios = async (req, res) => {
     try {
         const usuarios = await Usuario.find().populate('farmacia', 'nombre');
@@ -18,12 +24,38 @@ exports.obtenerUsuarios = async (req, res) => {
 exports.actualizarUsuario = async (req, res) => {
     try {
         const { id } = req.params;
-        const { usuario, nombre, nuevaPassword, email, telefono, domicilio, rol, farmacia, cedulaProfesional } = req.body;
+        const {
+            usuario,
+            nombre,
+            nuevaPassword,
+            email,
+            telefono,
+            domicilio,
+            rol,
+            farmacia,
+            cedulaProfesional,
+            titulo,
+            escuela
+        } = req.body;
 
-        let usuarioEncontrado = await Usuario.findById(id);
+        const usuarioEncontrado = await Usuario.findById(id);
         if (!usuarioEncontrado) {
             return res.status(404).json({ mensaje: "Usuario no encontrado" });
         }
+
+        const rolDestino = rol || usuarioEncontrado.rol;
+        const farmaciaDestino = farmacia !== undefined && farmacia !== null && String(farmacia).trim()
+            ? String(farmacia).trim()
+            : (usuarioEncontrado.farmacia ? String(usuarioEncontrado.farmacia) : '');
+        const cedulaDestino = cedulaProfesional !== undefined
+            ? normalizarTexto(cedulaProfesional)
+            : normalizarTexto(usuarioEncontrado.cedulaProfesional);
+        const tituloDestino = titulo !== undefined
+            ? normalizarTexto(titulo)
+            : normalizarTexto(usuarioEncontrado.titulo);
+        const escuelaDestino = escuela !== undefined
+            ? normalizarTexto(escuela)
+            : normalizarTexto(usuarioEncontrado.escuela);
 
         // Validar usuario nuevo si cambia
         if (usuario && usuario !== usuarioEncontrado.usuario) {
@@ -58,56 +90,57 @@ exports.actualizarUsuario = async (req, res) => {
             usuarioEncontrado.password = await bcrypt.hash(nuevaPassword, salt);
         }
 
-
-        // Validaciones y lógica según el nuevo rol
-        if (rol) {
-            if (rol === 'admin') {
-                usuarioEncontrado.farmacia = null;
-                usuarioEncontrado.cedulaProfesional = undefined;
+        let farmaciaExistente = null;
+        if (['medico', 'empleado', 'ajustaFarma'].includes(rolDestino)) {
+            if (!farmaciaDestino) {
+                const mensajes = {
+                    medico: 'Un médico debe estar asignado a una farmacia.',
+                    empleado: 'Un empleado debe estar asignado a una farmacia.',
+                    ajustaFarma: 'Un ajustador de farmacia debe tener una farmacia asignada.'
+                };
+                return res.status(400).json({ mensaje: mensajes[rolDestino] });
             }
 
-            if (rol === 'medico') {
-                if (!farmacia) {
-                    return res.status(400).json({ mensaje: "Un médico debe estar asignado a una farmacia." });
-                }
-                if (!cedulaProfesional) {
-                    return res.status(400).json({ mensaje: "La cédula profesional es obligatoria para médicos." });
-                }
-                usuarioEncontrado.farmacia = farmacia;
-                usuarioEncontrado.cedulaProfesional = cedulaProfesional;
+            farmaciaExistente = await Farmacia.findById(farmaciaDestino);
+            if (!farmaciaExistente) {
+                return res.status(404).json({ mensaje: 'Farmacia no encontrada' });
             }
-
-            if (rol === 'empleado') {
-                if (!farmacia) {
-                    return res.status(400).json({ mensaje: "Un empleado debe estar asignado a una farmacia." });
-                }
-                usuarioEncontrado.farmacia = farmacia;
-                usuarioEncontrado.cedulaProfesional = undefined;
-            }
-
-            if (rol === 'ajustaAlmacen' || rol === 'ajustaSoloAlmacen') {
-                usuarioEncontrado.farmacia = null;
-                usuarioEncontrado.cedulaProfesional = undefined;
-            }
-
-            if (rol === 'ajustaFarma') {
-                if (!farmacia) {
-                    return res.status(400).json({ mensaje: "Un ajustador de farmacia debe tener una farmacia asignada." });
-                }
-                usuarioEncontrado.farmacia = farmacia;
-                usuarioEncontrado.cedulaProfesional = undefined;
-            }
-
-            usuarioEncontrado.rol = rol;
         }
 
-        // Validar farmacia si se indica aparte del cambio de rol
-        if (farmacia && !['medico', 'empleado'].includes(rol)) {
-            const farmaciaExistente = await Farmacia.findById(farmacia);
-            if (!farmaciaExistente) {
-                return res.status(404).json({ mensaje: "Farmacia no encontrada" });
+        if (rolDestino === 'medico') {
+            if (!cedulaDestino) {
+                return res.status(400).json({ mensaje: 'La cédula profesional es obligatoria para médicos.' });
             }
-            usuarioEncontrado.farmacia = farmacia;
+            if (!tituloDestino) {
+                return res.status(400).json({ mensaje: 'El título es obligatorio para médicos.' });
+            }
+            if (!escuelaDestino) {
+                return res.status(400).json({ mensaje: 'La institución educativa es obligatoria para médicos.' });
+            }
+        }
+
+        usuarioEncontrado.rol = rolDestino;
+
+        if (rolDestino === 'medico') {
+            usuarioEncontrado.farmacia = farmaciaExistente ? farmaciaExistente._id : farmaciaDestino;
+            usuarioEncontrado.cedulaProfesional = cedulaDestino;
+            usuarioEncontrado.titulo = tituloDestino;
+            usuarioEncontrado.escuela = escuelaDestino;
+        } else if (rolDestino === 'empleado') {
+            usuarioEncontrado.farmacia = farmaciaExistente ? farmaciaExistente._id : farmaciaDestino;
+            usuarioEncontrado.cedulaProfesional = undefined;
+            usuarioEncontrado.titulo = undefined;
+            usuarioEncontrado.escuela = undefined;
+        } else if (rolDestino === 'ajustaFarma') {
+            usuarioEncontrado.farmacia = farmaciaExistente ? farmaciaExistente._id : farmaciaDestino;
+            usuarioEncontrado.cedulaProfesional = undefined;
+            usuarioEncontrado.titulo = undefined;
+            usuarioEncontrado.escuela = undefined;
+        } else {
+            usuarioEncontrado.farmacia = null;
+            usuarioEncontrado.cedulaProfesional = undefined;
+            usuarioEncontrado.titulo = undefined;
+            usuarioEncontrado.escuela = undefined;
         }
 
         // Actualizar otros campos
@@ -118,9 +151,9 @@ exports.actualizarUsuario = async (req, res) => {
 
         const usuarioActualizado = await Usuario.findById(id).populate('farmacia', 'nombre direccion telefono');
 
-        res.json({ mensaje: "Usuario actualizado correctamente", usuario: usuarioActualizado });
+        res.json({ mensaje: 'Usuario actualizado correctamente', usuario: usuarioActualizado });
     } catch (error) {
-        res.status(500).json({ mensaje: "Error al actualizar usuario", error });
+        res.status(500).json({ mensaje: 'Error al actualizar usuario', error });
     }
 };
 
@@ -131,11 +164,23 @@ exports.registrarUsuario = async (req, res) => {
         return res.status(400).json({ errores: errores.array() });
     }
 
-    const { usuario, nombre, telefono, email, password, domicilio, rol, farmacia, cedulaProfesional } = req.body;
+    const {
+        usuario,
+        nombre,
+        telefono,
+        email,
+        password,
+        domicilio,
+        rol,
+        farmacia,
+        cedulaProfesional,
+        titulo,
+        escuela
+    } = req.body;
 
     const telefonoRegex = /^\d{10}$/;
     if (telefono && !telefonoRegex.test(telefono)) {
-        return res.status(400).json({ mensaje: "El teléfono debe contener exactamente 10 dígitos numéricos." });
+        return res.status(400).json({ mensaje: 'El teléfono debe contener exactamente 10 dígitos numéricos.' });
     }
 
     try {
@@ -159,13 +204,22 @@ exports.registrarUsuario = async (req, res) => {
         }
 
         let farmaciaAsignada = null;
+        const cedulaNormalizada = normalizarTexto(cedulaProfesional);
+        const tituloNormalizado = normalizarTexto(titulo);
+        const escuelaNormalizada = normalizarTexto(escuela);
 
         if (rol === 'medico') {
             if (!farmacia) {
-                return res.status(400).json({ mensaje: "Un médico debe estar asignado a una farmacia." });
+                return res.status(400).json({ mensaje: 'Un médico debe estar asignado a una farmacia.' });
             }
-            if (!cedulaProfesional) {
-                return res.status(400).json({ mensaje: "La cédula profesional es obligatoria para médicos." });
+            if (!cedulaNormalizada) {
+                return res.status(400).json({ mensaje: 'La cédula profesional es obligatoria para médicos.' });
+            }
+            if (!tituloNormalizado) {
+                return res.status(400).json({ mensaje: 'El título es obligatorio para médicos.' });
+            }
+            if (!escuelaNormalizada) {
+                return res.status(400).json({ mensaje: 'La institución educativa es obligatoria para médicos.' });
             }
             farmaciaAsignada = await Farmacia.findById(farmacia);
             if (!farmaciaAsignada) {
@@ -175,7 +229,7 @@ exports.registrarUsuario = async (req, res) => {
 
         if (rol === 'empleado') {
             if (!farmacia) {
-                return res.status(400).json({ mensaje: "Un empleado debe estar asignado a una farmacia." });
+                return res.status(400).json({ mensaje: 'Un empleado debe estar asignado a una farmacia.' });
             }
             farmaciaAsignada = await Farmacia.findById(farmacia);
             if (!farmaciaAsignada) {
@@ -184,13 +238,12 @@ exports.registrarUsuario = async (req, res) => {
         }
 
         if (rol === 'ajustaAlmacen' || rol === 'ajustaSoloAlmacen') {
-            // No requiere farmacia ni cédula
             farmaciaAsignada = null;
         }
 
         if (rol === 'ajustaFarma') {
             if (!farmacia) {
-                return res.status(400).json({ mensaje: "Un usuario ajustaFarma debe estar asignado a una farmacia." });
+                return res.status(400).json({ mensaje: 'Un usuario ajustaFarma debe estar asignado a una farmacia.' });
             }
             farmaciaAsignada = await Farmacia.findById(farmacia);
 
@@ -209,7 +262,9 @@ exports.registrarUsuario = async (req, res) => {
             domicilio,
             rol,
             farmacia: farmaciaAsignada ? farmaciaAsignada._id : null,
-            cedulaProfesional: rol === 'medico' ? cedulaProfesional : undefined
+            cedulaProfesional: rol === 'medico' ? cedulaNormalizada : undefined,
+            titulo: rol === 'medico' ? tituloNormalizado : undefined,
+            escuela: rol === 'medico' ? escuelaNormalizada : undefined,
         });
 
         await nuevoUsuario.save();
@@ -223,4 +278,3 @@ exports.registrarUsuario = async (req, res) => {
         res.status(500).json({ mensaje: 'Error en el servidor', error });
     }
 };
-

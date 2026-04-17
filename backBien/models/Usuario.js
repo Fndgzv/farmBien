@@ -37,6 +37,23 @@ const UsuarioSchema = new mongoose.Schema({
 
     cedulaProfesional: {
         type: String,
+        trim: true,
+        required: function () {
+            return this.rol === "medico";
+        }
+    },
+
+    titulo: {
+        type: String,
+        trim: true,
+        required: function () {
+            return this.rol === "medico";
+        }
+    },
+
+    escuela: {
+        type: String,
+        trim: true,
         required: function () {
             return this.rol === "medico";
         }

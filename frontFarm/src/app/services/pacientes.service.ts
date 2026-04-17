@@ -24,6 +24,15 @@ export interface CrearPacienteConsultorioPayload {
   generarCurp?: boolean;
 }
 
+export interface ActualizarPacientePayload {
+  nombre?: string;
+  apPaterno?: string;
+  apMaterno?: string;
+  contacto?: any;
+  datosGenerales?: any;
+  antecedentes?: any;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PacientesService {
   private baseUrl = `${environment.apiUrl}/pacientes`;
@@ -79,6 +88,12 @@ export class PacientesService {
 
   crearConsultorio(payload: CrearPacienteConsultorioPayload): Observable<PacienteResp> {
     return this.http.post<PacienteResp>(`${this.baseUrl}`, payload, {
+      headers: this.headers()
+    });
+  }
+
+  actualizarPaciente(pacienteId: string, payload: ActualizarPacientePayload | any): Observable<any> {
+    return this.http.patch<any>(`${this.baseUrl}/${pacienteId}`, payload, {
       headers: this.headers()
     });
   }

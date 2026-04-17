@@ -48,7 +48,9 @@ router.put('/:id', auth, isAdmin,
     [
         check('nombre', 'El nombre es obligatorio').not().isEmpty(),
         check('usuario', 'El usuario es obligatorio').not().isEmpty(),
-        check('password', 'La contraseña debe tener mínimo 6 caracteres').isLength({ min: 6 }),
+        check('nuevaPassword', 'La contraseña debe tener mínimo 6 caracteres')
+            .optional({ checkFalsy: true })
+            .isLength({ min: 6 }),
     ],
     actualizarUsuario);
 

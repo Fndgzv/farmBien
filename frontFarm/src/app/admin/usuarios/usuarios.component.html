@@ -26,7 +26,7 @@
                 <td>{{ u.email || '-' }}</td>
                 <td>{{ obtenerNombreFarmacia(u.farmacia) }}</td>
                 <td>
-                    <button class="btn-icon-chico btn-gris-chico" (click)="editar(u)" matTooltip ="Editar">
+                    <button class="btn-icon-chico btn-gris-chico" (click)="editar(u)" matTooltip="Editar">
                         <fa-icon [icon]="'pen'"></fa-icon>
                     </button>
                 </td>
@@ -86,13 +86,7 @@
                             </select>
                         </div>
 
-                        <!-- Solo para empleado y médico -->
-                        <div class="col-md-6 mb-2"
-                            *ngIf="formUsuario && (
-                                formUsuario.get('rol')?.value === 'empleado' ||
-                                formUsuario.get('rol')?.value === 'medico' ||
-                                formUsuario.get('rol')?.value === 'ajustaFarma'
-                                )">
+                        <div class="col-md-6 mb-2" *ngIf="requiereFarmacia">
                             <label>Farmacia asignada:</label>
                             <select class="form-control" formControlName="farmacia">
                                 <option value="">-- Selecciona una farmacia --</option>
@@ -100,10 +94,21 @@
                             </select>
                         </div>
 
-                        <!-- Solo para médico -->
-                        <div class="col-md-6 mb-2" *ngIf="formUsuario && formUsuario.get('rol')?.value === 'medico'">
+                        <div class="col-md-6 mb-2" *ngIf="esRolMedico">
                             <label>Cédula profesional:</label>
                             <input type="text" class="form-control" formControlName="cedulaProfesional">
+                        </div>
+
+                        <div class="col-md-6 mb-2" *ngIf="esRolMedico">
+                            <label>Título:</label>
+                            <input type="text" class="form-control" formControlName="titulo"
+                                placeholder="Ej. Especialista en medicina familiar">
+                        </div>
+
+                        <div class="col-md-12 mb-2" *ngIf="esRolMedico">
+                            <label>Escuela:</label>
+                            <input type="text" class="form-control" formControlName="escuela"
+                                placeholder="Ej. Universidad Nacional Autónoma de México">
                         </div>
                     </div>
                 </form>
@@ -117,3 +122,4 @@
         </div>
     </div>
 </div>
+

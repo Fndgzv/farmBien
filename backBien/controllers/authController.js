@@ -51,7 +51,7 @@ exports.iniciarSesion = async (req, res) => {
       const token = jwt.sign(
         { id: usuarioExistente.id, rol: usuarioExistente.rol },
         process.env.JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: '12h' }
       );
 
       return res.json({
@@ -63,6 +63,9 @@ exports.iniciarSesion = async (req, res) => {
           telefono: usuarioExistente.telefono,
           email: usuarioExistente.email || '',
           domicilio: usuarioExistente.domicilio || '',
+          cedulaProfesional: usuarioExistente.cedulaProfesional || '',
+          titulo: usuarioExistente.titulo || '',
+          escuela: usuarioExistente.escuela || '',
           farmacia: null  // admin decide luego, ajustaAlmacen no ocupa
         }
       });
@@ -130,7 +133,7 @@ exports.iniciarSesion = async (req, res) => {
        Emitir token y regresar farmacia
        ========================================================== */
     const payload = { id: usuarioExistente.id, rol: usuarioExistente.rol };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '12h' });
 
     return res.json({
       token,
@@ -141,6 +144,9 @@ exports.iniciarSesion = async (req, res) => {
         telefono: usuarioExistente.telefono,
         email: usuarioExistente.email || '',
         domicilio: usuarioExistente.domicilio || '',
+        cedulaProfesional: usuarioExistente.cedulaProfesional || '',
+        titulo: usuarioExistente.titulo || '',
+        escuela: usuarioExistente.escuela || '',
         farmacia: farmaciaAsociada ? {
           _id: farmaciaAsociada._id,
           nombre: farmaciaAsociada.nombre,
@@ -229,7 +235,10 @@ exports.actualizarDatosUsuarioAutenticado = async (req, res) => {
         rol: userFound.rol,
         email: userFound.email,
         telefono: userFound.telefono,
-        domicilio: userFound.domicilio
+        domicilio: userFound.domicilio,
+        cedulaProfesional: userFound.cedulaProfesional || '',
+        titulo: userFound.titulo || '',
+        escuela: userFound.escuela || ''
       }
     });
   } catch (error) {
@@ -280,45 +289,5 @@ exports.cambioContrasenia = async (req, res) => {
 exports.rutaProtegida = (req, res) => {
   res.json({ mensaje: "Ruta protegida de autenticación" });
 };
-
-/* exports.autoRegistroCliente = async (req, res) => {
-    const errores = validationResult(req);
-    if (!errores.isEmpty()) {
-        return res.status(400).json({ errores: errores.array() });
-    }
-
-    const { nombre, telefono, email, password, domicilio } = req.body;
-
-    // 🔹 Validación manual del teléfono
-    const telefonoRegex = /^\d{10}$/;
-    if (!telefonoRegex.test(telefono)) {
-        return res.status(400).json({ mensaje: "El teléfono debe contener exactamente 10 dígitos numéricos." });
-    }
-
-    try {
-        // 🔹 Verificar si el teléfono ya está registrado
-        let usuarioExistente = await Usuario.findOne({ telefono });
-
-        if (usuarioExistente) {
-            return res.status(400).json({ mensaje: 'El teléfono ya está registrado.' });
-        }
-
-
-        // 🔹 Encriptar la contraseña
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const usuario = new Usuario({ nombre, telefono, email, password: hashedPassword, domicilio, rol: 'cliente', historialCompras: [] });
-        await usuario.save();
-        // Generar token automático para el usuario registrado
-        const token = jwt.sign(
-            { id: usuario._id, rol: usuario.rol },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-        res.status(201).json({ mensaje: "Registro exitoso", token, usuario });
-    } catch (error) {
-        console.error('❌ Error interno al registrar usuario:', error);
-        res.status(500).json({ mensaje: "Error al registrar usuario" });
-    }
-} */
 
 

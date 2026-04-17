@@ -45,7 +45,7 @@ router.patch(
 router.patch(
   "/:id/conceptos",
   auth,
-  checkRole("admin", "empleado", "medico"),
+  checkRole(["admin", "empleado", "medico"]),
   ctrl.actualizarConceptosFicha
 );
 

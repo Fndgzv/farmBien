@@ -9,8 +9,8 @@
         </div>  
         <div class="col-md-2 position-relative">
             <input type="text" id="filtroFolio" [(ngModel)]="filtroFolio" (ngModelChange)="obtenerPedido($event)"
-                class="form-control pe-5" placeholder="Últimos 6 caracteres" maxlength="6"
-                pattern="[A-Za-z0-9]{6}" />
+                class="form-control pe-5" placeholder="Últimas 6 letras" maxlength="6"
+                pattern="[A-Z]{6}" />
             <button *ngIf="filtroFolio" (click)="limpiarFiltroCompleto()" matTooltip="Limpiar folio del pedido"
                 class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
                 <i class="fas fa-times"></i>

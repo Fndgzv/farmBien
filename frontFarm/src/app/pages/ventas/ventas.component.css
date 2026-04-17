@@ -223,10 +223,24 @@
 
 .btn-cerrar-insumos {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 30px;
-  z-index: 5;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  z-index: 6;
+}
+
+.btn-cerrar-insumos:hover {
+  transform: translateY(-1px);
+}
+
+.btn-cerrar-insumos:focus-visible {
+  outline: 2px solid #f9c74f;
+  outline-offset: 2px;
 }
 
 /* reserva el “hueco” del botón */
@@ -669,81 +683,5 @@ th {
 /* =========================
    MODAL INSUMOS CONSULTA
    ========================= */
-
-.contenedor-insumos-consulta,
-.bloque-insumos-consulta {
-  overflow: visible !important;
-}
-
-.tablaSM {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  overflow: visible;
-}
-
-.tablaSM th,
-.tablaSM td {
-  border: 1px solid rgba(90, 0, 110, 0.35);
-  padding: 6px;
-  vertical-align: top;
-  overflow: visible;
-}
-
-.tablaSM th {
-  background: #d69cf0;
-  color: #222;
-  text-align: center;
-}
-
-.tablaSM td {
-  background: #ebc2f7;
-}
-
-.tablaSM td.dropdown-cell {
-  position: relative;
-  overflow: visible !important;
-}
-
-.dropdown-results {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  z-index: 99999;
-  max-height: 220px;
-  overflow-y: auto;
-  background: #ffffff;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-  text-align: left;
-}
-
-.dropdown-results .list-group-item {
-  text-align: left;
-  white-space: normal;
-  font-size: 14px;
-  background: #fff;
-}
-
-.dropdown-results .list-group-item:hover {
-  background: #f3f3f3;
-}
-
-.debug-sugerencias {
-  font-size: 12px;
-  color: #8a2be2;
-  margin-top: 3px;
-}
-
-/* Evita que el modal recorte el dropdown */
-.modal-content,
-.modal-content .row,
-.modal-content .col-lg-7,
-.modal-content .col-lg-5,
-.modal-content .border,
-.modal-content .card,
-.modal-content .card-body {
-  overflow: visible !important;
-}
+/* Estilos de este modal movidos a styles.css para reuso global
+   y para respetar el presupuesto de tamaño del CSS por componente. */

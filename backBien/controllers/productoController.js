@@ -1244,20 +1244,19 @@ exports.buscarMedicamentosReceta = async (req, res) => {
 
     const qNorm = norm(q);
 
-    // ✅ Categorías permitidas usando categoriaNorm
-    // - empieza con "antibiotico" (cubre "antibiótico", "antibiotico ...")
-    // - exactamente "iv" o "vi"
-    // - empieza con "iv " o "vi "
-    // - "suplementos" o empieza con "suplementos "
+    // ✅ Categorías permitidas usando categoriaNorm:
+    // - exactamente "antibiotico"
+    // - exactamente "iv"
+    // - exactamente "vi"
+    // - empieza con "vi "
+    // - empieza con "suplementos" (incluye exacta)
     const filtroCategoria = {
       $or: [
-        { categoriaNorm: { $regex: /^antibiotico/ } },
+        { categoriaNorm: "antibiotico" },
         { categoriaNorm: "iv" },
         { categoriaNorm: "vi" },
-        { categoriaNorm: { $regex: /^iv\s+/ } },
         { categoriaNorm: { $regex: /^vi\s+/ } },
-        { categoriaNorm: "suplementos" },
-        { categoriaNorm: { $regex: /^suplementos\s+/ } },
+        { categoriaNorm: { $regex: /^suplementos(?:\s+|$)/ } },
       ],
     };
 

@@ -965,9 +965,37 @@ exports.finalizarConsulta = async (req, res) => {
           productoId: p._id,
           nombre: p.nombre,
           codigoBarras: p.codigoBarras,
+          categoria: p.categoria || "",
           precio: p.precioVenta ?? 0,
           cantidad,
           notas: (s.notas || "").trim(),
+        });
+      }
+    }
+
+    // ============================
+    // 1.5) Conservar conceptos existentes que NO sean Servicio Médico
+    // ============================
+    let conceptosNoMedicosExistentes = [];
+
+    if (Array.isArray(ficha.servicios) && ficha.servicios.length > 0) {
+      const idsExistentes = ficha.servicios
+        .map((x) => x.productoId)
+        .filter(Boolean)
+        .map((x) => String(x));
+
+      if (idsExistentes.length > 0) {
+        const productosExistentes = await Producto.find({ _id: { $in: idsExistentes } })
+          .select("_id categoria")
+          .lean();
+
+        const categoriaMap = new Map(
+          productosExistentes.map((p) => [String(p._id), (p.categoria || "").trim()])
+        );
+
+        conceptosNoMedicosExistentes = ficha.servicios.filter((item) => {
+          const categoria = categoriaMap.get(String(item.productoId)) || "";
+          return categoria !== "Servicio Médico";
         });
       }
     }
@@ -977,7 +1005,10 @@ exports.finalizarConsulta = async (req, res) => {
     // ============================
     if (motivo != null) ficha.motivo = String(motivo || "").trim();
     ficha.notasMedico = String(notasMedico || "").trim();
-    ficha.servicios = serviciosSnapshot;
+    ficha.servicios = [
+      ...conceptosNoMedicosExistentes,
+      ...serviciosSnapshot,
+    ];
 
     ficha.medicoId = medicoId;
     ficha.inicioAtencionAt = ficha.inicioAtencionAt || new Date();
@@ -1002,8 +1033,7 @@ exports.finalizarConsulta = async (req, res) => {
         sv.fc != null ||
         sv.fr != null ||
         sv.spo2 != null ||
-        sv.glucosaCapilar != null ||
-        String(sv.notas || "").trim();
+        sv.glucosaCapilar != null;
 
       if (hayAlgoSV) {
         const pesoKg = sv.pesoKg != null ? Number(sv.pesoKg) : null;
@@ -1027,7 +1057,6 @@ exports.finalizarConsulta = async (req, res) => {
           fr: sv.fr != null ? Number(sv.fr) : undefined,
           spo2: sv.spo2 != null ? Number(sv.spo2) : undefined,
           glucosaCapilar: sv.glucosaCapilar != null ? Number(sv.glucosaCapilar) : undefined,
-          notas: String(sv.notas || "").trim(),
           tomadoPor: medicoId,
           farmaciaId: farmaciaId || undefined,
         };
@@ -1102,24 +1131,30 @@ exports.finalizarConsulta = async (req, res) => {
         }
       }
 
-      // datosGeneralesrecetaIdCreada 
+      // datosGenerales
       if (p.datosGenerales && typeof p.datosGenerales === "object") {
         const dg = p.datosGenerales;
 
         if (dg.fechaNacimiento) set["datosGenerales.fechaNacimiento"] = new Date(dg.fechaNacimiento);
         if (dg.sexo != null) set["datosGenerales.sexo"] = String(dg.sexo).trim();
         if (dg.curp != null) set["datosGenerales.curp"] = String(dg.curp).trim().toUpperCase();
+        if (dg.curpEsProvisional != null) set["datosGenerales.curpEsProvisional"] = !!dg.curpEsProvisional;
+        if (dg.entidadNacimiento != null) {
+          set["datosGenerales.entidadNacimiento"] = String(dg.entidadNacimiento).trim().toUpperCase();
+        }
         if (dg.ocupacion != null) set["datosGenerales.ocupacion"] = String(dg.ocupacion).trim();
         if (dg.escolaridad != null) set["datosGenerales.escolaridad"] = String(dg.escolaridad).trim();
       }
+
+      const actual = await Paciente.findById(pacienteId)
+        .select("nombre apPaterno apMaterno contacto.telefono")
+        .lean();
 
       const nombreNuevo = set["nombre"];
       const apPaternoNuevo = set["apPaterno"];
       const apMaternoNuevo = set["apMaterno"];
 
       if (nombreNuevo != null || apPaternoNuevo != null || apMaternoNuevo != null) {
-        const actual = await Paciente.findById(pacienteId).select("nombre apPaterno apMaterno").lean();
-
         const n = (nombreNuevo != null ? nombreNuevo : (actual?.nombre || "")).trim();
         const ap = (apPaternoNuevo != null ? apPaternoNuevo : (actual?.apPaterno || "")).trim();
         const am = (apMaternoNuevo != null ? apMaternoNuevo : (actual?.apMaterno || "")).trim();
@@ -1129,11 +1164,29 @@ exports.finalizarConsulta = async (req, res) => {
       }
 
       if (Object.keys(set).length > 0) {
-        await Paciente.findByIdAndUpdate(
+        const pacienteDoc = await Paciente.findByIdAndUpdate(
           pacienteId,
           { $set: set },
-          { new: false }
-        ).select("_id");
+          { new: true }
+        )
+          .select("nombre apPaterno apMaterno contacto.telefono")
+          .lean();
+
+        if (pacienteDoc) {
+          const nombreFicha = [
+            pacienteDoc.nombre || "",
+            pacienteDoc.apPaterno || "",
+            pacienteDoc.apMaterno || "",
+          ].filter(Boolean).join(" ").trim();
+
+          if (nombreFicha) ficha.pacienteNombre = nombreFicha;
+          ficha.pacienteAPaterno = pacienteDoc.apPaterno || "";
+          ficha.pacienteAMaterno = pacienteDoc.apMaterno || "";
+          if (pacienteDoc?.contacto?.telefono != null) {
+            ficha.pacienteTelefono = String(pacienteDoc.contacto.telefono || "").trim();
+          }
+        }
+
         pacienteActualizado = true;
       }
     }
@@ -1149,8 +1202,6 @@ exports.finalizarConsulta = async (req, res) => {
     if (receta) {
       const r = receta || {};
 
-      const motivoConsulta = String(r.motivoConsulta || "").trim();
-
       const diagnosticos = Array.isArray(r.diagnosticos)
         ? r.diagnosticos.map(d => String(d).trim()).filter(Boolean)
         : [];
@@ -1161,7 +1212,7 @@ exports.finalizarConsulta = async (req, res) => {
 
       const productos = prodIds.length
         ? await Producto.find({ _id: { $in: prodIds } })
-          .select("nombre ingreActivo codigoBarras")
+          .select("nombre ingreActivo codigoBarras categoria")
           .lean()
         : [];
 
@@ -1185,6 +1236,7 @@ exports.finalizarConsulta = async (req, res) => {
         return {
           productoId: m?.productoId || undefined,
           nombreLibre: nombreFinal,
+          categoria: String(prod?.categoria || "").trim(),
           dosis: String(m?.dosis || "").trim(),
           via,
           viaOtra: via === "OTRA" ? viaOtra : undefined,
@@ -1211,7 +1263,6 @@ exports.finalizarConsulta = async (req, res) => {
             pacienteId,
             medicoId,
             farmaciaId,
-            motivoConsulta,
             diagnosticos,
             observaciones: String(r.observaciones || "").trim(),
             medicamentos: medicamentosValidos,
@@ -1245,7 +1296,6 @@ exports.finalizarConsulta = async (req, res) => {
           // Paciente de paso: no guardamos en historial, solo armamos para impresión
           recetaPaso = {
             fecha: new Date(),
-            motivoConsulta,
             diagnosticos,
             observaciones: String(r.observaciones || "").trim(),
             medicamentos: medicamentosValidos,
@@ -1259,7 +1309,7 @@ exports.finalizarConsulta = async (req, res) => {
     // ============================
     // 5) Estado final de ficha
     // ============================
-    const hayServiciosParaCobro = serviciosSnapshot.length > 0;
+    const hayServiciosParaCobro = Array.isArray(ficha.servicios) && ficha.servicios.length > 0;
 
     ficha.estado = hayServiciosParaCobro ? "LISTA_PARA_COBRO" : "ATENDIDA";
     ficha.actualizadaPor = medicoId;

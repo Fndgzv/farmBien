@@ -56,7 +56,6 @@ const SignosVitalesSchema = new Schema(
     fr: { type: Number },
     spo2: { type: Number },
     glucosaCapilar: { type: Number },
-    notas: { type: String, trim: true },
     tomadoPor: { type: Schema.Types.ObjectId, ref: "Usuario" }, // enfermería/medico
     farmaciaId: { type: Schema.Types.ObjectId, ref: "Farmacia" }, // dónde fue la toma
   },

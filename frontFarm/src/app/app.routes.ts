@@ -223,7 +223,9 @@ export const routes: Routes = [
       {
         path: 'consultas',
         loadComponent: () => import('./pages/medico-consultorio/medico-consultorio.component')
-          .then(m => m.MedicoConsultorioComponent)
+          .then(m => m.MedicoConsultorioComponent),
+        canActivate: [authGuard],
+        data: { rolesPermitidos: ['admin', 'medico'] }
       },
 
 

@@ -11,9 +11,11 @@ export interface Usuario {
   email?: string;
   password?: string;
   domicilio?: string;
-  rol: 'admin' | 'empleado' | 'medico';
-  farmacia?: string | { _id: string; nombre: string };
+  rol: 'admin' | 'empleado' | 'medico' | 'ajustaAlmacen' | 'ajustaSoloAlmacen' | 'ajustaFarma';
+  farmacia?: string | { _id: string; nombre: string } | null;
   cedulaProfesional?: string;
+  titulo?: string;
+  escuela?: string;
 }
 
 @Injectable({
@@ -21,7 +23,7 @@ export interface Usuario {
 })
 export class UsuarioService {
 
-   private apiUrl = `${environment.apiUrl}/usuarios`;
+  private apiUrl = `${environment.apiUrl}/usuarios`;
 
   constructor(private http: HttpClient) {}
 

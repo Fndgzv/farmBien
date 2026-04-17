@@ -30,7 +30,6 @@ const RecetaSchema = new Schema(
         medicoId: { type: Schema.Types.ObjectId, ref: "Usuario", required: true, index: true },
         farmaciaId: { type: Schema.Types.ObjectId, ref: "Farmacia", required: true, index: true },
 
-        motivoConsulta: { type: String, trim: true },
         diagnosticos: [{ type: String, trim: true }], // o ICD-10
         observaciones: { type: String, trim: true },
 

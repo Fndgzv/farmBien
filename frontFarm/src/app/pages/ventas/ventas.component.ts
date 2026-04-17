@@ -106,6 +106,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   @ViewChild('codigoBarrasRef') codigoBarrasRef!: ElementRef<HTMLInputElement>;
   @ViewChild('efectivoRecibidoRef') efectivoRecibidoRef!: ElementRef<HTMLInputElement>; // <-- para enfocar el primer input del modal
+  @ViewChild('codigoConsultaRef') codigoConsultaRef!: ElementRef<HTMLInputElement>;
 
   @ViewChild('cliTrigger', { read: MatAutocompleteTrigger })
   cliTrigger?: MatAutocompleteTrigger;
@@ -230,8 +231,18 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   nuevoPaciente = { nombre: '', apellidos: '', telefono: '', curp: '' };
 
-  fichaUrgencia = false;
-  fichaMotivo = '';
+  readonly motivosFichaCatalogo = [
+    'Consulta',
+    'Inyección',
+    'Toma de glucosa',
+    'Toma de presión',
+    'Laboratorio',
+    'Revisión médica',
+    'Peso y talla',
+    'Certificado médico',
+    'Otro'
+  ];
+  readonly motivoFichaOtro = 'Otro';
 
   mostrarModalPedirFicha = false;
   creandoFicha = false;
@@ -243,8 +254,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
     nombre: '',
     aPaterno: '',
     aMaterno: '',
-    telefono: '',
     motivo: '',
+    motivoOtro: '',
     urgencia: false
   };
 
@@ -2006,6 +2017,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.codigoConsulta = '';
     this.productoConsultado = null;
     this.limpiarProducto();
+
+    setTimeout(() => {
+      this.codigoConsultaRef?.nativeElement?.focus();
+      this.codigoConsultaRef?.nativeElement?.select();
+    }, 0);
   }
 
   cerrarModalConsultaPrecio() {
@@ -2614,18 +2630,25 @@ export class VentasComponent implements OnInit, AfterViewInit {
       nombre: '',
       aPaterno: '',
       aMaterno: '',
-      telefono: '',
       motivo: '',
+      motivoOtro: '',
       urgencia: false
     };
+  }
+
+  onCambioMotivoFicha(motivoSeleccionado: string) {
+    if (motivoSeleccionado !== this.motivoFichaOtro) {
+      this.nuevaFicha.motivoOtro = '';
+    }
   }
 
   crearFichaDesdeCaja() {
     const nombre = (this.nuevaFicha.nombre || '').trim();
     const aPaterno = (this.nuevaFicha.aPaterno || '').trim();
     const aMaterno = (this.nuevaFicha.aMaterno || '').trim();
-    const telefono = (this.nuevaFicha.telefono || '').trim();
-    const motivo = (this.nuevaFicha.motivo || '').trim();
+    const motivoSeleccionado = (this.nuevaFicha.motivo || '').trim();
+    const motivoOtro = (this.nuevaFicha.motivoOtro || '').trim();
+    const motivo = motivoSeleccionado === this.motivoFichaOtro ? motivoOtro : motivoSeleccionado;
     const urgencia = !!this.nuevaFicha.urgencia;
 
     if (!nombre) {
@@ -2633,11 +2656,15 @@ export class VentasComponent implements OnInit, AfterViewInit {
       return;
     }
 
+    if (motivoSeleccionado === this.motivoFichaOtro && !motivoOtro) {
+      Swal.fire('Falta motivo', 'Captura el motivo personalizado para la opción "Otro".', 'warning');
+      return;
+    }
+
     const payload = {
       pacienteNombre: nombre,
       pacienteAPaterno: aPaterno,
       pacienteAMaterno: aMaterno,
-      pacienteTelefono: telefono,
       motivo,
       urgencia
     };
@@ -2649,7 +2676,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.creandoFicha = false;
         Swal.fire('Ficha creada', 'El paciente fue agregado a la lista de espera.', 'success');
         this.resetFormularioFicha();
-        this.cargarFichasEnEspera();
+        this.cerrarModalPedirFicha();
       },
       error: (err: any) => {
         console.error(err);
@@ -2664,10 +2691,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (!row) return;
 
     const q = (row.query || '').trim();
+    row.feedbackBusqueda = '';
+    row.productoId = '';
 
     if (!q) {
       row.sugerencias = [];
-      row.productoId = '';
       return;
     }
 
@@ -2676,6 +2704,30 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
 
     this.timersInsumos.set(i, setTimeout(() => this.buscarInsumos(i), 250));
+  }
+
+  buscarInsumoInmediato(i: number) {
+    if (this.timersInsumos.has(i)) {
+      clearTimeout(this.timersInsumos.get(i));
+    }
+    this.buscarInsumos(i);
+  }
+
+  private normalizaCodigoProducto(p: any): string {
+    return String(p?.codigoBarras || p?.codigo || p?.barcode || '').trim();
+  }
+
+  private esBusquedaPorCodigo(term: string): boolean {
+    const q = (term || '').trim();
+    return q.length >= 6 && !/\s/.test(q);
+  }
+
+  private async buscarProductosInsumo(q: string): Promise<any[]> {
+    const term = (q || '').trim();
+    if (term.length < 2) return [];
+
+    const resp = await firstValueFrom(this.fichasService.buscarProductosConsulta(term));
+    return resp?.productos ?? resp?.rows ?? [];
   }
 
   private async buscarInsumos(i: number) {
@@ -2690,12 +2742,40 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     row.buscando = true;
     try {
-      const resp = await firstValueFrom(this.fichasService.buscarProductosConsulta(q));
-      console.log('resp productos:', resp);
-      row.sugerencias = resp?.productos ?? resp?.rows ?? [];
+      const buscandoPorCodigo = this.esBusquedaPorCodigo(q);
+
+      if (buscandoPorCodigo) {
+        const local = (this.productos || []).find(p => this.normalizaCodigoProducto(p) === q);
+        if (local) {
+          this.seleccionarInsumo(i, local);
+          row.feedbackBusqueda = 'Producto localizado por código de barras.';
+          return;
+        }
+      }
+
+      const resultados = await this.buscarProductosInsumo(q);
+
+      if (buscandoPorCodigo) {
+        const exacto = resultados.find(p => this.normalizaCodigoProducto(p) === q);
+        if (exacto) {
+          this.seleccionarInsumo(i, exacto);
+          row.feedbackBusqueda = 'Producto localizado por código de barras.';
+          return;
+        }
+      }
+
+      row.sugerencias = resultados;
+      if (!resultados.length) {
+        row.feedbackBusqueda = 'Sin coincidencias por nombre o código de barras.';
+      } else if (buscandoPorCodigo && resultados.length > 1) {
+        row.feedbackBusqueda = 'Se encontraron varias coincidencias. Selecciona el producto correcto.';
+      } else {
+        row.feedbackBusqueda = '';
+      }
     } catch (e) {
       console.error(e);
       row.sugerencias = [];
+      row.feedbackBusqueda = 'No se pudo completar la búsqueda de producto.';
     } finally {
       row.buscando = false;
     }
@@ -2710,7 +2790,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
       cantidad: 1,
       notas: '',
       sugerencias: [],
-      buscando: false
+      buscando: false,
+      feedbackBusqueda: ''
     };
   }
 
@@ -2761,6 +2842,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         notas: x.notas || '',
         sugerencias: [],
         buscando: false,
+        feedbackBusqueda: '',
         categoria: x.categoria || ''
       }));
     } else {
@@ -2787,6 +2869,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     row.productoId = p._id;
     row.query = p.nombre;
     row.sugerencias = [];
+    row.feedbackBusqueda = '';
   }
 
   blurInsumo(i: number) {
