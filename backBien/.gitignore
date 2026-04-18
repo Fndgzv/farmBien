@@ -1,2 +1,27 @@
-node_modules/ 
-.env 
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs / reports
+logs/
+*.log
+coverage/
+
+# Runtime / temp
+.tmp/
+tmp/
+dump/
+
+# Uploaded/generated files that should not be versioned
+uploads/
+public/browser/
+public/3rdpartylicenses.txt
+public/prerendered-routes.json
+
+# OS
+.DS_Store
+Thumbs.db
