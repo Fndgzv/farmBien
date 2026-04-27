@@ -90,8 +90,17 @@ export class HeaderComponent implements OnInit {
     });
   }
 
+  get esRolTurnos(): boolean {
+    return this.userRol === 'turnos';
+  }
+
   actualizarVisibilidadInicio() {
     const rutaActual = this.router.url;
+
+    if (this.esRolTurnos) {
+      this.mostrarInicio = false;
+      return;
+    }
 
     // Ocultar si estamos en '/home'
     if (rutaActual === '/home') {

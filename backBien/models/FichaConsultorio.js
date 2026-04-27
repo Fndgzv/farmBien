@@ -20,6 +20,8 @@ const ServicioEnFichaSchema = new Schema(
 const FichaConsultorioSchema = new Schema(
   {
     folio: { type: String, trim: true, index: true },
+    turnoFecha: { type: String, trim: true, index: true }, // YYYY-MM-DD (America/Mexico_City)
+    turnoConsecutivo: { type: Number, min: 1, index: true },
 
     farmaciaId: { type: Schema.Types.ObjectId, ref: "Farmacia", required: true, index: true },
 
@@ -72,6 +74,7 @@ const FichaConsultorioSchema = new Schema(
 );
 
 FichaConsultorioSchema.index({ farmaciaId: 1, estado: 1, urgencia: -1, llegadaAt: 1 });
+FichaConsultorioSchema.index({ farmaciaId: 1, turnoFecha: 1, turnoConsecutivo: 1 });
 
 FichaConsultorioSchema.pre("save", function (next) {
   const full = `${this.pacienteNombre ?? ""}`.trim();

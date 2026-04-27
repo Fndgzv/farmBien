@@ -22,7 +22,7 @@ import { filter, Observable } from 'rxjs';
   template: `
 <div class="layout-container">
 
-<app-sidebar *ngIf="usuario" [open]="isSidebarOpen"></app-sidebar>
+<app-sidebar *ngIf="usuario && !esTurnos" [open]="isSidebarOpen"></app-sidebar>
 
   <div class="content-area">
     <app-header
@@ -60,6 +60,7 @@ export class MainLayoutComponent {
   usuario: any = null;
   isLoginVisible!: Observable<boolean>;
   isSidebarOpen = false;
+  esTurnos = false;
 
   constructor(
     private authService: AuthService,
@@ -70,6 +71,7 @@ export class MainLayoutComponent {
 
     this.authService.usuario$.subscribe(u => {
       this.usuario = u;
+      this.esTurnos = u?.rol === 'turnos';
     });
     this.isLoginVisible = this.authService.isLoginVisible.asObservable();
 

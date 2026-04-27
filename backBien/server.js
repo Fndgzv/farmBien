@@ -47,6 +47,11 @@ require('./models/Cancelacion');
 require('./models/Cliente');
 require('./models/Compra');
 require('./models/CorteCaja');
+require('./models/FichaConsultorio');
+require('./models/Paciente');
+require('./models/Receta');
+require('./models/PantallaTurnosConfig');
+require('./models/TurnoConsultorioCounter');
 
 // =============================================================
 // 📌 HOOKS (SIEMPRE DESPUÉS DE REGISTRAR LOS MODELOS INVOLUCRADOS)
@@ -90,6 +95,7 @@ app.use('/api/inventario-fisico', require('./routes/inventarioFisico.routes'));
 app.use("/api/fichas-consultorio", require("./routes/fichasConsultorio.routes"));
 app.use("/api/pacientes", require("./routes/pacientes.routes"));
 app.use("/api/recetas", require("./routes/recetas.routes"));
+app.use("/api/pantalla-turnos", require("./routes/pantallaTurnos.routes"));
 
 // =============================================================
 // 📁 SERVIR ARCHIVOS UPLOADS
@@ -186,6 +192,9 @@ mongoose.connection.once('open', async () => {
     const InventarioFarmacia = mongoose.model('InventarioFarmacia');
     const CorteCaja = mongoose.model('CorteCaja');
     const Paciente = mongoose.model('Paciente');
+    const FichaConsultorio = mongoose.model('FichaConsultorio');
+    const PantallaTurnosConfig = mongoose.model('PantallaTurnosConfig');
+    const TurnoConsultorioCounter = mongoose.model('TurnoConsultorioCounter');
 
     await Promise.all([
       Venta.syncIndexes(),
@@ -198,6 +207,9 @@ mongoose.connection.once('open', async () => {
       InventarioFarmacia.syncIndexes(),
       CorteCaja.syncIndexes(),
       Paciente.syncIndexes(),
+      FichaConsultorio.syncIndexes(),
+      PantallaTurnosConfig.syncIndexes(),
+      TurnoConsultorioCounter.syncIndexes(),
     ]);
 
     console.log('✅ Índices sincronizados correctamente');

@@ -3,8 +3,11 @@ const FichaConsultorio = require("../models/FichaConsultorio");
 const Producto = require("../models/Producto");
 const Paciente = require("../models/Paciente");
 const Receta = require("../models/Receta");
+const TurnoConsultorioCounter = require("../models/TurnoConsultorioCounter");
 
 const mongoose = require("mongoose");
+const ZONA_HORARIA_TURNOS = "America/Mexico_City";
+const TURNO_PREFIJO = "TC";
 
 function getFarmaciaActiva(req) {
   const fromUser = req.usuario?.farmacia;          // empleado/medico
@@ -12,6 +15,53 @@ function getFarmaciaActiva(req) {
   const farmaciaId = fromHeader || fromUser;
   if (!farmaciaId) return null;
   return String(farmaciaId);
+}
+
+function getFechaTurnoMx(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ZONA_HORARIA_TURNOS,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const year = parts.find((p) => p.type === "year")?.value || "0000";
+  const month = parts.find((p) => p.type === "month")?.value || "00";
+  const day = parts.find((p) => p.type === "day")?.value || "00";
+
+  return `${year}-${month}-${day}`;
+}
+
+async function generarTurnoFicha(farmaciaId, intento = 0) {
+  const fechaKey = getFechaTurnoMx();
+  let counter;
+
+  try {
+    counter = await TurnoConsultorioCounter.findOneAndUpdate(
+      { farmaciaId, fechaKey },
+      { $inc: { seq: 1 } },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+  } catch (error) {
+    if (error?.code === 11000 && intento < 3) {
+      return generarTurnoFicha(farmaciaId, intento + 1);
+    }
+    throw error;
+  }
+
+  const turnoConsecutivo = Number(counter?.seq || 1);
+  const fechaCompacta = fechaKey.replace(/-/g, "");
+  const folio = `${TURNO_PREFIJO}-${fechaCompacta}-${String(turnoConsecutivo).padStart(3, "0")}`;
+
+  return {
+    folio,
+    turnoFecha: fechaKey,
+    turnoConsecutivo,
+  };
 }
 
 const cleanStr = (v) => String(v ?? "").trim();
@@ -93,8 +143,13 @@ exports.crearFicha = async (req, res) => {
       .join(" ")
       .trim();
 
+    const turno = await generarTurnoFicha(farmaciaId);
+
     const ficha = await FichaConsultorio.create({
       farmaciaId,
+      folio: turno.folio,
+      turnoFecha: turno.turnoFecha,
+      turnoConsecutivo: turno.turnoConsecutivo,
       pacienteNombre: nombreCompleto,
       pacienteAPaterno: aPaterno,
       pacienteAMaterno: aMaterno,

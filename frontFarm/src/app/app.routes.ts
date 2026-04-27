@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from '../environments/guards/auth.guard';
+import { authGuard, turnosOnlyGuard } from '../environments/guards/auth.guard';
 
 import { HomeComponent } from './pages/home/home.component'
 import { LoginComponent } from './pages/login/login.component';
@@ -35,6 +35,7 @@ export const routes: Routes = [
   {
     path: '',
     component: MainLayoutComponent,
+    canActivateChild: [turnosOnlyGuard],
     children: [
       { path: '', redirectTo: 'home', pathMatch: 'full' },
       { path: 'home', component: HomeComponent },
@@ -226,6 +227,13 @@ export const routes: Routes = [
           .then(m => m.MedicoConsultorioComponent),
         canActivate: [authGuard],
         data: { rolesPermitidos: ['admin', 'medico'] }
+      },
+      {
+        path: 'pantalla-turnos',
+        loadComponent: () => import('./pages/pantalla-turnos/pantalla-turnos.component')
+          .then(m => m.PantallaTurnosComponent),
+        canActivate: [authGuard],
+        data: { rolesPermitidos: ['admin', 'turnos'] }
       },
 
 

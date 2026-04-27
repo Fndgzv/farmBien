@@ -2,7 +2,7 @@
 
   <!-- 🔹 IZQUIERDA -->
   <div class="header-left">
-    <button class="toggle-sidebar-button" (click)="toggleSidebar.emit()">
+    <button *ngIf="!esRolTurnos" class="toggle-sidebar-button" (click)="toggleSidebar.emit()">
       <mat-icon>{{ isSidebarOpen ? 'close' : 'menu' }}</mat-icon>
     </button>
     <img [src]="farmaciaImagen" alt="Logo" class="header-logo" />
@@ -21,7 +21,7 @@
   <!-- 🔹 DERECHA: Sesión -->
   <div class="header-right">
     <!-- Botón Inicio -->
-    <button *ngIf="mostrarInicio"  mat-icon-button 
+    <button *ngIf="mostrarInicio && !esRolTurnos"  mat-icon-button 
       matTooltip="Ir al inicio" (click)="router.navigate(['/home'])" class="icon-button">
       <mat-icon>home</mat-icon>
     </button>

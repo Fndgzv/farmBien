@@ -1,0 +1,155 @@
+<div class="pantalla-turnos">
+  <div class="pt-header">
+    <div>
+      <h1 class="pt-title">Pantalla de turnos</h1>
+    </div>
+
+    <div class="pt-controls" *ngIf="esAdmin; else farmaciaFijaTpl">
+      <label for="farmaciaSelect" class="pt-label">Farmacia</label>
+      <select
+        id="farmaciaSelect"
+        class="pt-select"
+        [(ngModel)]="farmaciaSeleccionadaId"
+        (change)="onFarmaciaSeleccionadaChange()"
+      >
+        <option *ngFor="let farmacia of farmacias" [ngValue]="farmacia._id">
+          {{ farmacia.nombre }}
+        </option>
+      </select>
+
+      <button class="pt-btn" type="button" (click)="refrescarResumen(true)">Actualizar</button>
+    </div>
+
+    <ng-template #farmaciaFijaTpl>
+      <div class="pt-controls">
+        <span class="pt-label">Farmacia:</span>
+        <strong>{{ farmaciaSeleccionadaNombre || 'Sin farmacia asignada' }}</strong>
+        <button class="pt-btn" type="button" (click)="refrescarResumen(true)">Actualizar</button>
+      </div>
+    </ng-template>
+  </div>
+
+  <div *ngIf="errorCarga" class="pt-alert">{{ errorCarga }}</div>
+
+  <div class="pt-main-grid">
+    <section class="pt-card pt-video-card">
+      <div class="pt-video-wrap" *ngIf="videoPromocionalUrl; else noVideo">
+        <video
+          class="pt-video"
+          autoplay
+          muted
+          loop
+          controls
+          playsinline
+          preload="metadata"
+          (loadeddata)="onVideoLoadedData()"
+          (error)="onVideoError($event)"
+        >
+          <source [src]="videoPromocionalUrl" [type]="videoMimeType" />
+          Tu navegador no soporta reproduccion de video.
+        </video>
+      </div>
+
+      <ng-template #noVideo>
+        <div class="pt-empty-video">
+          No hay video configurado.
+          <span *ngIf="esAdmin"> Captura una URL y guarda.</span>
+        </div>
+      </ng-template>
+
+      <div class="pt-video-meta">
+        <span *ngIf="usaVideoDefault" class="pt-default-note">
+          Usando video por defecto del sistema.
+        </span>
+        <span *ngIf="!usaVideoDefault && videoPromocionalUrl" class="pt-default-note">
+          Video personalizado.
+        </span>
+        <span class="pt-updated" *ngIf="actualizadoEn">
+          Actualizado: {{ actualizadoEn | date:'short' }}
+        </span>
+      </div>
+
+      <div class="pt-video-status" *ngIf="videoEstado && !videoError">
+        {{ videoEstado }}
+      </div>
+
+      <div class="pt-video-error" *ngIf="videoError">
+        {{ videoError }}
+      </div>
+    </section>
+
+    <section class="pt-card pt-turnos-card">
+      <div class="pt-card-header">
+        <span>Turnos consultorio</span>
+        <span class="pt-pending-pill">Pendientes: {{ pendientesTotales }}</span>
+      </div>
+
+      <div class="pt-current-section">
+        <div class="pt-current-label">Turno en atencion</div>
+        <div class="pt-current-turn">{{ turnoActualLabel }}</div>
+      </div>
+
+      <div class="pt-next-section">
+
+        <div *ngIf="!turnoSiguienteInmediato" class="pt-empty pt-empty-next">
+          No hay turnos pendientes.
+        </div>
+
+        <article *ngIf="turnoSiguienteInmediato as proximo" class="pt-next-featured">
+          <div class="pt-next-featured-label">Siguiente turno</div>
+          <div class="pt-next-featured-turno"> {{ formatearTurno(proximo, '-') }}</div>
+          <div class="pt-next-featured-time">Llegada: {{ proximo.llegadaAt | date:'shortTime' }}</div>
+        </article>
+        
+        <div class="pt-next-rest-order">Turnos próximos:</div>
+        <div class="pt-next-rest" *ngIf="turnosPosteriores.length">
+          <article class="pt-next-rest-item" *ngFor="let turno of turnosPosteriores; let idx = index">
+            <div class="row">
+              <div class="col-8 pt-next-rest-turno">{{ formatearTurno(turno, '-') }} </div>
+              <div class="col-4 pt-next-rest-time">Llegada: {{ turno.llegadaAt | date:'shortTime' }}</div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="pt-card pt-video-config" *ngIf="esAdmin">
+    <div class="pt-card-header">Configurar video</div>
+    <p class="pt-help">
+      Formatos soportados por el reproductor: {{ formatosVideoAceptados }}.
+      Recomendado para mayor compatibilidad: <code>.mp4</code> con codificacion H.264/AAC.
+    </p>
+    <p class="pt-help">
+      Si el video es local del proyecto, colocalo en <code>frontFarm/src/assets</code>
+      y guarda la ruta publica como <code>/assets/images/brincoAlAgua.mp4</code>.
+      Tambien puedes usar <code>/uploads/mi-video.mp4</code> o una URL <code>https://...</code>.
+    </p>
+    <p class="pt-help">
+      Para volver al valor por defecto del sistema, guarda el campo vacio.
+    </p>
+
+    <div class="pt-video-form">
+      <input
+        type="text"
+        class="pt-input"
+        [(ngModel)]="videoDraft"
+        (ngModelChange)="onVideoDraftInput()"
+        placeholder="/assets/images/mi-video.mp4 o https://.../video.mp4"
+      />
+
+      <button
+        type="button"
+        class="pt-btn"
+        (click)="guardarVideoPromocional()"
+        [disabled]="guardandoVideo || !farmaciaSeleccionadaId || !videoDraftValido"
+      >
+        {{ guardandoVideo ? 'Guardando...' : 'Guardar video' }}
+      </button>
+    </div>
+
+    <div class="pt-video-error" *ngIf="videoDraftDirty && !videoDraftValido">
+      Ruta invalida. Usa http(s), /assets/... o /uploads/...
+    </div>
+  </section>
+</div>

@@ -21,7 +21,7 @@ const UsuarioSchema = new mongoose.Schema({
 
     rol: {
         type: String,
-        enum: ["admin", "empleado", "medico", "ajustaAlmacen", "ajustaFarma", "ajustaSoloAlmacen"],
+        enum: ["admin", "empleado", "medico", "turnos", "ajustaAlmacen", "ajustaFarma", "ajustaSoloAlmacen"],
         required: true
     },
 
@@ -31,6 +31,7 @@ const UsuarioSchema = new mongoose.Schema({
         required: function () {
             return this.rol === "empleado" ||
                    this.rol === "medico" ||
+                   this.rol === "turnos" ||
                    this.rol === "ajustaFarma";
         }
     },

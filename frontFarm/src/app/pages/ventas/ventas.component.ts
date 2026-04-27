@@ -198,6 +198,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   ventaParaImpresion: any = null;
   mostrarTicket: boolean = false;
+  mostrarTicketTurno = false;
+  ticketTurnoData: { folio: string; fechaHora: string } | null = null;
   folioVentaGenerado: string | null = null;
 
   venta: any = null;
@@ -2642,6 +2644,60 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
   }
 
+  private esRolEmpleado(): boolean {
+    const rolStorage = String(localStorage.getItem('user_rol') || '').trim();
+    if (rolStorage) {
+      return rolStorage === 'empleado';
+    }
+
+    try {
+      const raw = localStorage.getItem('usuario');
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed?.rol === 'empleado';
+    } catch {
+      return false;
+    }
+  }
+
+  private formatearFechaTurnoImpresion(fechaRaw?: string): string {
+    const fecha = fechaRaw ? new Date(fechaRaw) : new Date();
+    const base = Number.isNaN(fecha.getTime()) ? new Date() : fecha;
+
+    return new Intl.DateTimeFormat('es-MX', {
+      timeZone: 'America/Mexico_City',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }).format(base);
+  }
+
+  private async imprimirTurnoFicha(ficha: any): Promise<void> {
+    const folio = String(ficha?.folio || '').trim();
+    if (!folio) {
+      throw new Error('La ficha no contiene folio/turno para imprimir.');
+    }
+
+    this.ticketTurnoData = {
+      folio,
+      fechaHora: this.formatearFechaTurnoImpresion(ficha?.llegadaAt || ficha?.createdAt)
+    };
+    this.mostrarTicketTurno = true;
+    this.cdRef.detectChanges();
+
+    try {
+      await whenDomStable();
+      const ticketTurno = document.getElementById('ticketTurnoFicha');
+      if (!ticketTurno) {
+        throw new Error('No se encontrÃ³ el nodo de impresiÃ³n del turno.');
+      }
+      await printNodeInIframe(ticketTurno, { feedMm: 8, settleMs: 120 });
+    } finally {
+      this.mostrarTicketTurno = false;
+      this.ticketTurnoData = null;
+      this.cdRef.detectChanges();
+    }
+  }
+
   crearFichaDesdeCaja() {
     const nombre = (this.nuevaFicha.nombre || '').trim();
     const aPaterno = (this.nuevaFicha.aPaterno || '').trim();
@@ -2672,9 +2728,27 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.creandoFicha = true;
 
     this.fichasService.crearFicha(payload).subscribe({
-      next: (_resp: any) => {
+      next: async (resp: any) => {
         this.creandoFicha = false;
-        Swal.fire('Ficha creada', 'El paciente fue agregado a la lista de espera.', 'success');
+        const turnoAsignado = String(resp?.ficha?.folio || '').trim();
+        const mensaje = turnoAsignado
+          ? `El paciente fue agregado a la lista de espera. Turno asignado: ${turnoAsignado}`
+          : 'El paciente fue agregado a la lista de espera.';
+
+        let errorImpresionTurno = false;
+        if (this.esRolEmpleado()) {
+          try {
+            await this.imprimirTurnoFicha(resp?.ficha);
+          } catch (error) {
+            errorImpresionTurno = true;
+            console.error('Error al imprimir turno de ficha:', error);
+          }
+        }
+
+        const mensajeFinal = errorImpresionTurno
+          ? `${mensaje} No se pudo imprimir el turno, verifica la impresora.`
+          : mensaje;
+        Swal.fire('Ficha creada', mensajeFinal, errorImpresionTurno ? 'warning' : 'success');
         this.resetFormularioFicha();
         this.cerrarModalPedirFicha();
       },

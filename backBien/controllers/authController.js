@@ -13,6 +13,7 @@ const { validationResult } = require('express-validator');
    - medico
    - ajustaAlmacen
    - ajustaFarma
+   - turnos
    ======================================================== */
 exports.iniciarSesion = async (req, res) => {
   const errores = validationResult(req);
@@ -73,9 +74,9 @@ exports.iniciarSesion = async (req, res) => {
 
     /* ==========================================================
        BLOQUE 2 — ROLES QUE SÍ REQUIEREN FARMACIA
-       empleado, medico, ajustaFarma
+       empleado, medico, ajustaFarma, turnos
        ========================================================== */
-    const rolesConFarmacia = ["empleado", "medico", "ajustaFarma"];
+    const rolesConFarmacia = ["empleado", "medico", "ajustaFarma", "turnos"];
 
     if (rolesConFarmacia.includes(rol) && !farmaciaAsociada) {
       return res.status(409).json({

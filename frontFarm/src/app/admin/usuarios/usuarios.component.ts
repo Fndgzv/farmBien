@@ -47,7 +47,7 @@ export class UsuariosComponent implements OnInit {
   }
 
   get requiereFarmacia(): boolean {
-    return ['empleado', 'medico', 'ajustaFarma'].includes(this.rolSeleccionado);
+    return ['empleado', 'medico', 'turnos', 'ajustaFarma'].includes(this.rolSeleccionado);
   }
 
   get esRolMedico(): boolean {
@@ -84,7 +84,7 @@ export class UsuariosComponent implements OnInit {
     const tituloControl = this.formUsuario.get('titulo');
     const escuelaControl = this.formUsuario.get('escuela');
 
-    if (['empleado', 'medico', 'ajustaFarma'].includes(rol || '')) {
+    if (['empleado', 'medico', 'turnos', 'ajustaFarma'].includes(rol || '')) {
       farmaciaControl?.setValidators([Validators.required]);
     } else {
       farmaciaControl?.clearValidators();
@@ -274,6 +274,13 @@ export class UsuariosComponent implements OnInit {
         break;
 
       case 'empleado':
+        if (!datos.farmacia) datos.farmacia = null;
+        datos.cedulaProfesional = undefined;
+        datos.titulo = undefined;
+        datos.escuela = undefined;
+        break;
+
+      case 'turnos':
         if (!datos.farmacia) datos.farmacia = null;
         datos.cedulaProfesional = undefined;
         datos.titulo = undefined;

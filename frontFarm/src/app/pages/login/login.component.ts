@@ -121,7 +121,14 @@ export class LoginComponent {
               return;
             }
 
-            // ---- 4) EMPLEADO / MEDICO: flujo normal ----
+            // ---- 4) TURNOS: acceso directo a pantalla de turnos ----
+            if (rol === 'turnos') {
+              this.authService.hideLogin();
+              this.router.navigate(['/pantalla-turnos']);
+              return;
+            }
+
+            // ---- 5) EMPLEADO / MEDICO: flujo normal ----
             this.farmaciaId = response.user.farmacia?._id || '';
             this.verificarCorteActivoYRedirigir();
 

@@ -11,7 +11,7 @@ export interface Usuario {
   email?: string;
   password?: string;
   domicilio?: string;
-  rol: 'admin' | 'empleado' | 'medico' | 'ajustaAlmacen' | 'ajustaSoloAlmacen' | 'ajustaFarma';
+  rol: 'admin' | 'empleado' | 'medico' | 'turnos' | 'ajustaAlmacen' | 'ajustaSoloAlmacen' | 'ajustaFarma';
   farmacia?: string | { _id: string; nombre: string } | null;
   cedulaProfesional?: string;
   titulo?: string;

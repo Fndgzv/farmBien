@@ -1,4 +1,4 @@
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateChildFn, CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
 import { AuthService } from '../../app/services/auth.service';
 
@@ -41,4 +41,24 @@ if (!rolUsuario) {
   // Si el rol no está permitido
   router.navigate(['/home']);
   return false;
+};
+
+export const turnosOnlyGuard: CanActivateChildFn = (_route, state) => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  if (!authService.isAuthenticated()) {
+    return true;
+  }
+
+  const userData = authService.getUserData();
+  const rolUsuario = userData?.rol;
+  const url = state?.url || '';
+
+  if (rolUsuario === 'turnos' && !url.startsWith('/pantalla-turnos')) {
+    router.navigate(['/pantalla-turnos']);
+    return false;
+  }
+
+  return true;
 };

@@ -323,15 +323,15 @@
             <table class="tabla" style="font-size: small;">
               <thead>
                 <tr>
-                  <th style="width: 8%;">#</th>
-                  <th style="width: 40%;">Paciente</th>
-                  <th style="width: 32%;">Motivo</th>
-                  <th style="width: 20%;">Llegada</th>
+                  <th style="width: 20%;">Turno</th>
+                  <th style="width: 34%;">Paciente</th>
+                  <th style="width: 28%;">Motivo</th>
+                  <th style="width: 18%;">Llegada</th>
                 </tr>
               </thead>
               <tbody>
                 <tr *ngFor="let f of fichasEnEspera; let i = index">
-                  <td>{{ i + 1 }}</td>
+                  <td><strong>{{ f.folio || ('#' + (i + 1)) }}</strong></td>
                   <td>{{ f.pacienteNombre || '-' }}</td>
                   <td>{{ f.motivo || '-' }}</td>
                   <td>{{ f.llegadaAt | date:'shortTime' }}</td>
@@ -822,5 +822,19 @@
 <!-- ventas.component.html -->
 <div id="ticketVenta" class="ticket-impresion" *ngIf="mostrarTicket && ventaParaImpresion as data">
   <app-venta-ticket [venta]="data"></app-venta-ticket>
+</div>
+
+<div
+  id="ticketTurnoFicha"
+  class="ticket-impresion"
+  *ngIf="mostrarTicketTurno && ticketTurnoData as turno"
+  style="width:72mm;margin:0;padding:3mm 2mm 2mm;color:#000;text-align:center;font-family:'Roboto Condensed',Arial,sans-serif;"
+>
+  <div style="font-size:13px;font-weight:700;letter-spacing:.06em;">FICHA CONSULTORIO</div>
+  <div style="margin-top:3px;font-size:11px;font-weight:600;">Turno</div>
+  <div style="margin:3px 0 5px;font-size:31px;font-weight:800;letter-spacing:.06em;">{{ turno.folio }}</div>
+  <div style="margin:0 0 5px;font-size:12px;">Hora de llegada: {{ turno.fechaHora }}</div>
+  <div style="font-size:11px;line-height:1.25;">Espere su llamado en pantalla.</div>
+  <div style="font-size:11px;line-height:1.25;">Conserve esta ficha hasta su atención.</div>
 </div>
 

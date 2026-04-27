@@ -91,11 +91,12 @@ exports.actualizarUsuario = async (req, res) => {
         }
 
         let farmaciaExistente = null;
-        if (['medico', 'empleado', 'ajustaFarma'].includes(rolDestino)) {
+        if (['medico', 'empleado', 'turnos', 'ajustaFarma'].includes(rolDestino)) {
             if (!farmaciaDestino) {
                 const mensajes = {
                     medico: 'Un médico debe estar asignado a una farmacia.',
                     empleado: 'Un empleado debe estar asignado a una farmacia.',
+                    turnos: 'Un usuario de turnos debe estar asignado a una farmacia.',
                     ajustaFarma: 'Un ajustador de farmacia debe tener una farmacia asignada.'
                 };
                 return res.status(400).json({ mensaje: mensajes[rolDestino] });
@@ -126,7 +127,7 @@ exports.actualizarUsuario = async (req, res) => {
             usuarioEncontrado.cedulaProfesional = cedulaDestino;
             usuarioEncontrado.titulo = tituloDestino;
             usuarioEncontrado.escuela = escuelaDestino;
-        } else if (rolDestino === 'empleado') {
+        } else if (rolDestino === 'empleado' || rolDestino === 'turnos') {
             usuarioEncontrado.farmacia = farmaciaExistente ? farmaciaExistente._id : farmaciaDestino;
             usuarioEncontrado.cedulaProfesional = undefined;
             usuarioEncontrado.titulo = undefined;
@@ -237,6 +238,16 @@ exports.registrarUsuario = async (req, res) => {
             }
         }
 
+        if (rol === 'turnos') {
+            if (!farmacia) {
+                return res.status(400).json({ mensaje: 'Un usuario de turnos debe estar asignado a una farmacia.' });
+            }
+            farmaciaAsignada = await Farmacia.findById(farmacia);
+            if (!farmaciaAsignada) {
+                return res.status(404).json({ mensaje: 'Farmacia no encontrada' });
+            }
+        }
+
         if (rol === 'ajustaAlmacen' || rol === 'ajustaSoloAlmacen') {
             farmaciaAsignada = null;
         }
@@ -278,3 +289,4 @@ exports.registrarUsuario = async (req, res) => {
         res.status(500).json({ mensaje: 'Error en el servidor', error });
     }
 };
+
