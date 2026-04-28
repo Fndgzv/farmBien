@@ -41,3 +41,17 @@
 }
 
 .suggest-item:hover { background: #f8fafc; }
+
+.acciones-reimpresion {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+#ticketVentaReporte {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+}

@@ -22,6 +22,15 @@ export class VentasService {
     return this.http.post(`${this.apiUrl}`, venta, { headers });
   }
 
+  obtenerVentaDetalleTicket(ventaId: string): Observable<any> {
+    const token = localStorage.getItem('auth_token');
+    const headers = new HttpHeaders({
+      'x-auth-token': token || ''
+    });
+
+    return this.http.get<any>(`${this.apiUrl}/${ventaId}/detalle-ticket`, { headers });
+  }
+
   obtenerHistorialCompras(clienteId: string, productoId: string): Observable<any[]> {
     const token = localStorage.getItem('auth_token'); // ✅ Obtener token de autenticación
     if (!token) {

@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 
 import Swal from 'sweetalert2';
 import {
@@ -12,11 +13,15 @@ import {
 import { FarmaciaService, Farmacia } from '../../services/farmacia.service';
 import { ClienteService } from '../../services/cliente.service';
 import { UsuarioService, Usuario } from '../../services/usuario.service';
+import { VentasService } from '../../services/ventas.service';
+import { VentaTicketPrintService } from '../../services/venta-ticket-print.service';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { whenDomStable } from '../../shared/utils/print-utils';
+import { VentaTicketComponent } from '../../impresiones/venta-ticket/venta-ticket.component';
 
 type ClienteLite = { _id: string; nombre: string };
 type ClienteIdx = { _id: string; nombre: string; norm: string; words: string[] };
@@ -24,7 +29,7 @@ type ClienteIdx = { _id: string; nombre: string; norm: string; words: string[] }
 @Component({
   selector: 'app-reporte-ventas',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FontAwesomeModule, MatTooltipModule],
+  imports: [CommonModule, ReactiveFormsModule, FontAwesomeModule, MatTooltipModule, VentaTicketComponent],
   templateUrl: './reporte-ventas.component.html',
   styleUrl: './reporte-ventas.component.css'
 })
@@ -68,6 +73,10 @@ export class ReporteVentasComponent implements OnInit {
 
   // detalle expandido (sólo uno a la vez)
   expandedId: string | null = null;
+  seleccionVentaIds = new Set<string>();
+  imprimiendoTickets = false;
+  mostrarTicket = false;
+  ventaParaImpresion: any = null;
 
   private readonly collator = new Intl.Collator('es', {
     sensitivity: 'base',
@@ -95,6 +104,9 @@ export class ReporteVentasComponent implements OnInit {
     private farmaciaSrv: FarmaciaService,
     private clienteSrv: ClienteService,
     private usuarioSrv: UsuarioService,
+    private ventasSrv: VentasService,
+    private ventaTicketPrintService: VentaTicketPrintService,
+    private cdRef: ChangeDetectorRef,
     private faLib: FaIconLibrary
   ) {
     this.faLib.addIcons(faChevronDown, faChevronUp);
@@ -381,6 +393,7 @@ export class ReporteVentasComponent implements OnInit {
     });
     this.clienteSel = null;
     this.resetPaginacion();
+    this.limpiarSeleccionVentas();
     this.buscar(true);
   }
 
@@ -439,6 +452,7 @@ export class ReporteVentasComponent implements OnInit {
 
         // total de la página
         this.totalPagina = this.rows.reduce((acc, r) => acc + toNum(r.total), 0);
+        this.limpiarSeleccionVentas();
 
         this.cargando = false;
       },
@@ -454,6 +468,7 @@ export class ReporteVentasComponent implements OnInit {
         this.sumaTotalMonederoCliente = 0;
         this.sumaCosto = 0;
         this.sumaUtilidad = 0;
+        this.limpiarSeleccionVentas();
 
         const msg = err?.error?.mensaje || 'No se pudo consultar el reporte.';
         Swal.fire('Error', msg, 'error');
@@ -470,6 +485,121 @@ export class ReporteVentasComponent implements OnInit {
   isExpanded(row: any): boolean {
     const id = String(row?._id || '');
     return !!id && this.expandedId === id;
+  }
+
+  get cantidadSeleccionadas(): number {
+    return this.seleccionVentaIds.size;
+  }
+
+  private getVentaId(row: any): string {
+    return String(row?._id || '').trim();
+  }
+
+  isVentaSeleccionada(row: any): boolean {
+    const id = this.getVentaId(row);
+    return !!id && this.seleccionVentaIds.has(id);
+  }
+
+  toggleSeleccionVenta(row: any, checked: boolean) {
+    const id = this.getVentaId(row);
+    if (!id) return;
+
+    if (checked) this.seleccionVentaIds.add(id);
+    else this.seleccionVentaIds.delete(id);
+  }
+
+  toggleSeleccionPagina(checked: boolean) {
+    for (const row of this.rows) {
+      const id = this.getVentaId(row);
+      if (!id) continue;
+      if (checked) this.seleccionVentaIds.add(id);
+      else this.seleccionVentaIds.delete(id);
+    }
+  }
+
+  todasSeleccionadasPagina(): boolean {
+    const idsPagina = this.rows.map(r => this.getVentaId(r)).filter(Boolean);
+    if (!idsPagina.length) return false;
+    return idsPagina.every(id => this.seleccionVentaIds.has(id));
+  }
+
+  private limpiarSeleccionVentas() {
+    this.seleccionVentaIds.clear();
+  }
+
+  private idsSeleccionadasOrdenadas(): string[] {
+    return this.rows
+      .map(r => this.getVentaId(r))
+      .filter(id => !!id && this.seleccionVentaIds.has(id));
+  }
+
+  async imprimirTicketsSeleccionados() {
+    if (this.imprimiendoTickets) return;
+
+    const ids = this.idsSeleccionadasOrdenadas();
+    if (!ids.length) {
+      await Swal.fire('Sin selección', 'Selecciona al menos una venta para reimprimir su ticket.', 'warning');
+      return;
+    }
+
+    this.imprimiendoTickets = true;
+
+    let impresos = 0;
+    const errores: string[] = [];
+    const pausa = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+    try {
+      for (const ventaId of ids) {
+        try {
+          const resp = await firstValueFrom(this.ventasSrv.obtenerVentaDetalleTicket(ventaId));
+          const ventaDetalle = resp?.venta;
+          if (!ventaDetalle) throw new Error('No se obtuvo el detalle completo de la venta.');
+
+          this.ventaParaImpresion = await this.ventaTicketPrintService.construirVentaTicketDesdeDetalle(ventaDetalle);
+          this.mostrarTicket = true;
+          this.cdRef.detectChanges();
+
+          await whenDomStable();
+          const wrapper = document.getElementById('ticketVentaReporte');
+          const ticketNode = wrapper?.querySelector('#ticketVenta') as HTMLElement | null;
+
+          if (!ticketNode) {
+            throw new Error('No se encontró el nodo del ticket para impresión.');
+          }
+
+          await this.ventaTicketPrintService.imprimirNodoTicket(ticketNode, this.ventaParaImpresion?.formaPago);
+          impresos++;
+          await pausa(250);
+        } catch (error: any) {
+          console.error('[reporte-ventas][reimpresion][ERROR]', ventaId, error);
+          const msg = error?.error?.mensaje || error?.message || 'No se pudo imprimir.';
+          errores.push(`${ventaId}: ${msg}`);
+        } finally {
+          this.mostrarTicket = false;
+          this.ventaParaImpresion = null;
+          this.cdRef.detectChanges();
+        }
+      }
+    } finally {
+      this.imprimiendoTickets = false;
+    }
+
+    if (!errores.length) {
+      await Swal.fire('Listo', `Se imprimieron ${impresos} ticket(s) correctamente.`, 'success');
+      return;
+    }
+
+    const detalleErrores = errores.slice(0, 3).join('\n');
+    if (impresos > 0) {
+      await Swal.fire(
+        'Impresión parcial',
+        `Se imprimieron ${impresos} ticket(s), pero ${errores.length} fallaron.\n${detalleErrores}`,
+        'warning'
+      );
+      return;
+    }
+
+    await Swal.fire('Error', `No se pudo imprimir ningún ticket.\n${detalleErrores}`, 'error');
   }
 
   /** Devuelve hoy en formato 'YYYY-MM-DD' (horario local, sin UTC) */

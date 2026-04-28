@@ -932,7 +932,37 @@ const consultarVentas = async (req, res) => {
   }
 };
 
+const obtenerVentaDetalleTicket = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ ok: false, mensaje: 'ID de venta inválido.' });
+    }
+
+    const venta = await Venta.findById(id)
+      .populate('farmacia', 'nombre direccion telefono titulo1 titulo2 imagen')
+      .populate('cliente', 'nombre')
+      .populate('usuario', 'nombre')
+      .populate('productos.producto', 'nombre codigoBarras')
+      .lean();
+
+    if (!venta) {
+      return res.status(404).json({ ok: false, mensaje: 'Venta no encontrada.' });
+    }
+
+    return res.json({ ok: true, venta });
+  } catch (error) {
+    console.error('[obtenerVentaDetalleTicket][ERROR]:', error);
+    return res.status(500).json({
+      ok: false,
+      mensaje: error?.message || 'Error al obtener el detalle de la venta.',
+    });
+  }
+};
+
 module.exports = {
   crearVenta,
-  consultarVentas
+  consultarVentas,
+  obtenerVentaDetalleTicket
 };

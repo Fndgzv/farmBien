@@ -9,6 +9,7 @@ const isAmin = require("../middlewares/isAdmin")
 
 router.get('/ventasRecientes/:farmaciaId', devolucionController.obtenerVentasRecientes);
 router.post("/ventas", authMiddleware, ventaController.crearVenta);
+router.get('/ventas/:id/detalle-ticket', authMiddleware, isAmin, ventaController.obtenerVentaDetalleTicket);
 router.get("/reportes/ventas/consulta", authMiddleware, isAmin, ventaController.consultarVentas);
 
 router.post("/devoluciones/registrar", authMiddleware, devolucionController.registrarDevolucion);

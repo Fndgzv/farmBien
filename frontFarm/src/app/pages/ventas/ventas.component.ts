@@ -23,8 +23,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
 import { MatTooltip } from '@angular/material/tooltip';
+import { VentaTicketPrintService } from '../../services/venta-ticket-print.service';
 
-import { resolveLogoForPrint, logoToDataUrlSafe, whenDomStable, printNodeInIframe } from '../../shared/utils/print-utils';
+import { whenDomStable, printNodeInIframe } from '../../shared/utils/print-utils';
 import { buildImgUrl } from '../../shared/img-url';
 import { environment } from '../../../environments/environment';
 
@@ -331,6 +332,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     private ventaService: VentaService,
     private farmaciaService: FarmaciaService,
     private fichasService: FichasConsultorioService,
+    private ventaTicketPrintService: VentaTicketPrintService,
     private cdRef: ChangeDetectorRef) {
     this.ventaForm = this.fb.group({
       cliente: [''],
@@ -1840,19 +1842,14 @@ export class VentasComponent implements OnInit, AfterViewInit {
       monederoCliente: (p.almonedero ?? 0) * p.cantidad,
     }));
 
-    // Logo embebido
-    const absLogo = resolveLogoForPrint(this.farmaciaImagen);
-    let logoData = '';
-    try { logoData = await logoToDataUrlSafe(absLogo); } catch { logoData = absLogo; }
-
-    const farma = {
+    const farma = await this.ventaTicketPrintService.construirFarmaciaTicket({
       nombre: this.farmaciaNombre,
       direccion: this.farmaciaDireccion,
       telefono: this.farmaciaTelefono,
       titulo1: this.farmaciaTitulo1,
       titulo2: this.farmaciaTitulo2,
-      imagen: logoData,
-    };
+      imagen: this.farmaciaImagen,
+    });
 
     this.ventaParaImpresion = {
       folio,
@@ -1887,18 +1884,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
       const el = document.getElementById('ticketVenta');
       if (!el) throw new Error('ticketVenta no encontrado');
 
-      // 🔥 Imprime SOLO el ticket en un iframe oculto (sin tocar tu @media print global)
-      // ✅ Si hay tarjeta o transferencia → imprimir 2 tickets
-      const requiere2 = (this.montoTarjeta > 0) || (this.montoTransferencia > 0);
-      const veces = requiere2 ? 2 : 1;
-
-      const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
-
-      // 🔥 Imprime SOLO el ticket en un iframe oculto (sin tocar tu @media print global)
-      for (let n = 0; n < veces; n++) {
-        await printNodeInIframe(el);
-        if (n < veces - 1) await sleep(600); // pausa leve entre impresiones
-      }
+      await this.ventaTicketPrintService.imprimirNodoTicket(el, this.ventaParaImpresion?.formaPago);
 
 
       // Guardar **después** de imprimir

@@ -95,10 +95,23 @@
         </form>
     </div>
 
+    <div class="acciones-reimpresion mt-3 mb-2">
+        <button type="button" class="btn-gris" (click)="imprimirTicketsSeleccionados()"
+            [disabled]="cargando || imprimiendoTickets">
+            {{ imprimiendoTickets ? 'Imprimiendo tickets...' : 'Imprimir tickets seleccionados' }}
+        </button>
+        <span class="ms-2 text-muted">Seleccionadas: {{ cantidadSeleccionadas }}</span>
+    </div>
+
     <div class="mt-2">
         <table class="tabla">
             <thead>
                 <tr>
+                    <th style="width: 46px;">
+                        <input type="checkbox" [checked]="todasSeleccionadasPagina()"
+                            (change)="toggleSeleccionPagina($any($event.target).checked)"
+                            [disabled]="cargando || rows.length === 0" />
+                    </th>
                     <th style="width: 40px;">Det.</th>
                     <th>Farmacia</th>
                     <th>Vendió</th>
@@ -119,6 +132,10 @@
                 <ng-container *ngFor="let v of rows">
                     <!-- fila principal -->
                     <tr>
+                        <td class="text-center">
+                            <input type="checkbox" [checked]="isVentaSeleccionada(v)"
+                                (change)="toggleSeleccionVenta(v, $any($event.target).checked)" [disabled]="cargando" />
+                        </td>
                         <td class="text-center">
                             <button class="btn-icon-chico btn-gris-chico" (click)="toggleDetalle(v)"
                                 [disabled]="cargando"
@@ -145,7 +162,7 @@
 
                     <!-- fila detalle expandible -->
                     <tr *ngIf="isExpanded(v)">
-                        <td colspan="14" style="background:#fafafa;">
+                        <td colspan="15" style="background:#fafafa;">
                             <!-- Subtabla de renglones -->
                             <div class="table-responsive">
                                 <table class="detalle-tabla">
@@ -216,13 +233,13 @@
                 </ng-container>
 
                 <tr *ngIf="rows.length === 0">
-                    <td colspan="14" class="text-center text-muted py-3">Sin resultados</td>
+                    <td colspan="15" class="text-center text-muted py-3">Sin resultados</td>
                 </tr>
             </tbody>
 
             <tfoot *ngIf="rows.length > 0">
                 <tr>
-                    <td colspan="7" class="text-end"><strong>Totales ===></strong></td>
+                    <td colspan="8" class="text-end"><strong>Totales ===></strong></td>
                     <td class="text-end" style="font-weight:600;">{{sumaCantidadProductos}}</td>
                     <td class="text-end" style="font-weight:600;">${{sumaTotalMonederoCliente | number:'1.2-2'}}</td>
                     <td class="text-end" style="font-weight:600;">${{sumaTotalDescuento | number:'1.2-2'}}</td>
@@ -260,4 +277,8 @@
             </button>
         </div>
     </div>
+</div>
+
+<div id="ticketVentaReporte" *ngIf="mostrarTicket && ventaParaImpresion as data">
+    <app-venta-ticket [venta]="data"></app-venta-ticket>
 </div>
