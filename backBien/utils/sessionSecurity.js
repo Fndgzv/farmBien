@@ -170,9 +170,20 @@ function signLegacyToken(usuario) {
 }
 
 async function generateLoginToken({ usuario, req }) {
-  const legacyToken = signLegacyToken(usuario);
+  const usuarioId = String(usuario?._id || usuario?.id || "");
+  const username = safeString(usuario?.usuario, 120);
+  const rol = safeString(usuario?.rol, 64);
+  const esAdmin = rol === "admin";
+
+  logInfo(
+    `[LOGIN] intento usuario=${username || usuarioId} id=${usuarioId || "n/a"} rol=${rol || "n/a"} admin=${esAdmin ? "si" : "no"}`
+  );
 
   if (!isEnabled()) {
+    const legacyToken = signLegacyToken(usuario);
+    logInfo(
+      `[LOGIN] decision=permitir usuario=${username || usuarioId} motivo=feature_flag_disabled`
+    );
     return {
       token: legacyToken,
       sessionSecurityEnabled: false,
@@ -183,6 +194,10 @@ async function generateLoginToken({ usuario, req }) {
 
   const model = getSessionModelSafe();
   if (!model) {
+    const legacyToken = signLegacyToken(usuario);
+    logWarn(
+      `[LOGIN] decision=permitir usuario=${username || usuarioId} motivo=model_unavailable_fail_safe`
+    );
     return {
       token: legacyToken,
       sessionSecurityEnabled: true,
@@ -192,26 +207,29 @@ async function generateLoginToken({ usuario, req }) {
   }
 
   const now = new Date();
-  const usuarioId = String(usuario._id || usuario.id);
-  const rol = String(usuario.rol || "");
 
   await cleanupSessionsBestEffort(model, usuarioId);
 
   try {
-    if (rol !== "admin") {
-      const sesionActiva = await model.findOne({
-        usuario: usuarioId,
-        estado: "active",
-        expiresAt: { $gt: now },
-      });
+    const sesionesActivas = await model.countDocuments({
+      usuario: usuarioId,
+      estado: "active",
+      expiresAt: { $gt: now },
+    });
 
-      if (sesionActiva) {
-        throw new SessionSecurityError(
-          "Ya existe una sesion activa para este usuario. Cierra la sesion anterior antes de iniciar otra.",
-          "SESSION_ACTIVE_EXISTS",
-          409
-        );
-      }
+    logInfo(
+      `[LOGIN] sesiones_activas usuario=${username || usuarioId} total=${sesionesActivas}`
+    );
+
+    if (!esAdmin && sesionesActivas > 0) {
+      logWarn(
+        `[LOGIN] decision=bloquear usuario=${username || usuarioId} motivo=session_active_exists`
+      );
+      throw new SessionSecurityError(
+        "Ya existe una sesion activa para este usuario. Cierra la sesion anterior antes de iniciar otra.",
+        "SESSION_ACTIVE_EXISTS",
+        409
+      );
     }
 
     const sessionId = randomId(16);
@@ -247,6 +265,10 @@ async function generateLoginToken({ usuario, req }) {
       expiresAt,
     });
 
+    logInfo(
+      `[LOGIN] decision=permitir usuario=${username || usuarioId} motivo=session_registered sid=${sessionId}`
+    );
+
     return {
       token,
       sessionSecurityEnabled: true,
@@ -258,6 +280,10 @@ async function generateLoginToken({ usuario, req }) {
       throw error;
     }
 
+    const legacyToken = signLegacyToken(usuario);
+    logWarn(
+      `[LOGIN] decision=permitir usuario=${username || usuarioId} motivo=session_registration_failed_fail_safe`
+    );
     logWarn("Fallo registro de sesion en login. Se usara token legacy (fail-safe).", error?.message || "");
     return {
       token: legacyToken,

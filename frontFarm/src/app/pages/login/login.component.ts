@@ -54,10 +54,10 @@ export class LoginComponent {
 
   closeLogin() {
     this.authService.hideLogin();
-    this.cdr.detectChanges(); // 🔹 Forzar la actualización del DOM
+    this.cdr.detectChanges(); // Forzar actualización del DOM
   }
 
-  // 🔹 Función para iniciar sesión
+  // Función para iniciar sesión
   onSubmit(): void {
 
     if (!this.loginForm.valid) {
@@ -83,7 +83,7 @@ export class LoginComponent {
               response.user.domicilio
             );
 
-            // ⭐ Redirección según rol
+            // Redirección según rol
             const rol = response.user.rol;
 
             // ---- 1) ajustaAlmacen: NO necesita farmacia ni corte ----
@@ -133,7 +133,7 @@ export class LoginComponent {
             this.verificarCorteActivoYRedirigir();
 
           } else {
-            this.showErrorAlert('Respuesta del servidor no válida');
+            this.showErrorAlert('Respuesta del servidor no v\u00e1lida');
           }
         },
         error: async (error: any) => {
@@ -141,7 +141,7 @@ export class LoginComponent {
           const requiereFirma = error?.status === 401 && error?.error?.requiereFirma;
           if (requiereFirma) {
             const { value: firmaIngresada } = await Swal.fire({
-              title: 'Autorización requerida',
+              title: 'Autorizaci\u00f3n requerida',
               input: 'password',
               inputLabel: 'Firma de la farmacia',
               inputPlaceholder: 'Ingresa la firma',
@@ -162,11 +162,12 @@ export class LoginComponent {
           }
 
           console.error('Error en login:', error);
-          const codigo = error?.error?.codigo;
+          const codigo = error?.error?.code || error?.error?.codigo;
+          const mensajeBackend = error?.error?.message || error?.error?.mensaje;
           const mensaje =
-            codigo === 'SESSION_ACTIVE_EXISTS'
-              ? 'Ya existe una sesi�n activa para este usuario. Cierra la sesi�n anterior para volver a iniciar.'
-              : (error?.error?.mensaje || 'Error en autenticaci�n');
+            (codigo === 'SESSION_ALREADY_ACTIVE' || codigo === 'SESSION_ACTIVE_EXISTS')
+              ? 'Ya existe una sesi\u00f3n activa para este usuario. Cierra la sesi\u00f3n anterior antes de iniciar una nueva.'
+              : (mensajeBackend || 'Error en autenticaci\u00f3n');
           this.showErrorAlert(mensaje);
         }
       });
@@ -188,11 +189,11 @@ export class LoginComponent {
     this.mostrarPassword = !this.mostrarPassword;
   }
 
-  // 🔹 Función para mostrar alertas de error
+  // Función para mostrar alertas de error
   private showErrorAlert(message: string) {
     Swal.fire({
       icon: 'error',
-      title: 'Error en el inicio de sesión',
+      title: 'Error en el inicio de sesi\u00f3n',
       text: message,
       confirmButtonText: 'Intentar de nuevo'
     });
@@ -215,7 +216,7 @@ export class LoginComponent {
       .subscribe({
         next: (res: any) => {
           if (res?.corte) {
-            // ✅ Turno activo → guardar y a /home
+            // Turno activo: guardar y navegar a /home
             localStorage.setItem('corte_activo', res.corte._id);
 
             const fecha = new Date(res.corte.fechaInicio).toLocaleString('es-MX', {
@@ -245,7 +246,7 @@ export class LoginComponent {
               this.router.navigate(['/home']);
             });
           } else {
-            // 🚪 Sin turno activo → limpiar posible residuo y a /inicio-turno
+            // Sin turno activo: limpiar posible residuo y navegar a /inicio-turno
             localStorage.removeItem('corte_activo');
             this.authService.hideLogin();
             this.router.navigate(['/inicio-turno']);

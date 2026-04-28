@@ -11,6 +11,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const conectarDB = require('./config/db');
+const { isEnabled: isSessionSecurityEnabled } = require('./utils/sessionSecurity');
 
 const app = express();
 
@@ -27,6 +28,9 @@ app.use(express.urlencoded({ extended: true }));
 // =============================================================
 const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
 console.log('Intentando conectar a MongoDB:', uri ? '✅ OK' : '❌ NO DEFINIDA');
+console.log(
+  `[SESSION_SECURITY] enabled=${isSessionSecurityEnabled()} raw="${String(process.env.SESSION_SECURITY_ENABLED || '') || '(undefined)'}"`
+);
 conectarDB();
 
 

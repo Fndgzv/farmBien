@@ -9,6 +9,7 @@ const {
   getTokenFromRequest,
   isEnabled: isSessionSecurityEnabled,
   logInfo,
+  logWarn,
   revokeAllUserSessions,
   revokeSessionByTokenPayload,
 } = require("../utils/sessionSecurity");
@@ -151,9 +152,16 @@ exports.iniciarSesion = async (req, res) => {
     });
   } catch (error) {
     if (error instanceof SessionSecurityError && error.code === "SESSION_ACTIVE_EXISTS") {
-      return res.status(error.status || 409).json({
-        mensaje: "Ya existe una sesion activa para este usuario. Cierra la sesion anterior antes de iniciar otra.",
-        codigo: "SESSION_ACTIVE_EXISTS",
+      logWarn(
+        `[LOGIN] decision=bloquear usuario=${usuario} motivo=session_active_exists controller_response`
+      );
+      return res.status(409).json({
+        success: false,
+        code: "SESSION_ALREADY_ACTIVE",
+        message: "Ya existe una sesi\u00f3n activa para este usuario. Cierra la sesi\u00f3n anterior antes de iniciar una nueva.",
+        // Compatibilidad temporal hacia atrás
+        codigo: "SESSION_ALREADY_ACTIVE",
+        mensaje: "Ya existe una sesi\u00f3n activa para este usuario. Cierra la sesi\u00f3n anterior antes de iniciar una nueva.",
       });
     }
 

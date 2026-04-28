@@ -286,7 +286,7 @@ export class AuthService {
     if (!token) {
       console.error("❌ No hay token disponible, la solicitud será rechazada.");
       return new Observable(observer => {
-        observer.error({ mensaje: "No hay token de autenticación." });
+        observer.error({ mensaje: "No hay token de autenticaci\u00f3n." });
       });
     }
 
