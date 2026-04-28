@@ -161,8 +161,13 @@ export class LoginComponent {
             return;
           }
 
-          console.error("‚ùå Error en login:", error);
-          this.showErrorAlert(error?.error?.mensaje || 'Error en autenticaci√≥n');
+          console.error('Error en login:', error);
+          const codigo = error?.error?.codigo;
+          const mensaje =
+            codigo === 'SESSION_ACTIVE_EXISTS'
+              ? 'Ya existe una sesiÛn activa para este usuario. Cierra la sesiÛn anterior para volver a iniciar.'
+              : (error?.error?.mensaje || 'Error en autenticaciÛn');
+          this.showErrorAlert(mensaje);
         }
       });
     };
@@ -257,3 +262,4 @@ export class LoginComponent {
   }
 
 }
+

@@ -58,6 +58,12 @@ const UsuarioSchema = new mongoose.Schema({
         required: function () {
             return this.rol === "medico";
         }
+    },
+
+    activo: {
+        type: Boolean,
+        default: true,
+        index: true
     }
 }, { timestamps: true });
 

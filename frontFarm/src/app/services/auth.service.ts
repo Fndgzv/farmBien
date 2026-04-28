@@ -158,11 +158,34 @@ export class AuthService {
   }
 
   logout() {
-    this.usuario = null;
-    localStorage.clear();
-    this.farmaciaSubject.next(null);
-    this.usuarioSubject.next(null);
-    this.router.navigateByUrl('/');
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+
+    const limpiarSesionLocal = () => {
+      this.usuario = null;
+      localStorage.clear();
+      this.farmaciaSubject.next(null);
+      this.usuarioSubject.next(null);
+      this.router.navigateByUrl('/');
+    };
+
+    if (!token) {
+      limpiarSesionLocal();
+      return;
+    }
+
+    const headers = new HttpHeaders({
+      'x-auth-token': token,
+      'Content-Type': 'application/json'
+    });
+
+    this.http.post(`${this.apiUrl}/logout`, {}, { headers })
+      .pipe(
+        catchError(() => of(null))
+      )
+      .subscribe({
+        next: () => limpiarSesionLocal(),
+        error: () => limpiarSesionLocal()
+      });
   }
 
   guardarToken(token: string) {
