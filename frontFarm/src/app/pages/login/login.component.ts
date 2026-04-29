@@ -10,6 +10,7 @@ import { FaIconLibrary, FontAwesomeModule } from '@fortawesome/angular-fontaweso
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { TurnoCajaService } from '../../services/turno-caja.service';
 
 @Component({
   selector: 'app-login',
@@ -38,6 +39,7 @@ export class LoginComponent {
   constructor(public fb: FormBuilder,
     private http: HttpClient,
     public authService: AuthService,
+    private turnoCajaService: TurnoCajaService,
     public router: Router,
     private cdr: ChangeDetectorRef,
     library: FaIconLibrary
@@ -217,7 +219,7 @@ export class LoginComponent {
         next: (res: any) => {
           if (res?.corte) {
             // Turno activo: guardar y navegar a /home
-            localStorage.setItem('corte_activo', res.corte._id);
+            this.turnoCajaService.marcarTurnoActivo(res.corte._id);
 
             const fecha = new Date(res.corte.fechaInicio).toLocaleString('es-MX', {
               timeZone: 'America/Mexico_City'
@@ -247,7 +249,7 @@ export class LoginComponent {
             });
           } else {
             // Sin turno activo: limpiar posible residuo y navegar a /inicio-turno
-            localStorage.removeItem('corte_activo');
+            this.turnoCajaService.limpiarTurnoActivo();
             this.authService.hideLogin();
             this.router.navigate(['/inicio-turno']);
           }
@@ -255,7 +257,7 @@ export class LoginComponent {
         error: (err) => {
           console.error('Error al verificar corte activo:', err);
           // En error tratamos como si no hubiera corte activo
-          localStorage.removeItem('corte_activo');
+          this.turnoCajaService.limpiarTurnoActivo();
           this.authService.hideLogin();
           this.router.navigate(['/inicio-turno']);
         }

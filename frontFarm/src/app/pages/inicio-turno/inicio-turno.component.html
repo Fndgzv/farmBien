@@ -5,13 +5,13 @@
     <div class="form-group mb-3">
       <label for="efectivoInicial" class="form-label">Efectivo inicial recibido:</label>
       <input type="number" id="efectivoInicial" class="form-control" placeholder="Ej. 500.00"
-        [(ngModel)]="efectivoInicial" min="0" step="1" />
+        [(ngModel)]="efectivoInicial" min="0" step="0.01" required />
     </div>
 
     <div class="form-group mb-3">
       <label for="saldoInicialRecargas" class="form-label">Saldo inicial de recargas:</label>
       <input type="number" id="saldoInicialRecargas" class="form-control" placeholder="Ej. 0.00"
-        [(ngModel)]="saldoInicialRecargas" min="0" step="1" />
+        [(ngModel)]="saldoInicialRecargas" min="0" step="0.01" required />
       <small class="text-muted">Coloca 0.00 si no tienes recargas al inicio.</small>
     </div>
 

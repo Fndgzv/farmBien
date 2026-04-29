@@ -17,6 +17,7 @@ import { AuthService } from '../../services/auth.service';
 export class HeaderComponent implements OnInit {
 
   @Input() isSidebarOpen: boolean = false;
+  @Input() bloqueadoPorTurno: boolean = false;
   @Output() toggleSidebar = new EventEmitter<void>();
 
 

@@ -5,6 +5,7 @@ import { BehaviorSubject, Observable, throwError, map, catchError, of } from 'rx
 import { tap } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
+import { TurnoCajaService } from './turno-caja.service';
 
 const baseUrl = environment.apiUrl;
 
@@ -47,7 +48,11 @@ export class AuthService {
   userRol$ = this.userRolSubject.asObservable();
 
 
-  constructor(private router: Router, private http: HttpClient) {
+  constructor(
+    private router: Router,
+    private http: HttpClient,
+    private turnoCajaService: TurnoCajaService
+  ) {
     this.cargarStorage();
   }
 
@@ -163,6 +168,7 @@ export class AuthService {
     const limpiarSesionLocal = () => {
       this.usuario = null;
       localStorage.clear();
+      this.turnoCajaService.limpiarTurnoActivo();
       this.farmaciaSubject.next(null);
       this.usuarioSubject.next(null);
       this.router.navigateByUrl('/');
