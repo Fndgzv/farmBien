@@ -74,17 +74,12 @@ export const turnoCajaGuard: CanActivateChildFn = (_route, state): Observable<bo
   }
 
   const url = normalizarRuta(state?.url || '');
-  const esInicioTurno = url === '/inicio-turno' || url.startsWith('/inicio-turno/');
   const estaExcluida = [...rutasExcluidasTurno].some(ruta => url === ruta || url.startsWith(`${ruta}/`));
 
   return turnoCajaService.verificarTurnoActivo().pipe(
     map(turnoActivo => {
       if (!turnoActivo && !estaExcluida) {
         return router.createUrlTree(['/inicio-turno']);
-      }
-
-      if (turnoActivo && esInicioTurno) {
-        return router.createUrlTree(['/home']);
       }
 
       return true;
@@ -96,4 +91,3 @@ function normalizarRuta(url: string): string {
   const sinHash = url.split('#')[0];
   return sinHash.split('?')[0] || '/';
 }
-
