@@ -73,6 +73,16 @@ const cleanArr = (v) => {
     .filter(Boolean);
 };
 
+const normalizarCategoriaServicio = (valor) =>
+  String(valor || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const esCategoriaServicioMedico = (categoria) =>
+  /^servicios?\s+medicos?(\s|$)/.test(normalizarCategoriaServicio(categoria));
+
 
 const pickAntecedentes = (antRaw) => {
   if (!antRaw || typeof antRaw !== "object") return null;
@@ -215,8 +225,8 @@ exports.actualizarServicios = async (req, res) => {
           return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
         }
 
-        const cat = (p.categoria || "").trim();
-        if (cat !== "Servicio Médico") {
+        const cat = p.categoria || "";
+        if (!esCategoriaServicioMedico(cat)) {
           return res.status(400).json({
             msg: `El producto ${p.nombre} no es de categoría Servicio Médico`
           });
@@ -258,7 +268,7 @@ exports.actualizarServicios = async (req, res) => {
 
         conceptosNoMedicosExistentes = ficha.servicios.filter((item) => {
           const categoria = categoriaMap.get(String(item.productoId)) || "";
-          return categoria !== "Servicio Médico";
+          return !esCategoriaServicioMedico(categoria);
         });
       }
     }
@@ -695,9 +705,7 @@ exports.regresarAListaDeEspera = async (req, res) => {
     // ✅ si quieres que vuelva al FINAL de la cola:
     // ficha.llegadaAt = new Date();
 
-    // ✅ recomendado: limpiar servicios/notas si regresa a espera
-    ficha.servicios = [];
-    ficha.notasMedico = "";
+    // Conservamos servicios y notas para poder retomar la misma consulta sin perder captura.
 
     ficha.actualizadaPor = usuario._id;
 
@@ -1007,8 +1015,8 @@ exports.finalizarConsulta = async (req, res) => {
         const p = map.get(String(s.productoId));
         if (!p) return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
 
-        const cat = (p.categoria || "").trim();
-        if (cat !== "Servicio Médico") {
+        const cat = p.categoria || "";
+        if (!esCategoriaServicioMedico(cat)) {
           return res.status(400).json({
             msg: `El producto ${p.nombre} no es de categoría Servicio Médico`,
           });
@@ -1050,7 +1058,7 @@ exports.finalizarConsulta = async (req, res) => {
 
         conceptosNoMedicosExistentes = ficha.servicios.filter((item) => {
           const categoria = categoriaMap.get(String(item.productoId)) || "";
-          return categoria !== "Servicio Médico";
+          return !esCategoriaServicioMedico(categoria);
         });
       }
     }
@@ -1387,3 +1395,4 @@ exports.finalizarConsulta = async (req, res) => {
     return res.status(500).json({ msg: "Error al finalizar la consulta" });
   }
 };
+

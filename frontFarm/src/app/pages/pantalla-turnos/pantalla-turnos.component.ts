@@ -10,6 +10,7 @@ import {
   PantallaTurnosService,
   TurnoPantallaItem
 } from '../../services/pantalla-turnos.service';
+import { formatearTurnoConsultorioVisual } from '../../shared/utils/turno-visual';
 
 @Component({
   selector: 'app-pantalla-turnos',
@@ -232,15 +233,17 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
 
   formatearTurno(turno: TurnoPantallaItem | null | undefined, fallback = '-'): string {
     if (!turno) return fallback;
-    const folio = String(turno.folio || '').trim();
-    if (folio) return folio;
-
-    const consecutivo = Number(turno.turnoConsecutivo || 0);
-    if (consecutivo > 0) {
-      return `TC-${String(consecutivo).padStart(3, '0')}`;
+    const turnoVisual = formatearTurnoConsultorioVisual(
+      turno.turnoFecha,
+      turno.turnoConsecutivo,
+      { prefijo: 'TC', timeZone: 'America/Mexico_City' }
+    );
+    if (turnoVisual) {
+      return turnoVisual;
     }
 
-    return fallback;
+    const folio = String(turno.folio || '').trim();
+    return folio || fallback;
   }
 
   private iniciarEstrategiaAudio(): void {

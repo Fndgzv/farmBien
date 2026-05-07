@@ -30,6 +30,7 @@ type MedicamentoUI = {
   ingreActivo?: string;
   codigoBarras?: string;
   buscando?: boolean;
+  sinCoincidencias?: boolean;
 
   dosis: string;
   via: string;
@@ -112,12 +113,12 @@ export class MedicoConsultorioComponent implements OnInit {
   private tick: any;
   colaExpandida = true;
   // colapsables (ATENCIÓN)
-  svExpandida = true;
+  svExpandida = false;
   capturaSignosDisponible = true;
   expExpandida = true;
-  rxExpandida = true;
-  servExpandida = true;
-  ncExpandida = true;
+  rxExpandida = false;
+  servExpandida = false;
+  ncExpandida = false;
 
   toggleSV() { this.svExpandida = !this.svExpandida; }
   toggleExp() { this.expExpandida = !this.expExpandida; }
@@ -139,6 +140,7 @@ export class MedicoConsultorioComponent implements OnInit {
   guardandoPaciente = false;
   guardandoAntecedentes = false;
   guardandoNotaClinica = false;
+  guardandoServicios = false;
 
   readonly entidadesNacimiento = [
     { value: 'AS', label: 'Aguascalientes' },
@@ -200,6 +202,8 @@ export class MedicoConsultorioComponent implements OnInit {
 
   generandoReceta = false;
   private recetaPendienteImpresionId: string | null = null;
+  private readonly recetaActivaPorFichaStorageKey = 'medico_consultorio_receta_activa_por_ficha_v1';
+  private readonly signosPasoPorFichaStorageKey = 'medico_consultorio_signos_paso_por_ficha_v1';
 
   signos = {
     pesoKg: null as number | null,
@@ -379,6 +383,231 @@ export class MedicoConsultorioComponent implements OnInit {
     return '';
   }
 
+  private leerRecetasActivasPorFichaMap(): Record<string, string> {
+    try {
+      const raw = localStorage.getItem(this.recetaActivaPorFichaStorageKey);
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (!parsed || typeof parsed !== 'object') return {};
+      return parsed;
+    } catch {
+      return {};
+    }
+  }
+
+  private guardarRecetasActivasPorFichaMap(map: Record<string, string>) {
+    try {
+      localStorage.setItem(this.recetaActivaPorFichaStorageKey, JSON.stringify(map || {}));
+    } catch { }
+  }
+
+  private setRecetaActivaDeFicha(fichaId: any, recetaId: any) {
+    const fId = String(fichaId || '').trim();
+    const rId = String(recetaId || '').trim();
+    if (!fId || !rId) return;
+    const map = this.leerRecetasActivasPorFichaMap();
+    map[fId] = rId;
+    this.guardarRecetasActivasPorFichaMap(map);
+  }
+
+  private getRecetaActivaDeFicha(fichaId: any): string | null {
+    const fId = String(fichaId || '').trim();
+    if (!fId) return null;
+    const map = this.leerRecetasActivasPorFichaMap();
+    const recetaId = String(map?.[fId] || '').trim();
+    return recetaId || null;
+  }
+
+  private removeRecetaActivaDeFicha(fichaId: any) {
+    const fId = String(fichaId || '').trim();
+    if (!fId) return;
+    const map = this.leerRecetasActivasPorFichaMap();
+    if (!(fId in map)) return;
+    delete map[fId];
+    this.guardarRecetasActivasPorFichaMap(map);
+  }
+
+  private leerSignosPasoPorFichaMap(): Record<string, any> {
+    try {
+      const raw = localStorage.getItem(this.signosPasoPorFichaStorageKey);
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (!parsed || typeof parsed !== 'object') return {};
+      return parsed;
+    } catch {
+      return {};
+    }
+  }
+
+  private guardarSignosPasoPorFichaMap(map: Record<string, any>) {
+    try {
+      localStorage.setItem(this.signosPasoPorFichaStorageKey, JSON.stringify(map || {}));
+    } catch { }
+  }
+
+  private setSignosPasoDeFicha(fichaId: any, signos: any) {
+    const fId = String(fichaId || '').trim();
+    if (!fId || !signos) return;
+    const map = this.leerSignosPasoPorFichaMap();
+    map[fId] = signos;
+    this.guardarSignosPasoPorFichaMap(map);
+  }
+
+  private getSignosPasoDeFicha(fichaId: any): any | null {
+    const fId = String(fichaId || '').trim();
+    if (!fId) return null;
+    const map = this.leerSignosPasoPorFichaMap();
+    return map?.[fId] || null;
+  }
+
+  private removeSignosPasoDeFicha(fichaId: any) {
+    const fId = String(fichaId || '').trim();
+    if (!fId) return;
+    const map = this.leerSignosPasoPorFichaMap();
+    if (!(fId in map)) return;
+    delete map[fId];
+    this.guardarSignosPasoPorFichaMap(map);
+  }
+
+  private toEpochMs(value: any): number | null {
+    if (!value) return null;
+    const d = new Date(value);
+    const t = d.getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+
+  private inferirRecetaIdDesdeExpedienteParaFichaActual(): string | null {
+    const lista = Array.isArray(this.expediente?.ultimasRecetas) ? this.expediente.ultimasRecetas : [];
+    if (!lista.length) return null;
+
+    const inicioAtencionMs =
+      this.toEpochMs(this.fichaActual?.inicioAtencionAt) ??
+      this.toEpochMs(this.fichaActual?.llamadoAt) ??
+      this.toEpochMs(this.fichaActual?.llegadaAt);
+
+    if (!inicioAtencionMs) return null;
+
+    const ventanaInferior = inicioAtencionMs - (30 * 60 * 1000);
+    const ventanaSuperior = Date.now() + (5 * 60 * 1000);
+    const miId = this.miUsuarioId;
+
+    const candidatos = lista
+      .map((entry: any) => {
+        const recetaId = String(entry?.recetaId || '').trim();
+        const fechaMs = this.toEpochMs(entry?.fecha);
+        const medicoEntry = entry?.medicoId;
+        const medicoId = typeof medicoEntry === 'object'
+          ? String(medicoEntry?._id || '').trim()
+          : String(medicoEntry || '').trim();
+        return { recetaId, fechaMs, medicoId };
+      })
+      .filter((entry: any) =>
+        !!entry.recetaId &&
+        entry.fechaMs != null &&
+        entry.fechaMs >= ventanaInferior &&
+        entry.fechaMs <= ventanaSuperior
+      );
+
+    if (!candidatos.length) return null;
+
+    const candidatosMedico = miId
+      ? candidatos.filter((entry: any) => entry.medicoId && entry.medicoId === miId)
+      : [];
+
+    const pool = candidatosMedico.length ? candidatosMedico : candidatos;
+    pool.sort((a: any, b: any) => Number(b.fechaMs || 0) - Number(a.fechaMs || 0));
+
+    return pool[0]?.recetaId || null;
+  }
+
+  private mapearMedicamentoRecetaAFormulario(medicamento: any): MedicamentoUI {
+    const producto = medicamento?.productoId;
+    const productoId = typeof producto === 'object'
+      ? String(producto?._id || '').trim()
+      : String(producto || '').trim();
+
+    const nombreProducto = String(producto?.nombre || '').trim();
+    const nombreLibreReceta = String(medicamento?.nombreLibre || '').trim();
+    const nombreBase = nombreProducto || nombreLibreReceta;
+
+    const via = String(medicamento?.via || 'ORAL').trim() || 'ORAL';
+    const viaOtra = String(medicamento?.viaOtra || '').trim();
+    const cantidadNum = medicamento?.cantidad != null && medicamento?.cantidad !== ''
+      ? Number(medicamento.cantidad)
+      : null;
+
+    return {
+      modo: productoId ? 'CATALOGO' : 'OTRO',
+      productoId: productoId || null,
+      nombreLibre: nombreBase,
+      ingreActivo: String(producto?.ingreActivo || medicamento?.ingreActivo || '').trim(),
+      codigoBarras: String(producto?.codigoBarras || medicamento?.codigoBarras || '').trim(),
+      buscando: false,
+      sinCoincidencias: false,
+      dosis: String(medicamento?.dosis || '').trim(),
+      via,
+      viaOtra: via === 'OTRA' ? viaOtra : '',
+      frecuencia: String(medicamento?.frecuencia || '').trim(),
+      duracion: String(medicamento?.duracion || '').trim(),
+      cantidad: Number.isFinite(cantidadNum as any) ? cantidadNum : null,
+      indicaciones: String(medicamento?.indicaciones || '').trim(),
+      esControlado: !!medicamento?.esControlado,
+      q: productoId ? nombreBase : '',
+      resultados: [],
+    };
+  }
+
+  private aplicarRecetaGuardadaEnFormulario(receta: any) {
+    const diagnosticos = Array.isArray(receta?.diagnosticos)
+      ? receta.diagnosticos.map((x: any) => String(x || '').trim()).filter(Boolean)
+      : [];
+
+    const medicamentos = Array.isArray(receta?.medicamentos)
+      ? receta.medicamentos.map((m: any) => this.mapearMedicamentoRecetaAFormulario(m))
+      : [];
+
+    this.receta = {
+      diagnosticosTexto: diagnosticos.join('\n'),
+      indicacionesGenerales: String(receta?.indicacionesGenerales || receta?.observaciones || '').trim(),
+      citaSeguimiento: receta?.citaSeguimiento ? this.toDateInputValue(receta.citaSeguimiento) : '',
+      medicamentos: medicamentos.length ? medicamentos : [this.nuevoMedicamento()],
+    };
+  }
+
+  private async cargarRecetaGuardadaAlReanudar() {
+    if (!this.fichaActual?._id || !this.fichaActual?.pacienteId) return;
+
+    const recetaId =
+      this.recetaPendienteImpresionId ||
+      this.getRecetaActivaDeFicha(this.fichaActual._id) ||
+      this.inferirRecetaIdDesdeExpedienteParaFichaActual();
+
+    if (!recetaId) return;
+
+    try {
+      const resp: any = await firstValueFrom(this.recetasService.obtenerPorId(recetaId));
+      const recetaDoc = resp?.receta;
+      if (!recetaDoc?._id) {
+        this.removeRecetaActivaDeFicha(this.fichaActual._id);
+        return;
+      }
+
+      this.recetaPendienteImpresionId = String(recetaDoc._id);
+      this.setRecetaActivaDeFicha(this.fichaActual._id, this.recetaPendienteImpresionId);
+      this.aplicarRecetaGuardadaEnFormulario(recetaDoc);
+
+      const alergiasExtra = Array.isArray(resp?.extraPaciente?.alergias)
+        ? resp.extraPaciente.alergias.map((x: any) => String(x || '').trim()).filter(Boolean)
+        : [];
+      if (!String(this.antForm.alergiasTxt || '').trim() && alergiasExtra.length) {
+        this.antForm.alergiasTxt = alergiasExtra.join(', ');
+      }
+    } catch (e: any) {
+      if (e?.status === 404) {
+        this.removeRecetaActivaDeFicha(this.fichaActual._id);
+      }
+      console.error('No se pudo cargar receta guardada al reanudar:', e);
+    }
+  }
+
   esMia(f: any): boolean {
     const miId = this.miUsuarioId;
     return !!miId && !!f?.medicoId && String(f.medicoId) === String(miId);
@@ -390,11 +619,12 @@ export class MedicoConsultorioComponent implements OnInit {
       this.fichaActual = resp?.ficha;
 
       this.colapsarColaSiHayAtencion();
-      this.abrirSeccionesAtencion();
       this.resetAtencionUI();
       this.hydrateAtencionDesdeFicha();
 
       await this.cargarExpedienteSiHayPaciente();
+      this.cargarSignosYNotaClinicaDeConsultaActual();
+      await this.cargarRecetaGuardadaAlReanudar();
 
       this.colapsarColaSiHayAtencion();
       await this.cargarCola({ expand: false });
@@ -421,8 +651,12 @@ export class MedicoConsultorioComponent implements OnInit {
       ? this.fichaActual.servicios
       : [];
 
-    this.servicios = serviciosFicha.length
-      ? serviciosFicha.map((s: any) => ({
+    const serviciosMedicosFicha = serviciosFicha.filter((s: any) =>
+      this.esCategoriaServicioMedico(s?.categoria)
+    );
+
+    this.servicios = serviciosMedicosFicha.length
+      ? serviciosMedicosFicha.map((s: any) => ({
         productoId: s?.productoId ? String(s.productoId) : '',
         cantidad: Number(s?.cantidad ?? 1) || 1,
         notas: s?.notas || '',
@@ -453,11 +687,12 @@ export class MedicoConsultorioComponent implements OnInit {
       const resp = await firstValueFrom(this.fichasService.llamarFicha(f._id));
       this.fichaActual = resp?.ficha;
 
-      this.abrirSeccionesAtencion();
       this.resetAtencionUI();
       this.hydrateAtencionDesdeFicha();
 
       await this.cargarExpedienteSiHayPaciente();
+      this.cargarSignosYNotaClinicaDeConsultaActual();
+      await this.cargarRecetaGuardadaAlReanudar();
 
       if (!this.fichaActual?.pacienteId) {
         Swal.fire({
@@ -477,6 +712,54 @@ export class MedicoConsultorioComponent implements OnInit {
     }
   }
 
+  private async guardarPendientesAntesDeRegresarACola() {
+    if (!this.fichaActual?._id) return;
+
+    await this.guardarServiciosMedicos({ silent: true, closeSection: true });
+
+    const pacienteId = this.fichaActual?.pacienteId;
+    if (!pacienteId) {
+      if (this.hayAlgoEnSignos()) {
+        this.setSignosPasoDeFicha(this.fichaActual._id, this.payloadSignosDesdeFormulario());
+        this.svExpandida = false;
+      }
+      return;
+    }
+
+    if (this.hayAlgoEnSignos()) {
+      const payloadSignos = this.payloadSignosDesdeFormulario();
+      await firstValueFrom(this.pacientesService.guardarSignosVitales(pacienteId, payloadSignos));
+      this.svExpandida = false;
+    }
+
+    const notaInfo = this.buildNotaClinicaPayload();
+    if (notaInfo.hayAlgo) {
+      await firstValueFrom(this.pacientesService.guardarNotaClinica(pacienteId, notaInfo.payload));
+      this.ncExpandida = false;
+    }
+
+    const antInfo = this.buildAntecedentesPayload();
+    if (antInfo.hayAlgo) {
+      await firstValueFrom(this.pacientesService.actualizarPaciente(pacienteId, { antecedentes: antInfo.payload }));
+    }
+
+    const rxInfo = this.buildPayloadRecetaFinal();
+    if (rxInfo.hayAlgo && !rxInfo.tieneMedicamentos) {
+      throw new Error('La receta está incompleta. Agrega al menos un medicamento o limpia la captura antes de regresar a fila.');
+    }
+
+    if (rxInfo.tieneMedicamentos && !this.recetaPendienteImpresionId) {
+      const resp: any = await firstValueFrom(this.recetasService.crear(rxInfo.payload));
+      this.recetaPendienteImpresionId = resp?.receta?._id ? String(resp.receta._id) : null;
+      this.setRecetaActivaDeFicha(this.fichaActual?._id, this.recetaPendienteImpresionId);
+      this.rxExpandida = false;
+    }
+
+    await this.cargarExpedienteSiHayPaciente();
+    this.cargarSignosYNotaClinicaDeConsultaActual();
+    await this.cargarRecetaGuardadaAlReanudar();
+  }
+
   async regresarACola() {
     if (!this.fichaActual?._id) return;
 
@@ -485,7 +768,7 @@ export class MedicoConsultorioComponent implements OnInit {
     const r = await Swal.fire({
       icon: 'warning',
       title: '¿Regresar a lista de espera?',
-      html: `Se regresará <b>${nombre}</b> a la cola y se perderán los servicios capturados en esta pantalla.`,
+      html: `Se regresará <b>${nombre}</b> a la cola. Antes se guardarán los datos clínicos y servicios capturados.`,
       showCancelButton: true,
       confirmButtonText: 'Sí, regresar',
       cancelButtonText: 'No',
@@ -497,13 +780,14 @@ export class MedicoConsultorioComponent implements OnInit {
     if (!r.isConfirmed) return;
 
     try {
+      await this.guardarPendientesAntesDeRegresarACola();
       await firstValueFrom(this.fichasService.regresarAListaDeEspera(this.fichaActual._id));
       this.cancelarAtencion();
       await this.cargarCola({ expand: true });
       Swal.fire({ icon: 'success', title: 'Listo', timer: 900, showConfirmButton: false });
     } catch (e: any) {
       console.error(e);
-      Swal.fire('No se pudo regresar a lista de espera', e?.error?.msg || 'Error', 'error');
+      Swal.fire('No se pudo regresar a lista de espera', e?.message || e?.error?.msg || 'Error', 'error');
     }
   }
 
@@ -528,7 +812,8 @@ export class MedicoConsultorioComponent implements OnInit {
   }
 
   private esCategoriaServicioMedico(categoria: any): boolean {
-    return this.normalizarCategoriaServicio(categoria) === 'servicio medico';
+    const categoriaNorm = this.normalizarCategoriaServicio(categoria);
+    return /^servicios?\s+medicos?(\s|$)/.test(categoriaNorm);
   }
 
   esServicioBloqueadoNoMedico(servicio: ServicioUI | null | undefined): boolean {
@@ -560,6 +845,62 @@ export class MedicoConsultorioComponent implements OnInit {
       hayConceptos: conceptosVisibles.length > 0,
       payload,
     };
+  }
+
+  private tieneServiciosConTextoSinSeleccion(): boolean {
+    return (this.servicios || []).some((servicio) => {
+      if (this.esServicioBloqueadoNoMedico(servicio)) return false;
+      const productoId = String(servicio?.productoId || '').trim();
+      const query = String(servicio?.query || '').trim();
+      return !productoId && !!query;
+    });
+  }
+
+  async guardarServiciosMedicos(options: { silent?: boolean; closeSection?: boolean } = {}): Promise<boolean> {
+    if (!this.fichaActual?._id) return false;
+
+    const silent = !!options.silent;
+    const closeSection = options.closeSection !== false;
+
+    if (this.tieneServiciosConTextoSinSeleccion()) {
+      const msg = 'Hay renglones de servicios sin seleccionar desde la lista. Selecciona un servicio válido o limpia esos renglones.';
+      if (silent) throw new Error(msg);
+      Swal.fire('Faltan datos', msg, 'warning');
+      return false;
+    }
+
+    const serviciosInfo = this.buildServiciosConsultaPayload();
+
+    this.guardandoServicios = true;
+    try {
+      const resp = await firstValueFrom(
+        this.fichasService.actualizarServicios(this.fichaActual._id, {
+          servicios: serviciosInfo.payload,
+          finalizar: false,
+        })
+      );
+
+      this.fichaActual = resp?.ficha ?? this.fichaActual;
+      this.hydrateAtencionDesdeFicha();
+      if (closeSection) this.servExpandida = false;
+
+      if (!silent) {
+        Swal.fire({
+          icon: 'success',
+          title: serviciosInfo.payload.length ? 'Servicios médicos guardados' : 'Servicios médicos actualizados',
+          timer: 1200,
+          showConfirmButton: false,
+        });
+      }
+      return true;
+    } catch (e: any) {
+      const msg = e?.error?.msg || 'No se pudieron guardar los servicios médicos';
+      if (silent) throw new Error(msg);
+      Swal.fire('Error', msg, 'error');
+      return false;
+    } finally {
+      this.guardandoServicios = false;
+    }
   }
 
   quitarServicio(i: number) {
@@ -679,6 +1020,57 @@ export class MedicoConsultorioComponent implements OnInit {
     return Number.isFinite(parsed) ? parsed : null;
   }
 
+  private payloadSignosDesdeFormulario() {
+    return {
+      pesoKg: this.signos.pesoKg ?? undefined,
+      tallaCm: this.signos.tallaCm ?? undefined,
+      imc: this.signos.imc ?? undefined,
+      temperatura: this.signos.temperatura ?? undefined,
+      presionSis: this.signos.presionSis ?? undefined,
+      presionDia: this.signos.presionDia ?? undefined,
+      fc: this.signos.fc ?? undefined,
+      fr: this.signos.fr ?? undefined,
+      spo2: this.signos.spo2 ?? undefined,
+      glucosaCapilar: this.signos.glucosaCapilar ?? undefined,
+    };
+  }
+
+  private aplicarSignosEnFormulario(signos: any) {
+    this.signos = {
+      pesoKg: this.toNullableNumber(signos?.pesoKg),
+      tallaCm: this.toNullableNumber(signos?.tallaCm),
+      imc: this.toNullableNumber(signos?.imc),
+      temperatura: this.toNullableNumber(signos?.temperatura),
+      presionSis: this.toNullableNumber(signos?.presionSis),
+      presionDia: this.toNullableNumber(signos?.presionDia),
+      fc: this.toNullableNumber(signos?.fc),
+      fr: this.toNullableNumber(signos?.fr),
+      spo2: this.toNullableNumber(signos?.spo2),
+      glucosaCapilar: this.toNullableNumber(signos?.glucosaCapilar),
+    };
+  }
+
+  private inicioConsultaActualMs(): number | null {
+    const candidates = [
+      this.fichaActual?.inicioAtencionAt,
+      this.fichaActual?.llamadoAt,
+      this.fichaActual?.llegadaAt,
+    ];
+    for (const value of candidates) {
+      if (!value) continue;
+      const ms = new Date(value).getTime();
+      if (Number.isFinite(ms)) return ms;
+    }
+    return null;
+  }
+
+  private esFechaDeConsultaActual(fecha: any, toleranciaAntesMs = 30 * 60 * 1000): boolean {
+    const fechaMs = fecha ? new Date(fecha).getTime() : NaN;
+    const inicioMs = this.inicioConsultaActualMs();
+    if (!Number.isFinite(fechaMs) || !Number.isFinite(inicioMs as any)) return false;
+    return Number(fechaMs) >= (Number(inicioMs) - toleranciaAntesMs);
+  }
+
   private cargarUltimosSignosEnFormulario() {
     const ultimo = this.expediente?.signosVitalesRecientes?.[0];
     if (!ultimo) {
@@ -700,9 +1092,47 @@ export class MedicoConsultorioComponent implements OnInit {
     };
   }
 
+  private cargarSignosYNotaClinicaDeConsultaActual() {
+    if (!this.fichaActual?.pacienteId) {
+      const signosPaso = this.getSignosPasoDeFicha(this.fichaActual?._id);
+      if (signosPaso) {
+        this.aplicarSignosEnFormulario(signosPaso);
+      } else {
+        this.limpiarSignos();
+      }
+      return;
+    }
+
+    if (this.fueGuardadoSignoEnConsultaActual()) {
+      this.cargarUltimosSignosEnFormulario();
+    }
+
+    const notas = Array.isArray(this.expediente?.notasClinicasRecientes)
+      ? this.expediente.notasClinicasRecientes
+      : [];
+    if (!notas.length) return;
+
+    const notaActual = notas.find((n: any) => this.esFechaDeConsultaActual(n?.fecha, 30 * 60 * 1000));
+    if (!notaActual) return;
+
+    this.nota = {
+      motivoConsulta: String(notaActual?.motivoConsulta || '').trim(),
+      padecimientoActual: String(notaActual?.padecimientoActual || '').trim(),
+      exploracionFisica: String(notaActual?.exploracionFisica || '').trim(),
+      diagnosticosTexto: Array.isArray(notaActual?.diagnosticos)
+        ? notaActual.diagnosticos.map((x: any) => String(x || '').trim()).filter(Boolean).join('\n')
+        : '',
+      plan: String(notaActual?.plan || '').trim(),
+    };
+  }
+
   reabrirCapturaSignos() {
-    if (!this.fichaActual?.pacienteId) return;
-    this.cargarUltimosSignosEnFormulario();
+    if (this.fichaActual?.pacienteId) {
+      this.cargarUltimosSignosEnFormulario();
+    } else {
+      const signosPaso = this.getSignosPasoDeFicha(this.fichaActual?._id);
+      if (signosPaso) this.aplicarSignosEnFormulario(signosPaso);
+    }
     this.capturaSignosDisponible = true;
     this.svExpandida = true;
   }
@@ -934,6 +1364,8 @@ export class MedicoConsultorioComponent implements OnInit {
         allowOutsideClick: false,
       });
 
+      this.removeRecetaActivaDeFicha(this.fichaActual?._id);
+      this.removeSignosPasoDeFicha(this.fichaActual?._id);
       this.cancelarAtencion();
       await this.cargarCola({ expand: true });
 
@@ -1504,7 +1936,6 @@ export class MedicoConsultorioComponent implements OnInit {
     try {
       await firstValueFrom(this.pacientesService.guardarNotaClinica(pacienteId, notaInfo.payload));
       await this.cargarExpedienteSiHayPaciente();
-      this.resetNotaClinicaForm();
       this.ncExpandida = false;
 
       Swal.fire({
@@ -1806,6 +2237,18 @@ export class MedicoConsultorioComponent implements OnInit {
       .replace(/[\u0300-\u036f]/g, '');
   }
 
+  private categoriaMedicamentoPermitida(categoriaNorm: any): boolean {
+    const categoria = this.normalizarTextoCategoria(categoriaNorm);
+    return (
+      categoria === 'antibiotico' ||
+      categoria === 'iv' ||
+      categoria === 'vi' ||
+      categoria.startsWith('vi ') ||
+      categoria === 'suplementos' ||
+      categoria.startsWith('suplementos')
+    );
+  }
+
   private recetaTieneAntibiotico(medicamentos: RecetaPrintMedicamento[] = []): boolean {
     return (medicamentos || []).some((medicamento) =>
       this.normalizarTextoCategoria(medicamento.categoria).includes('antibiotico')
@@ -2105,7 +2548,6 @@ export class MedicoConsultorioComponent implements OnInit {
       font-weight: 800;
       margin-bottom: .6mm;
       color: #222;
-      text-transform: uppercase;
       letter-spacing: .02em;
     }
 
@@ -2194,7 +2636,6 @@ export class MedicoConsultorioComponent implements OnInit {
       margin-top: .7mm;
       font-size: 7.1pt;
       line-height: 1.22;
-      white-space: pre-wrap;
       word-break: break-word;
     }
 
@@ -2302,6 +2743,7 @@ export class MedicoConsultorioComponent implements OnInit {
       q: '',
       resultados: [],
       buscando: false,
+      sinCoincidencias: false,
 
       // catálogo / libre
       productoId: null,
@@ -2441,15 +2883,9 @@ export class MedicoConsultorioComponent implements OnInit {
     try {
       const resp: any = await firstValueFrom(this.recetasService.crear(payload));
       this.recetaPendienteImpresionId = resp?.receta?._id ? String(resp.receta._id) : null;
+      this.setRecetaActivaDeFicha(this.fichaActual?._id, this.recetaPendienteImpresionId);
 
       await this.cargarExpedienteSiHayPaciente();
-
-      this.receta = {
-        diagnosticosTexto: '',
-        indicacionesGenerales: '',
-        citaSeguimiento: '',
-        medicamentos: [this.nuevoMedicamento()],
-      };
 
       this.rxExpandida = false;
 
@@ -2494,24 +2930,35 @@ export class MedicoConsultorioComponent implements OnInit {
       m.nombreLibre = '';
       m.ingreActivo = '';
       m.codigoBarras = '';
+      m.sinCoincidencias = false;
     }
 
     if (q.length < 2) {
       m.resultados = [];
       m.buscando = false;
+      m.sinCoincidencias = false;
       return;
     }
 
     // debounce
     clearTimeout(this.medSearchTimer);
     this.medSearchTimer = setTimeout(async () => {
+      const queryAtRequest = (m.q || '').trim();
       m.buscando = true;
+      m.sinCoincidencias = false;
       try {
-        const resp = await firstValueFrom(this.productosService.buscarMedicamentosReceta(q));
-        m.resultados = resp?.productos ?? [];
+        const resp = await firstValueFrom(this.productosService.buscarMedicamentosReceta(queryAtRequest, 100));
+        const resultadosRaw = Array.isArray(resp?.productos) ? resp.productos : [];
+        const resultados = resultadosRaw.filter((producto: any) =>
+          this.categoriaMedicamentoPermitida(producto?.categoriaNorm)
+        );
+        if ((m.q || '').trim() !== queryAtRequest) return;
+        m.resultados = resultados;
+        m.sinCoincidencias = queryAtRequest.length >= 2 && resultados.length === 0;
       } catch (e) {
         console.error(e);
         m.resultados = [];
+        m.sinCoincidencias = queryAtRequest.length >= 2;
       } finally {
         m.buscando = false;
       }
@@ -2531,6 +2978,7 @@ export class MedicoConsultorioComponent implements OnInit {
     m.q = nombreSeleccionado;
     m.resultados = [];
     m.buscando = false;
+    m.sinCoincidencias = false;
   }
 
   usarOtro(i: number) {
@@ -2541,6 +2989,7 @@ export class MedicoConsultorioComponent implements OnInit {
     m.q = '';
     m.resultados = [];
     m.buscando = false;
+    m.sinCoincidencias = false;
     m.ingreActivo = '';
     m.codigoBarras = '';
   }
@@ -2556,6 +3005,7 @@ export class MedicoConsultorioComponent implements OnInit {
     m.q = '';
     m.resultados = [];
     m.buscando = false;
+    m.sinCoincidencias = false;
   }
 
   recalcularIMC() {
@@ -2580,11 +3030,9 @@ export class MedicoConsultorioComponent implements OnInit {
   }
 
   async guardarSignosVitales() {
+    if (!this.fichaActual?._id) return;
+
     const pacienteId = this.fichaActual?.pacienteId;
-    if (!pacienteId) {
-      Swal.fire('Falta paciente', 'Primero vincula el paciente.', 'warning');
-      return;
-    }
 
     // validación mínima útil (no obligamos todo)
     const hayAlgo =
@@ -2603,11 +3051,12 @@ export class MedicoConsultorioComponent implements OnInit {
       return;
     }
 
-    // confirmar
     const r = await Swal.fire({
       icon: 'question',
       title: '¿Guardar signos vitales?',
-      text: 'Se agregará un registro al expediente del paciente.',
+      text: pacienteId
+        ? 'Se agregará un registro al expediente del paciente.'
+        : 'Se guardarán en la ficha actual del paciente de paso.',
       showCancelButton: true,
       confirmButtonText: 'Sí, guardar',
       cancelButtonText: 'Cancelar',
@@ -2618,45 +3067,27 @@ export class MedicoConsultorioComponent implements OnInit {
 
     this.guardandoSignos = true;
     try {
-      // recalcula imc por si acaso
       this.recalcularIMC();
+      const payload = this.payloadSignosDesdeFormulario();
 
-      const payload = {
-        pesoKg: this.signos.pesoKg ?? undefined,
-        tallaCm: this.signos.tallaCm ?? undefined,
-        imc: this.signos.imc ?? undefined,
-        temperatura: this.signos.temperatura ?? undefined,
-        presionSis: this.signos.presionSis ?? undefined,
-        presionDia: this.signos.presionDia ?? undefined,
-        fc: this.signos.fc ?? undefined,
-        fr: this.signos.fr ?? undefined,
-        spo2: this.signos.spo2 ?? undefined,
-        glucosaCapilar: this.signos.glucosaCapilar ?? undefined,
-      };
+      if (pacienteId) {
+        await firstValueFrom(this.pacientesService.guardarSignosVitales(pacienteId, payload));
+        this.removeSignosPasoDeFicha(this.fichaActual?._id);
 
-      await firstValueFrom(this.pacientesService.guardarSignosVitales(pacienteId, payload));
+        Swal.fire('Listo', 'Signos vitales guardados.', 'success');
 
-      Swal.fire('Listo', 'Signos vitales guardados.', 'success');
+        await this.cargarExpedienteSiHayPaciente();
+        this.expedienteTab = 'SV';
+        setTimeout(() => {
+          document.getElementById('expediente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      } else {
+        this.setSignosPasoDeFicha(this.fichaActual?._id, payload);
+        Swal.fire('Listo', 'Signos vitales guardados para esta consulta.', 'success');
+      }
 
-      await this.cargarExpedienteSiHayPaciente();
-
-      // Brincar a la pestaña de Signos Vitales del expediente.
-      this.expedienteTab = 'SV';
-
-      setTimeout(() => {
-        document.getElementById('expediente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
-
-      // colapsar la cola si quieres dar espacio
       this.colapsarColaSiHayAtencion?.();
-
-      // limpiar al guardar
-      this.limpiarSignos();
-
-      // ocultar captura de signos vitales para esta consulta una vez guardados
       this.svExpandida = false;
-      this.capturaSignosDisponible = false;
-
     } catch (e: any) {
       console.error(e);
       Swal.fire('Error', e?.error?.msg || 'No se pudieron guardar los signos vitales', 'error');
@@ -2666,11 +3097,12 @@ export class MedicoConsultorioComponent implements OnInit {
   }
 
   private abrirSeccionesAtencion() {
-    this.svExpandida = true;
     this.expExpandida = true;
-    this.rxExpandida = true;
-    this.servExpandida = true;
-    this.ncExpandida = true;
+    this.expedienteTab = 'PAC';
+    this.svExpandida = false;
+    this.rxExpandida = false;
+    this.servExpandida = false;
+    this.ncExpandida = false;
   }
 
   private prepararVentanaImpresion(): Window | null {
@@ -2804,6 +3236,10 @@ export class MedicoConsultorioComponent implements OnInit {
       .replaceAll("'", '&#039;');
   }
 
+  limpiarCitaSeguimientoReceta() {
+    this.receta.citaSeguimiento = '';
+  }
+
 
   private resetAtencionUI() {
     this.recetaPendienteImpresionId = null;
@@ -2833,9 +3269,8 @@ export class MedicoConsultorioComponent implements OnInit {
 
     this.paciente = null;
     this.expediente = null;
-    this.expedienteTab = this.fichaActual?.pacienteId ? 'ANT' : 'PAC';
+    this.expedienteTab = 'PAC';
     this.capturaSignosDisponible = true;
-    this.ncExpandida = true;
 
     if (this.fichaActual) {
       this.prefillPacienteFormDesdeFicha(true);
@@ -2902,3 +3337,4 @@ export class MedicoConsultorioComponent implements OnInit {
 
 
 }
+

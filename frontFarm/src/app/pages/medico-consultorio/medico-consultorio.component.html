@@ -617,7 +617,7 @@
     </div>
 
     <!-- SIGNOS VITALES (CAPTURA) -->
-    <div class="card mb-1 shadow-sm" *ngIf="fichaActual && capturaSignosDisponible">
+    <div class="card mb-1 shadow-sm" *ngIf="fichaActual">
       <div class="card-header d-flex justify-content-between align-items-center" role="button" (click)="toggleSV()"
         style="user-select:none; background: rgb(190, 228, 220)">
         <div class="d-flex align-items-center gap-2">
@@ -630,7 +630,7 @@
             type="button"
             title="Guardar signos vitales"
             (click)="guardarSignosVitales()"
-            [disabled]="guardandoSignos || !fichaActual?.pacienteId">
+            [disabled]="guardandoSignos">
             {{ guardandoSignos ? 'Guardando…' : 'Guardar signos' }}
           </button>
 
@@ -648,88 +648,75 @@
         </div>
       </div>
 
-      <div class="card-body" [class.d-none]="!svExpandida" style="background: rgb(190, 228, 190);">
-        <div *ngIf="fichaActual?.pacienteId">
-          <div class="row g-3">
+            <div class="card-body" [class.d-none]="!svExpandida" style="background: rgb(190, 228, 190);">
+        <div class="row g-3">
 
-            <div class="col-md-4">
-              <label class="form-label">Peso (kg)</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" step="0.1"
-                [(ngModel)]="signos.pesoKg" (input)="recalcularIMC()">
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Talla (cm)</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" step="0.1"
-                [(ngModel)]="signos.tallaCm" (input)="recalcularIMC()">
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">IMC</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number"
-                [value]="signos.imc ?? ''" readonly>
-              <div class="form-text">Se calcula automático</div>
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">Temperatura (°C)</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" step="0.1"
-                [(ngModel)]="signos.temperatura">
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">TA Sistólica</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
-                [(ngModel)]="signos.presionSis">
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">TA Diastólica</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
-                [(ngModel)]="signos.presionDia">
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">FC (lpm)</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
-                [(ngModel)]="signos.fc">
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">FR (rpm)</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
-                [(ngModel)]="signos.fr">
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">SpO (%)</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" max="100"
-                [(ngModel)]="signos.spo2">
-            </div>
-
-            <div class="col-md-3">
-              <label class="form-label">Glucosa capilar (mg/dL)</label>
-              <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
-                [(ngModel)]="signos.glucosaCapilar">
-            </div>
-
+          <div class="col-md-4">
+            <label class="form-label">Peso (kg)</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" step="0.1"
+              [(ngModel)]="signos.pesoKg" (input)="recalcularIMC()">
           </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Talla (cm)</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" step="0.1"
+              [(ngModel)]="signos.tallaCm" (input)="recalcularIMC()">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">IMC</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number"
+              [value]="signos.imc ?? ''" readonly>
+            <div class="form-text">Se calcula automático</div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Temperatura (°C)</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" step="0.1"
+              [(ngModel)]="signos.temperatura">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">TA Sistólica</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+              [(ngModel)]="signos.presionSis">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">TA Diastólica</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+              [(ngModel)]="signos.presionDia">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">FC (lpm)</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+              [(ngModel)]="signos.fc">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">FR (rpm)</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+              [(ngModel)]="signos.fr">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">SpO (%)</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0" max="100"
+              [(ngModel)]="signos.spo2">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Glucosa capilar (mg/dL)</label>
+            <input class="form-control" style="background: rgb(210, 248, 236);" type="number" min="0"
+              [(ngModel)]="signos.glucosaCapilar">
+          </div>
+
         </div>
 
-        <div *ngIf="!fichaActual?.pacienteId">
-          <div class="alert alert-warning mb-0">
-            Los signos vitales solo se guardan cuando el paciente está vinculado a un expediente.
-          </div>
+        <div class="alert alert-info mt-3 mb-0" *ngIf="!fichaActual?.pacienteId">
+          Paciente de paso: los signos vitales se guardan en la ficha actual para continuar la atención.
         </div>
-      </div>
-    </div>
-
-    <div class="alert alert-success py-2 mb-1" *ngIf="fichaActual && !capturaSignosDisponible">
-      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span>Signos vitales guardados en esta consulta. Revisa el historial en <b>Expediente &gt; Signos vitales</b>.</span>
-        <button type="button" class="btn btn-outline-success btn-sm" (click)="reabrirCapturaSignos()">
-          Reabrir para editar
-        </button>
       </div>
     </div>
 
@@ -954,7 +941,7 @@
                       </div>
 
                       <div class="med-no-results"
-                        *ngIf="buscandoMedIdx===i && !m.buscando && (m.q || '').trim().length >= 2 && (m.resultados?.length || 0) === 0">
+                        *ngIf="buscandoMedIdx===i && !m.buscando && !!m.sinCoincidencias && !m.productoId">
                         Sin coincidencias para ese nombre o código.
                       </div>
 
@@ -1024,8 +1011,17 @@
 
             <div class="col-md-4">
               <span class="form-label">Cita de seguimiento (opcional)</span>
-              <input class="form-control" style="background: #93d6fd;" type="date"
-                [(ngModel)]="receta.citaSeguimiento" />
+              <div class="d-flex align-items-center gap-2">
+                <input class="form-control" style="background: #93d6fd;" type="date"
+                  [(ngModel)]="receta.citaSeguimiento" />
+                <button *ngIf="receta.citaSeguimiento"
+                  class="btn btn-outline-secondary btn-sm btn-limpiar-cita"
+                  type="button"
+                  title="Limpiar cita de seguimiento"
+                  (click)="limpiarCitaSeguimientoReceta()">
+                  X
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1060,6 +1056,14 @@
                     justify-content: center;
                     color:aliceblue;" (click)="agregarRenglonServicio()">
             + Agregar servicio
+          </button>
+
+          <button *ngIf="servExpandida"
+            class="btn btn-primary btn-sm"
+            type="button"
+            (click)="guardarServiciosMedicos()"
+            [disabled]="guardandoServicios">
+            {{ guardandoServicios ? 'Guardando…' : 'Guardar servicios médicos' }}
           </button>
           <span class="text-muted small" (click)="toggleServ()">{{ servExpandida ? 'Ocultar' : 'Mostrar' }}</span>
           <span class="fs-5" (click)="toggleServ()">{{ servExpandida ? '▾' : '▸' }}</span>
@@ -1233,10 +1237,8 @@
 
       <div class="modal-footer">
         <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-        <button class="btn btn-primary" [disabled]="!recetaVista" (click)="imprimirReceta(recetaVista._id, undefined, { forzarUnaCopia: true })">
-          Imprimir
-        </button>
       </div>
 
     </div>
   </div>
+

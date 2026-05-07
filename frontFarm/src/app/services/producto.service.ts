@@ -156,9 +156,10 @@ export class ProductoService {
     return this.http.get<any[]>(`${this.apiUrl}/buscar`, { params });
   }
 
-  buscarMedicamentosReceta(q: string) {
+  buscarMedicamentosReceta(q: string, limit = 100) {
+    const lim = Math.min(Math.max(parseInt(String(limit), 10) || 50, 1), 100);
     return this.http.get<any>(
-      `${this.apiUrl}/buscar-medicamentos?q=${encodeURIComponent(q)}`,
+      `${this.apiUrl}/buscar-medicamentos?q=${encodeURIComponent(q)}&limit=${lim}`,
       { headers: this.headers() }
     );
   }

@@ -24,6 +24,7 @@ import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
 import { MatTooltip } from '@angular/material/tooltip';
 import { VentaTicketPrintService } from '../../services/venta-ticket-print.service';
+import { formatearTurnoConsultorioVisual } from '../../shared/utils/turno-visual';
 
 import { whenDomStable, printNodeInIframe } from '../../shared/utils/print-utils';
 import { buildImgUrl } from '../../shared/img-url';
@@ -200,7 +201,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   ventaParaImpresion: any = null;
   mostrarTicket: boolean = false;
   mostrarTicketTurno = false;
-  ticketTurnoData: { folio: string; fechaHora: string } | null = null;
+  ticketTurnoData: { folio: string } | null = null;
   folioVentaGenerado: string | null = null;
 
   venta: any = null;
@@ -2645,27 +2646,28 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
   }
 
-  private formatearFechaTurnoImpresion(fechaRaw?: string): string {
-    const fecha = fechaRaw ? new Date(fechaRaw) : new Date();
-    const base = Number.isNaN(fecha.getTime()) ? new Date() : fecha;
+  private formatearTurnoFichaVisual(ficha: any): string {
+    const turnoVisual = formatearTurnoConsultorioVisual(
+      ficha?.turnoFecha,
+      ficha?.turnoConsecutivo,
+      { prefijo: 'TC', timeZone: 'America/Mexico_City' }
+    );
 
-    return new Intl.DateTimeFormat('es-MX', {
-      timeZone: 'America/Mexico_City',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }).format(base);
+    if (turnoVisual) {
+      return turnoVisual;
+    }
+
+    return String(ficha?.folio || '').trim();
   }
 
   private async imprimirTurnoFicha(ficha: any): Promise<void> {
-    const folio = String(ficha?.folio || '').trim();
+    const folio = this.formatearTurnoFichaVisual(ficha);
     if (!folio) {
       throw new Error('La ficha no contiene folio/turno para imprimir.');
     }
 
     this.ticketTurnoData = {
-      folio,
-      fechaHora: this.formatearFechaTurnoImpresion(ficha?.llegadaAt || ficha?.createdAt)
+      folio
     };
     this.mostrarTicketTurno = true;
     this.cdRef.detectChanges();

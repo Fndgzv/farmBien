@@ -1240,6 +1240,10 @@ const norm = (s) =>
 exports.buscarMedicamentosReceta = async (req, res) => {
   try {
     const q = String(req.query.q || "").trim();
+    const limitReq = Number.parseInt(String(req.query.limit || "100"), 10);
+    const limit = Number.isFinite(limitReq)
+      ? Math.min(Math.max(limitReq, 1), 100)
+      : 100;
     if (!q) return res.status(400).json({ msg: "Falta q" });
 
     const qNorm = norm(q);
@@ -1274,8 +1278,9 @@ exports.buscarMedicamentosReceta = async (req, res) => {
       ...filtroCategoria,
       ...filtroTexto,
     })
-      .limit(25)
-      .select("_id nombre codigoBarras ingreActivo")
+      .sort({ nombreNorm: 1, nombre: 1 })
+      .limit(limit)
+      .select("_id nombre codigoBarras ingreActivo categoriaNorm")
       .lean();
 
     return res.json({ ok: true, productos });

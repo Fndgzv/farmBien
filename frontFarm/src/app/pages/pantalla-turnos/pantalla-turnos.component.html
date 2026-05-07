@@ -98,15 +98,13 @@
         <article *ngIf="turnoSiguienteInmediato as proximo" class="pt-next-featured">
           <div class="pt-next-featured-label">Siguiente turno</div>
           <div class="pt-next-featured-turno"> {{ formatearTurno(proximo, '-') }}</div>
-          <div class="pt-next-featured-time">Llegada: {{ proximo.llegadaAt | date:'shortTime' }}</div>
         </article>
         
         <div class="pt-next-rest-order">Turnos próximos:</div>
         <div class="pt-next-rest" *ngIf="turnosPosteriores.length">
           <article class="pt-next-rest-item" *ngFor="let turno of turnosPosteriores; let idx = index">
             <div class="row">
-              <div class="col-8 pt-next-rest-turno">{{ formatearTurno(turno, '-') }} </div>
-              <div class="col-4 pt-next-rest-time">Llegada: {{ turno.llegadaAt | date:'shortTime' }}</div>
+              <div class="col-12 pt-next-rest-turno">{{ formatearTurno(turno, '-') }} </div>
             </div>
           </article>
         </div>
