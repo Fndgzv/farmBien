@@ -150,6 +150,13 @@ const cleanArr = (v) => {
     .filter(Boolean);
 };
 
+const normalizarFichaConsultorioId = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  if (!mongoose.isValidObjectId(raw)) return "__INVALID__";
+  return new mongoose.Types.ObjectId(raw);
+};
+
 function buildAntecedentesDoc(antRaw = {}) {
   const tabaquismo = cleanStr(antRaw?.tabaquismo);
   const alcohol = cleanStr(antRaw?.alcohol);
@@ -360,6 +367,10 @@ exports.agregarSignosVitales = async (req, res) => {
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ msg: "ID inválido" });
 
     const body = req.body || {};
+    const fichaConsultorioId = normalizarFichaConsultorioId(body?.fichaConsultorioId);
+    if (fichaConsultorioId === "__INVALID__") {
+      return res.status(400).json({ msg: "fichaConsultorioId inválido" });
+    }
 
     const pesoKg = body.pesoKg != null ? Number(body.pesoKg) : null;
     const tallaCm = body.tallaCm != null ? Number(body.tallaCm) : null;
@@ -371,6 +382,7 @@ exports.agregarSignosVitales = async (req, res) => {
 
     const sv = {
       fecha: new Date(),
+      fichaConsultorioId: fichaConsultorioId || undefined,
       pesoKg: pesoKg ?? undefined,
       tallaCm: tallaCm ?? undefined,
       imc: imc ?? undefined,
@@ -385,15 +397,30 @@ exports.agregarSignosVitales = async (req, res) => {
       farmaciaId: farmaciaId || undefined,
     };
 
-    const paciente = await Paciente.findByIdAndUpdate(
-      id,
-      { $push: { signosVitales: { $each: [sv], $position: 0, $slice: 50 } } },
-      { new: true }
-    ).select("_id");
+    let paciente = null;
+    let actualizado = false;
+
+    if (fichaConsultorioId) {
+      paciente = await Paciente.findOneAndUpdate(
+        { _id: id, "signosVitales.fichaConsultorioId": fichaConsultorioId },
+        { $set: { "signosVitales.$": sv } },
+        { new: true }
+      ).select("_id");
+
+      actualizado = !!paciente;
+    }
+
+    if (!paciente) {
+      paciente = await Paciente.findByIdAndUpdate(
+        id,
+        { $push: { signosVitales: { $each: [sv], $position: 0, $slice: 50 } } },
+        { new: true }
+      ).select("_id");
+    }
 
     if (!paciente) return res.status(404).json({ msg: "Paciente no encontrado" });
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, actualizado });
   } catch (err) {
     console.error("agregarSignosVitales:", err);
     return res.status(500).json({ msg: "Error al guardar signos vitales" });
@@ -415,10 +442,17 @@ exports.agregarNotaClinica = async (req, res) => {
       exploracionFisica,
       diagnosticos = [],
       plan,
+      fichaConsultorioId: fichaConsultorioIdRaw,
     } = req.body || {};
+
+    const fichaConsultorioId = normalizarFichaConsultorioId(fichaConsultorioIdRaw);
+    if (fichaConsultorioId === "__INVALID__") {
+      return res.status(400).json({ msg: "fichaConsultorioId inválido" });
+    }
 
     const nota = {
       fecha: new Date(),
+      fichaConsultorioId: fichaConsultorioId || undefined,
       motivoConsulta: (motivoConsulta || "").trim(),
       padecimientoActual: (padecimientoActual || "").trim(),
       exploracionFisica: (exploracionFisica || "").trim(),
@@ -428,15 +462,30 @@ exports.agregarNotaClinica = async (req, res) => {
       farmaciaId,
     };
 
-    const paciente = await Paciente.findByIdAndUpdate(
-      id,
-      { $push: { notasClinicas: { $each: [nota], $position: 0, $slice: 50 } } },
-      { new: true }
-    ).select("_id");
+    let paciente = null;
+    let actualizado = false;
+
+    if (fichaConsultorioId) {
+      paciente = await Paciente.findOneAndUpdate(
+        { _id: id, "notasClinicas.fichaConsultorioId": fichaConsultorioId },
+        { $set: { "notasClinicas.$": nota } },
+        { new: true }
+      ).select("_id");
+
+      actualizado = !!paciente;
+    }
+
+    if (!paciente) {
+      paciente = await Paciente.findByIdAndUpdate(
+        id,
+        { $push: { notasClinicas: { $each: [nota], $position: 0, $slice: 50 } } },
+        { new: true }
+      ).select("_id");
+    }
 
     if (!paciente) return res.status(404).json({ msg: "Paciente no encontrado" });
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, actualizado });
   } catch (err) {
     console.error("agregarNotaClinica:", err);
     return res.status(500).json({ msg: "Error al guardar nota clínica" });

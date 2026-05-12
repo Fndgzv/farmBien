@@ -383,6 +383,10 @@ export class MedicoConsultorioComponent implements OnInit {
     return '';
   }
 
+  private get fichaActualId(): string {
+    return String(this.fichaActual?._id || '').trim();
+  }
+
   private leerRecetasActivasPorFichaMap(): Record<string, string> {
     try {
       const raw = localStorage.getItem(this.recetaActivaPorFichaStorageKey);
@@ -477,6 +481,21 @@ export class MedicoConsultorioComponent implements OnInit {
   private inferirRecetaIdDesdeExpedienteParaFichaActual(): string | null {
     const lista = Array.isArray(this.expediente?.ultimasRecetas) ? this.expediente.ultimasRecetas : [];
     if (!lista.length) return null;
+
+    const fichaId = this.fichaActualId;
+    if (fichaId) {
+      const exactas = lista
+        .map((entry: any) => {
+          const recetaId = String(entry?.recetaId || '').trim();
+          const recetaFichaId = String(entry?.fichaConsultorioId || '').trim();
+          const fechaMs = this.toEpochMs(entry?.fecha) || 0;
+          return { recetaId, recetaFichaId, fechaMs };
+        })
+        .filter((entry: any) => !!entry.recetaId && entry.recetaFichaId === fichaId)
+        .sort((a: any, b: any) => Number(b.fechaMs || 0) - Number(a.fechaMs || 0));
+
+      if (exactas.length) return exactas[0].recetaId;
+    }
 
     const inicioAtencionMs =
       this.toEpochMs(this.fichaActual?.inicioAtencionAt) ??
@@ -593,6 +612,13 @@ export class MedicoConsultorioComponent implements OnInit {
       this.recetaPendienteImpresionId = String(recetaDoc._id);
       this.setRecetaActivaDeFicha(this.fichaActual._id, this.recetaPendienteImpresionId);
       this.aplicarRecetaGuardadaEnFormulario(recetaDoc);
+
+      const alergiasReceta = Array.isArray(recetaDoc?.alergias)
+        ? recetaDoc.alergias.map((x: any) => String(x || '').trim()).filter(Boolean)
+        : [];
+      if (!String(this.antForm.alergiasTxt || '').trim() && alergiasReceta.length) {
+        this.antForm.alergiasTxt = alergiasReceta.join(', ');
+      }
 
       const alergiasExtra = Array.isArray(resp?.extraPaciente?.alergias)
         ? resp.extraPaciente.alergias.map((x: any) => String(x || '').trim()).filter(Boolean)
@@ -748,7 +774,7 @@ export class MedicoConsultorioComponent implements OnInit {
       throw new Error('La receta está incompleta. Agrega al menos un medicamento o limpia la captura antes de regresar a fila.');
     }
 
-    if (rxInfo.tieneMedicamentos && !this.recetaPendienteImpresionId) {
+    if (rxInfo.tieneMedicamentos) {
       const resp: any = await firstValueFrom(this.recetasService.crear(rxInfo.payload));
       this.recetaPendienteImpresionId = resp?.receta?._id ? String(resp.receta._id) : null;
       this.setRecetaActivaDeFicha(this.fichaActual?._id, this.recetaPendienteImpresionId);
@@ -990,7 +1016,46 @@ export class MedicoConsultorioComponent implements OnInit {
     );
   }
 
+  private obtenerSignosDeFichaActualEnExpediente(): any | null {
+    const fichaId = this.fichaActualId;
+    const lista = Array.isArray(this.expediente?.signosVitalesRecientes)
+      ? this.expediente.signosVitalesRecientes
+      : [];
+    if (!fichaId || !lista.length) return null;
+
+    const candidatos = lista
+      .filter((sv: any) => String(sv?.fichaConsultorioId || '').trim() === fichaId)
+      .sort((a: any, b: any) => {
+        const aMs = this.toEpochMs(a?.fecha) || 0;
+        const bMs = this.toEpochMs(b?.fecha) || 0;
+        return bMs - aMs;
+      });
+
+    return candidatos[0] || null;
+  }
+
+  private obtenerNotaDeFichaActualEnExpediente(): any | null {
+    const fichaId = this.fichaActualId;
+    const lista = Array.isArray(this.expediente?.notasClinicasRecientes)
+      ? this.expediente.notasClinicasRecientes
+      : [];
+    if (!fichaId || !lista.length) return null;
+
+    const candidatos = lista
+      .filter((nota: any) => String(nota?.fichaConsultorioId || '').trim() === fichaId)
+      .sort((a: any, b: any) => {
+        const aMs = this.toEpochMs(a?.fecha) || 0;
+        const bMs = this.toEpochMs(b?.fecha) || 0;
+        return bMs - aMs;
+      });
+
+    return candidatos[0] || null;
+  }
+
   private fueGuardadoSignoEnConsultaActual(): boolean {
+    const porFicha = this.obtenerSignosDeFichaActualEnExpediente();
+    if (porFicha) return true;
+
     const llegadaAt = this.fichaActual?.llegadaAt;
     const ultimoRegistro = this.expediente?.signosVitalesRecientes?.[0];
     const fechaRegistro = ultimoRegistro?.fecha;
@@ -1022,6 +1087,7 @@ export class MedicoConsultorioComponent implements OnInit {
 
   private payloadSignosDesdeFormulario() {
     return {
+      fichaConsultorioId: this.fichaActualId || undefined,
       pesoKg: this.signos.pesoKg ?? undefined,
       tallaCm: this.signos.tallaCm ?? undefined,
       imc: this.signos.imc ?? undefined,
@@ -1072,7 +1138,7 @@ export class MedicoConsultorioComponent implements OnInit {
   }
 
   private cargarUltimosSignosEnFormulario() {
-    const ultimo = this.expediente?.signosVitalesRecientes?.[0];
+    const ultimo = this.obtenerSignosDeFichaActualEnExpediente() || this.expediente?.signosVitalesRecientes?.[0];
     if (!ultimo) {
       this.limpiarSignos();
       return;
@@ -1103,7 +1169,10 @@ export class MedicoConsultorioComponent implements OnInit {
       return;
     }
 
-    if (this.fueGuardadoSignoEnConsultaActual()) {
+    const signosFicha = this.obtenerSignosDeFichaActualEnExpediente();
+    if (signosFicha) {
+      this.aplicarSignosEnFormulario(signosFicha);
+    } else if (this.fueGuardadoSignoEnConsultaActual()) {
       this.cargarUltimosSignosEnFormulario();
     }
 
@@ -1112,7 +1181,8 @@ export class MedicoConsultorioComponent implements OnInit {
       : [];
     if (!notas.length) return;
 
-    const notaActual = notas.find((n: any) => this.esFechaDeConsultaActual(n?.fecha, 30 * 60 * 1000));
+    const notaExacta = this.obtenerNotaDeFichaActualEnExpediente();
+    const notaActual = notaExacta || notas.find((n: any) => this.esFechaDeConsultaActual(n?.fecha, 30 * 60 * 1000));
     if (!notaActual) return;
 
     this.nota = {
@@ -1128,7 +1198,12 @@ export class MedicoConsultorioComponent implements OnInit {
 
   reabrirCapturaSignos() {
     if (this.fichaActual?.pacienteId) {
-      this.cargarUltimosSignosEnFormulario();
+      const signosFicha = this.obtenerSignosDeFichaActualEnExpediente();
+      if (signosFicha) {
+        this.aplicarSignosEnFormulario(signosFicha);
+      } else {
+        this.cargarUltimosSignosEnFormulario();
+      }
     } else {
       const signosPaso = this.getSignosPasoDeFicha(this.fichaActual?._id);
       if (signosPaso) this.aplicarSignosEnFormulario(signosPaso);
@@ -1179,8 +1254,7 @@ export class MedicoConsultorioComponent implements OnInit {
     const hayServicios = serviciosInfo.hayConceptos;
 
     const haySignosCapturados = this.hayAlgoEnSignos();
-    const signosYaGuardadosEnConsulta = this.fueGuardadoSignoEnConsultaActual();
-    const signosSeGuardaran = haySignosCapturados && tienePaciente && !signosYaGuardadosEnConsulta;
+    const signosSeGuardaran = haySignosCapturados && tienePaciente;
     const expedienteTieneSignos = (this.expediente?.signosVitalesRecientes || []).length > 0;
 
     const rxInfo = this.buildPayloadRecetaFinal();
@@ -1192,6 +1266,7 @@ export class MedicoConsultorioComponent implements OnInit {
     const faltantes: string[] = [];
     const antInfo = this.buildAntecedentesPayload();
     const pacInfo = this.buildPacienteUpdatePayload();
+    const notaInfo = this.buildNotaClinicaPayload();
     const antecedentesSeGuardaran = tienePaciente && antInfo.hayAlgo;
     const expedienteTieneAntecedentes = this.expedienteTieneAntecedentes();
 
@@ -1223,10 +1298,10 @@ export class MedicoConsultorioComponent implements OnInit {
     if (recetaIncompleta) {
       avisos.push('La receta está incompleta (agrega al menos un medicamento para poder guardarla).');
     }
-    if (this.hayNotaClinicaEnCaptura()) {
+    if (notaInfo.hayAlgo) {
       avisos.push(
         tienePaciente
-          ? 'Tienes una nota clínica capturada que aún no se ha guardado en el expediente.'
+          ? 'La nota clínica capturada se guardará o actualizará en esta misma ficha al finalizar.'
           : 'Capturaste una nota clínica, pero al ser paciente de paso no se guardará en expediente.'
       );
     }
@@ -1264,6 +1339,9 @@ export class MedicoConsultorioComponent implements OnInit {
     const alergiasCaptura = antInfo.payload.alergias.length
       ? antInfo.payload.alergias.join(', ')
       : this.obtenerAlergiasConsultaActualTexto();
+    const signosParaImpresion = this.hayAlgoEnSignos()
+      ? { ...this.signos }
+      : (this.obtenerSignosDeFichaActualEnExpediente() || this.expediente?.signosVitalesRecientes?.[0] || null);
 
     const contextoImpresion = {
       recetaPendienteId,
@@ -1271,6 +1349,7 @@ export class MedicoConsultorioComponent implements OnInit {
       hayRecetaValida,
       recetaPayload: rxInfo.payload,
       alergias: alergiasCaptura,
+      signosVitalesPreferidos: signosParaImpresion,
     };
 
     let recetaImpresa = false;
@@ -1320,6 +1399,7 @@ export class MedicoConsultorioComponent implements OnInit {
         spo2: this.signos.spo2 ?? undefined,
         glucosaCapilar: this.signos.glucosaCapilar ?? undefined,
       } : null,
+      notaClinica: (tienePaciente && notaInfo.hayAlgo) ? notaInfo.payload : null,
       antecedentes: antecedentesSeGuardaran ? antInfo.payload : null,
       receta: hayRecetaValida ? rxInfo.payload : null,
       paciente: pacienteInfoSeGuardara ? pacInfo.payload : null,
@@ -1389,7 +1469,7 @@ export class MedicoConsultorioComponent implements OnInit {
     const signos = this.construirSignosDesdeCapturaActual();
     const signosFinales = signos.length
       ? signos
-      : this.construirResumenSignosVitales(this.expediente?.signosVitalesRecientes?.[0]);
+      : this.construirResumenSignosVitales(this.obtenerSignosDeFichaActualEnExpediente() || this.expediente?.signosVitalesRecientes?.[0]);
 
     const data: RecetaPrintData = {
       medicoNombre: this.obtenerNombreMedicoImpresion(medico),
@@ -1420,12 +1500,16 @@ export class MedicoConsultorioComponent implements OnInit {
     hayRecetaValida: boolean;
     recetaPayload: any;
     alergias: string;
+    signosVitalesPreferidos: any;
   }): Promise<boolean> {
     const printWindow = this.prepararVentanaImpresion();
 
     try {
       if (contexto.recetaPendienteId) {
-        await this.imprimirReceta(contexto.recetaPendienteId, printWindow);
+        await this.imprimirReceta(contexto.recetaPendienteId, printWindow, {
+          signosVitalesPreferidos: contexto.signosVitalesPreferidos,
+          alergiasPreferidas: contexto.alergias,
+        });
         return true;
       }
 
@@ -1753,8 +1837,10 @@ export class MedicoConsultorioComponent implements OnInit {
 
   private buildNotaClinicaPayload() {
     const motivoCapturado = String(this.nota.motivoConsulta || '').trim();
+    const fichaConsultorioId = this.fichaActualId || undefined;
 
     const payload = {
+      fichaConsultorioId,
       motivoConsulta: motivoCapturado,
       padecimientoActual: String(this.nota.padecimientoActual || '').trim(),
       exploracionFisica: String(this.nota.exploracionFisica || '').trim(),
@@ -1934,13 +2020,13 @@ export class MedicoConsultorioComponent implements OnInit {
 
     this.guardandoNotaClinica = true;
     try {
-      await firstValueFrom(this.pacientesService.guardarNotaClinica(pacienteId, notaInfo.payload));
+      const respNota: any = await firstValueFrom(this.pacientesService.guardarNotaClinica(pacienteId, notaInfo.payload));
       await this.cargarExpedienteSiHayPaciente();
       this.ncExpandida = false;
 
       Swal.fire({
         icon: 'success',
-        title: 'Nota clínica guardada',
+        title: respNota?.actualizado ? 'Nota clínica actualizada' : 'Nota clínica guardada',
         timer: 1200,
         showConfirmButton: false,
       });
@@ -2188,12 +2274,39 @@ export class MedicoConsultorioComponent implements OnInit {
     }
   }
 
+  private tieneDatosSignos(sv: any): boolean {
+    if (!sv) return false;
+    return (
+      sv?.pesoKg != null ||
+      sv?.tallaCm != null ||
+      sv?.imc != null ||
+      sv?.temperatura != null ||
+      sv?.presionSis != null ||
+      sv?.presionDia != null ||
+      sv?.fc != null ||
+      sv?.fr != null ||
+      sv?.spo2 != null ||
+      sv?.glucosaCapilar != null
+    );
+  }
+
   private construirResumenSignosVitales(sv: any): string[] {
     if (!sv) return [];
+
+    const peso = this.toNullableNumber(sv?.pesoKg);
+    const tallaCm = this.toNullableNumber(sv?.tallaCm);
+    let imc = this.toNullableNumber(sv?.imc);
+
+    if (imc == null && peso != null && tallaCm != null && tallaCm > 0) {
+      const tallaM = tallaCm / 100;
+      const calculado = tallaM > 0 ? (peso / (tallaM * tallaM)) : null;
+      imc = (calculado != null && Number.isFinite(calculado)) ? Math.round(calculado * 10) / 10 : null;
+    }
 
     const rows = [
       ['Peso', sv?.pesoKg != null ? `${sv.pesoKg} kg` : ''],
       ['Talla', sv?.tallaCm != null ? `${sv.tallaCm} cm` : ''],
+      ['IMC', imc != null && Number.isFinite(imc) ? `${imc}` : ''],
       ['TA', this.fmtTA(sv) !== '?' ? this.fmtTA(sv) : ''],
       ['FC', sv?.fc != null ? `${sv.fc} lpm` : ''],
       ['FR', sv?.fr != null ? `${sv.fr} rpm` : ''],
@@ -2210,7 +2323,24 @@ export class MedicoConsultorioComponent implements OnInit {
   private construirMedicamentosImpresion(medicamentos: any[] = []): RecetaPrintMedicamento[] {
     return (Array.isArray(medicamentos) ? medicamentos : [])
       .map((m) => {
-        const nombre = this.repararMojibake(String(m?.nombreLibre || m?.productoId?.nombre || '').trim());
+        const nombreDirecto = String(m?.nombreLibre || m?.productoId?.nombre || '').trim();
+        let nombre = this.repararMojibake(nombreDirecto);
+
+        if (!nombre) {
+          const productoId = typeof m?.productoId === 'object'
+            ? String(m?.productoId?._id || '').trim()
+            : String(m?.productoId || '').trim();
+
+          if (productoId) {
+            const medLocal = (this.receta?.medicamentos || []).find((med: MedicamentoUI) =>
+              String(med?.productoId || '').trim() === productoId
+            );
+            nombre = this.repararMojibake(
+              String(medLocal?.nombreLibre || medLocal?.q || '').trim()
+            );
+          }
+        }
+
         const viaRaw = this.repararMojibake(String(m?.via || '').trim());
         const via = viaRaw === 'OTRA'
           ? `OTRA: ${this.repararMojibake(String(m?.viaOtra || '').trim())}`
@@ -2303,7 +2433,7 @@ export class MedicoConsultorioComponent implements OnInit {
     const diagnostico = this.enumerarDiagnosticos(data.diagnosticos || []);
     const recomendaciones = String(data.recomendaciones || '').trim();
     const signosVitales = Array.isArray(data.signosVitales) ? data.signosVitales.filter(Boolean) : [];
-    const alergias = String(data.alergias || '').trim() || '—';
+    const alergias = String(data.alergias || '').trim() || 'No referidas';
     const footerDerecha = [
       String(data.direccion || '').trim(),
       data.telefono ? `Tel: ${String(data.telefono).trim()}` : '',
@@ -2314,7 +2444,7 @@ export class MedicoConsultorioComponent implements OnInit {
 
     const signosHtml = signosVitales.length
       ? signosVitales.map((signo) => `<span class="sv-pill">${this.esc(signo)}</span>`).join('')
-      : `<span class="sv-pill">—</span>`;
+      : `<span class="sv-pill">Sin registro</span>`;
 
     return `
       <section class="rx-page">
@@ -2830,8 +2960,11 @@ export class MedicoConsultorioComponent implements OnInit {
     const diagnosticos = this.parseDiagnosticos(this.receta.diagnosticosTexto);
 
     return {
+      recetaId: this.recetaPendienteImpresionId || undefined,
+      fichaConsultorioId: this.fichaActualId || undefined,
       pacienteId: this.fichaActual?.pacienteId || undefined,
       diagnosticos,
+      alergias: this.obtenerAlergiasConsultaActual(),
       medicamentos: medicamentosOk,
       indicacionesGenerales: (this.receta.indicacionesGenerales || '').trim(),
       citaSeguimiento: this.receta.citaSeguimiento
@@ -2889,7 +3022,10 @@ export class MedicoConsultorioComponent implements OnInit {
 
       this.rxExpandida = false;
 
-      Swal.fire('Listo', 'Receta guardada correctamente en el expediente.', 'success');
+      const msg = resp?.actualizado
+        ? 'Receta actualizada correctamente en el expediente.'
+        : 'Receta guardada correctamente en el expediente.';
+      Swal.fire('Listo', msg, 'success');
     } catch (e: any) {
       console.error(e);
       Swal.fire('Error', e?.error?.msg || 'No se pudo generar receta', 'error');
@@ -3055,7 +3191,7 @@ export class MedicoConsultorioComponent implements OnInit {
       icon: 'question',
       title: '¿Guardar signos vitales?',
       text: pacienteId
-        ? 'Se agregará un registro al expediente del paciente.'
+        ? 'Se guardarán en la ficha actual del paciente (si ya existen, se actualizarán).'
         : 'Se guardarán en la ficha actual del paciente de paso.',
       showCancelButton: true,
       confirmButtonText: 'Sí, guardar',
@@ -3071,10 +3207,14 @@ export class MedicoConsultorioComponent implements OnInit {
       const payload = this.payloadSignosDesdeFormulario();
 
       if (pacienteId) {
-        await firstValueFrom(this.pacientesService.guardarSignosVitales(pacienteId, payload));
+        const respSignos: any = await firstValueFrom(this.pacientesService.guardarSignosVitales(pacienteId, payload));
         this.removeSignosPasoDeFicha(this.fichaActual?._id);
 
-        Swal.fire('Listo', 'Signos vitales guardados.', 'success');
+        Swal.fire(
+          'Listo',
+          respSignos?.actualizado ? 'Signos vitales actualizados en esta ficha.' : 'Signos vitales guardados.',
+          'success'
+        );
 
         await this.cargarExpedienteSiHayPaciente();
         this.expedienteTab = 'SV';
@@ -3130,7 +3270,7 @@ export class MedicoConsultorioComponent implements OnInit {
   async imprimirReceta(
     recetaId: string,
     targetWindow?: Window | null,
-    options: { forzarUnaCopia?: boolean } = {}
+    options: { forzarUnaCopia?: boolean; signosVitalesPreferidos?: any; alergiasPreferidas?: string } = {}
   ) {
     const resp = await firstValueFrom(this.recetasService.obtenerPorId(recetaId));
     const rx = resp?.receta;
@@ -3140,6 +3280,19 @@ export class MedicoConsultorioComponent implements OnInit {
     const farm = rx.farmaciaId || {};
     const pac = rx.pacienteId || {};
     const med = rx.medicoId || {};
+
+    const alergiasPreferidas = String(options.alergiasPreferidas || '').trim();
+    const alergiasReceta = Array.isArray(rx?.alergias)
+      ? rx.alergias.map((x: any) => String(x || '').trim()).filter(Boolean)
+      : [];
+    const alergiasExtra = Array.isArray(extra?.alergias)
+      ? extra.alergias.map((x: any) => String(x || '').trim()).filter(Boolean)
+      : [];
+
+    const signosPreferidos = options?.signosVitalesPreferidos || null;
+    const signosFuente = this.tieneDatosSignos(signosPreferidos)
+      ? signosPreferidos
+      : (extra?.ultimoSV || null);
 
     const data: RecetaPrintData = {
       medicoNombre: this.obtenerNombreMedicoImpresion(med),
@@ -3151,10 +3304,11 @@ export class MedicoConsultorioComponent implements OnInit {
       citaSeguimiento: this.formatearCitaSeguimiento(rx.citaSeguimiento),
       diagnosticos: Array.isArray(rx.diagnosticos) ? rx.diagnosticos : [],
       edad: this.calcEdad(pac),
-      alergias: Array.isArray(extra?.alergias) && extra.alergias.length
-        ? extra.alergias.join(', ')
-        : this.obtenerAlergiasConsultaActualTexto(),
-      signosVitales: this.construirResumenSignosVitales(extra?.ultimoSV),
+      alergias: alergiasPreferidas ||
+        (alergiasReceta.length ? alergiasReceta.join(', ') : '') ||
+        (alergiasExtra.length ? alergiasExtra.join(', ') : '') ||
+        this.obtenerAlergiasConsultaActualTexto(),
+      signosVitales: this.construirResumenSignosVitales(signosFuente),
       recomendaciones: (rx.indicacionesGenerales || '').trim() || (rx.observaciones || '').trim(),
       direccion: String(farm?.direccion || '').trim(),
       telefono: String(farm?.telefono || '').trim(),
@@ -3182,7 +3336,7 @@ export class MedicoConsultorioComponent implements OnInit {
     const signos = this.construirSignosDesdeCapturaActual();
     const signosFinales = signos.length
       ? signos
-      : this.construirResumenSignosVitales(this.expediente?.signosVitalesRecientes?.[0]);
+      : this.construirResumenSignosVitales(this.obtenerSignosDeFichaActualEnExpediente() || this.expediente?.signosVitalesRecientes?.[0]);
 
     const data: RecetaPrintData = {
       medicoNombre: this.obtenerNombreMedicoImpresion(medico),

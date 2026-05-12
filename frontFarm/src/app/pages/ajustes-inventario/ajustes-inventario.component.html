@@ -51,6 +51,19 @@
             </div>
         </div>
 
+        <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Ubicación</label>
+            <div class="position-relative">
+                <input type="text" [(ngModel)]="filtros.ubicacion" name="ubicacion" (keyup.enter)="aplicarFiltros()"
+                    class="form-control pe-4 flex-grow-1">
+                <button *ngIf="filtros.ubicacion" type="button" matTooltip="Limpiar ubicación"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('ubicacion')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
 <!--         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">INAPAM</label>
             <div class="position-relative">
@@ -222,22 +235,31 @@
 
         <!-- 🟢 Zona General -->
         <!-- <div class="container-masivos"> -->
-            <div class="row mb-2 container-masivos">
-                <div class="col-md-3">
+            <div class="row mb-2 container-masivos align-items-end g-2">
+                <div class="col-xl-3 col-lg-3 col-md-6">
                     <label style="margin-right: 10px;">Categoría:</label>
                     <input type="text" formControlName="categoria">
                 </div>
-                <div class="col-md-3"> 
+                <div class="col-xl-3 col-lg-3 col-md-6"> 
                     <label style="margin-right: 10px;">Ubicación:</label>
                     <input type="text" formControlName="ubicacion">
                 </div>
-                <div class="col-md-3" style="text-align: end;">
+                <div class="col-xl-2 col-lg-2 col-md-3 col-sm-6" style="text-align: end;">
                     <label style="margin-right: 10px;">Stock Mínimo:</label>
                     <input style="width: 60px;" type="number" formControlName="stockMinimo">
                 </div>
-                <div class="col-md-3" style="text-align: end;">
+                <div class="col-xl-2 col-lg-2 col-md-3 col-sm-6" style="text-align: end;">
                     <label style="margin-right: 10px;">Stock Máximo:</label>
                     <input style="width: 60px;" type="number" formControlName="stockMaximo">
+                </div>
+                <div class="col-xl-2 col-lg-2 col-md-12 d-flex align-items-end justify-content-lg-end justify-content-start">
+                    <button class="btn-rojo-chico" type="button"
+                        [disabled]="quitandoLotes"
+                        matTooltip="Dejar las existencias en CERO"
+                        (click)="quitarLotesSeleccionados()">
+                        <i class="fa fa-spinner fa-spin me-1" *ngIf="quitandoLotes"></i>
+                        {{ quitandoLotes ? 'Quitando...' : 'Quitar lotes' }}
+                    </button>
                 </div>
                 <!-- <label style="margin-right: 10px;">INAPAM:</label>
                 <select formControlName="descuentoINAPAM">
@@ -349,6 +371,14 @@
         </div>
     </form>
 
+    <div class="acciones-tabla mb-1 mt-2">
+        <button class="btn-amarillo-chico" type="button"
+            matTooltip="Exportar registros filtrados"
+            (click)="exportarExcelFiltrados()">
+            Exportar Excel
+        </button>
+    </div>
+
     <table class="tabla" style="font-size: small;">
         <thead>
             <tr>
@@ -357,7 +387,7 @@
                 </th>
                 <th>Imagen</th>
                 <th (click)="ordenar('nombre')">
-                    Nombre / Ubic.
+                    Nombre / Código barras
                     <i [ngClass]="{
                         'bi': true,
                         'bi-caret-up-fill': columnaOrden === 'nombre' && direccionOrden === 'asc',
@@ -365,7 +395,7 @@
                         'bi-caret-up': columnaOrden !== 'nombre'
                     }" class="icono-orden"></i>
                 </th>
-                <th (click)="ordenar('codigoBarras')">
+                <!-- <th (click)="ordenar('codigoBarras')">
                     Código Barras
                     <i [ngClass]="{
                         'bi': true,
@@ -373,7 +403,7 @@
                         'bi-caret-down-fill': columnaOrden === 'codigoBarras' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'codigoBarras'
                     }" class="icono-orden"></i>
-                </th>
+                </th> -->
                 <th (click)="ordenar('categoria')">
                     Categoría
                     <i [ngClass]="{
@@ -381,6 +411,15 @@
                         'bi-caret-up-fill': columnaOrden === 'categoria' && direccionOrden === 'asc',
                         'bi-caret-down-fill': columnaOrden === 'categoria' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'categoria'
+                    }" class="icono-orden"></i>
+                </th>
+                <th (click)="ordenar('ubicacion')">
+                    Ubicación
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'ubicacion' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'ubicacion' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'ubicacion'
                     }" class="icono-orden"></i>
                 </th>
                 <!-- <th>Genérico</th> -->
@@ -470,10 +509,10 @@
 
                 <td class="col-producto">
                     <div class="prod-nombre">{{ p.nombre }}</div>
-                    <small class="prod-ubicacion" *ngIf="p.ubicacion">{{ p.ubicacion }}</small>
+                    <small class="prod-ubicacion" *ngIf="p.codigoBarras">{{ p.codigoBarras }}</small>
                 </td>
-                <td>{{ p.codigoBarras }}</td>
                 <td>{{ p.categoria }}</td>
+                <td>{{ p.ubicacion }}</td>
                 <!-- <td style="text-align: center;">
                     <input type="checkbox" [checked]="p.generico" disabled>
                 </td> -->

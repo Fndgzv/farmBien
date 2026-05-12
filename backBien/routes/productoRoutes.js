@@ -16,6 +16,7 @@ const {
   consultarPrecioPorCodigo,
   obtenerExistenciaEnFarmacia,
   actualizarProductos,
+  quitarLotesMasivo,
   actualizarProducto,
   searchProductos,
   buscarPorCodigoBarras,
@@ -43,6 +44,7 @@ router.put('/:id/imagen', uploadImagen, actualizarImagenProducto);
 router.get('/', authMiddleware,obtenerProductos);
 router.post('/', authMiddleware, isAdmin,crearProducto);
 router.put('/actualizar-masivo', authMiddleware, isAdmin,actualizarProductos);
+router.put('/quitar-lotes-masivo', authMiddleware, isAdmin, quitarLotesMasivo);
 router.put('/actualizar-producto/:id([0-9a-fA-F]{24})', authMiddleware, isAdmin, actualizarProducto);
 router.delete('/:id', authMiddleware, isAdmin, eliminarProducto);
 

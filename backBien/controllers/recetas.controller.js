@@ -1,4 +1,4 @@
-// backBien\controllers\recetas.controller.js
+// backBien/controllers/recetas.controller.js
 const mongoose = require("mongoose");
 const Receta = require("../models/Receta");
 const Paciente = require("../models/Paciente");
@@ -8,6 +8,66 @@ function getFarmaciaActiva(req) {
   const fromHeader = req.headers["x-farmacia-id"];
   const farmaciaId = fromHeader || fromUser;
   return farmaciaId ? String(farmaciaId) : null;
+}
+
+const cleanStr = (value) => String(value || "").trim();
+
+const cleanArr = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => cleanStr(item)).filter(Boolean);
+};
+
+const toObjectIdOrNull = (value) => {
+  const raw = cleanStr(value);
+  if (!raw) return null;
+  if (!mongoose.isValidObjectId(raw)) return "__INVALID__";
+  return new mongoose.Types.ObjectId(raw);
+};
+
+async function upsertResumenRecetaPaciente({
+  pacienteId,
+  recetaId,
+  fecha,
+  medicoId,
+  diagnosticoPrincipal,
+  fichaConsultorioId,
+}) {
+  await Paciente.findByIdAndUpdate(pacienteId, {
+    $addToSet: { recetas: recetaId },
+  });
+
+  const updateExisting = await Paciente.updateOne(
+    { _id: pacienteId, "ultimasRecetas.recetaId": recetaId },
+    {
+      $set: {
+        "ultimasRecetas.$.fecha": fecha,
+        "ultimasRecetas.$.medicoId": medicoId,
+        "ultimasRecetas.$.diagnosticoPrincipal": diagnosticoPrincipal,
+        ...(fichaConsultorioId ? { "ultimasRecetas.$.fichaConsultorioId": fichaConsultorioId } : {}),
+      },
+    }
+  );
+
+  if (updateExisting?.matchedCount) return;
+
+  await Paciente.findByIdAndUpdate(
+    pacienteId,
+    {
+      $push: {
+        ultimasRecetas: {
+          $each: [{
+            recetaId,
+            fichaConsultorioId: fichaConsultorioId || undefined,
+            fecha,
+            medicoId,
+            diagnosticoPrincipal,
+          }],
+          $position: 0,
+          $slice: 10,
+        },
+      },
+    }
+  );
 }
 
 exports.obtenerPorId = async (req, res) => {
@@ -26,6 +86,7 @@ exports.obtenerPorId = async (req, res) => {
     if (!receta) return res.status(404).json({ msg: "Receta no encontrada" });
 
     const pacienteId = receta?.pacienteId?._id || receta?.pacienteId;
+    const fichaConsultorioId = cleanStr(receta?.fichaConsultorioId);
 
     let extraPaciente = { alergias: [], ultimoSV: null };
 
@@ -34,11 +95,22 @@ exports.obtenerPorId = async (req, res) => {
         .select("antecedentes signosVitales")
         .lean();
 
-      extraPaciente.alergias = p?.antecedentes?.alergias || [];
+      const alergiasReceta = cleanArr(receta?.alergias);
+      const alergiasPaciente = cleanArr(p?.antecedentes?.alergias);
+      extraPaciente.alergias = alergiasReceta.length ? alergiasReceta : alergiasPaciente;
 
-      // ✅ como se guarda con $position:0, el más reciente queda en [0]
-      extraPaciente.ultimoSV =
-        Array.isArray(p?.signosVitales) && p.signosVitales.length ? p.signosVitales[0] : null;
+      const signos = Array.isArray(p?.signosVitales) ? p.signosVitales : [];
+      let signoFicha = null;
+
+      if (fichaConsultorioId) {
+        const candidatos = signos
+          .filter((sv) => cleanStr(sv?.fichaConsultorioId) === fichaConsultorioId)
+          .sort((a, b) => new Date(b?.fecha || 0).getTime() - new Date(a?.fecha || 0).getTime());
+        signoFicha = candidatos[0] || null;
+      }
+
+      // compatibilidad con historico sin fichaConsultorioId
+      extraPaciente.ultimoSV = signoFicha || (signos.length ? signos[0] : null);
     }
 
     return res.json({ ok: true, receta, extraPaciente });
@@ -48,11 +120,10 @@ exports.obtenerPorId = async (req, res) => {
   }
 };
 
-
 exports.listarPorPaciente = async (req, res) => {
   try {
     const { pacienteId } = req.params;
-    if (!mongoose.isValidObjectId(pacienteId)) return res.status(400).json({ msg: "pacienteId inválido" });
+    if (!mongoose.isValidObjectId(pacienteId)) return res.status(400).json({ msg: "pacienteId invalido" });
 
     const recetas = await Receta.find({ pacienteId, estado: "activa" })
       .sort({ fecha: -1 })
@@ -72,7 +143,7 @@ exports.crear = async (req, res) => {
     if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
 
     const medicoId = req.usuario?._id;
-    if (!medicoId) return res.status(401).json({ msg: "Usuario no válido" });
+    if (!medicoId) return res.status(401).json({ msg: "Usuario no valido" });
 
     const {
       pacienteId,
@@ -81,56 +152,105 @@ exports.crear = async (req, res) => {
       medicamentos = [],
       indicacionesGenerales,
       citaSeguimiento,
+      alergias = [],
+      fichaConsultorioId: fichaConsultorioIdRaw,
+      recetaId: recetaIdRaw,
       // opcional
-      ventaId
-    } = req.body;
+      ventaId,
+    } = req.body || {};
 
     if (!pacienteId || !mongoose.isValidObjectId(pacienteId)) {
-      return res.status(400).json({ msg: "pacienteId inválido" });
+      return res.status(400).json({ msg: "pacienteId invalido" });
     }
 
-    // Verifica paciente existe
-    const paciente = await Paciente.findById(pacienteId).select("_id nombre apPaterno apMaterno").lean();
+    const paciente = await Paciente.findById(pacienteId).select("_id").lean();
     if (!paciente) return res.status(404).json({ msg: "Paciente no encontrado" });
 
-    // Crea receta
-    const receta = await Receta.create({
+    const fichaConsultorioId = toObjectIdOrNull(fichaConsultorioIdRaw);
+    if (fichaConsultorioId === "__INVALID__") {
+      return res.status(400).json({ msg: "fichaConsultorioId invalido" });
+    }
+
+    const recetaId = toObjectIdOrNull(recetaIdRaw);
+    if (recetaId === "__INVALID__") {
+      return res.status(400).json({ msg: "recetaId invalido" });
+    }
+
+    const diagnosticosNormalizados = cleanArr(diagnosticos);
+    const recetaPayload = {
       fecha: new Date(),
       pacienteId,
+      fichaConsultorioId: fichaConsultorioId || undefined,
       medicoId,
       farmaciaId,
-      diagnosticos: Array.isArray(diagnosticos) ? diagnosticos.map(d => String(d).trim()).filter(Boolean) : [],
-      observaciones: (observaciones || "").trim(),
-      medicamentos,
-      indicacionesGenerales: (indicacionesGenerales || "").trim(),
+      diagnosticos: diagnosticosNormalizados,
+      alergias: cleanArr(alergias),
+      observaciones: cleanStr(observaciones),
+      medicamentos: Array.isArray(medicamentos) ? medicamentos : [],
+      indicacionesGenerales: cleanStr(indicacionesGenerales),
       citaSeguimiento: citaSeguimiento || null,
-      ventaId: ventaId || undefined,
-      creadaPor: medicoId,
+      ...(Object.prototype.hasOwnProperty.call(req.body || {}, "ventaId")
+        ? { ventaId: ventaId || null }
+        : {}),
+    };
+
+    let recetaExistente = null;
+
+    if (recetaId) {
+      recetaExistente = await Receta.findOne({
+        _id: recetaId,
+        pacienteId,
+        farmaciaId,
+      }).lean();
+    }
+
+    if (!recetaExistente && fichaConsultorioId) {
+      recetaExistente = await Receta.findOne({
+        pacienteId,
+        farmaciaId,
+        fichaConsultorioId,
+        estado: "activa",
+      })
+        .sort({ fecha: -1 })
+        .lean();
+    }
+
+    let receta = null;
+    let creado = false;
+
+    if (recetaExistente?._id) {
+      receta = await Receta.findByIdAndUpdate(
+        recetaExistente._id,
+        { $set: recetaPayload },
+        { new: true, runValidators: true }
+      ).lean();
+    } else {
+      receta = await Receta.create({
+        ...recetaPayload,
+        creadaPor: medicoId,
+      });
+      creado = true;
+    }
+
+    const diagnosticoPrincipal = diagnosticosNormalizados.length
+      ? diagnosticosNormalizados[0]
+      : "";
+
+    await upsertResumenRecetaPaciente({
+      pacienteId,
+      recetaId: receta._id,
+      fecha: receta.fecha,
+      medicoId,
+      diagnosticoPrincipal,
+      fichaConsultorioId: fichaConsultorioId || undefined,
     });
 
-    // Vincula en paciente (y guarda resumen rápido)
-    const diagPrincipal = Array.isArray(diagnosticos) && diagnosticos.length ? String(diagnosticos[0]).trim() : "";
-
-    await Paciente.findByIdAndUpdate(
-      pacienteId,
-      {
-        $addToSet: { recetas: receta._id },
-        $push: {
-          ultimasRecetas: {
-            $each: [{
-              recetaId: receta._id,
-              fecha: receta.fecha,
-              medicoId,
-              diagnosticoPrincipal: diagPrincipal
-            }],
-            $position: 0,
-            $slice: 10
-          }
-        }
-      }
-    );
-
-    return res.status(201).json({ ok: true, receta });
+    return res.status(creado ? 201 : 200).json({
+      ok: true,
+      receta,
+      creado,
+      actualizado: !creado,
+    });
   } catch (err) {
     console.error("crear receta:", err);
     return res.status(500).json({ msg: "Error al crear receta" });

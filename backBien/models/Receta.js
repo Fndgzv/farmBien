@@ -27,10 +27,12 @@ const RecetaSchema = new Schema(
         fecha: { type: Date, default: Date.now, index: true },
 
         pacienteId: { type: Schema.Types.ObjectId, ref: "Paciente", required: true, index: true },
+        fichaConsultorioId: { type: Schema.Types.ObjectId, ref: "FichaConsultorio", index: true },
         medicoId: { type: Schema.Types.ObjectId, ref: "Usuario", required: true, index: true },
         farmaciaId: { type: Schema.Types.ObjectId, ref: "Farmacia", required: true, index: true },
 
         diagnosticos: [{ type: String, trim: true }], // o ICD-10
+        alergias: [{ type: String, trim: true }],
         observaciones: { type: String, trim: true },
 
         medicamentos: { type: [MedicamentoRecetadoSchema], default: [] },
@@ -55,5 +57,6 @@ const RecetaSchema = new Schema(
 RecetaSchema.index({ pacienteId: 1, fecha: -1 });
 RecetaSchema.index({ medicoId: 1, fecha: -1 });
 RecetaSchema.index({ farmaciaId: 1, fecha: -1 });
+RecetaSchema.index({ fichaConsultorioId: 1, estado: 1, fecha: -1 });
 
 module.exports = mongoose.model("Receta", RecetaSchema);

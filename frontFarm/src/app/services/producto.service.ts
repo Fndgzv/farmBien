@@ -81,6 +81,10 @@ export class ProductoService {
     return this.http.put(`${this.apiUrl}/actualizar-masivo`, payload);
   }
 
+  quitarLotesMasivo(payload: { productoIds: string[] }) {
+    return this.http.put<any>(`${this.apiUrl}/quitar-lotes-masivo`, payload);
+  }
+
 
   actualizarProductoIndividual(id: string, data: any): Observable<any> {
     return this.http.put(`${this.apiUrl}/actualizar-producto/${id}`, data);

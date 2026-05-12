@@ -2758,6 +2758,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     if (!q) {
       row.sugerencias = [];
+      this.asegurarRenglonVacioFinalInsumos();
       return;
     }
 
@@ -2857,10 +2858,44 @@ export class VentasComponent implements OnInit, AfterViewInit {
     };
   }
 
+  private renglonInsumoTieneProducto(row: any): boolean {
+    return !!String(row?.productoId || '').trim();
+  }
+
+  private normalizarRenglonInsumo(row: any) {
+    return {
+      productoId: String(row?.productoId || '').trim(),
+      query: String(row?.query || '').trim(),
+      cantidad: Number(row?.cantidad || 1),
+      notas: String(row?.notas || '').trim(),
+      sugerencias: Array.isArray(row?.sugerencias) ? row.sugerencias : [],
+      buscando: !!row?.buscando,
+      feedbackBusqueda: String(row?.feedbackBusqueda || '').trim(),
+      categoria: row?.categoria || '',
+    };
+  }
+
+  private asegurarRenglonVacioFinalInsumos() {
+    const rows = Array.isArray(this.insumosConsulta) ? this.insumosConsulta : [];
+    const normalizados = rows.map((row) => this.normalizarRenglonInsumo(row));
+
+    const conProducto = normalizados.filter((row) => this.renglonInsumoTieneProducto(row));
+    const conTextoSinProducto = normalizados.filter((row) =>
+      !this.renglonInsumoTieneProducto(row) && (!!row.query || !!row.notas)
+    );
+
+    this.insumosConsulta = [...conProducto, ...conTextoSinProducto];
+
+    if (!this.insumosConsulta.length || this.renglonInsumoTieneProducto(this.insumosConsulta[this.insumosConsulta.length - 1])) {
+      this.insumosConsulta.push(this.nuevoRenglonInsumo());
+    }
+  }
+
   abrirModalInsumosConsulta() {
     this.mostrarModalInsumosConsulta = true;
     this.fichaSeleccionadaInsumos = null;
     this.insumosConsulta = [this.nuevoRenglonInsumo()];
+    this.asegurarRenglonVacioFinalInsumos();
     this.cargarFichasEnAtencion();
   }
 
@@ -2910,18 +2945,18 @@ export class VentasComponent implements OnInit, AfterViewInit {
     } else {
       this.insumosConsulta = [this.nuevoRenglonInsumo()];
     }
+
+    this.asegurarRenglonVacioFinalInsumos();
   }
 
   agregarRenglonInsumo() {
     this.insumosConsulta.push(this.nuevoRenglonInsumo());
+    this.asegurarRenglonVacioFinalInsumos();
   }
 
   quitarRenglonInsumo(i: number) {
     this.insumosConsulta.splice(i, 1);
-
-    if (!this.insumosConsulta.length) {
-      this.insumosConsulta.push(this.nuevoRenglonInsumo());
-    }
+    this.asegurarRenglonVacioFinalInsumos();
   }
 
   seleccionarInsumo(i: number, p: any) {
@@ -2932,6 +2967,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     row.query = p.nombre;
     row.sugerencias = [];
     row.feedbackBusqueda = '';
+    this.asegurarRenglonVacioFinalInsumos();
   }
 
   blurInsumo(i: number) {
@@ -2946,6 +2982,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
       Swal.fire('Falta ficha', 'Selecciona un paciente en atención.', 'warning');
       return;
     }
+
+    this.asegurarRenglonVacioFinalInsumos();
 
     const conceptosOk = (this.insumosConsulta || [])
       .map(x => ({

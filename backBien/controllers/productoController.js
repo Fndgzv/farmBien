@@ -909,6 +909,48 @@ exports.actualizarProductos = async (req, res) => {
   }
 };
 
+exports.quitarLotesMasivo = async (req, res) => {
+  try {
+    const productoIdsRaw = Array.isArray(req.body?.productoIds) ? req.body.productoIds : [];
+    if (!productoIdsRaw.length) {
+      return res.status(400).json({ mensaje: 'Debes enviar al menos un producto para quitar lotes.' });
+    }
+
+    const productoIdsUnicos = [...new Set(
+      productoIdsRaw.map((id) => String(id || '').trim()).filter(Boolean)
+    )];
+
+    if (!productoIdsUnicos.length) {
+      return res.status(400).json({ mensaje: 'No se recibieron IDs de producto válidos.' });
+    }
+
+    const idsInvalidos = productoIdsUnicos.filter((id) => !mongoose.isValidObjectId(id));
+    if (idsInvalidos.length) {
+      return res.status(400).json({ mensaje: 'Se recibieron IDs de producto inválidos.' });
+    }
+
+    const objectIds = productoIdsUnicos.map((id) => new mongoose.Types.ObjectId(id));
+
+    const resultado = await Producto.updateMany(
+      { _id: { $in: objectIds } },
+      { $set: { lotes: [] } }
+    );
+
+    const actualizados = typeof resultado?.modifiedCount === 'number'
+      ? resultado.modifiedCount
+      : (resultado?.nModified || 0);
+
+    return res.json({
+      mensaje: 'Lotes eliminados correctamente. Las existencias quedaron en cero para los productos actualizados.',
+      solicitados: productoIdsUnicos.length,
+      actualizados,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ mensaje: 'Error al quitar lotes de productos seleccionados.' });
+  }
+};
+
 
 // Validar que no existan lotes duplicados
 const validarLotesDuplicados = (lotes) => {

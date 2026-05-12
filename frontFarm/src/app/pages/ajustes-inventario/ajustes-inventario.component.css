@@ -33,8 +33,15 @@
 
 .container-masivos {
   display: flex;
-  justify-content: space-between;
-  width: 100%;}
+  flex-wrap: wrap;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.acciones-tabla {
+  display: flex;
+  justify-content: flex-start;
+}
 
 .tit-promo {
   color: rgb(2, 4, 124);

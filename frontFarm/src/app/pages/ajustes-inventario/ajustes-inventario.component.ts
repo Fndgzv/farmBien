@@ -6,11 +6,13 @@ import { Producto } from '../../models/producto.model';
 import { ModalOverlayService } from '../../services/modal-overlay.service';
 import { ProductoService } from '../../services/producto.service';
 import { ProveedorService } from '../../services/proveedor.service';
+import { FarmaciaService } from '../../services/farmacia.service';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { environment } from '../../../environments/environment';
+import * as XLSX from 'xlsx';
 
 import { firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
@@ -50,6 +52,7 @@ export class AjustesInventarioComponent implements OnInit {
     nombre: string;
     codigoBarras: string;
     categoria: string;
+    ubicacion: string;
     generico: boolean | null;
     bajoStock: boolean | null;
     duplicadosCB: boolean | null;
@@ -61,6 +64,7 @@ export class AjustesInventarioComponent implements OnInit {
       nombre: '',
       codigoBarras: '',
       categoria: '',
+      ubicacion: '',
       generico: null,
       bajoStock: false,
       duplicadosCB: false,
@@ -82,6 +86,7 @@ export class AjustesInventarioComponent implements OnInit {
 
   mostrarNuevoProducto = false;
   guardandoNuevo = false;
+  quitandoLotes = false;
   nuevoProductoForm!: FormGroup;
 
   eliminandoId: string | null = null;
@@ -108,6 +113,7 @@ export class AjustesInventarioComponent implements OnInit {
     private modalService: ModalOverlayService,
     private productoService: ProductoService,
     private proveedorService: ProveedorService,
+    private farmaciaService: FarmaciaService,
     library: FaIconLibrary,
     private renderer: Renderer2
   ) { library.addIcons(faPen, faTimes, faPlus); }
@@ -191,6 +197,7 @@ export class AjustesInventarioComponent implements OnInit {
       const f = this.filtros;
       const palabras = f?.nombre ? this.splitWords(f.nombre) : [];
       const palabrasCategoria = f?.categoria ? this.splitWords(f.categoria) : [];
+      const palabrasUbicacion = f?.ubicacion ? this.splitWords(f.ubicacion) : [];
       this.productosFiltrados = (this.productos || []).filter(p => {
 
         const coincideCaducados = f.caducados
@@ -235,6 +242,10 @@ export class AjustesInventarioComponent implements OnInit {
         const coincideCategoria = palabrasCategoria.length
           ? palabrasCategoria.every(w => categoriaNorm.includes(w))
           : true;
+        const ubicacionNorm = (p as any)._normUbicacion ?? this.normTxt(p?.ubicacion);
+        const coincideUbicacion = palabrasUbicacion.length
+          ? palabrasUbicacion.every(w => ubicacionNorm.includes(w))
+          : true;
         const coincideGenerico = f.generico === null
           ? true
           : p.generico === f.generico;
@@ -250,6 +261,7 @@ export class AjustesInventarioComponent implements OnInit {
           coincideNombre &&
           coincideCodigo &&
           coincideCategoria &&
+          coincideUbicacion &&
           /* coincideINAPAM && */
           coincideGenerico &&
           coincideBajoStock &&
@@ -316,6 +328,7 @@ export class AjustesInventarioComponent implements OnInit {
     for (const p of (this.productos || [])) {
       (p as any)._normNombre = this.normTxt(p?.nombre);
       (p as any)._normCategoria = this.normTxt(p?.categoria);
+      (p as any)._normUbicacion = this.normTxt(p?.ubicacion);
     }
   }
 
@@ -345,6 +358,7 @@ export class AjustesInventarioComponent implements OnInit {
       case 'nombre': this.filtros.nombre = ''; break;
       case 'codigoBarras': this.filtros.codigoBarras = ''; break;
       case 'categoria': this.filtros.categoria = ''; break;
+      case 'ubicacion': this.filtros.ubicacion = ''; break;
       case 'generico': this.filtros.generico = null; break;
       case 'bajoStock': this.filtros.bajoStock = false; break;
       case 'duplicadosCB': this.filtros.duplicadosCB = false; break;
@@ -368,6 +382,220 @@ export class AjustesInventarioComponent implements OnInit {
 
   limpiarCamposCambioMasivo() {
     this.formularioMasivo.reset();
+  }
+
+  private formatearMesAnioExcel(fecha: any): string {
+    if (!fecha) return '';
+    const d = new Date(fecha);
+    if (Number.isNaN(d.getTime())) return '';
+    const txt = d.toLocaleDateString('es-MX', { month: 'short', year: 'numeric' });
+    return txt.replace('.', '');
+  }
+
+  private stampArchivo(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
+
+  exportarExcelFiltrados() {
+    const registros = Array.isArray(this.productosFiltrados) ? this.productosFiltrados : [];
+
+    if (!registros.length) {
+      Swal.fire('Sin registros', 'No hay productos filtrados para exportar.', 'info');
+      return;
+    }
+
+    try {
+      const data = registros.map((p, idx) => ({
+        No: idx + 1,
+        Nombre: String(p?.nombre || '').trim(),
+        CodigoBarras: String(p?.codigoBarras || '').trim(),
+        Categoria: String(p?.categoria || '').trim(),
+        Ubicacion: String(p?.ubicacion || '').trim(),
+        Existencia: Number(p?.existencia ?? 0),
+        StockMinimo: Number(p?.stockMinimo ?? 0),
+        StockMaximo: Number(p?.stockMaximo ?? 0),
+        Costo: Number(p?.costo ?? 0),
+        UltimoProveedor: String((p as any)?.ultimoProveedorNombre || '').trim(),
+        FechaProxCad: this.formatearMesAnioExcel((p as any)?.proximaCaducidad),
+        CantProxCaduc: Number((p as any)?.cantidadProximaCaducidad ?? 0),
+        FechaCaducos: this.formatearMesAnioExcel((p as any)?.fechaCaducos),
+        CantCaducada: Number((p as any)?.cantidadCaducada ?? 0),
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'AjustesInventario');
+      XLSX.writeFile(wb, `ajustes-inventario-filtrados-${this.stampArchivo()}.xlsx`);
+    } catch (error) {
+      console.error(error);
+      Swal.fire('Error', 'No se pudo exportar el archivo de Excel.', 'error');
+    }
+  }
+
+  private obtenerFarmaciaActivaId(): string | null {
+    const directa = String(localStorage.getItem('farmaciaActivaId') || '').trim();
+    if (directa) return directa;
+
+    try {
+      const raw = localStorage.getItem('user_farmacia');
+      const farmacia = raw ? JSON.parse(raw) : null;
+      const id = String(farmacia?._id || '').trim();
+      return id || null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async solicitarFirmaFarmaciaActiva(farmaciaId: string): Promise<boolean> {
+    const firmaInput = await Swal.fire({
+      title: 'Autorización requerida',
+      html: `
+        <p>Ingresa la firma de la farmacia activa para continuar.</p>
+        <div id="firma-container"></div>
+      `,
+      didOpen: () => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'firma-autorizada';
+        input.placeholder = 'Ingrese la firma';
+        input.autocomplete = 'off';
+        (input as any).autocapitalize = 'off';
+        input.spellcheck = false;
+        input.className = 'swal2-input';
+        (input.style as any).fontFamily = 'text-security-disc, sans-serif';
+        (input.style as any).webkitTextSecurity = 'disc';
+        input.name = 'firma_' + Date.now();
+        input.focus();
+        document.getElementById('firma-container')?.appendChild(input);
+      },
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Verificar',
+      cancelButtonText: 'Cancelar',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      preConfirm: async () => {
+        const confirmButton = Swal.getConfirmButton();
+        if (confirmButton) confirmButton.disabled = true;
+
+        const input = (document.getElementById('firma-autorizada') as HTMLInputElement)?.value?.trim();
+        await new Promise(r => setTimeout(r, 200));
+
+        if (!input) {
+          Swal.showValidationMessage('Debes ingresar la firma para continuar.');
+          if (confirmButton) confirmButton.disabled = false;
+          return false;
+        }
+        try {
+          const res = await firstValueFrom(this.farmaciaService.verificarFirma(farmaciaId, input));
+          if (!res?.autenticado) {
+            Swal.showValidationMessage('Firma incorrecta. Verifica con el encargado.');
+            if (confirmButton) confirmButton.disabled = false;
+            return false;
+          }
+          return true;
+        } catch (err: any) {
+          const status = err?.status;
+          const msg = err?.error?.mensaje || err?.error?.msg || err?.message || '';
+
+          if (status === 0) {
+            Swal.showValidationMessage('No hay conexión con el servidor (red/CORS/proxy).');
+          } else if (status === 401) {
+            Swal.showValidationMessage('Sesión inválida/expirada. Cierra sesión e inicia de nuevo.');
+          } else if (status === 403) {
+            Swal.showValidationMessage('No autorizado para verificar firma.');
+          } else {
+            Swal.showValidationMessage(`Error al verificar firma (${status || '??'}). ${msg}`.trim());
+          }
+
+          if (confirmButton) confirmButton.disabled = false;
+          return false;
+        }
+      },
+    });
+
+    return !!firmaInput.isConfirmed;
+  }
+
+  async quitarLotesSeleccionados() {
+    const productosSeleccionados = this.productosFiltrados.filter(p => p.seleccionado);
+
+    if (!productosSeleccionados.length) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Sin selección',
+        text: 'Debes seleccionar al menos un producto para quitar lotes.',
+      });
+      return;
+    }
+
+    const confirmacion = await Swal.fire({
+      icon: 'warning',
+      title: 'Quitar lotes',
+      html: `
+        Se borrarán todos los lotes de todos los productos seleccionados y las existencias quedarán en CERO.
+        <br/><br/>¿Deseas continuar?
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Sí, continuar',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    const farmaciaId = this.obtenerFarmaciaActivaId();
+    if (!farmaciaId) {
+      await Swal.fire('Error', 'No se encontró una farmacia activa para validar firma.', 'error');
+      return;
+    }
+
+    const firmaValida = await this.solicitarFirmaFarmaciaActiva(farmaciaId);
+    if (!firmaValida) return;
+
+    const productoIds = [...new Set(productosSeleccionados
+      .map((p: any) => String(p?._id || '').trim())
+      .filter(Boolean)
+    )];
+
+    if (!productoIds.length) {
+      await Swal.fire('Error', 'No se encontraron IDs válidos de productos seleccionados.', 'error');
+      return;
+    }
+
+    this.quitandoLotes = true;
+
+    try {
+      Swal.fire({
+        title: 'Quitando lotes...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const resp: any = await firstValueFrom(this.productoService.quitarLotesMasivo({ productoIds }));
+
+      Swal.close();
+      await Swal.fire(
+        'Listo',
+        resp?.mensaje || 'Se quitaron los lotes de los productos seleccionados y las existencias quedaron en cero.',
+        'success'
+      );
+
+      this.cargarProductos(false);
+      this.productos.forEach(p => p.seleccionado = false);
+      this.productosFiltrados.forEach(p => p.seleccionado = false);
+    } catch (err: any) {
+      Swal.close();
+      const msg = err?.error?.mensaje || err?.error?.msg || err?.message || 'No se pudieron quitar los lotes seleccionados.';
+      await Swal.fire('Error', msg, 'error');
+    } finally {
+      this.quitandoLotes = false;
+    }
   }
 
   aplicarCambiosMasivos() {
@@ -940,6 +1168,7 @@ export class AjustesInventarioComponent implements OnInit {
         if (borrarFiltros) {
           this.filtros = {
             nombre: '', codigoBarras: '', categoria: '',
+            ubicacion: '',
             /* descuentoINAPAM: null,*/ generico: null,
             bajoStock: false, duplicadosCB: false,
             caducados: false, caducanEnMeses: null, ultimoProveedorId: null

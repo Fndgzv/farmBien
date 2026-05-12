@@ -499,14 +499,6 @@
         <div class="border rounded p-3 contenedor-insumos-consulta insumos-panel insumos-panel--captura ui-panel-card">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <strong class="insumos-panel__title ui-section-title">Insumos aplicados / utilizados</strong>
-
-            <button
-              type="button"
-              class="btn-gris insumos-btn-add ui-btn-tight"
-              [disabled]="!fichaSeleccionadaInsumos"
-              (click)="agregarRenglonInsumo()">
-              + Agregar insumo
-            </button>
           </div>
 
           <div *ngIf="!fichaSeleccionadaInsumos" class="text-muted text-center py-4 insumos-empty-state">

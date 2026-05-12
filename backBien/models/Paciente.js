@@ -46,6 +46,7 @@ const AntecedentesSchema = new Schema(
 const SignosVitalesSchema = new Schema(
   {
     fecha: { type: Date, default: Date.now, index: true },
+    fichaConsultorioId: { type: Schema.Types.ObjectId, ref: "FichaConsultorio", index: true },
     pesoKg: { type: Number, min: 0 },
     tallaCm: { type: Number, min: 0 },
     imc: { type: Number, min: 0 },
@@ -65,6 +66,7 @@ const SignosVitalesSchema = new Schema(
 const NotaClinicaSchema = new Schema(
   {
     fecha: { type: Date, default: Date.now, index: true },
+    fichaConsultorioId: { type: Schema.Types.ObjectId, ref: "FichaConsultorio", index: true },
     motivoConsulta: { type: String, trim: true },
     padecimientoActual: { type: String, trim: true },
     exploracionFisica: { type: String, trim: true },
@@ -80,6 +82,7 @@ const NotaClinicaSchema = new Schema(
 const RecetaResumenSchema = new Schema(
   {
     recetaId: { type: Schema.Types.ObjectId, ref: "Receta", required: true },
+    fichaConsultorioId: { type: Schema.Types.ObjectId, ref: "FichaConsultorio", index: true },
     fecha: { type: Date, required: true },
     medicoId: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
     diagnosticoPrincipal: { type: String, trim: true },

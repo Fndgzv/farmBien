@@ -162,6 +162,15 @@
   </div>
 
   <div class="card-body">
+    <div class="atencion-sticky-paciente" *ngIf="fichaActual">
+      <div class="atencion-sticky-paciente__nombre">{{ fichaActual.pacienteNombre || 'Paciente' }}</div>
+      <div class="atencion-sticky-paciente__meta">
+        <span *ngIf="fichaActual?.folio">Turno: {{ fichaActual.folio }}</span>
+        <span *ngIf="esPacienteDePasoActual">Paciente de paso</span>
+        <span>Estado: {{ fichaActual?.estado || 'EN_ATENCION' }}</span>
+      </div>
+    </div>
+
     <!-- EXPEDIENTE -->
     <div class="card mb-1 shadow-sm" style="background:#c3e8fb" *ngIf="fichaActual" id="expediente">
 

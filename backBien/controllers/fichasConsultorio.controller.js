@@ -114,6 +114,101 @@ const pickAntecedentes = (antRaw) => {
   return hayAlgo ? ant : null;
 };
 
+const toObjectIdOrNull = (value) => {
+  const raw = cleanStr(value);
+  if (!raw) return null;
+  if (!mongoose.isValidObjectId(raw)) return "__INVALID__";
+  return new mongoose.Types.ObjectId(raw);
+};
+
+const tieneDatosSignos = (sv) => !!(
+  sv?.pesoKg != null ||
+  sv?.tallaCm != null ||
+  sv?.imc != null ||
+  sv?.temperatura != null ||
+  sv?.presionSis != null ||
+  sv?.presionDia != null ||
+  sv?.fc != null ||
+  sv?.fr != null ||
+  sv?.spo2 != null ||
+  sv?.glucosaCapilar != null
+);
+
+const construirSignosDoc = ({ signosVitales, medicoId, farmaciaId, fichaConsultorioId }) => {
+  const sv = signosVitales || {};
+  const pesoKg = sv.pesoKg != null ? Number(sv.pesoKg) : null;
+  const tallaCm = sv.tallaCm != null ? Number(sv.tallaCm) : null;
+  let imc = sv.imc != null ? Number(sv.imc) : null;
+
+  if ((pesoKg && tallaCm) && !imc) {
+    const m = tallaCm / 100;
+    imc = m > 0 ? +(pesoKg / (m * m)).toFixed(2) : null;
+  }
+
+  return {
+    fecha: new Date(),
+    fichaConsultorioId: fichaConsultorioId || undefined,
+    pesoKg: pesoKg ?? undefined,
+    tallaCm: tallaCm ?? undefined,
+    imc: imc ?? undefined,
+    temperatura: sv.temperatura != null ? Number(sv.temperatura) : undefined,
+    presionSis: sv.presionSis != null ? Number(sv.presionSis) : undefined,
+    presionDia: sv.presionDia != null ? Number(sv.presionDia) : undefined,
+    fc: sv.fc != null ? Number(sv.fc) : undefined,
+    fr: sv.fr != null ? Number(sv.fr) : undefined,
+    spo2: sv.spo2 != null ? Number(sv.spo2) : undefined,
+    glucosaCapilar: sv.glucosaCapilar != null ? Number(sv.glucosaCapilar) : undefined,
+    tomadoPor: medicoId,
+    farmaciaId: farmaciaId || undefined,
+  };
+};
+
+async function upsertResumenRecetaPaciente({
+  pacienteId,
+  recetaId,
+  fecha,
+  medicoId,
+  diagnosticoPrincipal,
+  fichaConsultorioId,
+}) {
+  await Paciente.findByIdAndUpdate(pacienteId, {
+    $addToSet: { recetas: recetaId },
+  });
+
+  const updateExisting = await Paciente.updateOne(
+    { _id: pacienteId, "ultimasRecetas.recetaId": recetaId },
+    {
+      $set: {
+        "ultimasRecetas.$.fecha": fecha,
+        "ultimasRecetas.$.medicoId": medicoId,
+        "ultimasRecetas.$.diagnosticoPrincipal": diagnosticoPrincipal,
+        ...(fichaConsultorioId ? { "ultimasRecetas.$.fichaConsultorioId": fichaConsultorioId } : {}),
+      },
+    }
+  );
+
+  if (updateExisting?.matchedCount) return;
+
+  await Paciente.findByIdAndUpdate(
+    pacienteId,
+    {
+      $push: {
+        ultimasRecetas: {
+          $each: [{
+            recetaId,
+            fichaConsultorioId: fichaConsultorioId || undefined,
+            fecha,
+            medicoId,
+            diagnosticoPrincipal,
+          }],
+          $position: 0,
+          $slice: 10,
+        },
+      },
+    }
+  );
+}
+
 /**
  * POST /api/fichas-consultorio
  * Caja crea ficha sin buscar si ya existe el paciente => EN_ESPERA
@@ -201,17 +296,15 @@ exports.actualizarServicios = async (req, res) => {
       return res.status(400).json({ msg: "Servicios inválidos" });
     }
 
+    const serviciosLimpiosInput = servicios.filter((s) => cleanStr(s?.productoId));
+
     // =========================
     // 1) Construir snapshots NUEVOS de servicios médicos
     // =========================
     let serviciosSnapshot = [];
 
-    if (servicios.length > 0) {
-      const productoIds = servicios.map((s) => s.productoId).filter(Boolean);
-
-      if (productoIds.length === 0) {
-        return res.status(400).json({ msg: "Servicios inválidos: faltan productoId" });
-      }
+    if (serviciosLimpiosInput.length > 0) {
+      const productoIds = serviciosLimpiosInput.map((s) => s.productoId).filter(Boolean);
 
       const productos = await Producto.find({ _id: { $in: productoIds } })
         .select("nombre codigoBarras categoria precioVenta")
@@ -219,7 +312,7 @@ exports.actualizarServicios = async (req, res) => {
 
       const map = new Map(productos.map((p) => [String(p._id), p]));
 
-      for (const s of servicios) {
+      for (const s of serviciosLimpiosInput) {
         const p = map.get(String(s.productoId));
         if (!p) {
           return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
@@ -350,17 +443,15 @@ exports.actualizarConceptosFicha = async (req, res) => {
       return res.status(400).json({ msg: "Conceptos inválidos" });
     }
 
+    const serviciosLimpiosInput = servicios.filter((s) => cleanStr(s?.productoId));
+
     // =========================
     // 1) Construir snapshots NUEVOS de conceptos no médicos
     // =========================
     let conceptosNoMedicosNuevos = [];
 
-    if (servicios.length > 0) {
-      const productoIds = servicios.map((s) => s.productoId).filter(Boolean);
-
-      if (productoIds.length === 0) {
-        return res.status(400).json({ msg: "Conceptos inválidos: faltan productoId" });
-      }
+    if (serviciosLimpiosInput.length > 0) {
+      const productoIds = serviciosLimpiosInput.map((s) => s.productoId).filter(Boolean);
 
       const productos = await Producto.find({ _id: { $in: productoIds } })
         .select("nombre codigoBarras categoria precioVenta")
@@ -368,14 +459,14 @@ exports.actualizarConceptosFicha = async (req, res) => {
 
       const map = new Map(productos.map((p) => [String(p._id), p]));
 
-      for (const s of servicios) {
+      for (const s of serviciosLimpiosInput) {
         const p = map.get(String(s.productoId));
         if (!p) {
           return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
         }
 
-        const cat = (p.categoria || "").trim();
-        if (cat === "Servicio Médico") {
+        const cat = p.categoria || "";
+        if (esCategoriaServicioMedico(cat)) {
           return res.status(400).json({
             msg: `El producto ${p.nombre} pertenece a Servicio Médico; use la captura del médico para ese concepto`
           });
@@ -421,7 +512,7 @@ exports.actualizarConceptosFicha = async (req, res) => {
         for (const item of ficha.servicios) {
           const categoria = categoriaMap.get(String(item.productoId)) || "";
 
-          if (categoria === "Servicio Médico") {
+          if (esCategoriaServicioMedico(categoria)) {
             serviciosMedicosExistentes.push(item);
           } else {
             conceptosNoMedicosExistentes.push(item);
@@ -976,6 +1067,7 @@ exports.finalizarConsulta = async (req, res) => {
       notasMedico,
       servicios = [],
       signosVitales = null,
+      notaClinica = null,
       antecedentes = null,
       receta = null,
       paciente = null,
@@ -998,12 +1090,11 @@ exports.finalizarConsulta = async (req, res) => {
       return res.status(400).json({ msg: "Servicios inválidos" });
     }
 
+    const serviciosLimpiosInput = servicios.filter((s) => cleanStr(s?.productoId));
+
     let serviciosSnapshot = [];
-    if (servicios.length > 0) {
-      const productoIds = servicios.map((s) => s.productoId).filter(Boolean);
-      if (productoIds.length === 0) {
-        return res.status(400).json({ msg: "Servicios inválidos: faltan productoId" });
-      }
+    if (serviciosLimpiosInput.length > 0) {
+      const productoIds = serviciosLimpiosInput.map((s) => s.productoId).filter(Boolean);
 
       const productos = await Producto.find({ _id: { $in: productoIds } })
         .select("nombre codigoBarras categoria precioVenta")
@@ -1011,7 +1102,7 @@ exports.finalizarConsulta = async (req, res) => {
 
       const map = new Map(productos.map((p) => [String(p._id), p]));
 
-      for (const s of servicios) {
+      for (const s of serviciosLimpiosInput) {
         const p = map.get(String(s.productoId));
         if (!p) return res.status(400).json({ msg: `Producto no existe: ${s.productoId}` });
 
@@ -1083,54 +1174,81 @@ exports.finalizarConsulta = async (req, res) => {
     let signosGuardados = false;
 
     const pacienteId = ficha.pacienteId ? String(ficha.pacienteId) : null;
+    const fichaObjectId = toObjectIdOrNull(id);
 
-    if (signosVitales && pacienteId) {
-      const sv = signosVitales || {};
-      const hayAlgoSV =
-        sv.pesoKg != null ||
-        sv.tallaCm != null ||
-        sv.imc != null ||
-        sv.temperatura != null ||
-        sv.presionSis != null ||
-        sv.presionDia != null ||
-        sv.fc != null ||
-        sv.fr != null ||
-        sv.spo2 != null ||
-        sv.glucosaCapilar != null;
-
+    if (signosVitales && pacienteId && fichaObjectId && fichaObjectId !== "__INVALID__") {
+      const hayAlgoSV = tieneDatosSignos(signosVitales);
       if (hayAlgoSV) {
-        const pesoKg = sv.pesoKg != null ? Number(sv.pesoKg) : null;
-        const tallaCm = sv.tallaCm != null ? Number(sv.tallaCm) : null;
-        let imc = sv.imc != null ? Number(sv.imc) : null;
+        const svDoc = construirSignosDoc({
+          signosVitales,
+          medicoId,
+          farmaciaId,
+          fichaConsultorioId: fichaObjectId,
+        });
 
-        if ((pesoKg && tallaCm) && !imc) {
-          const m = tallaCm / 100;
-          imc = m > 0 ? +(pesoKg / (m * m)).toFixed(2) : null;
-        }
-
-        const svDoc = {
-          fecha: new Date(),
-          pesoKg: pesoKg ?? undefined,
-          tallaCm: tallaCm ?? undefined,
-          imc: imc ?? undefined,
-          temperatura: sv.temperatura != null ? Number(sv.temperatura) : undefined,
-          presionSis: sv.presionSis != null ? Number(sv.presionSis) : undefined,
-          presionDia: sv.presionDia != null ? Number(sv.presionDia) : undefined,
-          fc: sv.fc != null ? Number(sv.fc) : undefined,
-          fr: sv.fr != null ? Number(sv.fr) : undefined,
-          spo2: sv.spo2 != null ? Number(sv.spo2) : undefined,
-          glucosaCapilar: sv.glucosaCapilar != null ? Number(sv.glucosaCapilar) : undefined,
-          tomadoPor: medicoId,
-          farmaciaId: farmaciaId || undefined,
-        };
-
-        await Paciente.findByIdAndUpdate(
-          pacienteId,
-          { $push: { signosVitales: { $each: [svDoc], $position: 0, $slice: 50 } } },
+        const actualizado = await Paciente.findOneAndUpdate(
+          { _id: pacienteId, "signosVitales.fichaConsultorioId": fichaObjectId },
+          { $set: { "signosVitales.$": svDoc } },
           { new: true }
         ).select("_id");
 
+        if (!actualizado) {
+          await Paciente.findByIdAndUpdate(
+            pacienteId,
+            { $push: { signosVitales: { $each: [svDoc], $position: 0, $slice: 50 } } },
+            { new: true }
+          ).select("_id");
+        }
+
         signosGuardados = true;
+      }
+    }
+
+    // ============================
+    // 3.3) Nota clínica -> Paciente (si hay pacienteId)
+    // ============================
+    let notaClinicaGuardada = false;
+
+    if (notaClinica && pacienteId && fichaObjectId && fichaObjectId !== "__INVALID__") {
+      const nota = notaClinica || {};
+      const diagnosticosNota = cleanArr(nota.diagnosticos);
+
+      const notaDoc = {
+        fecha: new Date(),
+        fichaConsultorioId: fichaObjectId,
+        motivoConsulta: cleanStr(nota.motivoConsulta),
+        padecimientoActual: cleanStr(nota.padecimientoActual),
+        exploracionFisica: cleanStr(nota.exploracionFisica),
+        diagnosticos: diagnosticosNota,
+        plan: cleanStr(nota.plan),
+        medicoId,
+        farmaciaId,
+      };
+
+      const hayAlgoNota = !!(
+        notaDoc.motivoConsulta ||
+        notaDoc.padecimientoActual ||
+        notaDoc.exploracionFisica ||
+        notaDoc.diagnosticos.length ||
+        notaDoc.plan
+      );
+
+      if (hayAlgoNota) {
+        const actualizada = await Paciente.findOneAndUpdate(
+          { _id: pacienteId, "notasClinicas.fichaConsultorioId": fichaObjectId },
+          { $set: { "notasClinicas.$": notaDoc } },
+          { new: true }
+        ).select("_id");
+
+        if (!actualizada) {
+          await Paciente.findByIdAndUpdate(
+            pacienteId,
+            { $push: { notasClinicas: { $each: [notaDoc], $position: 0, $slice: 50 } } },
+            { new: true }
+          ).select("_id");
+        }
+
+        notaClinicaGuardada = true;
       }
     }
 
@@ -1268,6 +1386,7 @@ exports.finalizarConsulta = async (req, res) => {
       const diagnosticos = Array.isArray(r.diagnosticos)
         ? r.diagnosticos.map(d => String(d).trim()).filter(Boolean)
         : [];
+      const alergiasReceta = cleanArr(r.alergias);
 
       const medicamentosRaw = Array.isArray(r.medicamentos) ? r.medicamentos : [];
 
@@ -1321,45 +1440,80 @@ exports.finalizarConsulta = async (req, res) => {
 
       if (tieneMinimo) {
         if (pacienteId) {
-          const recetaDoc = await Receta.create({
+          const recetaIdInput = toObjectIdOrNull(r?.recetaId || r?._id);
+          if (recetaIdInput === "__INVALID__") {
+            return res.status(400).json({ msg: "recetaId inválido" });
+          }
+
+          let recetaExistente = null;
+
+          if (recetaIdInput) {
+            recetaExistente = await Receta.findOne({
+              _id: recetaIdInput,
+              pacienteId,
+              farmaciaId,
+            }).lean();
+          }
+
+          if (!recetaExistente && fichaObjectId && fichaObjectId !== "__INVALID__") {
+            recetaExistente = await Receta.findOne({
+              pacienteId,
+              farmaciaId,
+              fichaConsultorioId: fichaObjectId,
+              estado: "activa",
+            })
+              .sort({ fecha: -1 })
+              .lean();
+          }
+
+          const recetaPayload = {
             fecha: new Date(),
             pacienteId,
+            fichaConsultorioId: fichaObjectId && fichaObjectId !== "__INVALID__" ? fichaObjectId : undefined,
             medicoId,
             farmaciaId,
             diagnosticos,
+            alergias: alergiasReceta,
             observaciones: String(r.observaciones || "").trim(),
             medicamentos: medicamentosValidos,
             indicacionesGenerales: String(r.indicacionesGenerales || "").trim(),
             citaSeguimiento: r.citaSeguimiento ? new Date(r.citaSeguimiento) : null,
-            creadaPor: medicoId,
-          });
+          };
 
-          recetaIdCreada = recetaDoc._id;
+          let recetaDoc = null;
+          if (recetaExistente?._id) {
+            recetaDoc = await Receta.findByIdAndUpdate(
+              recetaExistente._id,
+              { $set: recetaPayload },
+              { new: true, runValidators: true }
+            ).lean();
+          } else {
+            recetaDoc = await Receta.create({
+              ...recetaPayload,
+              creadaPor: medicoId,
+            });
+          }
+
+          recetaIdCreada = recetaDoc?._id || null;
 
           const diagPrincipal = diagnosticos.length
             ? String(diagnosticos[0]).trim()
             : (medicamentosValidos[0]?.nombreLibre || "Receta");
 
-          await Paciente.findByIdAndUpdate(pacienteId, {
-            $addToSet: { recetas: recetaDoc._id },
-            $push: {
-              ultimasRecetas: {
-                $each: [{
-                  recetaId: recetaDoc._id,
-                  fecha: recetaDoc.fecha,
-                  medicoId,
-                  diagnosticoPrincipal: diagPrincipal
-                }],
-                $position: 0,
-                $slice: 10
-              }
-            }
+          await upsertResumenRecetaPaciente({
+            pacienteId,
+            recetaId: recetaDoc._id,
+            fecha: recetaDoc.fecha,
+            medicoId,
+            diagnosticoPrincipal: diagPrincipal,
+            fichaConsultorioId: recetaPayload.fichaConsultorioId,
           });
         } else {
           // Paciente de paso: no guardamos en historial, solo armamos para impresión
           recetaPaso = {
             fecha: new Date(),
             diagnosticos,
+            alergias: alergiasReceta,
             observaciones: String(r.observaciones || "").trim(),
             medicamentos: medicamentosValidos,
             indicacionesGenerales: String(r.indicacionesGenerales || "").trim(),
@@ -1386,6 +1540,7 @@ exports.finalizarConsulta = async (req, res) => {
       recetaId: recetaIdCreada,
       recetaPaso,
       signosGuardados,
+      notaClinicaGuardada,
       antecedentesGuardados,
       serviciosTotal: ficha.serviciosTotal ?? 0,
       pacienteActualizado,

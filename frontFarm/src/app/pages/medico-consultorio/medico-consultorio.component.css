@@ -75,3 +75,37 @@
   padding: 0;
   line-height: 1;
 }
+
+.atencion-sticky-paciente{
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border: 1px solid #b9ddff;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(2px);
+}
+
+.atencion-sticky-paciente__nombre{
+  font-weight: 700;
+  color: #0c2d4f;
+  line-height: 1.2;
+}
+
+.atencion-sticky-paciente__meta{
+  margin-top: 4px;
+  font-size: 0.82rem;
+  color: #40566c;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 768px){
+  .atencion-sticky-paciente{
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+}
