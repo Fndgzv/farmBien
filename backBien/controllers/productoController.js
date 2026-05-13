@@ -1279,6 +1279,42 @@ const norm = (s) =>
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().trim();
 
+const normalizarBusquedaMedicamento = (s) =>
+  norm(s).replace(/\s+/g, " ");
+
+const coincidePalabraCompleta = (textoNormalizado, terminoNormalizado) => {
+  if (!textoNormalizado || !terminoNormalizado) return false;
+  const tokens = textoNormalizado
+    .split(/[\s\/\-_,.;:()]+/g)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return tokens.includes(terminoNormalizado);
+};
+
+const prioridadMedicamentoReceta = (producto, terminoNormalizado) => {
+  const nombreVisible = normalizarBusquedaMedicamento(
+    producto?.nombreNorm || producto?.nombre || ""
+  );
+  const codigo = normalizarBusquedaMedicamento(producto?.codigoBarras || "");
+  const ingrediente = normalizarBusquedaMedicamento(producto?.ingreActivo || "");
+
+  if (!terminoNormalizado) return 99;
+
+  // Prioridad 1: nombre visible inicia con el termino.
+  if (nombreVisible.startsWith(terminoNormalizado)) return 1;
+
+  // Prioridad 2: nombre visible contiene el termino como palabra completa.
+  if (coincidePalabraCompleta(nombreVisible, terminoNormalizado)) return 2;
+
+  // Prioridad 3: nombre visible contiene el termino como subcadena.
+  if (nombreVisible.includes(terminoNormalizado)) return 3;
+
+  // Prioridad 4: coincidencias en otros campos (codigo / ingrediente).
+  if (codigo.includes(terminoNormalizado) || ingrediente.includes(terminoNormalizado)) return 4;
+
+  return 5;
+};
+
 exports.buscarMedicamentosReceta = async (req, res) => {
   try {
     const q = String(req.query.q || "").trim();
@@ -1288,7 +1324,7 @@ exports.buscarMedicamentosReceta = async (req, res) => {
       : 100;
     if (!q) return res.status(400).json({ msg: "Falta q" });
 
-    const qNorm = norm(q);
+    const qNorm = normalizarBusquedaMedicamento(q);
 
     // ✅ Categorías permitidas usando categoriaNorm:
     // - exactamente "antibiotico"
@@ -1316,14 +1352,31 @@ exports.buscarMedicamentosReceta = async (req, res) => {
       ],
     };
 
-    const productos = await Producto.find({
+    const candidatos = await Producto.find({
       ...filtroCategoria,
       ...filtroTexto,
     })
-      .sort({ nombreNorm: 1, nombre: 1 })
-      .limit(limit)
-      .select("_id nombre codigoBarras ingreActivo categoriaNorm")
+      .select("_id nombre nombreNorm codigoBarras ingreActivo categoriaNorm")
       .lean();
+
+    const productos = (Array.isArray(candidatos) ? candidatos : [])
+      .sort((a, b) => {
+        const pa = prioridadMedicamentoReceta(a, qNorm);
+        const pb = prioridadMedicamentoReceta(b, qNorm);
+        if (pa !== pb) return pa - pb;
+
+        const na = String(a?.nombre || "").trim();
+        const nb = String(b?.nombre || "").trim();
+        return na.localeCompare(nb, "es", { sensitivity: "base" });
+      })
+      .slice(0, limit)
+      .map(({ _id, nombre, codigoBarras, ingreActivo, categoriaNorm }) => ({
+        _id,
+        nombre,
+        codigoBarras,
+        ingreActivo,
+        categoriaNorm,
+      }));
 
     return res.json({ ok: true, productos });
   } catch (err) {
