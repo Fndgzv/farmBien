@@ -3035,7 +3035,13 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.fichasService.actualizarConceptos(this.fichaSeleccionadaInsumos._id, payload)
       );
 
-      await Swal.fire('Listo', 'Los insumos se actualizaron correctamente en la ficha.', 'success');
+      /* await Swal.fire('Listo', 'Los insumos se actualizaron correctamente en la ficha.', 'success'); */
+      await Swal.fire({
+        title: 'Listo',
+        text: 'Los insumos se actualizaron correctamente en la ficha.',
+        icon: 'success',
+        timer: 1300,
+      });
 
       this.cerrarModalInsumosConsulta();
     } catch (e: any) {

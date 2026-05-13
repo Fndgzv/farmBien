@@ -1,3 +1,17 @@
+.btn-refrescar {
+  background-color: rgb(46, 48, 1);
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color:aliceblue;
+}
+
+.btn-refrescar:hover {
+  background-color: aliceblue;
+  color: rgb(46, 48, 1);
+}
+
 .dropdown-results{
   position: absolute;
   left: 0;
