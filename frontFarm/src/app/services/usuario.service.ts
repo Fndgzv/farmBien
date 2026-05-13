@@ -16,6 +16,7 @@ export interface Usuario {
   cedulaProfesional?: string;
   titulo?: string;
   escuela?: string;
+  logoescuela?: string;
 }
 
 @Injectable({
@@ -37,5 +38,22 @@ export class UsuarioService {
 
   actualizarUsuario(id: string, data: Usuario): Observable<any> {
     return this.http.put(`${this.apiUrl}/${id}`, data);
+  }
+
+  actualizarLogoEscuela(id: string, archivo: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('logoescuela', archivo);
+    return this.http.put(`${this.apiUrl}/${id}/logoescuela`, fd);
+  }
+
+  getPublicImageUrl(pathOrUrl?: string): string {
+    if (!pathOrUrl) return '';
+    if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+
+    let clean = String(pathOrUrl).trim();
+    clean = clean.replace(/^\/+/, '');
+    clean = clean.replace(/^uploads\/+/i, '');
+
+    return `/uploads/${clean}`;
   }
 }

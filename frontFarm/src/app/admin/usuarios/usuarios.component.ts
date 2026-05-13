@@ -5,6 +5,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { UsuarioService, Usuario } from '../../services/usuario.service';
 import { FarmaciaService, Farmacia } from '../../services/farmacia.service';
+import { firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -25,6 +26,9 @@ export class UsuariosComponent implements OnInit {
   guardando = false;
   modoEdicion = false;
   usuarioEditandoId: string | null = null;
+  logoEscuelaArchivo: File | null = null;
+  logoEscuelaActualRuta = '';
+  logoEscuelaPreview = '';
 
   constructor(
     private fb: FormBuilder,
@@ -102,6 +106,8 @@ export class UsuariosComponent implements OnInit {
       cedulaControl?.setValue('', { emitEvent: false });
       tituloControl?.setValue('', { emitEvent: false });
       escuelaControl?.setValue('', { emitEvent: false });
+      this.limpiarEstadoLogoEscuela();
+      this.logoEscuelaActualRuta = '';
     }
 
     farmaciaControl?.updateValueAndValidity({ emitEvent: false });
@@ -128,6 +134,8 @@ export class UsuariosComponent implements OnInit {
       escuela: ''
     });
     this.aplicarValidacionesPorRol('');
+    this.limpiarEstadoLogoEscuela();
+    this.logoEscuelaActualRuta = '';
   }
 
   obtenerNombreFarmacia(farmacia: string | { _id: string; nombre: string } | undefined | null): string {
@@ -184,6 +192,8 @@ export class UsuariosComponent implements OnInit {
 
     this.formUsuario.patchValue(datos);
     this.aplicarValidacionesPorRol(usuario.rol);
+    this.logoEscuelaActualRuta = String(usuario.logoescuela || '').trim();
+    this.limpiarEstadoLogoEscuela();
 
     const modalElement = document.getElementById('modalUsuario');
     if (modalElement) {
@@ -243,7 +253,17 @@ export class UsuariosComponent implements OnInit {
 
     if (this.modoEdicion && this.usuarioEditandoId) {
       this.usuarioService.actualizarUsuario(this.usuarioEditandoId, datos).subscribe({
-        next: () => Swal.fire('Actualizado', 'Usuario actualizado', 'success').then(finalizar),
+        next: async (resp) => {
+          try {
+            const id = String(this.usuarioEditandoId || resp?.usuario?._id || '').trim();
+            await this.subirLogoEscuelaSiAplica(id, String(datos?.rol || ''));
+            Swal.fire('Actualizado', 'Usuario actualizado', 'success').then(finalizar);
+          } catch (e: any) {
+            const mensaje = e?.error?.mensaje || 'El usuario se actualizó, pero no se pudo guardar el logo de escuela.';
+            Swal.fire('Atención', mensaje, 'warning');
+            this.guardando = false;
+          }
+        },
         error: (err) => {
           const mensaje = err?.error?.mensaje || 'No se pudo actualizar';
           Swal.fire('Error', mensaje, 'error');
@@ -252,7 +272,17 @@ export class UsuariosComponent implements OnInit {
       });
     } else {
       this.usuarioService.crearUsuario(datos).subscribe({
-        next: () => Swal.fire('Registrado', 'Usuario creado', 'success').then(finalizar),
+        next: async (resp) => {
+          try {
+            const id = String(resp?.usuario?._id || '').trim();
+            await this.subirLogoEscuelaSiAplica(id, String(datos?.rol || ''));
+            Swal.fire('Registrado', 'Usuario creado', 'success').then(finalizar);
+          } catch (e: any) {
+            const mensaje = e?.error?.mensaje || 'El usuario se creó, pero no se pudo guardar el logo de escuela.';
+            Swal.fire('Atención', mensaje, 'warning');
+            this.guardando = false;
+          }
+        },
         error: (err) => {
           const mensaje = err?.error?.mensaje || 'No se pudo crear';
           Swal.fire('Error', mensaje, 'error');
@@ -271,6 +301,7 @@ export class UsuariosComponent implements OnInit {
         datos.cedulaProfesional = undefined;
         datos.titulo = undefined;
         datos.escuela = undefined;
+        datos.logoescuela = undefined;
         break;
 
       case 'empleado':
@@ -278,6 +309,7 @@ export class UsuariosComponent implements OnInit {
         datos.cedulaProfesional = undefined;
         datos.titulo = undefined;
         datos.escuela = undefined;
+        datos.logoescuela = undefined;
         break;
 
       case 'turnos':
@@ -285,6 +317,7 @@ export class UsuariosComponent implements OnInit {
         datos.cedulaProfesional = undefined;
         datos.titulo = undefined;
         datos.escuela = undefined;
+        datos.logoescuela = undefined;
         break;
 
       case 'medico':
@@ -292,6 +325,7 @@ export class UsuariosComponent implements OnInit {
         if (!datos.cedulaProfesional) datos.cedulaProfesional = undefined;
         if (!datos.titulo) datos.titulo = undefined;
         if (!datos.escuela) datos.escuela = undefined;
+        datos.logoescuela = undefined;
         break;
 
       case 'ajustaAlmacen':
@@ -299,6 +333,7 @@ export class UsuariosComponent implements OnInit {
         datos.cedulaProfesional = undefined;
         datos.titulo = undefined;
         datos.escuela = undefined;
+        datos.logoescuela = undefined;
         break;
 
       case 'ajustaSoloAlmacen':
@@ -306,6 +341,7 @@ export class UsuariosComponent implements OnInit {
         datos.cedulaProfesional = undefined;
         datos.titulo = undefined;
         datos.escuela = undefined;
+        datos.logoescuela = undefined;
         break;
 
       case 'ajustaFarma':
@@ -313,6 +349,7 @@ export class UsuariosComponent implements OnInit {
         datos.cedulaProfesional = undefined;
         datos.titulo = undefined;
         datos.escuela = undefined;
+        datos.logoescuela = undefined;
         break;
     }
 
@@ -322,5 +359,47 @@ export class UsuariosComponent implements OnInit {
     if (!datos.password) datos.password = undefined;
 
     return datos;
+  }
+
+  onLogoEscuelaSeleccionado(event: Event) {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] || null;
+
+    if (!file) {
+      this.limpiarEstadoLogoEscuela();
+      return;
+    }
+
+    if (!String(file.type || '').startsWith('image/')) {
+      Swal.fire('Archivo inválido', 'Selecciona una imagen válida para el logo de escuela.', 'warning');
+      if (input) input.value = '';
+      this.limpiarEstadoLogoEscuela();
+      return;
+    }
+
+    this.limpiarEstadoLogoEscuela();
+    this.logoEscuelaArchivo = file;
+    this.logoEscuelaPreview = URL.createObjectURL(file);
+  }
+
+  obtenerLogoEscuelaUrl(pathOrUrl?: string): string {
+    return this.usuarioService.getPublicImageUrl(pathOrUrl);
+  }
+
+  private limpiarEstadoLogoEscuela() {
+    if (this.logoEscuelaPreview && this.logoEscuelaPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(this.logoEscuelaPreview);
+    }
+    this.logoEscuelaPreview = '';
+    this.logoEscuelaArchivo = null;
+  }
+
+  private async subirLogoEscuelaSiAplica(usuarioId: string, rol: string): Promise<void> {
+    const id = String(usuarioId || '').trim();
+    if (rol !== 'medico') return;
+    if (!this.logoEscuelaArchivo) return;
+    if (!id) throw new Error('No se recibió el identificador del usuario para guardar el logo.');
+
+    await firstValueFrom(this.usuarioService.actualizarLogoEscuela(id, this.logoEscuelaArchivo));
   }
 }

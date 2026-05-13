@@ -3,7 +3,10 @@
   <div class="col">
     <h1 class="titulo mb-0">Consultorio</h1>
   </div>
-  <div class="col" style="text-align: end;">
+  <div class="col d-flex justify-content-end align-items-center gap-2 flex-wrap" style="text-align: end;">
+    <button class="btn-amarillo" type="button" (click)="verMiTrabajo()">
+      Ver mi trabajo
+    </button>
     <small><strong *ngIf="farmaciaNombre">Farmacia: {{ farmaciaNombre }}</strong></small>
   </div>
 </div>
@@ -883,7 +886,7 @@
             </button>
           </div>
 
-          <div class="table-responsive receta-table-wrap">
+          <div class="table-responsive-lg receta-table-wrap">
             <table class="tabla" style="font-size: small;">
               <thead class="table-light">
                 <tr>
@@ -1139,11 +1142,69 @@
       </div>
     </div>
 
-    <div class="d-flex justify-content-end gap-2">
+    <div class="d-flex justify-content-end gap-2 flex-wrap">
       <button class="btn-gris" (click)="regresarACola()">Regresar a fila de espera</button>
       <button class="btn-verde" [disabled]="guardando" (click)="guardarYEnviarACaja()">
         {{ guardando ? 'Guardando…' : 'Finalizar Consulta' }}
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VER MI TRABAJO -->
+<div class="modal fade" id="modalMiTrabajo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#f1f6ff;">
+        <h5 class="modal-title">Servicios médicos de mi turno actual</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body" style="background:#fcfdff;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div class="text-muted small">
+            Fecha de turno: <b>{{ formatearFechaMiTrabajo(miTrabajoTurnoFecha) }}</b>
+          </div>
+          <button class="btn-gris-chico"
+            type="button"
+            [disabled]="cargandoMiTrabajo"
+            (click)="imprimirMiTrabajo()">
+            Imprimir
+          </button>
+        </div>
+
+        <div *ngIf="cargandoMiTrabajo" class="text-center p-3">
+          Cargando servicios...
+        </div>
+
+        <div *ngIf="!cargandoMiTrabajo && (miTrabajoFilas || []).length === 0" class="alert alert-light border mb-0">
+          No hay servicios médicos registrados en tu turno actual.
+        </div>
+
+        <div *ngIf="!cargandoMiTrabajo && (miTrabajoFilas || []).length > 0" class="table-responsive mi-trabajo-tabla-wrap">
+          <!-- <table class="table table-sm table-striped align-middle mb-0"> -->
+          <table class="tabla">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 20%;">Ficha</th>
+                <th>Servicio realizado</th>
+                <th style="width: 16%;" class="text-end">Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let fila of miTrabajoFilas">
+                <td>{{ fila.ficha }}</td>
+                <td>{{ fila.nombre }}</td>
+                <td class="text-end">{{ fila.cantidad }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-rojo-chico" data-bs-dismiss="modal">Cerrar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1175,9 +1236,7 @@
             </div>
             <div class="col-md-6">
               <div class="p-3 border rounded-3 bg-white">
-              <div><b>Paciente:</b> {{ recetaVista?.pacienteId?.nombre }} {{ recetaVista?.pacienteId?.apPaterno }} {{ recetaVista?.pacienteId?.apMaterno }}
-              </div>                
-            </div>
+                <div><b>Paciente:</b> {{ recetaVista?.pacienteId?.nombre }} {{ recetaVista?.pacienteId?.apPaterno }} {{ recetaVista?.pacienteId?.apMaterno }}</div>
                 <div class="text-muted small" *ngIf="recetaVista?.pacienteId?.contacto?.telefono">Tel: {{
                   recetaVista?.pacienteId?.contacto?.telefono }}</div>
                 <div class="text-muted small" *ngIf="recetaVista?.pacienteId?.datosGenerales?.curp">CURP: {{
@@ -1251,3 +1310,4 @@
     </div>
   </div>
 
+</div>

@@ -78,7 +78,7 @@ exports.obtenerPorId = async (req, res) => {
 
     const receta = await Receta.findOne({ _id: id, farmaciaId })
       .populate({ path: "pacienteId", select: "nombre apPaterno apMaterno contacto datosGenerales" })
-      .populate({ path: "medicoId", select: "nombre cedulaProfesional titulo escuela" })
+      .populate({ path: "medicoId", select: "nombre cedulaProfesional titulo escuela logoescuela" })
       .populate({ path: "farmaciaId", select: "nombre titulo1 titulo2 direccion telefono imagen" })
       .populate({ path: "medicamentos.productoId", select: "nombre ingreActivo codigoBarras categoria" })
       .lean();

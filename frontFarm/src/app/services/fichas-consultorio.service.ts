@@ -89,6 +89,32 @@ export class FichasConsultorioService {
     return this.http.patch(`${this.baseUrl}/${id}/servicios`, payload, { headers: this.headers() });
   }
 
+  obtenerMiTrabajoTurnoActual(): Observable<{
+    ok: boolean;
+    turnoFecha?: string;
+    filas?: Array<{
+      fichaId?: string;
+      turnoFecha?: string;
+      turnoConsecutivo?: number;
+      ficha?: string;
+      nombre?: string;
+      cantidad?: number;
+    }>;
+  }> {
+    return this.http.get<{
+      ok: boolean;
+      turnoFecha?: string;
+      filas?: Array<{
+        fichaId?: string;
+        turnoFecha?: string;
+        turnoConsecutivo?: number;
+        ficha?: string;
+        nombre?: string;
+        cantidad?: number;
+      }>;
+    }>(`${this.baseUrl}/mi-trabajo/turno-actual`, { headers: this.headers() });
+  }
+
   actualizarConceptos(id: string, payload: any): Observable<any> {
     return this.http.patch(`${this.baseUrl}/${id}/conceptos`, payload, {
       headers: this.headers()

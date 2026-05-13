@@ -1,7 +1,7 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap } from 'rxjs/operators';
-import { of, Observable, firstValueFrom } from 'rxjs';
+import { of, Observable, firstValueFrom, timer } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule, NgForm } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -2736,7 +2736,13 @@ export class VentasComponent implements OnInit, AfterViewInit {
         const mensajeFinal = errorImpresionTurno
           ? `${mensaje} No se pudo imprimir el turno, verifica la impresora.`
           : mensaje;
-        Swal.fire('Ficha creada', mensajeFinal, errorImpresionTurno ? 'warning' : 'success');
+        Swal.fire({
+          title: 'Ficha creada',
+          text: mensajeFinal,
+          icon: errorImpresionTurno ? 'warning' : 'success',
+          timer: 1300
+        });
+        
         this.resetFormularioFicha();
         this.cerrarModalPedirFicha();
       },
@@ -2921,7 +2927,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     });
   }
 
-  seleccionarFichaInsumos(ficha: any) {    
+  seleccionarFichaInsumos(ficha: any) {
     this.fichaSeleccionadaInsumos = ficha;
 
     const previos = Array.isArray(ficha?.servicios) ? ficha.servicios : [];

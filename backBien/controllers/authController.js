@@ -76,6 +76,7 @@ exports.iniciarSesion = async (req, res) => {
           cedulaProfesional: usuarioExistente.cedulaProfesional || "",
           titulo: usuarioExistente.titulo || "",
           escuela: usuarioExistente.escuela || "",
+          logoescuela: usuarioExistente.logoescuela || "",
           farmacia: null,
         },
       });
@@ -136,6 +137,7 @@ exports.iniciarSesion = async (req, res) => {
         cedulaProfesional: usuarioExistente.cedulaProfesional || "",
         titulo: usuarioExistente.titulo || "",
         escuela: usuarioExistente.escuela || "",
+        logoescuela: usuarioExistente.logoescuela || "",
         farmacia: farmaciaAsociada
           ? {
               _id: farmaciaAsociada._id,

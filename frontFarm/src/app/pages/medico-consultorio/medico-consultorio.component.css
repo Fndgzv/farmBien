@@ -6,24 +6,24 @@
   top: 100%;
   margin-top: 4px;
 
-  z-index: 9999;
-  max-height: 320px;
+  z-index: 120000;
+  max-height: 340px;
   overflow-y: auto;
   overflow-x: hidden;
   font-size: small;
   background: #fff;
   border: 1px solid #d8e9ff;
   border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
 .receta-table-wrap{
-  overflow-x: auto;
-  overflow-y: visible !important;
+  overflow: visible !important;
   position: relative;
 }
 
-.receta-table-wrap.table-responsive{
-  overflow-y: visible !important;
+.receta-table-wrap.table-responsive-lg{
+  overflow: visible !important;
 }
 
 .receta-table-wrap .tabla{
@@ -44,7 +44,7 @@
 }
 
 .medicamento-search-wrap .dropdown-results{
-  z-index: 12000;
+  z-index: 120000;
 }
 
 .medicamento-search-wrap .form-text{
@@ -108,4 +108,17 @@
     padding: 8px 10px;
     margin-bottom: 8px;
   }
+}
+
+@media (max-width: 991.98px){
+  .receta-table-wrap,
+  .receta-table-wrap.table-responsive-lg{
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+  }
+}
+
+.mi-trabajo-tabla-wrap{
+  max-height: 420px;
+  overflow: auto;
 }

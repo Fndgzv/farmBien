@@ -83,6 +83,30 @@ const normalizarCategoriaServicio = (valor) =>
 const esCategoriaServicioMedico = (categoria) =>
   /^servicios?\s+medicos?(\s|$)/.test(normalizarCategoriaServicio(categoria));
 
+const esCategoriaServicioMedicoExacta = (categoria) =>
+  String(categoria || "").trim() === "Servicio Médico";
+
+const obtenerDiaSemanaTurno = (turnoFecha) => {
+  const match = String(turnoFecha || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+
+  const utcDate = new Date(Date.UTC(y, m - 1, d));
+  if (Number.isNaN(utcDate.getTime())) return null;
+  const jsDay = utcDate.getUTCDay(); // 0 domingo ... 6 sabado
+  return jsDay === 0 ? 7 : jsDay; // 1 lunes ... 7 domingo
+};
+
+const construirFichaVisualTurno = (turnoFecha, turnoConsecutivo) => {
+  const dia = obtenerDiaSemanaTurno(turnoFecha);
+  const consecutivo = Number(turnoConsecutivo);
+  if (!dia || !Number.isFinite(consecutivo) || consecutivo <= 0) return null;
+  return `${TURNO_PREFIJO}-${dia}${String(Math.trunc(consecutivo)).padStart(2, "0")}`;
+};
+
 
 const pickAntecedentes = (antRaw) => {
   if (!antRaw || typeof antRaw !== "object") return null;
@@ -633,6 +657,64 @@ exports.obtenerCola = async (req, res) => {
   } catch (err) {
     console.error("obtenerCola:", err);
     return res.status(500).json({ msg: "Error al obtener cola" });
+  }
+};
+
+/**
+ * GET /api/fichas-consultorio/mi-trabajo/turno-actual
+ * Resumen de servicios médicos del médico autenticado en el turno (día) actual.
+ */
+exports.obtenerMiTrabajoTurnoActual = async (req, res) => {
+  try {
+    const farmaciaId = getFarmaciaActiva(req);
+    if (!farmaciaId) return res.status(400).json({ msg: "Falta farmacia activa" });
+
+    const medicoId = req.usuario?._id;
+    if (!medicoId) return res.status(401).json({ msg: "Usuario no válido" });
+
+    const turnoFecha = getFechaTurnoMx();
+
+    const fichas = await FichaConsultorio.find({
+      farmaciaId,
+      medicoId,
+      turnoFecha,
+      estado: { $ne: "CANCELADA" },
+    })
+      .select("_id turnoFecha turnoConsecutivo servicios")
+      .sort({ turnoConsecutivo: 1, _id: 1 })
+      .lean();
+
+    const filas = [];
+
+    for (const ficha of fichas) {
+      const fichaVisual = construirFichaVisualTurno(ficha?.turnoFecha, ficha?.turnoConsecutivo) || "";
+      const servicios = Array.isArray(ficha?.servicios) ? ficha.servicios : [];
+
+      for (const servicio of servicios) {
+        if (!esCategoriaServicioMedicoExacta(servicio?.categoria)) continue;
+
+        const cantidad = Number(servicio?.cantidad ?? 0);
+        if (!Number.isFinite(cantidad) || cantidad <= 0) continue;
+
+        filas.push({
+          fichaId: ficha?._id,
+          turnoFecha: ficha?.turnoFecha,
+          turnoConsecutivo: ficha?.turnoConsecutivo,
+          ficha: fichaVisual,
+          nombre: cleanStr(servicio?.nombre),
+          cantidad: Math.trunc(cantidad),
+        });
+      }
+    }
+
+    return res.json({
+      ok: true,
+      turnoFecha,
+      filas,
+    });
+  } catch (err) {
+    console.error("obtenerMiTrabajoTurnoActual:", err);
+    return res.status(500).json({ msg: "Error al obtener el trabajo del turno actual" });
   }
 };
 

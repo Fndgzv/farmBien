@@ -9,6 +9,9 @@ import { PacientesService } from '../../services/pacientes.service';
 import { RecetasService } from '../../services/recetas.service';
 import { ProductoService } from '../../services/producto.service';
 import { environment } from '../../../environments/environment';
+import { buildImgUrl } from '../../shared/img-url';
+import { formatearTurnoConsultorioVisual } from '../../shared/utils/turno-visual';
+import { text } from '@fortawesome/fontawesome-svg-core';
 
 type ServicioMedico = { _id: string; nombre: string; precioVenta?: number; categoria?: string };
 
@@ -61,6 +64,7 @@ type RecetaPrintData = {
   medicoNombre: string;
   medicoTitulo: string;
   medicoEscuela: string;
+  logoEscuelaUrl?: string;
   cedula: string;
   pacienteNombre: string;
   fecha: string;
@@ -73,6 +77,13 @@ type RecetaPrintData = {
   direccion?: string;
   telefono?: string;
   medicamentos: RecetaPrintMedicamento[];
+};
+
+type MiTrabajoFila = {
+  ficha: string;
+  nombre: string;
+  cantidad: number;
+  fichaId?: string;
 };
 
 declare const bootstrap: any;
@@ -141,6 +152,9 @@ export class MedicoConsultorioComponent implements OnInit {
   guardandoAntecedentes = false;
   guardandoNotaClinica = false;
   guardandoServicios = false;
+  cargandoMiTrabajo = false;
+  miTrabajoFilas: MiTrabajoFila[] = [];
+  miTrabajoTurnoFecha = '';
 
   readonly entidadesNacimiento = [
     { value: 'AS', label: 'Aguascalientes' },
@@ -1475,6 +1489,7 @@ export class MedicoConsultorioComponent implements OnInit {
       medicoNombre: this.obtenerNombreMedicoImpresion(medico),
       medicoTitulo: this.obtenerTituloMedicoImpresion(medico),
       medicoEscuela: this.obtenerEscuelaMedicoImpresion(medico),
+      logoEscuelaUrl: this.obtenerLogoEscuelaMedicoImpresion(medico),
       cedula: this.obtenerCedulaMedicoImpresion(medico),
       pacienteNombre: this.nombrePacienteExpediente() || String(this.fichaActual?.pacienteNombre || 'Paciente').trim(),
       fecha: new Date().toLocaleDateString('es-MX'),
@@ -2207,6 +2222,12 @@ export class MedicoConsultorioComponent implements OnInit {
     return this.repararMojibake(String(info?.escuela || '').trim());
   }
 
+  private obtenerLogoEscuelaMedicoImpresion(info: any): string {
+    const ruta = String(info?.logoescuela || '').trim();
+    if (!ruta) return '';
+    return buildImgUrl(ruta);
+  }
+
   private obtenerNombreMedicoImpresion(info: any): string {
     const nombreSolo = this.repararMojibake(String(info?.nombre || '').trim());
     if (nombreSolo) return nombreSolo;
@@ -2441,6 +2462,14 @@ export class MedicoConsultorioComponent implements OnInit {
     const tituloYCedula = `${data.medicoTitulo ? this.esc(data.medicoTitulo) : '—'} · Céd. Prof.: ${this.esc(data.cedula || '—')}`;
     const citaSeguimiento = String(data.citaSeguimiento || '').trim();
     const tieneCitaSeguimiento = !!citaSeguimiento;
+    const logoEscuelaUrl = String(data.logoEscuelaUrl || '').trim();
+    const logoEscuelaHtml = logoEscuelaUrl
+      ? `
+        <div class="doctor-logo-wrap">
+          <img src="${this.esc(logoEscuelaUrl)}" alt="Logo escuela" onerror="this.style.display='none';" />
+        </div>
+      `
+      : '';
 
     const signosHtml = signosVitales.length
       ? signosVitales.map((signo) => `<span class="sv-pill">${this.esc(signo)}</span>`).join('')
@@ -2452,9 +2481,12 @@ export class MedicoConsultorioComponent implements OnInit {
           <thead>
             <tr>
               <th>
-                <div class="doctor-name">${this.esc(data.medicoNombre || '—')}</div>
-                <div class="doctor-line">${tituloYCedula}</div>
-                <div class="doctor-line">${this.esc(data.medicoEscuela || '—')}</div>
+                <div class="doctor-head ${logoEscuelaHtml ? 'with-logo' : ''}">
+                  ${logoEscuelaHtml}
+                  <div class="doctor-name">${this.esc(data.medicoNombre || '—')}</div>
+                  <div class="doctor-line">${tituloYCedula}</div>
+                  <div class="doctor-line">${this.esc(data.medicoEscuela || '—')}</div>
+                </div>
 
                 <div class="top-line">
                   <span>${tieneCitaSeguimiento ? `<b>Cita seguimiento:</b> ${this.esc(citaSeguimiento)}` : ''}</span>
@@ -2595,6 +2627,31 @@ export class MedicoConsultorioComponent implements OnInit {
       font-weight: normal;
     }
 
+    .doctor-head {
+      position: relative;
+    }
+
+    .doctor-head.with-logo {
+      padding-right: 22mm;
+    }
+
+    .doctor-logo-wrap {
+      position: absolute;
+      right: 0;
+      top: 0.5mm;
+      width: 16mm;
+      height: 16mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .doctor-logo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
     .doctor-name {
       text-align: center;
       font-size: 11pt;
@@ -2659,10 +2716,12 @@ export class MedicoConsultorioComponent implements OnInit {
       display: grid;
       grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
       gap: 1.6mm 2.6mm;
-      padding: 1.2mm 1.6mm;
-      border: 1px solid #e6e6e6;
-      border-radius: 2mm;
-      background: #fafafa;
+      padding: 0;
+      border: none;
+      outline: none;
+      box-shadow: none;
+      border-radius: 0;
+      background: transparent;
     }
 
     .sv-block,
@@ -3025,10 +3084,20 @@ export class MedicoConsultorioComponent implements OnInit {
       const msg = resp?.actualizado
         ? 'Receta actualizada correctamente en el expediente.'
         : 'Receta guardada correctamente en el expediente.';
-      Swal.fire('Listo', msg, 'success');
+      Swal.fire({
+        title: 'Listo',
+        text: msg,
+        icon: 'success',
+        timer: 1300
+      });
     } catch (e: any) {
       console.error(e);
-      Swal.fire('Error', e?.error?.msg || 'No se pudo generar receta', 'error');
+      Swal.fire({
+        title: 'Error',
+        text: e?.error?.msg || 'No se pudo generar receta',
+        icon: 'error',
+        timer: 1300
+      });
     } finally {
       this.generandoReceta = false;
     }
@@ -3183,7 +3252,13 @@ export class MedicoConsultorioComponent implements OnInit {
       this.signos.glucosaCapilar != null;
 
     if (!hayAlgo) {
-      Swal.fire('Sin datos', 'Captura al menos un signo vital.', 'warning');
+      /* Swal.fire('Sin datos', 'Captura al menos un signo vital.', 'warning'); */
+      Swal.fire({
+        title: 'Sin datos',
+        text: 'Captura al menos un signo vital.',
+        icon: 'warning',
+        timer: 1300,
+      });
       return;
     }
 
@@ -3210,11 +3285,18 @@ export class MedicoConsultorioComponent implements OnInit {
         const respSignos: any = await firstValueFrom(this.pacientesService.guardarSignosVitales(pacienteId, payload));
         this.removeSignosPasoDeFicha(this.fichaActual?._id);
 
-        Swal.fire(
+        /* Swal.fire(
           'Listo',
           respSignos?.actualizado ? 'Signos vitales actualizados en esta ficha.' : 'Signos vitales guardados.',
           'success'
-        );
+        ); */
+
+        Swal.fire({
+          title: 'Listo',
+          text: respSignos?.actualizado ? 'Signos vitales actualizados en esta ficha.' : 'Signos vitales guardados.',
+          icon: 'success',
+          timer: 1300,
+        });
 
         await this.cargarExpedienteSiHayPaciente();
         this.expedienteTab = 'SV';
@@ -3223,14 +3305,26 @@ export class MedicoConsultorioComponent implements OnInit {
         }, 50);
       } else {
         this.setSignosPasoDeFicha(this.fichaActual?._id, payload);
-        Swal.fire('Listo', 'Signos vitales guardados para esta consulta.', 'success');
+        /* Swal.fire('Listo', 'Signos vitales guardados para esta consulta.', 'success'); */
+        Swal.fire({
+          title: 'Listo',
+          text: 'Signos vitales guardados para esta consulta.',
+          icon: 'success',
+          timer: 1300,
+        });
       }
 
       this.colapsarColaSiHayAtencion?.();
       this.svExpandida = false;
     } catch (e: any) {
       console.error(e);
-      Swal.fire('Error', e?.error?.msg || 'No se pudieron guardar los signos vitales', 'error');
+      /* Swal.fire('Error', e?.error?.msg || 'No se pudieron guardar los signos vitales', 'error'); */
+      Swal.fire({
+        title: 'Error',
+        text: e?.error?.msg || 'No se pudieron guardar los signos vitales',
+        icon: 'error',
+        timer: 1300,
+      });
     } finally {
       this.guardandoSignos = false;
     }
@@ -3298,6 +3392,9 @@ export class MedicoConsultorioComponent implements OnInit {
       medicoNombre: this.obtenerNombreMedicoImpresion(med),
       medicoTitulo: this.obtenerTituloMedicoImpresion(med),
       medicoEscuela: this.obtenerEscuelaMedicoImpresion(med),
+      logoEscuelaUrl:
+        this.obtenerLogoEscuelaMedicoImpresion(med) ||
+        this.obtenerLogoEscuelaMedicoImpresion(this.obtenerUsuarioMedicoLocal()),
       cedula: this.obtenerCedulaMedicoImpresion(med),
       pacienteNombre: `${pac.nombre || ''} ${pac.apPaterno || ''} ${pac.apMaterno || ''}`.trim() || '?',
       fecha: new Date(rx.fecha || Date.now()).toLocaleDateString('es-MX'),
@@ -3342,6 +3439,7 @@ export class MedicoConsultorioComponent implements OnInit {
       medicoNombre: this.obtenerNombreMedicoImpresion(medico),
       medicoTitulo: this.obtenerTituloMedicoImpresion(medico),
       medicoEscuela: this.obtenerEscuelaMedicoImpresion(medico),
+      logoEscuelaUrl: this.obtenerLogoEscuelaMedicoImpresion(medico),
       cedula: this.obtenerCedulaMedicoImpresion(medico),
       pacienteNombre: String(this.fichaActual?.pacienteNombre || 'Paciente de paso').trim(),
       fecha: new Date().toLocaleDateString('es-MX'),
@@ -3447,10 +3545,192 @@ export class MedicoConsultorioComponent implements OnInit {
 
     } catch (e: any) {
       console.error(e);
-      Swal.fire('Error', e?.error?.msg || 'No se pudo cargar la receta', 'error');
+      /* Swal.fire('Error', e?.error?.msg || 'No se pudo cargar la receta', 'error'); */
+      Swal.fire({
+        title: 'Error', 
+        text: e?.error?.msg || 'No se pudo cargar la receta',
+        icon: 'error',
+        timer: 1300,
+      });
     } finally {
       this.cargandoReceta = false;
     }
+  }
+
+  async verMiTrabajo() {
+    const el = document.getElementById('modalMiTrabajo');
+    if (el) new bootstrap.Modal(el, { backdrop: 'static' }).show();
+
+    this.cargandoMiTrabajo = true;
+    this.miTrabajoFilas = [];
+    this.miTrabajoTurnoFecha = '';
+
+    try {
+      const resp = await firstValueFrom(this.fichasService.obtenerMiTrabajoTurnoActual());
+      const filasRaw = Array.isArray(resp?.filas) ? resp.filas : [];
+
+      this.miTrabajoFilas = filasRaw
+        .map((fila: any) => this.normalizarFilaMiTrabajo(fila))
+        .filter((fila: MiTrabajoFila | null): fila is MiTrabajoFila => !!fila);
+
+      this.miTrabajoTurnoFecha = String(resp?.turnoFecha || '').trim();
+    } catch (e: any) {
+      console.error(e);
+      /* Swal.fire('Error', e?.error?.msg || 'No se pudo cargar el resumen de servicios del turno actual.', 'error'); */
+      Swal.fire({
+        title: 'Error',
+        text: e?.error?.msg || 'No se pudo cargar el resumen de servicios del turno actual.',
+        icon: 'error',
+        timer: 1300,
+      });
+    } finally {
+      this.cargandoMiTrabajo = false;
+    }
+  }
+
+  imprimirMiTrabajo() {
+    const medicoNombre = this.obtenerNombreMedicoImpresion(this.obtenerUsuarioMedicoLocal()) || 'Médico';
+    const fechaTexto = this.formatearFechaMiTrabajo(this.miTrabajoTurnoFecha);
+    const filas = Array.isArray(this.miTrabajoFilas) ? this.miTrabajoFilas : [];
+
+    const filasHtml = filas.length
+      ? filas
+        .map((fila) => `
+          <tr>
+            <td>${this.esc(fila.ficha)}</td>
+            <td>${this.esc(fila.nombre)}</td>
+            <td style="text-align: right;">${this.esc(fila.cantidad)}</td>
+          </tr>
+        `)
+        .join('')
+      : `
+        <tr>
+          <td colspan="3" class="empty">No hay servicios médicos registrados en tu turno actual.</td>
+        </tr>
+      `;
+
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Servicios realizados</title>
+  <style>
+    @page { size: letter portrait; margin: 12mm; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: #111;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .sheet {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .header {
+      margin-bottom: 10px;
+    }
+    .doctor {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .date {
+      margin-bottom: 6px;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th, td {
+      border: 1px solid #777;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+    th {
+      background: #f5f5f5;
+      text-align: left;
+    }
+    .empty {
+      text-align: center;
+      color: #555;
+      padding: 14px 8px;
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <div class="header">
+      <div class="doctor">${this.esc(medicoNombre)}</div>
+      <div class="date"><b>Fecha:</b> ${this.esc(fechaTexto)}</div>
+      <div class="title">Servicios realizados</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 20%;">Ficha</th>
+          <th>Nombre</th>
+          <th style="width: 16%; text-align: right;">Cantidad</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filasHtml}
+      </tbody>
+    </table>
+  </main>
+
+  <script>
+    window.onload = () => setTimeout(() => window.print(), 120);
+    window.onafterprint = () => window.close();
+  </script>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWindow) {
+      Swal.fire('Atención', 'No se pudo abrir la ventana de impresión. Revisa el bloqueador de ventanas emergentes.', 'warning');
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }
+
+  private normalizarFilaMiTrabajo(fila: any): MiTrabajoFila | null {
+    const ficha = String(
+      fila?.ficha ||
+      formatearTurnoConsultorioVisual(fila?.turnoFecha, fila?.turnoConsecutivo) ||
+      ''
+    ).trim();
+
+    const nombre = this.repararMojibake(String(fila?.nombre || '').trim());
+    const cantidadNum = Number(fila?.cantidad ?? 0);
+    const cantidad = Number.isFinite(cantidadNum) ? Math.trunc(cantidadNum) : 0;
+
+    if (!ficha || !nombre || cantidad <= 0) return null;
+
+    return {
+      ficha,
+      nombre,
+      cantidad,
+      fichaId: String(fila?.fichaId || '').trim() || undefined,
+    };
+  }
+
+  formatearFechaMiTrabajo(turnoFecha: string): string {
+    const iso = String(turnoFecha || '').trim();
+    const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+    return new Date().toLocaleDateString('es-MX');
   }
 
   private calcEdad(pac: any): string {
@@ -3483,10 +3763,18 @@ export class MedicoConsultorioComponent implements OnInit {
     if (!el) return false;
 
     const r = el.getBoundingClientRect();
-    const espacioAbajo = window.innerHeight - r.bottom;
+    const espacioAbajo = Math.max(0, window.innerHeight - r.bottom);
+    const espacioArriba = Math.max(0, r.top);
 
-    // 260px dropdown + margen/colchón
-    return espacioAbajo < 300;
+    // Solo abrir hacia arriba si realmente no cabe abajo y arriba sí hay mejor espacio.
+    const altoPanelObjetivo = 320;
+    const margen = 24;
+
+    const noCabeAbajo = espacioAbajo < (altoPanelObjetivo - 40);
+    const cabeArriba = espacioArriba >= (altoPanelObjetivo - 80);
+    const arribaEsMejor = espacioArriba > espacioAbajo + margen;
+
+    return noCabeAbajo && cabeArriba && arribaEsMejor;
   }
 
 

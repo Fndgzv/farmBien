@@ -1,9 +1,79 @@
 const { validationResult } = require("express-validator");
 const bcrypt = require("bcryptjs");
+const fs = require("fs");
+const fsp = require("fs/promises");
+const path = require("path");
+const multer = require("multer");
+const mime = require("mime-types");
 
 const Usuario = require("../models/Usuario");
 const Farmacia = require("../models/Farmacia");
 const { revokeAllUserSessions } = require("../utils/sessionSecurity");
+
+const ROOT_DIR = path.join(__dirname, "..");
+const UPLOADS_DIR = path.join(ROOT_DIR, "uploads");
+const UPLOADS_USUARIOS_LOGO_DIR = path.join(UPLOADS_DIR, "usuarios", "logoescuela");
+fs.mkdirSync(UPLOADS_USUARIOS_LOGO_DIR, { recursive: true });
+
+function extFromMimetype(mimetype) {
+  const ext = mime.extension(mimetype);
+  return ext ? `.${ext}` : ".bin";
+}
+
+function makeTempUploadName(mimetype) {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extFromMimetype(mimetype)}`;
+}
+
+const uploadLogoEscuelaStorage = multer.diskStorage({
+  destination: async (_req, _file, cb) => {
+    try {
+      await fsp.mkdir(UPLOADS_DIR, { recursive: true });
+      cb(null, UPLOADS_DIR);
+    } catch (e) {
+      cb(e);
+    }
+  },
+  filename: (_req, file, cb) => {
+    cb(null, makeTempUploadName(file.mimetype));
+  },
+});
+
+const uploadLogoEscuelaFilter = (_req, file, cb) => {
+  const ok = /^image\/(png|jpe?g|webp|gif|bmp|tiff|avif)$/i.test(file.mimetype);
+  if (!ok) return cb(new Error("Tipo de imagen no permitido"));
+  cb(null, true);
+};
+
+const uploadLogoEscuela = multer({
+  storage: uploadLogoEscuelaStorage,
+  fileFilter: uploadLogoEscuelaFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single("logoescuela");
+
+const resolveUploadAbs = (storedPath) => {
+  if (!storedPath || typeof storedPath !== "string") return null;
+
+  const relative = String(storedPath).trim().replace(/^\/+/, "");
+  const relWithUploads = /^uploads\//i.test(relative)
+    ? relative
+    : `uploads/${relative}`;
+  const abs = path.join(ROOT_DIR, relWithUploads);
+  const normAbs = path.resolve(abs);
+  const normUploads = path.resolve(UPLOADS_DIR);
+
+  if (!normAbs.startsWith(normUploads + path.sep) && normAbs !== normUploads) {
+    return null;
+  }
+
+  return normAbs;
+};
+
+const deleteIfExists = async (absPath) => {
+  if (!absPath) return;
+  try {
+    await fsp.unlink(absPath);
+  } catch { }
+};
 
 const normalizarTexto = (valor) => {
   if (valor === undefined || valor === null) return undefined;
@@ -29,6 +99,59 @@ exports.obtenerUsuarios = async (req, res) => {
   }
 };
 
+exports.uploadLogoEscuela = uploadLogoEscuela;
+
+exports.actualizarLogoEscuela = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = await Usuario.findById(id);
+
+    if (!usuario) {
+      if (req.file?.path) await deleteIfExists(req.file.path);
+      return res.status(404).json({ mensaje: "Usuario no encontrado" });
+    }
+
+    if (usuario.rol !== "medico") {
+      if (req.file?.path) await deleteIfExists(req.file.path);
+      return res.status(400).json({ mensaje: "El logo de escuela solo aplica para usuarios médicos." });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ mensaje: "No se recibió archivo de logoescuela." });
+    }
+
+    await fsp.mkdir(UPLOADS_USUARIOS_LOGO_DIR, { recursive: true });
+
+    const newName = `${usuario._id}-${Date.now()}${extFromMimetype(req.file.mimetype)}`;
+    const destAbs = path.join(UPLOADS_USUARIOS_LOGO_DIR, newName);
+    const destRel = path.posix.join("usuarios", "logoescuela", newName);
+
+    await fsp.rename(req.file.path, destAbs);
+
+    const oldAbs = resolveUploadAbs(usuario.logoescuela);
+
+    usuario.logoescuela = destRel;
+    await usuario.save();
+
+    if (oldAbs && path.resolve(oldAbs) !== path.resolve(destAbs)) {
+      await deleteIfExists(oldAbs);
+    }
+
+    return res.json({
+      ok: true,
+      mensaje: "Logo de escuela actualizado correctamente",
+      logoescuela: usuario.logoescuela,
+      usuarioId: usuario._id,
+    });
+  } catch (error) {
+    if (req.file?.path) {
+      await deleteIfExists(req.file.path);
+    }
+    console.error("Error al actualizar logoescuela:", error);
+    return res.status(500).json({ mensaje: "Error al actualizar el logo de escuela" });
+  }
+};
+
 exports.actualizarUsuario = async (req, res) => {
   try {
     const { id } = req.params;
@@ -45,6 +168,7 @@ exports.actualizarUsuario = async (req, res) => {
       cedulaProfesional,
       titulo,
       escuela,
+      logoescuela,
     } = req.body;
 
     const usuarioEncontrado = await Usuario.findById(id);
@@ -73,6 +197,11 @@ exports.actualizarUsuario = async (req, res) => {
 
     const escuelaDestino =
       escuela !== undefined ? normalizarTexto(escuela) : normalizarTexto(usuarioEncontrado.escuela);
+
+    const logoEscuelaDestino =
+      logoescuela !== undefined
+        ? normalizarTexto(logoescuela)
+        : normalizarTexto(usuarioEncontrado.logoescuela);
 
     if (usuario && usuario !== usuarioEncontrado.usuario) {
       const existeUsuario = await Usuario.findOne({ usuario });
@@ -147,21 +276,27 @@ exports.actualizarUsuario = async (req, res) => {
       usuarioEncontrado.cedulaProfesional = cedulaDestino;
       usuarioEncontrado.titulo = tituloDestino;
       usuarioEncontrado.escuela = escuelaDestino;
+      if (logoescuela !== undefined) {
+        usuarioEncontrado.logoescuela = logoEscuelaDestino;
+      }
     } else if (rolDestino === "empleado" || rolDestino === "turnos") {
       usuarioEncontrado.farmacia = farmaciaExistente ? farmaciaExistente._id : farmaciaDestino;
       usuarioEncontrado.cedulaProfesional = undefined;
       usuarioEncontrado.titulo = undefined;
       usuarioEncontrado.escuela = undefined;
+      usuarioEncontrado.logoescuela = undefined;
     } else if (rolDestino === "ajustaFarma") {
       usuarioEncontrado.farmacia = farmaciaExistente ? farmaciaExistente._id : farmaciaDestino;
       usuarioEncontrado.cedulaProfesional = undefined;
       usuarioEncontrado.titulo = undefined;
       usuarioEncontrado.escuela = undefined;
+      usuarioEncontrado.logoescuela = undefined;
     } else {
       usuarioEncontrado.farmacia = null;
       usuarioEncontrado.cedulaProfesional = undefined;
       usuarioEncontrado.titulo = undefined;
       usuarioEncontrado.escuela = undefined;
+      usuarioEncontrado.logoescuela = undefined;
     }
 
     usuarioEncontrado.nombre = nombre || usuarioEncontrado.nombre;
@@ -202,6 +337,7 @@ exports.registrarUsuario = async (req, res) => {
     cedulaProfesional,
     titulo,
     escuela,
+    logoescuela,
   } = req.body;
 
   const telefonoRegex = /^\d{10}$/;
@@ -233,6 +369,7 @@ exports.registrarUsuario = async (req, res) => {
     const cedulaNormalizada = normalizarTexto(cedulaProfesional);
     const tituloNormalizado = normalizarTexto(titulo);
     const escuelaNormalizada = normalizarTexto(escuela);
+    const logoEscuelaNormalizado = normalizarTexto(logoescuela);
 
     if (rol === "medico") {
       if (!farmacia) {
@@ -303,6 +440,7 @@ exports.registrarUsuario = async (req, res) => {
       cedulaProfesional: rol === "medico" ? cedulaNormalizada : undefined,
       titulo: rol === "medico" ? tituloNormalizado : undefined,
       escuela: rol === "medico" ? escuelaNormalizada : undefined,
+      logoescuela: rol === "medico" ? logoEscuelaNormalizado : undefined,
     });
 
     await nuevoUsuario.save();

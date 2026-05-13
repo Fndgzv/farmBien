@@ -35,6 +35,13 @@ router.get(
   ctrl.buscar
 );
 
+router.get(
+  "/mi-trabajo/turno-actual",
+  auth,
+  checkRole(["admin", "medico"]),
+  ctrl.obtenerMiTrabajoTurnoActual
+);
+
 router.patch(
   "/:id/servicios",
   auth,

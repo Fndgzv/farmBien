@@ -60,6 +60,11 @@ const UsuarioSchema = new mongoose.Schema({
         }
     },
 
+    logoescuela: {
+        type: String,
+        trim: true
+    },
+
     activo: {
         type: Boolean,
         default: true,

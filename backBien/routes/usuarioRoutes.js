@@ -6,7 +6,9 @@ const isAdmin = require('../middlewares/isAdmin');
 const {
     obtenerUsuarios,
     actualizarUsuario,
-    registrarUsuario
+    registrarUsuario,
+    uploadLogoEscuela,
+    actualizarLogoEscuela
 } = require('../controllers/usuarioController');
 
 const router = express.Router();
@@ -53,6 +55,8 @@ router.put('/:id', auth, isAdmin,
             .isLength({ min: 6 }),
     ],
     actualizarUsuario);
+
+router.put('/:id/logoescuela', auth, isAdmin, uploadLogoEscuela, actualizarLogoEscuela);
 
 
 module.exports = router;
