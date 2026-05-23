@@ -76,18 +76,52 @@
   </div>
 </div>
 
-<div *ngIf="horaPico">
-  🟢 {{ etiquetaAlta }}:
-  {{ formatearPeriodo(horaPico.periodo) }} –
-  utilidad: ${{ horaPico.utilidad }}
-  ({{ horaPico.ventas }} ventas)
+<div class="row" *ngIf="horaPicoIngresos">
+  <div class="col-2" style="font-weight: 700;" >
+    🟢 {{ etiquetaAlta }}:
+  </div>
+  <div class="col-2" style="color: #F57C00; font-weight: 600;">
+    {{ formatearPeriodo(horaPicoVentas.periodo) }} –
+    {{ horaPicoVentas.ventas }} ventas
+  </div>
+  <div class="col-4" style="color: #1E88E5; font-weight: 600;">
+    {{ formatearPeriodo(horaPicoIngresos.periodo) }} –
+    ingresos: ${{ horaPicoIngresos.ingresos }}
+    <span style="font-size: small;">
+     ({{ horaPicoIngresos.ventas }} ventas)
+    </span>
+  </div>
+  <div class="col-4" style="color: #00551c; font-weight: 600;">
+    {{ formatearPeriodo(horaPicoUtilidad.periodo) }} –
+    utilidad: ${{ horaPicoUtilidad.utilidad }}
+    <span style="font-size: small;">
+     ({{ horaPicoUtilidad.ventas }} ventas)
+    </span>
+  </div>
 </div>
 
-<div *ngIf="horaMuerta">
-  🔴 {{ etiquetaBaja }}:
-  {{ formatearPeriodo(horaMuerta.periodo) }} –
-  utilidad: ${{ horaMuerta.utilidad }}
-  ({{ horaMuerta.ventas }} ventas)
+<div class="row" *ngIf="horaMuertaIngresos">
+  <div class="col-2" style="font-weight: 700;" >
+    🔴 {{ etiquetaBaja }}:
+  </div>
+  <div class="col-2" style="color: #F57C00; font-weight: 600;">
+    {{ formatearPeriodo(horaMuertaVentas.periodo) }} –
+    {{ horaMuertaVentas.ventas }} ventas
+  </div>
+  <div class="col-4" style="color: #1E88E5; font-weight: 600;">
+    {{ formatearPeriodo(horaMuertaIngresos.periodo) }} –
+    ingresos: ${{ horaMuertaIngresos.ingresos }}
+     <span style="font-size: small;">
+      ({{ horaMuertaIngresos.ventas }} ventas)
+    </span>
+  </div>
+  <div class="col-4" style="color: #00551c; font-weight: 600;">
+    {{ formatearPeriodo(horaMuertaUtilidad.periodo) }} –
+    utilidad: ${{ horaMuertaUtilidad.utilidad }}
+     <span style="font-size: small;">
+      ({{ horaMuertaUtilidad.ventas }} ventas)
+    </span>
+  </div>
 </div>
 
 

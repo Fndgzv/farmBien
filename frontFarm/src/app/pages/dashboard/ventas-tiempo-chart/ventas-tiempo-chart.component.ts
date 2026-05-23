@@ -54,8 +54,12 @@ export class VentasTiempoChartComponent implements OnInit {
     kpiPedidosUnicos = 0;
     kpiPedidosMovs = 0;
 
-    horaPico: any = null;
-    horaMuerta: any = null;
+    horaPicoUtilidad: any = null;
+    horaMuertaUtilidad: any = null;
+    horaPicoIngresos: any = null;
+    horaMuertaIngresos: any = null;
+    horaPicoVentas: any = null;
+    horaMuertaVentas: any = null;
 
     chartOptions: ChartOptions = {
         series: [],
@@ -225,26 +229,38 @@ export class VentasTiempoChartComponent implements OnInit {
         const validos = this.data.filter(d => d.ingresos > 0);
 
         if (!validos.length) {
-            this.horaPico = null;
-            this.horaMuerta = null;
+            this.horaPicoUtilidad = null;
+            this.horaMuertaUtilidad = null;
+            this.horaPicoIngresos = null;
+            this.horaMuertaIngresos = null;
+            this.horaPicoVentas = null;
+            this.horaMuertaVentas = null;
             return;
         }
 
-        this.horaPico = validos.reduce((a, b) =>
+        this.horaPicoUtilidad = validos.reduce((a, b) =>
             b.utilidad > a.utilidad ? b : a
         );
 
-        this.horaMuerta = validos.reduce((a, b) =>
+        this.horaMuertaUtilidad = validos.reduce((a, b) =>
             b.utilidad < a.utilidad ? b : a
         );
 
-        /* this.horaPico = validos.reduce((a, b) =>
+        this.horaPicoIngresos = validos.reduce((a, b) =>
             b.ingresos > a.ingresos ? b : a
         );
 
-        this.horaMuerta = validos.reduce((a, b) =>
+        this.horaMuertaIngresos = validos.reduce((a, b) =>
             b.ingresos < a.ingresos ? b : a
-        ); */
+        );
+
+        this.horaPicoVentas = validos.reduce((a, b) =>
+            b.ventas > a.ventas ? b : a
+        );
+
+        this.horaMuertaVentas = validos.reduce((a, b) =>
+            b.ventas < a.ventas ? b : a
+        );
     }
 
     formatearPeriodo(periodo: string): string {
