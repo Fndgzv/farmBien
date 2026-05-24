@@ -14,15 +14,6 @@ const toNumber = (v) => Number.isFinite(+v) ? +v : 0;
 const toCents = (n) => Math.round(toNumber(n) * 100);
 const fromCents = (c) => c / 100;
 
-const descuentoMenorQue25 = (precioBase, precioFinal) => {
-  const baseC = toCents(precioBase);
-  const finalC = toCents(precioFinal);
-  if (baseC <= 0) return false;
-  const descC = Math.max(0, baseC - finalC);
-  const umbral = Math.round(baseC * 25 / 100);
-  return descC < umbral;
-};
-
 // ===================== Fechas CDMX =====================
 const hoyMxDT = () => DateTime.now().setZone(ZONE).startOf('day');
 
@@ -186,18 +177,18 @@ function calcUnitNoCantidad({
     }
   }
 
-  // ===== INAPAM (regla 25%) =====
-  const puedeSumarInapam =
+  // ===== INAPAM (solo si no hubo promo previa) =====
+  const puedeAplicarInapam =
     clienteInapam &&
     promoSrc.descuentoINAPAM &&
-    descuentoMenorQue25(precioBase, precioFinal);
+    promoAplicada === '';
 
   // Nota: aquí descuentoUnit siempre es >= 0 (porque lo calculamos como base - final cuando aplica)
-  if (puedeSumarInapam) {
+  if (puedeAplicarInapam) {
     precioFinal = precioFinal * 0.95;
     descuentoUnit = precioBase - precioFinal;
-    promoAplicada = `${promoAplicada ? promoAplicada + '-' : ''}INAPAM`;
-    cadDesc = cadDesc ? (cadDesc + ' + 5%') : '5%';
+    promoAplicada = 'INAPAM';
+    cadDesc = '5%';
   }
 
   promoAplicada = limpiarPromocion(promoAplicada);
@@ -456,14 +447,6 @@ const crearVenta = async (req, res) => {
           promoAplicada = getEtiquetaPromo(req);
           cadDesc = '';
           palmonederoUnit = 0;
-
-          if (clienteInapam && promoSrc.descuentoINAPAM) {
-            const descInapam = precioFinalUnit * 0.05;
-            precioFinalUnit = precioFinalUnit - descInapam;
-            descuentoUnit = precioBase - precioFinalUnit;
-            promoAplicada = `${promoAplicada}-INAPAM`;
-            cadDesc = '5%';
-          }
         } else {
           const calc = calcUnitNoCantidad({
             precioBase,

@@ -76,7 +76,7 @@ export interface ConsultaPrecioResp {
 
   // temporada
   precioConDescuento?: string;    // "$xx.xx" si hay temporada activa
-  temporadaMasInapam?: string;    // "Temporada + 5% INAPAM: $xx.xx"
+  temporadaMasInapam?: string;    // compatibilidad legacy (ya no se muestra en UI)
 
   // inapam
   precioInapam?: string;          // "$xx.xx"
@@ -192,6 +192,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   aplicaInapam: boolean = false;
   yaPreguntoInapam: boolean = false;
+  mostrarCheckboxInapam: boolean = false;
 
   fechaIni: Date = new Date();
   fechaFin: Date = new Date();
@@ -558,8 +559,60 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.recalcularRenglones();
   }
 
+  private actualizarVisibilidadInapam() {
+    this.mostrarCheckboxInapam = this.carrito.some(item => this.esProductoFactibleInapam(item));
+
+    // Si ya no hay ningún producto factible, limpiamos la bandera
+    if (!this.mostrarCheckboxInapam) {
+      this.aplicaInapam = false;
+      this.yaPreguntoInapam = false;
+    }
+  }
+
+  private esProductoFactibleInapam(item: any): boolean {
+    if (!item || item.esGratis) return false;
+
+    const inv = this.invCache[item.producto];
+    if (!inv?.descuentoINAPAM) return false;
+
+    const productoBase = this.productos.find(p => p._id === item.producto);
+    if (!productoBase) return false;
+    if (productoBase.categoria === 'Recargas' || productoBase.categoria === 'Servicio Médico') return false;
+
+    const fechahoy = this.hoySoloDiaLocal();
+    const hoy = fechahoy.getDay();
+
+    // Promo por cantidad va sola; si está activa para el producto, INAPAM no es factible.
+    const req = Number(inv?.promoCantidadRequerida ?? 0);
+    const iniCant = this.fechaSoloDiaDesdeUTC(inv?.inicioPromoCantidad);
+    const finCant = this.fechaSoloDiaDesdeUTC(inv?.finPromoCantidad);
+    const promoCantidadActiva = req >= 2 && !!iniCant && !!finCant && iniCant <= fechahoy && finCant >= fechahoy;
+    if (promoCantidadActiva) return false;
+
+    const promoDia = this.promoDelDia(inv, hoy);
+    const iniDia = this.fechaSoloDiaDesdeUTC(promoDia?.inicio);
+    const finDia = this.fechaSoloDiaDesdeUTC(promoDia?.fin);
+    const descuentoXDia = Number(promoDia?.porcentaje ?? 0);
+    const promoDiaActiva = descuentoXDia > 0 && !!iniDia && !!finDia && iniDia <= fechahoy && finDia >= fechahoy;
+    if (promoDiaActiva) return false;
+
+    const t = inv?.promoDeTemporada;
+    if (t?.inicio && t?.fin) {
+      const iniTemp = this.fechaSoloDiaDesdeUTC(t.inicio);
+      const finTemp = this.fechaSoloDiaDesdeUTC(t.fin);
+      const ptjeTem = Number(t.porcentaje ?? 0);
+      const promoTempActiva = ptjeTem > 0 && !!iniTemp && !!finTemp && iniTemp <= fechahoy && finTemp >= fechahoy;
+      if (promoTempActiva) return false;
+    }
+
+    return true;
+  }
+
   async recalcularRenglones() {
-    if (!this.carrito.length) return;
+    if (!this.carrito.length) {
+      this.actualizarVisibilidadInapam();
+      return;
+    }
 
     for (let i = 0; i < this.carrito.length; i++) {
       const item = this.carrito[i];
@@ -579,9 +632,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
       item.precioOriginal = Number(inv.precioVenta ?? item.precioOriginal ?? 0);
       item.ubicacionEnFarmacia = inv.ubicacionFarmacia ?? item.ubicacionEnFarmacia ?? '';
       this.existencias[item.producto] = Number(inv.existencia ?? this.existencias[item.producto] ?? 0);
-
-      // INAPAM basado en inventario
-      // if (this.descuentoMenorA25Inv(inv)) await this.preguntaINAPAMInv(inv);
 
       if (productoBase.categoria === 'Recargas' || productoBase.categoria === 'Servicio Médico') {
         this.ptjeDescuento = 0;
@@ -912,6 +962,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.captionButtomReanudar = '';
     this.ventaForm.controls['cliente'].setValue('');
     this.hayCliente = false;
+    this.actualizarVisibilidadInapam();
     this.limpiarCliente();
     this.focusBarcode(0, true);
   }
@@ -931,6 +982,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.totalAlmonedero = venta.totalAlmonedero;
     this.aplicaInapam = venta.aplicaInapam;
     this.captionButtomReanudar = venta.captionButtomReanudar;
+    this.actualizarVisibilidadInapam();
     this.ventasPausadas.splice(index, 1);
     this.ventaService.setVentasPausadas(this.ventasPausadas);
     this.focusBarcode(0, true);
@@ -1100,9 +1152,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     const precioOriginal = Number(inv2.precioVenta ?? this.precioEnFarmacia ?? 0);
     let precioFinalUnit = precioOriginal;
 
-    // INAPAM pregunta basada en inventario
-    // if (this.descuentoMenorA25Inv(inv2)) await this.preguntaINAPAMInv(inv2);
-
     if (producto.categoria === 'Recargas' || producto.categoria === 'Servicio Médico') {
       this.ptjeDescuento = 0;
       this.productoAplicaMonedero = false;
@@ -1240,21 +1289,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.yaPreguntoInapam = true;
   }
 
-
-  descuentoMenorA25Inv(inv: InvInfo): boolean {
-    const hoy = new Date().getDay(); // 0..6
-    const p = this.promoDelDia(inv, hoy);
-    const pct = Number(p?.porcentaje ?? 0);
-    if (!pct) return true;
-    return pct < 25;
-  }
-
-
   descuentoYpromoInv(inv: InvInfo, categoria: string) {
     const fechahoy = this.hoySoloDiaLocal();
     const hoy = fechahoy.getDay();
 
-    this.tipoDescuento = ""; 0
+    this.tipoDescuento = "";
     this.cadDesc = '';
     this.ptjeDescuento = 0;
 
@@ -1272,12 +1311,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
       this.aplicaGratis = true;
       this.tipoDescuento = `${req}x${req - 1}`;
       this.productoAplicaMonedero = false;
-
-      if (this.aplicaInapam && inv.descuentoINAPAM) {
-        this.ptjeDescuento = 5;
-        this.tipoDescuento += `-INAPAM`;
-        this.cadDesc = '5%';
-      }
       return;
     }
 
@@ -1312,25 +1345,17 @@ export class VentasComponent implements OnInit, AfterViewInit {
       }
     }
 
-    // 4) INAPAM acumulable si aplica
-    if (this.ptjeDescuento > 0) {
-      if (this.ptjeDescuento < 25 && this.aplicaInapam && inv.descuentoINAPAM) {
-        const base = Number(inv?.precioVenta ?? this.precioEnFarmacia ?? 0) || 1;
-        const pf = base * (1 - this.ptjeDescuento / 100) * 0.95;
-        this.ptjeDescuento = (1 - (pf / base)) * 100;
-
-        this.tipoDescuento += `-INAPAM`;
-        this.cadDesc += ` + 5%`;
-        this.productoAplicaMonedero = this.hayCliente;
-      }
-    } else if (this.aplicaInapam && inv.descuentoINAPAM) {
+    // 4) INAPAM solo si no hubo promo de día/temporada
+    if (this.tipoDescuento === '' && this.aplicaInapam && inv.descuentoINAPAM) {
       this.ptjeDescuento = 5;
       this.tipoDescuento = 'INAPAM';
       this.cadDesc = '5%';
       this.productoAplicaMonedero = this.hayCliente;
     }
 
-    if (this.ptjeDescuento <= 0) this.productoAplicaMonedero = this.hayCliente;
+    if (this.ptjeDescuento <= 0 && this.tipoDescuento === '') {
+      this.productoAplicaMonedero = this.hayCliente;
+    }
 
     // Recargas / Servicio Médico: nunca monedero ni promos
     if (categoria === 'Recargas' || categoria === 'Servicio Médico') {
@@ -1583,6 +1608,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.totalDescuento = this.round2(this.carrito.reduce((acc, p) => acc + (p.descuentoUnitario * p.cantidad), 0));
     this.totalArticulos = this.carrito.reduce((acc, p) => acc + (p.cantidad), 0);
     this.totalAlmonedero = this.round2(this.carrito.reduce((acc, p) => acc + (p.alMonedero * p.cantidad), 0));
+    this.actualizarVisibilidadInapam();
   }
 
 
@@ -1623,6 +1649,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.cambio = 0;
 
     this.hayCliente = false;
+    this.actualizarVisibilidadInapam();
 
     this.fichaIdSeleccionada = null;
     this.fichaSeleccionada = null;
@@ -1912,6 +1939,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.aplicaInapam = false;
     this.yaPreguntoInapam = false;
     this.captionButtomReanudar = "";
+    this.actualizarVisibilidadInapam();
   }
 
   private yyyymmddLocal(d = new Date()): string {

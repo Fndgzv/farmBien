@@ -74,7 +74,7 @@
       <span *ngIf="nombreCliente" class="cliente-nombre">{{ nombreCliente }}</span>
     </div>
 
-    <div *ngIf="carrito.length > 0" class="col-md-2">
+    <div *ngIf="mostrarCheckboxInapam" class="col-md-2">
       <input type="checkbox" id="aplicaInapam" name="aplicaInapam" [(ngModel)]="aplicaInapam"
         (ngModelChange)="yaPreguntoInapam = true; VerSiPreguntaINAPAM()" />
       <label for="aplicaInapam">Presenta cred. INAPAM</label>
@@ -173,44 +173,28 @@
 
         <p *ngIf="productoConsultado.promo1"><strong>{{ productoConsultado.promo1 }}</strong>{{
           productoConsultado.precioLunes }}</p>
-        <p *ngIf="productoConsultado.lunesMasInapam">{{ productoConsultado.lunesMasInapam }}</p>
-
         <p *ngIf="productoConsultado.promo2"><strong>{{ productoConsultado.promo2 }}</strong>{{
           productoConsultado.precioMartes }}</p>
-        <p *ngIf="productoConsultado.martesMasInapam">{{ productoConsultado.martesMasInapam }}</p>
 
         <p *ngIf="productoConsultado.promo3"><strong>{{ productoConsultado.promo3 }}</strong>{{
           productoConsultado.precioMiercoles }}</p>
-        <p *ngIf="productoConsultado.miercolesMasInapam">{{ productoConsultado.miercolesMasInapam }}</p>
 
         <p *ngIf="productoConsultado.promo4"><strong>{{ productoConsultado.promo4 }}</strong>{{
           productoConsultado.precioJueves }}</p>
-        <p *ngIf="productoConsultado.juevesMasInapam">{{ productoConsultado.juevesMasInapam }}</p>
 
         <p *ngIf="productoConsultado.promo5"><strong>{{ productoConsultado.promo5 }}</strong>{{
           productoConsultado.precioViernes }}</p>
-        <p *ngIf="productoConsultado.viernesMasInapam">{{ productoConsultado.viernesMasInapam }}</p>
 
         <p *ngIf="productoConsultado.promo6"><strong>{{ productoConsultado.promo6 }}</strong>{{
           productoConsultado.precioSabado }}</p>
-        <p *ngIf="productoConsultado.sabadoMasInapam">{{ productoConsultado.sabadoMasInapam }}</p>
 
         <p *ngIf="productoConsultado.promo0"><strong>{{ productoConsultado.promo0 }}</strong>{{
           productoConsultado.precioDomingo }}</p>
-        <p *ngIf="productoConsultado.domingoMasInapam">{{ productoConsultado.domingoMasInapam }}</p>
 
         <!-- <p *ngIf="productoConsultado.promo"><strong>Promo: </strong>{{ productoConsultado.promo }}</p> -->
 
         <p *ngIf="productoConsultado.precioConDescuento">
           <strong>Precio c/promo: </strong>{{ productoConsultado.precioConDescuento }}
-        </p>
-
-        <!-- ✅ Nuevo backend -->
-        <p *ngIf="productoConsultado.temporadaMasInapam">{{ productoConsultado.temporadaMasInapam }}</p>
-
-        <!-- ✅ Fallback back viejo -->
-        <p *ngIf="!productoConsultado.temporadaMasInapam && productoConsultado.precioDescuentoMasInapam">
-          <strong>Precio promo + INAPAM: </strong>{{ productoConsultado.precioDescuentoMasInapam }}
         </p>
 
         <p *ngIf="productoConsultado.precioInapam">
