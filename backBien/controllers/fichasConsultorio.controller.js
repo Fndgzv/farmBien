@@ -680,7 +680,7 @@ exports.obtenerMiTrabajoTurnoActual = async (req, res) => {
       turnoFecha,
       estado: { $ne: "CANCELADA" },
     })
-      .select("_id turnoFecha turnoConsecutivo servicios")
+      .select("_id turnoFecha turnoConsecutivo servicios pacienteNombre")
       .sort({ turnoConsecutivo: 1, _id: 1 })
       .lean();
 
@@ -701,6 +701,7 @@ exports.obtenerMiTrabajoTurnoActual = async (req, res) => {
           turnoFecha: ficha?.turnoFecha,
           turnoConsecutivo: ficha?.turnoConsecutivo,
           ficha: fichaVisual,
+          pacienteNombre: cleanStr(ficha?.pacienteNombre),
           nombre: cleanStr(servicio?.nombre),
           cantidad: Math.trunc(cantidad),
         });

@@ -81,6 +81,7 @@ type RecetaPrintData = {
 
 type MiTrabajoFila = {
   ficha: string;
+  pacienteNombre: string;
   nombre: string;
   cantidad: number;
   fichaId?: string;
@@ -3598,6 +3599,7 @@ export class MedicoConsultorioComponent implements OnInit {
         .map((fila) => `
           <tr>
             <td>${this.esc(fila.ficha)}</td>
+            <td>${this.esc(fila.pacienteNombre || '—')}</td>
             <td>${this.esc(fila.nombre)}</td>
             <td style="text-align: right;">${this.esc(fila.cantidad)}</td>
           </tr>
@@ -3605,7 +3607,7 @@ export class MedicoConsultorioComponent implements OnInit {
         .join('')
       : `
         <tr>
-          <td colspan="3" class="empty">No hay servicios médicos registrados en tu turno actual.</td>
+          <td colspan="4" class="empty">No hay servicios médicos registrados en tu turno actual.</td>
         </tr>
       `;
 
@@ -3615,9 +3617,9 @@ export class MedicoConsultorioComponent implements OnInit {
   <meta charset="utf-8" />
   <title>Servicios realizados</title>
   <style>
-    @page { size: letter portrait; margin: 12mm; }
+    @page { size: letter portrait; margin: 0; }
     body {
-      margin: 0;
+      margin: 12mm;
       font-family: Arial, sans-serif;
       color: #111;
       font-size: 12px;
@@ -3674,9 +3676,10 @@ export class MedicoConsultorioComponent implements OnInit {
     <table>
       <thead>
         <tr>
-          <th style="width: 20%;">Ficha</th>
+          <th style="width: 16%;">Ficha</th>
+          <th style="width: 24%;">Paciente</th>
           <th>Nombre</th>
-          <th style="width: 16%; text-align: right;">Cantidad</th>
+          <th style="width: 14%; text-align: right;">Cantidad</th>
         </tr>
       </thead>
       <tbody>
@@ -3711,6 +3714,8 @@ export class MedicoConsultorioComponent implements OnInit {
     ).trim();
 
     const nombre = this.repararMojibake(String(fila?.nombre || '').trim());
+    const pacienteNombre =
+      this.repararMojibake(String(fila?.pacienteNombre || '').trim()) || '—';
     const cantidadNum = Number(fila?.cantidad ?? 0);
     const cantidad = Number.isFinite(cantidadNum) ? Math.trunc(cantidadNum) : 0;
 
@@ -3718,6 +3723,7 @@ export class MedicoConsultorioComponent implements OnInit {
 
     return {
       ficha,
+      pacienteNombre,
       nombre,
       cantidad,
       fichaId: String(fila?.fichaId || '').trim() || undefined,

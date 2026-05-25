@@ -97,6 +97,7 @@ export class FichasConsultorioService {
       turnoFecha?: string;
       turnoConsecutivo?: number;
       ficha?: string;
+      pacienteNombre?: string;
       nombre?: string;
       cantidad?: number;
     }>;
@@ -109,6 +110,7 @@ export class FichasConsultorioService {
         turnoFecha?: string;
         turnoConsecutivo?: number;
         ficha?: string;
+        pacienteNombre?: string;
         nombre?: string;
         cantidad?: number;
       }>;

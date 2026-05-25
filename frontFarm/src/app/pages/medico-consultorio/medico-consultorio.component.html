@@ -1180,14 +1180,16 @@
           <table class="detalle-tabla">
             <thead class="table-light">
               <tr>
-                <th style="width: 20%;">Ficha</th>
+                <th style="width: 16%;">Ficha</th>
+                <th style="width: 24%;">Paciente</th>
                 <th>Servicio realizado</th>
-                <th style="width: 16%;" class="text-end">Cantidad</th>
+                <th style="width: 14%;" class="text-end">Cantidad</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let fila of miTrabajoFilas">
                 <td>{{ fila.ficha }}</td>
+                <td>{{ fila.pacienteNombre || '—' }}</td>
                 <td>{{ fila.nombre }}</td>
                 <td class="text-end">{{ fila.cantidad }}</td>
               </tr>
