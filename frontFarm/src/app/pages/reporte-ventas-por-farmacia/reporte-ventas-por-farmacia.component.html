@@ -74,11 +74,11 @@
           <th>Farmacia</th>
 
           <th class="sortable" (click)="setSort('producto')">
-            Producto
-            <mat-icon class="ms-1" inline>{{ sortIcon('producto') }}</mat-icon>
+            Nombre / Código barras
+            <mat-icon class="ms-1" inline>{{ sortIcon('producto') }}</mat-icon>  
           </th>
 
-          <th style="white-space:nowrap;">Cód. barras</th>
+          <!-- <th style="white-space:nowrap;">Cód. barras</th> -->
 
           <th style="white-space:nowrap;">Categoría</th>
 
@@ -95,8 +95,12 @@
           </th>
 
           <th class="text-end sortable" (click)="setSort('importe')">
-            Importe
+            Imp. Tot.
             <mat-icon class="ms-1" inline>{{ sortIcon('importe') }}</mat-icon>
+          </th>
+
+          <th>
+            Costo Prom.
           </th>
 
           <th class="text-end sortable" (click)="setSort('utilidad')">
@@ -122,13 +126,17 @@
       <tbody>
         <tr *ngFor="let r of pagedRows">
           <td>{{ r.farmacia }}</td>
-          <td>{{ r.nombre }}</td>
-          <td>{{ r.codigoBarras || '—' }}</td>
+          <td>
+            <div>{{ r.nombre }}</div>
+            <small>{{ r.codigoBarras || '—' }}</small>
+          </td>
+          <!-- <td>{{ r.codigoBarras || '—' }}</td> -->
           <td>{{ r.categoria || '—' }}</td>
           <td>{{ r.ubicacionFarmacia || '—' }}</td>
           <td class="text-end">{{ r.cantidadVendida | number}}</td>
           <td class="text-end">{{ r.costoTotal | currency }}</td>
           <td class="text-end">{{ r.importeVendido | currency }}</td>
+          <td class="text-end">{{ calcularCostoPromedio(r) | currency }}</td>
           <td class="text-end" [ngClass]="{ 'text-danger': (r.utilidad || 0) < 0 }">
             {{ r.utilidad | currency }}
           </td>
@@ -151,10 +159,11 @@
 
       <tfoot *ngIf="rows.length">
         <tr class="fw-bold">
-          <td colspan="5" class="text-end">Totales:</td>
+          <td colspan="4" class="text-end">Totales:</td>
           <td class="text-end">{{ totalCantidad | number}}</td>
           <td class="text-end">{{ totalCosto | currency }}</td>
           <td class="text-end">{{ totalImporte | currency }}</td>
+          <td colspan="1"></td>
           <td class="text-end">{{ totalUtilidad | currency }}</td>
           <td class="text-end">
             {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}

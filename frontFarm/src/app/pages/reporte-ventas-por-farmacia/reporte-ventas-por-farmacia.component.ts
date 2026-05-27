@@ -162,6 +162,17 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
     });
   }
 
+  calcularCostoPromedio(r: any): number {
+  const costoTotal = r?.costoTotal ?? 0;
+  const cantidadVendida = r?.cantidadVendida ?? 0;
+
+  if (cantidadVendida <= 0) {
+    return 0;
+  }
+
+  return costoTotal / cantidadVendida;
+}
+
   // 🔹 limpiar solo el filtro de texto
   clearProducto() {
     this.productoQ = '';
