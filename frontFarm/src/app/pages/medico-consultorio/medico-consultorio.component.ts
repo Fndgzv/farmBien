@@ -2634,6 +2634,11 @@ export class MedicoConsultorioComponent implements OnInit {
 
     .doctor-head.with-logo {
       padding-right: 22mm;
+      min-height: 16mm;
+    }
+
+    .doctor-head.with-logo + .top-line {
+      padding-right: 22mm;
     }
 
     .doctor-logo-wrap {
@@ -2642,15 +2647,22 @@ export class MedicoConsultorioComponent implements OnInit {
       top: 0.5mm;
       width: 16mm;
       height: 16mm;
+      max-width: 16mm;
+      max-height: 16mm;
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
     }
 
-    .doctor-logo-wrap img {
-      width: 100%;
-      height: 100%;
+    .doctor-logo-wrap img,
+    .doctor-logo {
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: 100%;
       object-fit: contain;
+      display: block;
     }
 
     .doctor-name {
