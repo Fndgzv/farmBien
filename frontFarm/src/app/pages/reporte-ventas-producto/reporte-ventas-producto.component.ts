@@ -181,6 +181,19 @@ export class ReporteVentasProductoComponent {
     if (!this.productoId) this.seleccionarDesdeInput(val);
   }
 
+  private usuarioReporte(r: any): string {
+    const usuario = r?.usuarioNombre ?? r?.usuario;
+    if (usuario === 'Ya no existe') return 'Ya no existe';
+
+    if (usuario && typeof usuario === 'object') {
+      const nombre = String(usuario.nombre || usuario.name || '').trim();
+      return nombre || 'Ya no existe';
+    }
+
+    const nombre = String(usuario || '').trim();
+    return nombre || 'Ya no existe';
+  }
+
   private seleccionarDesdeInput(val: string) {
     const v = (val || '').trim();
     if (!v) return;
@@ -254,7 +267,10 @@ export class ReporteVentasProductoComponent {
           return Number.isFinite(n) ? n : 0;
         };
 
-        this.rows = resp?.items || [];
+        this.rows = (resp?.items || []).map((r: any) => ({
+          ...r,
+          usuarioNombre: this.usuarioReporte(r)
+        }));
 
         // Totales calculados desde las filas (coherentes con lo que ves en la tabla)
         const sums = this.rows.reduce(
@@ -322,7 +338,7 @@ export class ReporteVentasProductoComponent {
     const cols = [
       { key: 'fecha', label: 'Fecha', map: (r: any) => (r.fecha ? r.fecha.substring(0, 10) : '') },
       { key: 'farmaciaNombre', label: 'Farmacia' },
-      { key: 'usuarioNombre', label: 'Usuario' },
+      { key: 'usuarioNombre', label: 'Usuario', map: (r: any) => this.usuarioReporte(r) },
       { key: 'codigoBarras', label: 'Código' },
       { key: 'productoNombre', label: 'Producto' },
       { key: 'cantidadVendida', label: 'Cantidad' },

@@ -105,7 +105,7 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
           { $lookup: { from: 'farmacias', localField: 'farmacia', foreignField: '_id', as: 'farm' } },
           { $unwind: '$farm' },
           { $lookup: { from: 'usuarios', localField: 'usuario', foreignField: '_id', as: 'us' } },
-          { $unwind: '$us' },
+          { $unwind: { path: '$us', preserveNullAndEmptyArrays: true } },
 
           {
             $addFields: {
@@ -151,7 +151,7 @@ function pipelineVentasProductoDetalle({ productoId, farmaciaId, fechaIni, fecha
               fecha: 1,
               folio: '$folio',
               farmaciaNombre: '$farm.nombre',
-              usuarioNombre: '$us.nombre',
+              usuarioNombre: { $ifNull: ['$us.nombre', 'Ya no existe'] },
               codigoBarras: '$prod.codigoBarras',
               productoNombre: '$prod.nombre',
               cantidadVendida: '$productos.cantidad',
