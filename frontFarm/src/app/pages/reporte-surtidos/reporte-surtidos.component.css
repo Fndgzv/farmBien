@@ -1,0 +1,53 @@
+.container-surtidos {
+  width: 100%;
+}
+
+.filtros {
+  border-bottom: 2px solid #0453b3;
+  padding-bottom: 1rem;
+}
+
+.form-label {
+  margin-bottom: 0 !important;
+}
+
+.detalle-cell {
+  background: #fafafa;
+}
+
+.detalle-tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.detalle-tabla th,
+.detalle-tabla td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #e5e7eb;
+  vertical-align: top;
+}
+
+.detalle-tabla th {
+  background: #f3f4f6;
+}
+
+.detalle-tabla th.th-sort {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.btn-icon-chico {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

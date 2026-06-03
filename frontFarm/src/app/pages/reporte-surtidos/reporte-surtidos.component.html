@@ -1,0 +1,135 @@
+<div class="container-surtidos">
+  <h2 class="titulo text-center">Reporte de Surtidos</h2>
+
+  <div class="mb-2 filtros">
+    <form class="row g-2 align-items-end" (ngSubmit)="buscar()">
+      <div class="col-md-3">
+        <label class="form-label">Farmacia</label>
+        <select class="form-select" [(ngModel)]="farmaciaId" name="farmaciaId" (change)="buscar()" [disabled]="cargando">
+          <option *ngFor="let f of farmacias" [ngValue]="f._id || ''">{{ f.nombre }}</option>
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Fecha inicial</label>
+        <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" (change)="buscar()" [disabled]="cargando">
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Fecha final</label>
+        <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" (change)="buscar()" [disabled]="cargando">
+      </div>
+
+      <div class="col-md-2">
+        <button type="submit" class="btn-gris" [disabled]="cargando">
+          {{ cargando ? 'Buscando...' : 'Buscar' }}
+        </button>
+      </div>
+
+      <div class="col-md-1">
+        <button type="button" class="btn-rojo" (click)="limpiar()" [disabled]="cargando" matTooltip="Limpiar filtros">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="mt-2">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th style="width: 48px;">Det</th>
+          <th>Farmacia</th>
+          <th>Fecha</th>
+          <th>Usuario</th>
+          <th style="width: 120px;">Acciones</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <ng-container *ngFor="let r of rows; trackBy: trackBySurtido">
+          <tr>
+            <td class="text-center">
+              <button
+                type="button"
+                class="btn-icon-chico btn-gris-chico"
+                (click)="toggleDetalle(r)"
+                [disabled]="cargando"
+                [matTooltip]="isExpanded(r) ? 'Ocultar detalle del surtido' : 'Mostrar detalle del surtido'">
+                <i class="fa" [ngClass]="isExpanded(r) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+              </button>
+            </td>
+            <td>{{ r.farmacia || '-' }}</td>
+            <td>{{ r.fechaSurtido | date:'dd/MM/yyyy HH:mm':'America/Mexico_City' }}</td>
+            <td>{{ r.usuario || 'Usuario inexistente' }}</td>
+            <td>
+              <button
+                type="button"
+                class="btn-icon-chico btn-amarillo"
+                (click)="exportarExcel(r)"
+                [disabled]="cargando"
+                matTooltip="Exportar a excel el surtido">
+                <i class="fas fa-file-excel"></i>
+              </button>
+
+              <button
+                type="button"
+                class="btn-icon-chico btn-gris-chico ms-1"
+                (click)="imprimir(r)"
+                [disabled]="cargando"
+                matTooltip="Imprimir hoja de surtido">
+                <i class="fas fa-print"></i>
+              </button>
+            </td>
+          </tr>
+
+          <tr *ngIf="isExpanded(r)">
+            <td colspan="5" class="detalle-cell">
+              <div class="table-responsive">
+                <table class="detalle-tabla">
+                  <thead>
+                    <tr>
+                      <th class="th-sort" (click)="sortDetalle(r, 'producto')">
+                        Producto <i class="fa sort-icon" [ngClass]="getDetalleSortIcon(r, 'producto')"></i>
+                      </th>
+                      <th>Código</th>
+                      <th class="th-sort" (click)="sortDetalle(r, 'categoria')">
+                        Categoría <i class="fa sort-icon" [ngClass]="getDetalleSortIcon(r, 'categoria')"></i>
+                      </th>
+                      <th class="text-end">Cant.</th>
+                      <th class="th-sort" (click)="sortDetalle(r, 'ubicacionAlmacen')">
+                        Ubic. Almac. <i class="fa sort-icon" [ngClass]="getDetalleSortIcon(r, 'ubicacionAlmacen')"></i>
+                      </th>
+                      <th class="th-sort" (click)="sortDetalle(r, 'ubicacionFarmacia')">
+                        Ubic. Farma <i class="fa sort-icon" [ngClass]="getDetalleSortIcon(r, 'ubicacionFarmacia')"></i>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let it of r.items">
+                      <td>{{ it.producto || '-' }}</td>
+                      <td>{{ it.codigoBarras || '-' }}</td>
+                      <td>{{ it.categoria || '-' }}</td>
+                      <td class="text-end">{{ it.cantidad }}</td>
+                      <td>{{ it.ubicacionAlmacen || '-' }}</td>
+                      <td>{{ it.ubicacionFarmacia || '-' }}</td>
+                    </tr>
+                    <tr *ngIf="!r.items || r.items.length === 0">
+                      <td colspan="6" class="text-center text-muted py-2">Sin items</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+
+        <tr *ngIf="rows.length === 0">
+          <td colspan="5" class="text-center text-muted py-3">
+            {{ cargando ? 'Cargando...' : 'Sin resultados' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

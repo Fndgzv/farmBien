@@ -8,6 +8,7 @@ const Pedido = require('../models/Pedido');
 const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
 const Compra = require('../models/Compra');
+const SurtidoFarmacia = require('../models/SurtidoFarmacia');
 
 const { parseSortTop } = require('../utils/sort');
 
@@ -124,6 +125,94 @@ exports.ventasProductoDetalle = async (req, res) => {
   } catch (e) {
     console.error(e);
     return res.status(500).json({ ok: false, mensaje: 'Error al generar reporte de ventas por producto' });
+  }
+};
+
+exports.reporteSurtidos = async (req, res) => {
+  try {
+    const {
+      farmaciaId,
+      fechaIni: fechaIniQ,
+      fechaFin: fechaFinQ,
+      fechaInicial,
+      fechaFinal,
+    } = req.query;
+
+    if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
+      return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
+    }
+
+    const fechaIni = fechaIniQ || fechaInicial;
+    const fechaFin = fechaFinQ || fechaFinal;
+    const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+
+    const match = { fechaSurtido: { $gte: gte, $lt: lt } };
+    if (farmaciaId) match.farmacia = new Types.ObjectId(farmaciaId);
+
+    const rows = await SurtidoFarmacia.aggregate([
+      { $match: match },
+      { $sort: { fechaSurtido: -1, _id: -1 } },
+      { $lookup: { from: 'farmacias', localField: 'farmacia', foreignField: '_id', as: 'farm' } },
+      { $unwind: { path: '$farm', preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: 'usuarios', localField: 'usuarioSurtio', foreignField: '_id', as: 'us' } },
+      { $unwind: { path: '$us', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$items', preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: 'productos', localField: 'items.producto', foreignField: '_id', as: 'prod' } },
+      { $unwind: { path: '$prod', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'inventariofarmacias',
+          let: { fId: '$farmacia', pId: '$items.producto' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$farmacia', '$$fId'] },
+                    { $eq: ['$producto', '$$pId'] }
+                  ]
+                }
+              }
+            },
+            { $project: { _id: 0, ubicacionFarmacia: 1 } },
+            { $limit: 1 }
+          ],
+          as: 'inv'
+        }
+      },
+      { $unwind: { path: '$inv', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: '$_id',
+          farmacia: { $first: { $ifNull: ['$farm.nombre', ''] } },
+          fechaSurtido: { $first: '$fechaSurtido' },
+          usuario: { $first: { $ifNull: ['$us.usuario', 'Usuario inexistente'] } },
+          usuarioExiste: { $first: { $cond: [{ $ifNull: ['$us._id', false] }, true, false] } },
+          tipoMovimiento: { $first: '$tipoMovimiento' },
+          items: {
+            $push: {
+              producto: { $ifNull: ['$prod.nombre', ''] },
+              codigoBarras: { $ifNull: ['$prod.codigoBarras', ''] },
+              categoria: { $ifNull: ['$prod.categoria', ''] },
+              cantidad: { $ifNull: ['$items.cantidad', 0] },
+              ubicacionAlmacen: { $ifNull: ['$prod.ubicacion', ''] },
+              ubicacionFarmacia: { $ifNull: ['$inv.ubicacionFarmacia', ''] },
+            }
+          }
+        }
+      },
+      { $sort: { fechaSurtido: -1, _id: -1 } }
+    ]).allowDiskUse(true);
+
+    return res.json({
+      ok: true,
+      rango: { fechaIni: gte, fechaFin: lt },
+      filtros: { farmaciaId: farmaciaId || null },
+      rows,
+    });
+  } catch (e) {
+    console.error('[reporteSurtidos][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al generar reporte de surtidos' });
   }
 };
 

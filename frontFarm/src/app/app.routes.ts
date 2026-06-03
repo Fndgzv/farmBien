@@ -181,6 +181,13 @@ export const routes: Routes = [
         component: ReporteComprasVentasComponent
       },
       {
+        path: 'reportes/surtidos',
+        loadComponent: () => import('./pages/reporte-surtidos/reporte-surtidos.component')
+          .then(m => m.ReporteSurtidosComponent),
+        canActivate: [authGuard],
+        data: { rolesPermitidos: ['admin'] }
+      },
+      {
         path: 'etiquetas/print',
         component: EtiquetasPrintComponent
       }

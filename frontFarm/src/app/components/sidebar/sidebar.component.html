@@ -156,6 +156,10 @@
         </ul>
       </li>
 
+      <li *ngIf="userRol === 'admin'" [routerLink]="'reportes/surtidos'" routerLinkActive="active">
+        <span>Surtidos<fa-icon [icon]="'clipboard-list'" class="menu-icon"></fa-icon></span>
+      </li>
+
       <li *ngIf="userRol === 'admin'" class="has-submenu">
         <span (click)="toggleSubMenu('compras')">
           Compras <fa-icon [icon]="'truck'" class="menu-icon"></fa-icon>

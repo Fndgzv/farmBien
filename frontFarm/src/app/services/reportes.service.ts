@@ -109,6 +109,18 @@ export class ReportesService {
     );
   }
 
+  getSurtidos(params: {
+    farmaciaId?: string;
+    fechaIni?: string | Date;
+    fechaFin?: string | Date;
+  }) {
+    const httpParams = this.buildParams(params);
+    return this.http.get<any>(
+      `${this.url}/surtidos`,
+      { params: httpParams }
+    );
+  }
+
 
   private toYmdLocal(v: any): string | undefined {
     if (!v) return undefined;

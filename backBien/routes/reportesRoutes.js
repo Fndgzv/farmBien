@@ -9,6 +9,7 @@ const { rankingProductosKPIs } = require('../controllers/reportesRankingProducto
 const { reporteComprasConVentas } = require('../controllers/reportesComprasVentas.controller');
 
 const {
+  reporteSurtidos,
   resumenProductosVendidos,
   ventasProductoDetalle,
   resumenUtilidades,
@@ -33,6 +34,8 @@ const {
   cancelacionesPorFarmacia,
   cancelacionesPorCliente,
 } = require('../controllers/reportesControllers');
+
+router.get('/surtidos', authMiddleware, isAdmin, reporteSurtidos);
 
 // 1) Productos vendidos por farmacia, día de hoy por defecto 
 router.get('/ventas-por-farmacia', authMiddleware, isAdmin, resumenProductosVendidos);
