@@ -393,6 +393,23 @@ exports.crearProducto = async (req, res) => {
       stockMinimo, stockMaximo, ubicacion, categoria, generico, descuentoINAPAM
     } = req.body;
 
+    const extraerIdFarmacia = (valor) => {
+      if (!valor) return '';
+      if (Array.isArray(valor)) return extraerIdFarmacia(valor[0]);
+      if (typeof valor === 'object') {
+        return extraerIdFarmacia(valor._id || valor.id || valor.farmaciaId || valor.farmacia || valor.$oid);
+      }
+      return String(valor).trim();
+    };
+
+    const farmaciaActivaId = extraerIdFarmacia(
+      req.body.farmaciaActivaId ||
+      req.body.idFarmaciaActiva ||
+      req.body.farmaciaId ||
+      req.body.farmacia ||
+      req.headers['x-farmacia-id']
+    );
+
     // 1) Crear producto
     const nuevoProducto = await Producto.create([{
       nombre,
@@ -420,14 +437,18 @@ exports.crearProducto = async (req, res) => {
     // 3) Preparar documentos de inventario
     const half = (n) => Math.max(0, Math.ceil(Number(n || 0) / 2));
 
-    const docsInventario = farmacias.map(f => ({
-      farmacia: f._id,
-      producto: productoCreado._id,
-      existencia: 0,
-      stockMax: half(stockMaximo),
-      stockMin: half(stockMinimo),
-      precioVenta: precio
-    }));
+    const docsInventario = farmacias.map(f => {
+      const esFarmaciaActiva = farmaciaActivaId && String(f._id) === String(farmaciaActivaId);
+
+      return {
+        farmacia: f._id,
+        producto: productoCreado._id,
+        existencia: 0,
+        stockMax: esFarmaciaActiva ? half(stockMaximo) : 0,
+        stockMin: esFarmaciaActiva ? half(stockMinimo) : 0,
+        precioVenta: precio
+      };
+    });
 
     // 4) Insertar en inventariofarmacias
     if (docsInventario.length > 0) {

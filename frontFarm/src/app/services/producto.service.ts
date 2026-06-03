@@ -17,20 +17,49 @@ export class ProductoService {
 
   constructor(private http: HttpClient) { }
 
+  private extraerFarmaciaId(valor: any): string {
+    if (!valor) return '';
+    if (Array.isArray(valor)) return this.extraerFarmaciaId(valor[0]);
+
+    if (typeof valor === 'object') {
+      return this.extraerFarmaciaId(
+        valor._id || valor.id || valor.farmaciaId || valor.farmacia || valor.sucursal || valor.$oid
+      );
+    }
+
+    const limpio = String(valor).trim();
+    if (!limpio) return '';
+
+    try {
+      const parsed = JSON.parse(limpio);
+      const id = this.extraerFarmaciaId(parsed);
+      if (id) return id;
+      if (parsed && typeof parsed === 'object') return '';
+    } catch { }
+
+    return limpio;
+  }
+
+  private obtenerFarmaciaActivaId(): string {
+    const candidatos = [
+      localStorage.getItem('farmaciaActivaId'),
+      localStorage.getItem('user_farmacia'),
+      localStorage.getItem('farmaciaId'),
+      localStorage.getItem('farmacia'),
+      localStorage.getItem('sucursal')
+    ];
+
+    for (const candidato of candidatos) {
+      const id = this.extraerFarmaciaId(candidato);
+      if (id) return id;
+    }
+
+    return '';
+  }
+
   private headers() {
     const token = localStorage.getItem('auth_token') || '';
-
-    // 1) Admin
-    let farmaciaId = localStorage.getItem('farmaciaActivaId') || '';
-
-    // 2) Fallback user_farmacia
-    if (!farmaciaId) {
-      const uf = localStorage.getItem('user_farmacia');
-      try {
-        const parsed = uf ? JSON.parse(uf) : null;
-        farmaciaId = parsed?._id || '';
-      } catch { }
-    }
+    const farmaciaId = this.obtenerFarmaciaActivaId();
 
     const h: any = {
       'Content-Type': 'application/json',
@@ -45,7 +74,10 @@ export class ProductoService {
 
   // services/producto.service.ts
   crearProducto(payload: any) {
-    return this.http.post<any>(`${environment.apiUrl}/productos`, payload);
+    const farmaciaActivaId = this.obtenerFarmaciaActivaId();
+    const body = farmaciaActivaId ? { ...payload, farmaciaActivaId } : payload;
+
+    return this.http.post<any>(this.apiUrl, body, { headers: this.headers() });
   }
 
   buscarPorCodigoBarras(codigo: string) {
