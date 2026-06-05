@@ -89,6 +89,8 @@ export class ModalEditarProductoComponent implements OnInit {
       categoria: [this.producto.categoria],
       precio: [this.producto.precio, [Validators.required, Validators.min(0)]],
       costo: [this.producto.costo, [Validators.required, Validators.min(0)]],
+      costoHonorariosMedicos: [(this.producto as any).costoHonorariosMedicos ?? 0, [Validators.min(0)]],
+      costoInsumosMedicos: [(this.producto as any).costoInsumosMedicos ?? 0, [Validators.min(0)]],
       iva: [this.producto.iva],
       generico: [this.producto.generico],
       descuentoINAPAM: [this.producto.descuentoINAPAM],
@@ -109,6 +111,23 @@ export class ModalEditarProductoComponent implements OnInit {
     }, { validators: this.validarFechasGlobales() });
 
     // 🔧 DESACTIVAR validación de lotes **y limpiar errores residuales**:
+    this.formulario.get('categoria')?.valueChanges.subscribe((categoria) => {
+      if (!this.esServicioMedicoCategoria(categoria)) {
+        this.formulario.patchValue({
+          costoHonorariosMedicos: 0,
+          costoInsumosMedicos: 0
+        }, { emitEvent: false });
+      }
+      this.actualizarCostoServicioMedico();
+    });
+
+    ['costoHonorariosMedicos', 'costoInsumosMedicos'].forEach((campo) => {
+      this.formulario.get(campo)?.valueChanges.subscribe(() => {
+        this.actualizarCostoServicioMedico();
+      });
+    });
+    this.actualizarCostoServicioMedico();
+
     const lotesFA = this.formulario.get('lotes') as FormArray;
 
     lotesFA.controls.forEach(ctrl => {
@@ -288,6 +307,54 @@ export class ModalEditarProductoComponent implements OnInit {
     this.lotesFormArray.removeAt(index);
   }
 
+  esServicioMedicoCategoria(categoria: any): boolean {
+    return this.normTxt(categoria) === 'servicio medico';
+  }
+
+  private actualizarCostoServicioMedico(): void {
+    if (!this.esServicioMedicoCategoria(this.formulario?.get('categoria')?.value)) return;
+
+    const costo = this.calcularCostoMedico(
+      this.formulario.get('costoHonorariosMedicos')?.value,
+      this.formulario.get('costoInsumosMedicos')?.value
+    );
+
+    this.formulario.patchValue({ costo }, { emitEvent: false });
+  }
+
+  private prepararCostosMedicosPayload(payload: any): void {
+    if (!this.esServicioMedicoCategoria(payload?.categoria)) {
+      payload.costoHonorariosMedicos = 0;
+      payload.costoInsumosMedicos = 0;
+      return;
+    }
+
+    payload.costoHonorariosMedicos = this.numeroNoNegativo(payload.costoHonorariosMedicos);
+    payload.costoInsumosMedicos = this.numeroNoNegativo(payload.costoInsumosMedicos);
+    payload.costo = this.calcularCostoMedico(
+      payload.costoHonorariosMedicos,
+      payload.costoInsumosMedicos
+    );
+  }
+
+  private numeroNoNegativo(value: any): number {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
+  private calcularCostoMedico(honorarios: any, insumos: any): number {
+    return this.numeroNoNegativo(honorarios) + this.numeroNoNegativo(insumos);
+  }
+
+  private normTxt(v: any): string {
+    return String(v ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   guardarProducto() {
 
     if (this.formulario.invalid) {
@@ -298,7 +365,8 @@ export class ModalEditarProductoComponent implements OnInit {
       return; // no continúa si está inválido
     }
 
-    const v = this.formulario.value as any;
+    const v = { ...(this.formulario.value as any) };
+    this.prepararCostosMedicosPayload(v);
 
     const lotes = (v.lotes || []).map((l: any) => {
       const fecha = this.parseMMAA(l?.fechaCaducidad);

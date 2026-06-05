@@ -9,6 +9,7 @@ const Devolucion = require('../models/Devolucion');
 const Cancelacion = require('../models/Cancelacion');
 const Compra = require('../models/Compra');
 const SurtidoFarmacia = require('../models/SurtidoFarmacia');
+const FichaConsultorio = require('../models/FichaConsultorio');
 
 const { parseSortTop } = require('../utils/sort');
 
@@ -56,6 +57,38 @@ function castIdSafe(id) {
 
 function escapeRegex(s = '') {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function numeroReporte(v) {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function redondearReporte(v) {
+  return Math.round((numeroReporte(v) + Number.EPSILON) * 100) / 100;
+}
+
+function obtenerDiaSemanaTurnoReporte(turnoFecha) {
+  const match = String(turnoFecha || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+
+  const utcDate = new Date(Date.UTC(y, m - 1, d));
+  if (Number.isNaN(utcDate.getTime())) return null;
+
+  const jsDay = utcDate.getUTCDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function construirFichaVisualReporte(turnoFecha, turnoConsecutivo) {
+  const dia = obtenerDiaSemanaTurnoReporte(turnoFecha);
+  const consecutivo = Number(turnoConsecutivo);
+  if (!dia || !Number.isFinite(consecutivo) || consecutivo <= 0) return null;
+  return `TC-${dia}${String(Math.trunc(consecutivo)).padStart(2, '0')}`;
 }
 
 // Helper de comparación numérica con dirección
@@ -213,6 +246,155 @@ exports.reporteSurtidos = async (req, res) => {
   } catch (e) {
     console.error('[reporteSurtidos][ERROR]', e);
     return res.status(500).json({ ok: false, mensaje: 'Error al generar reporte de surtidos' });
+  }
+};
+
+exports.serviciosMedicosRealizados = async (req, res) => {
+  try {
+    const { farmaciaId, fecha, medicoId } = req.query;
+
+    if (!farmaciaId || !fecha || !medicoId) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: 'farmaciaId, fecha y medicoId son obligatorios'
+      });
+    }
+
+    if (!Types.ObjectId.isValid(farmaciaId)) {
+      return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
+    }
+
+    if (!Types.ObjectId.isValid(medicoId)) {
+      return res.status(400).json({ ok: false, mensaje: 'medicoId inválido' });
+    }
+
+    const fechaKey = String(fecha || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaKey)) {
+      return res.status(400).json({ ok: false, mensaje: 'fecha inválida' });
+    }
+
+    const { gte, lt } = dayRangeUtc(fechaKey, fechaKey);
+    const farmaciaOid = new Types.ObjectId(farmaciaId);
+    const medicoOid = new Types.ObjectId(medicoId);
+
+    const rawRows = await FichaConsultorio.aggregate([
+      {
+        $match: {
+          farmaciaId: farmaciaOid,
+          medicoId: medicoOid,
+          estado: { $ne: 'CANCELADA' },
+          servicios: { $exists: true, $ne: [] },
+          $or: [
+            { turnoFecha: fechaKey },
+            { llegadaAt: { $gte: gte, $lt: lt } },
+            { inicioAtencionAt: { $gte: gte, $lt: lt } },
+            { finAtencionAt: { $gte: gte, $lt: lt } },
+            { cobradaAt: { $gte: gte, $lt: lt } },
+          ],
+        },
+      },
+      { $unwind: '$servicios' },
+      {
+        $lookup: {
+          from: 'productos',
+          localField: 'servicios.productoId',
+          foreignField: '_id',
+          as: 'producto',
+        },
+      },
+      { $unwind: '$producto' },
+      { $match: { 'producto.categoria': 'Servicio Médico' } },
+      {
+        $lookup: {
+          from: 'inventariofarmacias',
+          let: { fId: '$farmaciaId', pId: '$servicios.productoId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$farmacia', '$$fId'] },
+                    { $eq: ['$producto', '$$pId'] },
+                  ],
+                },
+              },
+            },
+            { $project: { _id: 0, precioVenta: 1 } },
+            { $limit: 1 },
+          ],
+          as: 'inventario',
+        },
+      },
+      { $unwind: { path: '$inventario', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          fichaId: '$_id',
+          folio: 1,
+          turnoFecha: 1,
+          turnoConsecutivo: 1,
+          paciente: '$pacienteNombre',
+          servicioRealizado: { $ifNull: ['$servicios.nombre', '$producto.nombre'] },
+          cantidad: '$servicios.cantidad',
+          costoInsumosUnitario: '$producto.costoInsumosMedicos',
+          costoHonorariosUnitario: '$producto.costoHonorariosMedicos',
+          costoTotalUnitario: '$producto.costo',
+          precioUnitario: '$inventario.precioVenta',
+        },
+      },
+      { $sort: { turnoConsecutivo: 1, paciente: 1, servicioRealizado: 1 } },
+    ]).allowDiskUse(true);
+
+    const rows = rawRows.map((r) => {
+      const cantidad = numeroReporte(r.cantidad);
+      const costoInsumosUnitario = numeroReporte(r.costoInsumosUnitario);
+      const costoHonorariosUnitario = numeroReporte(r.costoHonorariosUnitario);
+      const costoTotalUnitario = numeroReporte(r.costoTotalUnitario);
+      const precioUnitario = numeroReporte(r.precioUnitario);
+
+      return {
+        fichaId: r.fichaId,
+        folio: r.folio || '',
+        turnoFecha: r.turnoFecha || '',
+        turnoConsecutivo: r.turnoConsecutivo ?? null,
+        ficha: construirFichaVisualReporte(r.turnoFecha, r.turnoConsecutivo) || r.folio || '',
+        paciente: r.paciente || '',
+        servicioRealizado: r.servicioRealizado || '',
+        cantidad,
+        costoInsumos: redondearReporte(costoInsumosUnitario * cantidad),
+        costoHonorarios: redondearReporte(costoHonorariosUnitario * cantidad),
+        costoTotal: redondearReporte(costoTotalUnitario * cantidad),
+        precio: redondearReporte(precioUnitario * cantidad),
+      };
+    });
+
+    const totales = rows.reduce((acc, r) => {
+      acc.costoInsumos += numeroReporte(r.costoInsumos);
+      acc.costoHonorarios += numeroReporte(r.costoHonorarios);
+      acc.costoTotal += numeroReporte(r.costoTotal);
+      acc.precio += numeroReporte(r.precio);
+      return acc;
+    }, {
+      costoInsumos: 0,
+      costoHonorarios: 0,
+      costoTotal: 0,
+      precio: 0,
+    });
+
+    Object.keys(totales).forEach((key) => {
+      totales[key] = redondearReporte(totales[key]);
+    });
+
+    return res.json({
+      ok: true,
+      filtros: { farmaciaId, fecha: fechaKey, medicoId },
+      rango: { fechaIni: gte, fechaFin: lt },
+      rows,
+      totales,
+    });
+  } catch (e) {
+    console.error('[serviciosMedicosRealizados][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al generar reporte de servicios médicos realizados' });
   }
 };
 

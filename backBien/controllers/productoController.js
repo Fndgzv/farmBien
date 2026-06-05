@@ -12,6 +12,23 @@ const mime = require('mime-types');
 
 const escapeRegex = (s = '') => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const normalizarTexto = (s = '') => String(s ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const esServicioMedico = (categoria) => normalizarTexto(categoria) === 'servicio medico';
+
+const numeroMedico = (valor) => {
+  const n = Number(valor);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
+
+const costoServicioMedico = (honorarios, insumos) =>
+  numeroMedico(honorarios) + numeroMedico(insumos);
+
 require('../utils/imagenes');
 
 // Convierte "12345" -> /1\D*2\D*3\D*4\D*5/i  (permite guiones/espacios entre dígitos)
@@ -390,7 +407,8 @@ exports.crearProducto = async (req, res) => {
   try {
     const {
       nombre, ingreActivo, renglon1, renglon2, codigoBarras, unidad, precio, costo, iva,
-      stockMinimo, stockMaximo, ubicacion, categoria, generico, descuentoINAPAM
+      stockMinimo, stockMaximo, ubicacion, categoria, generico,
+      costoHonorariosMedicos, costoInsumosMedicos
     } = req.body;
 
     const extraerIdFarmacia = (valor) => {
@@ -410,6 +428,10 @@ exports.crearProducto = async (req, res) => {
       req.headers['x-farmacia-id']
     );
 
+    const esMedico = esServicioMedico(categoria);
+    const honorariosMedicos = esMedico ? numeroMedico(costoHonorariosMedicos) : 0;
+    const insumosMedicos = esMedico ? numeroMedico(costoInsumosMedicos) : 0;
+
     // 1) Crear producto
     const nuevoProducto = await Producto.create([{
       nombre,
@@ -419,14 +441,15 @@ exports.crearProducto = async (req, res) => {
       codigoBarras,
       unidad,
       precio,
-      costo,
+      costo: esMedico ? costoServicioMedico(honorariosMedicos, insumosMedicos) : costo,
       iva,
       stockMinimo,
       stockMaximo,
       ubicacion,
       categoria,
       generico,
-      descuentoINAPAM
+      costoHonorariosMedicos: honorariosMedicos,
+      costoInsumosMedicos: insumosMedicos
     }], { session });
 
     const productoCreado = nuevoProducto[0];
@@ -1028,14 +1051,16 @@ const validarPromociones = (producto) => {
   return true;
 }
 
-const validarProducto = (prod) => {
+const validarProducto = (prod, opciones = {}) => {
+  const validarPromos = opciones.validarPromociones !== false;
+
   if (!validarLotesDuplicados(prod.lotes)) {
     return { valido: false, mensaje: "Lotes duplicados en el producto: " + prod.nombre };
   }
   if (!validarFechasLotes(prod.lotes)) {
     return { valido: false, mensaje: "Fechas de caducidad inválidas en el producto: " + prod.nombre };
   }
-  if (!validarPromociones(prod)) {
+  if (validarPromos && !validarPromociones(prod)) {
     return { valido: false, mensaje: "Porcentajes inválidos en promociones del producto: " + prod.nombre };
   }
   return { valido: true };
@@ -1105,13 +1130,12 @@ exports.buscarProductos = async (req, res) => {
 
 
 exports.actualizarProducto = async (req, res) => {
-  /* Actualiza un producto en Almacen y de ser el caso 
-  actualiza el precio en todas las farmacias*/
+  /* Actualiza un producto en Almacen */
   try {
     const prod = req.body;
     const productoId = req.params.id;
 
-    const validacion = validarProducto(prod);
+    const validacion = validarProducto(prod, { validarPromociones: false });
     if (!validacion.valido) {
       return res.status(400).json({ mensaje: validacion.mensaje });
     }
@@ -1121,23 +1145,35 @@ exports.actualizarProducto = async (req, res) => {
       return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
-    // Guardamos el precio anterior para comparar
-    //const precioAnterior = productoActual.precio;
-
     // Actualización de campos
     productoActual.nombre = prod.nombre;
     productoActual.ingreActivo = prod.ingreActivo;
     productoActual.renglon1 = prod.renglon1;
     productoActual.renglon2 = prod.renglon2;
     productoActual.codigoBarras = prod.codigoBarras;
-    productoActual.categoria = prod.categoria;
+    const categoriaFinal = prod.categoria !== undefined ? prod.categoria : productoActual.categoria;
+    productoActual.categoria = categoriaFinal;
     productoActual.ubicacion = prod.ubicacion;
     if (typeof prod.precio === 'number') productoActual.precio = prod.precio;
-    if (typeof prod.costo === 'number') productoActual.costo = prod.costo;
     if (typeof prod.iva !== 'undefined') productoActual.iva = prod.iva;
     if (typeof prod.stockMinimo === 'number') productoActual.stockMinimo = prod.stockMinimo;
     if (typeof prod.stockMaximo === 'number') productoActual.stockMaximo = prod.stockMaximo;
-    if (typeof prod.descuentoINAPAM !== 'undefined') productoActual.descuentoINAPAM = prod.descuentoINAPAM;
+    if (esServicioMedico(categoriaFinal)) {
+      const honorariosMedicos = prod.costoHonorariosMedicos !== undefined
+        ? numeroMedico(prod.costoHonorariosMedicos)
+        : numeroMedico(productoActual.costoHonorariosMedicos);
+      const insumosMedicos = prod.costoInsumosMedicos !== undefined
+        ? numeroMedico(prod.costoInsumosMedicos)
+        : numeroMedico(productoActual.costoInsumosMedicos);
+
+      productoActual.costoHonorariosMedicos = honorariosMedicos;
+      productoActual.costoInsumosMedicos = insumosMedicos;
+      productoActual.costo = costoServicioMedico(honorariosMedicos, insumosMedicos);
+    } else {
+      if (typeof prod.costo === 'number') productoActual.costo = prod.costo;
+      productoActual.costoHonorariosMedicos = 0;
+      productoActual.costoInsumosMedicos = 0;
+    }
 
     // ✅ ultimoProveedorId (solo si llega un ObjectId válido)
     if (prod.ultimoProveedorId !== undefined) {
@@ -1147,33 +1183,10 @@ exports.actualizarProducto = async (req, res) => {
       }
     }
 
-    // Promos por día
-    productoActual.promoLunes = prod.promosPorDia?.promoLunes;
-    productoActual.promoMartes = prod.promosPorDia?.promoMartes;
-    productoActual.promoMiercoles = prod.promosPorDia?.promoMiercoles;
-    productoActual.promoJueves = prod.promosPorDia?.promoJueves;
-    productoActual.promoViernes = prod.promosPorDia?.promoViernes;
-    productoActual.promoSabado = prod.promosPorDia?.promoSabado;
-    productoActual.promoDomingo = prod.promosPorDia?.promoDomingo;
-
-    // Promos cantidad y temporada
-    productoActual.promoCantidadRequerida = prod.promoCantidadRequerida;
-    productoActual.inicioPromoCantidad = prod.inicioPromoCantidad;
-    productoActual.finPromoCantidad = prod.finPromoCantidad;
-    productoActual.promoDeTemporada = prod.promoDeTemporada;
-
     // Lotes
     productoActual.lotes = Array.isArray(prod.lotes) ? prod.lotes : [];
 
     await productoActual.save();
-
-    // 🔹 Solo sincroniza InventarioFarmacia si el precio cambió y es numérico
-    /* if (typeof prod.precio === 'number' && !isNaN(prod.precio) && prod.precio !== precioAnterior) {
-      await InventarioFarmacia.updateMany(
-        { producto: productoId, precioVenta: { $ne: prod.precio } },
-        { $set: { precioVenta: prod.precio } }
-      );
-    } */
 
     res.json({ mensaje: "Producto actualizado correctamente", producto: productoActual });
   } catch (error) {

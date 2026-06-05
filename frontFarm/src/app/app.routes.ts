@@ -188,6 +188,13 @@ export const routes: Routes = [
         data: { rolesPermitidos: ['admin'] }
       },
       {
+        path: 'servicios-medicos-realizados',
+        loadComponent: () => import('./pages/servicios-medicos-realizados/servicios-medicos-realizados.component')
+          .then(m => m.ServiciosMedicosRealizadosComponent),
+        canActivate: [authGuard],
+        data: { rolesPermitidos: ['admin'] }
+      },
+      {
         path: 'etiquetas/print',
         component: EtiquetasPrintComponent
       }

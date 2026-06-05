@@ -121,6 +121,18 @@ export class ReportesService {
     );
   }
 
+  getServiciosMedicosRealizados(params: {
+    farmaciaId: string;
+    fecha: string | Date;
+    medicoId: string;
+  }) {
+    const httpParams = this.buildParams(params);
+    return this.http.get<any>(
+      `${this.url}/servicios-medicos-realizados`,
+      { params: httpParams }
+    );
+  }
+
 
   private toYmdLocal(v: any): string | undefined {
     if (!v) return undefined;

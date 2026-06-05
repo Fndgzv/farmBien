@@ -395,15 +395,7 @@
                         'bi-caret-up': columnaOrden !== 'nombre'
                     }" class="icono-orden"></i>
                 </th>
-                <!-- <th (click)="ordenar('codigoBarras')">
-                    Código Barras
-                    <i [ngClass]="{
-                        'bi': true,
-                        'bi-caret-up-fill': columnaOrden === 'codigoBarras' && direccionOrden === 'asc',
-                        'bi-caret-down-fill': columnaOrden === 'codigoBarras' && direccionOrden === 'desc',
-                        'bi-caret-up': columnaOrden !== 'codigoBarras'
-                    }" class="icono-orden"></i>
-                </th> -->
+
                 <th (click)="ordenar('categoria')">
                     Categoría
                     <i [ngClass]="{
@@ -612,11 +604,21 @@
                     </div>
                     <div class="col-2">
                         <label>Costo *</label>
-                        <input type="number" formControlName="costo" class="form-control" />
+                        <input type="number" formControlName="costo" class="form-control" [readonly]="mostrarCostosMedicosNuevo()" />
                     </div>
                     <div class="col-2">
                         <label>Precio *</label>
                         <input type="number" formControlName="precio" class="form-control" />
+                    </div>
+
+                    <div class="col-3" *ngIf="mostrarCostosMedicosNuevo()">
+                        <label>Honorarios médicos</label>
+                        <input type="number" formControlName="costoHonorariosMedicos" class="form-control" min="0" />
+                    </div>
+
+                    <div class="col-3" *ngIf="mostrarCostosMedicosNuevo()">
+                        <label>Insumos médicos</label>
+                        <input type="number" formControlName="costoInsumosMedicos" class="form-control" min="0" />
                     </div>
 
                     <div class="col-2">
@@ -642,11 +644,6 @@
                     <div class="col-2 form-check-vertical">
                         <label for="chkGen" class="form-label">Genérico</label>
                         <input type="checkbox" class="form-check-input" formControlName="generico" id="chkGen" />
-                    </div>
-
-                    <div class="col-2 form-check-vertical">
-                        <label for="chkINA" class="form-label">INAPAM</label>
-                        <input type="checkbox" class="form-check-input" formControlName="descuentoINAPAM" id="chkINA" />
                     </div>
 
                 </div>

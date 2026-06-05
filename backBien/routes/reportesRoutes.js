@@ -10,6 +10,7 @@ const { reporteComprasConVentas } = require('../controllers/reportesComprasVenta
 
 const {
   reporteSurtidos,
+  serviciosMedicosRealizados,
   resumenProductosVendidos,
   ventasProductoDetalle,
   resumenUtilidades,
@@ -36,6 +37,7 @@ const {
 } = require('../controllers/reportesControllers');
 
 router.get('/surtidos', authMiddleware, isAdmin, reporteSurtidos);
+router.get('/servicios-medicos-realizados', authMiddleware, isAdmin, serviciosMedicosRealizados);
 
 // 1) Productos vendidos por farmacia, día de hoy por defecto 
 router.get('/ventas-por-farmacia', authMiddleware, isAdmin, resumenProductosVendidos);

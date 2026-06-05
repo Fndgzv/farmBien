@@ -22,6 +22,8 @@ export interface Producto {
   unidad: string;
   precio: number;
   costo: number;
+  costoHonorariosMedicos?: number;
+  costoInsumosMedicos?: number;
   iva: boolean;
   stockMinimo: number;
   stockMaximo: number;

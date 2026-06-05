@@ -1,0 +1,42 @@
+.container-servicios-medicos {
+  width: 100%;
+}
+
+.filtros {
+  border-bottom: 2px solid #0453b3;
+  padding-bottom: 1rem;
+}
+
+.form-label {
+  margin-bottom: 0 !important;
+}
+
+.acciones-reporte {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.acciones-reporte button {
+  white-space: nowrap;
+}
+
+.tabla th,
+.tabla td {
+  vertical-align: middle;
+}
+
+.ficha-cell {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.total-label {
+  font-weight: 700;
+}
+
+tfoot td {
+  background: #f3f4f6;
+  font-weight: 700;
+}

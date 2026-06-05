@@ -141,13 +141,30 @@ export class AjustesInventarioComponent implements OnInit {
       unidad: ['', Validators.required],
       precio: [null, [Validators.required, Validators.min(0)]],
       costo: [null, [Validators.required, Validators.min(0)]],
+      costoHonorariosMedicos: [0, [Validators.min(0)]],
+      costoInsumosMedicos: [0, [Validators.min(0)]],
       iva: [false],
       stockMinimo: [50, [Validators.required, Validators.min(0)]],
       stockMaximo: [100, [Validators.required, Validators.min(0)]],
       ubicacion: [''],
       categoria: ['', Validators.required],
-      generico: [false],
-      descuentoINAPAM: [false]
+      generico: [false]
+    });
+
+    this.nuevoProductoForm.get('categoria')?.valueChanges.subscribe((categoria) => {
+      if (!this.esServicioMedicoCategoria(categoria)) {
+        this.nuevoProductoForm.patchValue({
+          costoHonorariosMedicos: 0,
+          costoInsumosMedicos: 0
+        }, { emitEvent: false });
+      }
+      this.actualizarCostoNuevoServicioMedico();
+    });
+
+    ['costoHonorariosMedicos', 'costoInsumosMedicos'].forEach((campo) => {
+      this.nuevoProductoForm.get(campo)?.valueChanges.subscribe(() => {
+        this.actualizarCostoNuevoServicioMedico();
+      });
     });
 
   }
@@ -186,6 +203,67 @@ export class AjustesInventarioComponent implements OnInit {
   /** Divide en palabras no vacías */
   private splitWords(v: string): string[] {
     return this.normTxt(v).split(' ').filter(Boolean);
+  }
+
+  esServicioMedicoCategoria(categoria: any): boolean {
+    return this.normTxt(categoria) === 'servicio medico';
+  }
+
+  mostrarCostosMedicosNuevo(): boolean {
+    return this.esServicioMedicoCategoria(this.nuevoProductoForm?.get('categoria')?.value);
+  }
+
+  private actualizarCostoNuevoServicioMedico(): void {
+    if (!this.mostrarCostosMedicosNuevo()) return;
+
+    const costo = this.calcularCostoMedico(
+      this.nuevoProductoForm.get('costoHonorariosMedicos')?.value,
+      this.nuevoProductoForm.get('costoInsumosMedicos')?.value
+    );
+
+    this.nuevoProductoForm.patchValue({ costo }, { emitEvent: false });
+  }
+
+  private limpiarCamposPromocionProducto(payload: any): void {
+    [
+      'descuentoINAPAM',
+      'promoLunes',
+      'promoMartes',
+      'promoMiercoles',
+      'promoJueves',
+      'promoViernes',
+      'promoSabado',
+      'promoDomingo',
+      'promoCantidadRequerida',
+      'inicioPromoCantidad',
+      'finPromoCantidad',
+      'promoDeTemporada',
+      'promosPorDia'
+    ].forEach((campo) => delete payload[campo]);
+  }
+
+  private prepararCostosMedicosPayload(payload: any): void {
+    if (!this.esServicioMedicoCategoria(payload?.categoria)) {
+      payload.costoHonorariosMedicos = 0;
+      payload.costoInsumosMedicos = 0;
+      return;
+    }
+
+    payload.costoHonorariosMedicos = this.numeroNoNegativo(payload.costoHonorariosMedicos);
+    payload.costoInsumosMedicos = this.numeroNoNegativo(payload.costoInsumosMedicos);
+    payload.costo = this.calcularCostoMedico(
+      payload.costoHonorariosMedicos,
+      payload.costoInsumosMedicos
+    );
+  }
+
+  private numeroNoNegativo(value: any): number {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+
+  private calcularCostoMedico(honorarios: any, insumos: any): number {
+    return this.numeroNoNegativo(honorarios) + this.numeroNoNegativo(insumos);
   }
 
   aplicarFiltros() {
@@ -782,11 +860,14 @@ export class AjustesInventarioComponent implements OnInit {
     delete payload.updatedAt;
 
     // ✅ normaliza numéricos reales
-    ['precio', 'costo', 'stockMinimo', 'stockMaximo'].forEach(k => {
+    ['precio', 'costo', 'stockMinimo', 'stockMaximo', 'costoHonorariosMedicos', 'costoInsumosMedicos'].forEach(k => {
       if (payload[k] !== undefined && payload[k] !== null && payload[k] !== '') {
         payload[k] = Number(payload[k]);
       }
     });
+
+    this.limpiarCamposPromocionProducto(payload);
+    this.prepararCostosMedicosPayload(payload);
 
     // iva y generico son boolean
     // ultimoProveedorId se manda tal cual (string o null)
@@ -933,13 +1014,14 @@ export class AjustesInventarioComponent implements OnInit {
       unidad: 'PZA',
       precio: null,
       costo: null,
+      costoHonorariosMedicos: 0,
+      costoInsumosMedicos: 0,
       iva: false,
       stockMinimo: 10,
       stockMaximo: 20,
       ubicacion: '',
       categoria: '',
-      generico: false,
-      descuentoINAPAM: false
+      generico: false
     });
     this.mostrarNuevoProducto = true;
     // Bloquear el scroll del body (opcional)
@@ -964,7 +1046,9 @@ export class AjustesInventarioComponent implements OnInit {
       return;
     }
 
-    const payload = this.nuevoProductoForm.value;
+    const payload = { ...this.nuevoProductoForm.value };
+    this.limpiarCamposPromocionProducto(payload);
+    this.prepararCostosMedicosPayload(payload);
 
     // validación simple: stockMax >= stockMin
     if (payload.stockMaximo < payload.stockMinimo) {

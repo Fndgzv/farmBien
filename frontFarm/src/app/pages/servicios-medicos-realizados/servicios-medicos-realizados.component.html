@@ -1,0 +1,116 @@
+<div class="container-servicios-medicos">
+  <h2 class="titulo text-center">Servicios médicos realizados</h2>
+
+  <div class="mb-2 filtros">
+    <form class="row g-2 align-items-end" (ngSubmit)="buscar()">
+      <div class="col-md-3">
+        <label class="form-label">Farmacia</label>
+        <select
+          class="form-select"
+          [(ngModel)]="farmaciaId"
+          name="farmaciaId"
+          (change)="limpiarResultados()"
+          [disabled]="cargando">
+          <option value="" disabled>Seleccione</option>
+          <option *ngFor="let f of farmacias" [ngValue]="f._id || ''">{{ f.nombre }}</option>
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <label class="form-label">Fecha</label>
+        <input
+          type="date"
+          class="form-control"
+          [(ngModel)]="fecha"
+          name="fecha"
+          (change)="limpiarResultados()"
+          [disabled]="cargando">
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Médico</label>
+        <select
+          class="form-select"
+          [(ngModel)]="medicoId"
+          name="medicoId"
+          (change)="limpiarResultados()"
+          [disabled]="cargando">
+          <option value="" disabled>Seleccione</option>
+          <option *ngFor="let m of medicos" [ngValue]="m._id || ''">{{ m.nombre }}</option>
+        </select>
+      </div>
+
+      <div class="col-md-4 acciones-reporte">
+        <button type="submit" class="btn-gris" [disabled]="!puedeBuscar()" matTooltip="Buscar servicios médicos realizados">
+          {{ cargando ? 'Buscando...' : 'Buscar' }}
+        </button>
+
+        <button
+          type="button"
+          class="btn-amarillo"
+          (click)="exportarExcel()"
+          [disabled]="cargando || rows.length === 0"
+          matTooltip="Exportar a excel">
+          <i class="fas fa-file-excel"></i>
+          Exportar a excel
+        </button>
+
+        <button
+          type="button"
+          class="btn-gris"
+          (click)="imprimir()"
+          [disabled]="cargando || rows.length === 0"
+          matTooltip="Imprimir reporte">
+          <i class="fas fa-print"></i>
+          Imprimir
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="mt-2 table-responsive">
+    <table class="tabla">
+      <thead>
+        <tr>
+          <th>Ficha</th>
+          <th>Paciente</th>
+          <th>Servicio realizado</th>
+          <th class="text-end">Cantidad</th>
+          <th class="text-end">Costo insumos</th>
+          <th class="text-end">Costo honorarios</th>
+          <th class="text-end">Costo Total</th>
+          <th class="text-end">Precio</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let r of rows; let i = index; trackBy: trackByRow">
+          <td class="ficha-cell">{{ r.ficha }}</td>
+          <td>{{ r.paciente || '-' }}</td>
+          <td>{{ r.servicioRealizado || '-' }}</td>
+          <td class="text-end">{{ r.cantidad | number:'1.0-2' }}</td>
+          <td class="text-end">{{ r.costoInsumos | currency:'MXN':'symbol':'1.2-2' }}</td>
+          <td class="text-end">{{ r.costoHonorarios | currency:'MXN':'symbol':'1.2-2' }}</td>
+          <td class="text-end">{{ r.costoTotal | currency:'MXN':'symbol':'1.2-2' }}</td>
+          <td class="text-end">{{ r.precio | currency:'MXN':'symbol':'1.2-2' }}</td>
+        </tr>
+
+        <tr *ngIf="rows.length === 0">
+          <td colspan="8" class="text-center text-muted py-3">
+            {{ cargando ? 'Cargando...' : 'Sin resultados' }}
+          </td>
+        </tr>
+      </tbody>
+
+      <tfoot *ngIf="rows.length > 0">
+        <tr>
+          <td colspan="4" class="text-end total-label">Total</td>
+          <td class="text-end">{{ totales.costoInsumos | currency:'MXN':'symbol':'1.2-2' }}</td>
+          <td class="text-end">{{ totales.costoHonorarios | currency:'MXN':'symbol':'1.2-2' }}</td>
+          <td class="text-end">{{ totales.costoTotal | currency:'MXN':'symbol':'1.2-2' }}</td>
+          <td class="text-end">{{ totales.precio | currency:'MXN':'symbol':'1.2-2' }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>

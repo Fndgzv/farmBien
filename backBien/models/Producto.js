@@ -27,6 +27,8 @@ const ProductoSchema = new Schema({
   unidad: { type: String, required: true, trim: true },
   precio: { type: Number, required: true },
   costo: { type: Number, required: true },
+  costoHonorariosMedicos: { type: Number, default: 0 },
+  costoInsumosMedicos: { type: Number, default: 0 },
   iva: { type: Boolean },
 
   stockMinimo: { type: Number, required: true, default: 50 },

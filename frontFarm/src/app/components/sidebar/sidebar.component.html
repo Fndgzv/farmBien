@@ -180,6 +180,10 @@
         </ul>
       </li>
 
+      <li *ngIf="userRol === 'admin'" [routerLink]="'/servicios-medicos-realizados'" routerLinkActive="active">
+        <span>Servicios médicos<fa-icon [icon]="'stethoscope'" class="menu-icon"></fa-icon></span>
+      </li>
+
       <li *ngIf="userRol === 'admin'" class="has-submenu">
         <span (click)="toggleSubMenu('balance')">
           Balance <fa-icon [icon]="'scale-balanced'" class="menu-icon"></fa-icon>
