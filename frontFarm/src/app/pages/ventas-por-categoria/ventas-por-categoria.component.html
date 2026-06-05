@@ -1,0 +1,120 @@
+<div class="p-1">
+  <div class="titulo-container">
+    <h2 class="mb-3 titulo">Ventas por categoría</h2>
+  </div>
+
+  <form (ngSubmit)="buscar()" class="row filtros align-items-end">
+    <div class="col-md-2">
+      <label class="form-label">Farmacia</label>
+      <select class="form-select" [(ngModel)]="farmaciaId" name="farmaciaId">
+        <option value="">Todas</option>
+        <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label">Categoría</label>
+      <div class="d-flex gap-2">
+        <input
+          type="text"
+          class="form-control"
+          [(ngModel)]="categoriaQ"
+          name="categoriaQ"
+          (keyup.enter)="buscar()" />
+        <button type="button" class="btn-rojo-chico" (click)="clearCategoria()" [disabled]="!categoriaQ">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label">Fecha inicial</label>
+      <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" />
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label">Fecha final</label>
+      <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
+    </div>
+
+    <div class="col-md-4 d-flex gap-2 justify-content-end align-items-end acciones-reporte">
+      <button type="button" class="btn-rojo" (click)="limpiarFiltros()" [disabled]="cargando" matTooltip="Limpiar filtro">
+        <i class="fas fa-times"></i>
+      </button>
+
+      <button class="btn-gris" type="submit" [disabled]="cargando">
+        {{ cargando ? 'Buscando...' : 'Buscar' }}
+      </button>
+
+      <button class="btn-verde" type="button" (click)="exportarExcel()" [disabled]="cargando || !rows.length">
+        <i class="fas fa-file-excel"></i>
+        Exportar a excel
+      </button>
+    </div>
+  </form>
+
+  <div class="mt-2">
+    <table class="align-middle tabla">
+      <thead>
+        <tr>
+          <th class="sortable" (click)="setSort('farmacia')">
+            Farmacia <i class="fa sort-icon" [ngClass]="sortIcon('farmacia')"></i>
+          </th>
+          <th class="sortable" (click)="setSort('categoria')">
+            Categoría <i class="fa sort-icon" [ngClass]="sortIcon('categoria')"></i>
+          </th>
+          <th class="text-end sortable" (click)="setSort('vendidos')">
+            Vendidos <i class="fa sort-icon" [ngClass]="sortIcon('vendidos')"></i>
+          </th>
+          <th class="text-end sortable" (click)="setSort('costo')">
+            Costo total <i class="fa sort-icon" [ngClass]="sortIcon('costo')"></i>
+          </th>
+          <th class="text-end sortable" (click)="setSort('ingreso')">
+            Ingreso total <i class="fa sort-icon" [ngClass]="sortIcon('ingreso')"></i>
+          </th>
+          <th class="text-end sortable" (click)="setSort('utilidad')">
+            Utilidad <i class="fa sort-icon" [ngClass]="sortIcon('utilidad')"></i>
+          </th>
+          <th class="text-end sortable" (click)="setSort('margen')">
+            % Ganancia <i class="fa sort-icon" [ngClass]="sortIcon('margen')"></i>
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let r of sortedRows; trackBy: trackByRow">
+          <td>{{ r.farmacia || '-' }}</td>
+          <td>{{ r.categoria || 'Sin categoría' }}</td>
+          <td class="text-end">{{ r.cantidadVendida | number }}</td>
+          <td class="text-end">{{ r.costoTotal | currency }}</td>
+          <td class="text-end">{{ r.importeVendido | currency }}</td>
+          <td class="text-end" [ngClass]="{ 'text-danger': (r.utilidad || 0) < 0 }">
+            {{ r.utilidad | currency }}
+          </td>
+          <td class="text-end">
+            {{ r.margenPct == null ? '—' : (r.margenPct | number:'1.0-2') + '%' }}
+          </td>
+        </tr>
+
+        <tr *ngIf="rows.length === 0">
+          <td colspan="7" class="text-center text-muted">
+            {{ cargando ? 'Cargando...' : 'Sin resultados' }}
+          </td>
+        </tr>
+      </tbody>
+
+      <tfoot *ngIf="rows.length">
+        <tr class="fw-bold">
+          <td colspan="2" class="text-end">Totales:</td>
+          <td class="text-end">{{ totalCantidad | number }}</td>
+          <td class="text-end">{{ totalCosto | currency }}</td>
+          <td class="text-end">{{ totalImporte | currency }}</td>
+          <td class="text-end">{{ totalUtilidad | currency }}</td>
+          <td class="text-end">
+            {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>

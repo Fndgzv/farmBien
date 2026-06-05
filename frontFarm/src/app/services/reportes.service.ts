@@ -77,6 +77,16 @@ export class ReportesService {
     return this.http.get<ResumenVentasResponse>(`${this.url}/ventas-por-farmacia`, { params: httpParams });
   }
 
+  getVentasPorCategoria(params: {
+    farmaciaId?: string;
+    fechaIni?: string | Date;
+    fechaFin?: string | Date;
+    categoriaQ?: string;
+  }) {
+    const httpParams = this.buildParams(params);
+    return this.http.get<any>(`${this.url}/ventas-por-categoria`, { params: httpParams });
+  }
+
   // Helpers
   private buildParams(obj: Record<string, any>): HttpParams {
     let p = new HttpParams();

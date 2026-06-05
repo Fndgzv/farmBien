@@ -4,8 +4,8 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { MatIconModule } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
+import * as XLSX from 'xlsx';
 
 import { FarmaciaService } from '../../services/farmacia.service';
 import { ReportesService } from '../../services/reportes.service';
@@ -31,7 +31,7 @@ type SortKey =
   imports: [
     CommonModule, FormsModule, ReactiveFormsModule, NgFor, NgIf,
     MatFormFieldModule, MatInputModule, MatAutocompleteModule,
-    MatIconModule, MatTooltip
+    MatTooltip
   ],
   templateUrl: './reporte-ventas-por-farmacia.component.html',
   styleUrl: './reporte-ventas-por-farmacia.component.css'
@@ -203,28 +203,63 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
-  async exportarCSV(): Promise<void> {
+  exportarExcel(): void {
     if (!this.rows.length) return;
-    const cols = [
-      { key: 'farmacia', label: 'Cód. barras' },
-      { key: 'nombre', label: 'Producto' },
-      { key: 'codigoBarras', label: 'Cód. barras' },
-      { key: 'categoria', label: 'Categoría' },
-      { key: 'cantidadVendida', label: 'Vendidos' },
-      { key: 'costoTotal', label: 'Costo total', map: (r: any) => Number(r.costoTotal ?? 0).toFixed(2) },
-      { key: 'importeVendido', label: 'Importe' },
-      { key: 'utilidad', label: 'Utilidad', map: (r: any) => Number(r.utilidad ?? 0).toFixed(2) },
-      { key: 'margenPct', label: 'margenPct', map: (r: any) => Number(r.margenPct ?? 0).toFixed(2) },
-      { key: 'stockMin', label: 'Stock Mín.' },
-      { key: 'stockMax', label: 'Stock Máx.' },
-      { key: 'existencia', label: 'Existencia' },
+    const toNum = (v: any) => Number.isFinite(Number(v)) ? Number(v) : 0;
 
+    const data: Array<Record<string, string | number>> = this.sortedRows.map((r: any) => ({
+      Farmacia: r.farmacia || '',
+      'Nombre / Código barras': `${r.nombre || ''}${r.codigoBarras ? ` / ${r.codigoBarras}` : ''}`,
+      Categoría: r.categoria || '',
+      'Ubic. farma': r.ubicacionFarmacia || '',
+      Vendidos: toNum(r.cantidadVendida),
+      'Costo total': toNum(r.costoTotal),
+      'Imp. Tot.': toNum(r.importeVendido),
+      'Costo Prom.': this.calcularCostoPromedio(r),
+      Utilidad: toNum(r.utilidad),
+      '% Gan.': r.margenPct == null ? '' : toNum(r.margenPct),
+      'Stock Mín.': toNum(r.stockMin),
+      'Stock Máx.': toNum(r.stockMax),
+      Existencia: toNum(r.existencia),
+    }));
+
+    data.push({
+      Farmacia: 'Totales:',
+      'Nombre / Código barras': '',
+      Categoría: '',
+      'Ubic. farma': '',
+      Vendidos: toNum(this.totalCantidad),
+      'Costo total': toNum(this.totalCosto),
+      'Imp. Tot.': toNum(this.totalImporte),
+      'Costo Prom.': '',
+      Utilidad: toNum(this.totalUtilidad),
+      '% Gan.': this.totalMargenPct == null ? '' : toNum(this.totalMargenPct),
+      'Stock Mín.': '',
+      'Stock Máx.': '',
+      Existencia: '',
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [
+      { wch: 24 },
+      { wch: 42 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
     ];
-    // usa tus utilidades existentes
-    const { toCSV, downloadCSV } = await import('../../utils/csv');
-    const csv = toCSV(this.rows, cols, { separator: ',', bom: true });
-    const fname = `ventas_farmacia_${this.fechaIni}_a_${this.fechaFin}.csv`;
-    downloadCSV(fname, csv);
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Ventas farmacia');
+    XLSX.writeFile(wb, 'ventas-por-farmacia.xlsx');
+    return;
   }
 
   // === ORDENAMIENTO (client-side) ===
@@ -257,8 +292,8 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
       margen: 'margenPct',
     };
     const key = map[col];
-    if (!this.sort || this.sort.key !== key) return 'swap_vert';
-    return this.sort.dir === 'asc' ? 'arrow_upward' : 'arrow_downward';
+    if (!this.sort || this.sort.key !== key) return 'fa-sort';
+    return this.sort.dir === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
   }
 
   // Ordena ANTES de paginar

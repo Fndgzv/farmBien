@@ -9,6 +9,13 @@
 
 .sortable { cursor: pointer; user-select: none; }
 
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
 
 /* hace el mat-form-field más bajito */
 .compact-field .mdc-text-field--outlined .mdc-notched-outline__notch {

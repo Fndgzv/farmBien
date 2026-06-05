@@ -546,6 +546,138 @@ exports.resumenProductosVendidos = async (req, res) => {
   }
 };
 
+exports.ventasPorCategoria = async (req, res) => {
+  try {
+    const {
+      farmaciaId,
+      fechaIni,
+      fechaFin,
+      categoriaQ = ''
+    } = req.query;
+
+    if (farmaciaId && !Types.ObjectId.isValid(farmaciaId)) {
+      return res.status(400).json({ ok: false, mensaje: 'farmaciaId inválido' });
+    }
+
+    const { gte, lt } = dayRangeUtcOrMTD(fechaIni, fechaFin);
+    const match = { fecha: { $gte: gte, $lt: lt } };
+
+    const fId = toId(farmaciaId);
+    if (fId) match.farmacia = fId;
+
+    const pipe = [
+      { $match: match },
+      { $unwind: '$productos' },
+      {
+        $group: {
+          _id: {
+            farmacia: '$farmacia',
+            producto: '$productos.producto',
+            categoriaVenta: '$productos.categoria'
+          },
+          cantidadVendida: { $sum: { $ifNull: ['$productos.cantidad', 0] } },
+          importeVendido: { $sum: { $ifNull: ['$productos.totalRen', 0] } },
+          costoTotal: {
+            $sum: {
+              $multiply: [
+                { $ifNull: ['$productos.costo', 0] },
+                { $ifNull: ['$productos.cantidad', 0] }
+              ]
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'productos',
+          localField: '_id.producto',
+          foreignField: '_id',
+          as: 'prod',
+        },
+      },
+      { $unwind: { path: '$prod', preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          categoriaAgrupada: {
+            $ifNull: [
+              '$prod.categoria',
+              {
+                $cond: [
+                  { $ne: [{ $ifNull: ['$_id.categoriaVenta', ''] }, ''] },
+                  '$_id.categoriaVenta',
+                  'Sin categoría'
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ];
+
+    const cq = String(categoriaQ || '').trim();
+    if (cq) {
+      pipe.push({
+        $match: { categoriaAgrupada: { $regex: escapeRegex(cq), $options: 'i' } }
+      });
+    }
+
+    pipe.push(
+      {
+        $group: {
+          _id: {
+            farmacia: '$_id.farmacia',
+            categoria: '$categoriaAgrupada'
+          },
+          cantidadVendida: { $sum: '$cantidadVendida' },
+          importeVendido: { $sum: '$importeVendido' },
+          costoTotal: { $sum: '$costoTotal' },
+        }
+      },
+      {
+        $lookup: {
+          from: 'farmacias',
+          localField: '_id.farmacia',
+          foreignField: '_id',
+          as: 'farm',
+        },
+      },
+      { $unwind: { path: '$farm', preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          utilidad: { $subtract: ['$importeVendido', '$costoTotal'] },
+          margenPct: {
+            $cond: [
+              { $gt: ['$importeVendido', 0] },
+              { $multiply: [{ $divide: [{ $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido'] }, 100] },
+              null
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          farmaciaId: '$_id.farmacia',
+          farmacia: { $ifNull: ['$farm.nombre', ''] },
+          categoria: '$_id.categoria',
+          cantidadVendida: 1,
+          importeVendido: 1,
+          costoTotal: 1,
+          utilidad: 1,
+          margenPct: 1,
+        }
+      },
+      { $sort: { farmacia: 1, categoria: 1 } }
+    );
+
+    const data = await Venta.aggregate(pipe).allowDiskUse(true);
+    return res.json({ ok: true, rango: { fechaIni: gte, fechaFin: lt }, data });
+  } catch (e) {
+    console.error('[ventasPorCategoria][ERROR]', e);
+    return res.status(500).json({ ok: false, mensaje: 'Error al obtener ventas por categoría' });
+  }
+};
+
 
 exports.resumenUtilidades = async (req, res) => {
   try {

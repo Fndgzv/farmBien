@@ -11,6 +11,7 @@ const { reporteComprasConVentas } = require('../controllers/reportesComprasVenta
 const {
   reporteSurtidos,
   serviciosMedicosRealizados,
+  ventasPorCategoria,
   resumenProductosVendidos,
   ventasProductoDetalle,
   resumenUtilidades,
@@ -38,6 +39,7 @@ const {
 
 router.get('/surtidos', authMiddleware, isAdmin, reporteSurtidos);
 router.get('/servicios-medicos-realizados', authMiddleware, isAdmin, serviciosMedicosRealizados);
+router.get('/ventas-por-categoria', authMiddleware, isAdmin, ventasPorCategoria);
 
 // 1) Productos vendidos por farmacia, día de hoy por defecto 
 router.get('/ventas-por-farmacia', authMiddleware, isAdmin, resumenProductosVendidos);

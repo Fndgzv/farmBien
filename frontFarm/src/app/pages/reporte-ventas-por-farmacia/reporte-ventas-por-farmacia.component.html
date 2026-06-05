@@ -61,8 +61,9 @@
 
 
   <div class="col-12 mt-2">
-    <button class="btn-verde" type="button" (click)="exportarCSV()" [disabled]="cargando || !rows.length">
-      Exportar CSV
+    <button class="btn-verde" type="button" (click)="exportarExcel()" [disabled]="cargando || !rows.length">
+      <i class="fas fa-file-excel"></i>
+      Exportar a excel
     </button>
   </div>
 
@@ -75,7 +76,7 @@
 
           <th class="sortable" (click)="setSort('producto')">
             Nombre / Código barras
-            <mat-icon class="ms-1" inline>{{ sortIcon('producto') }}</mat-icon>  
+            <i class="fa sort-icon" [ngClass]="sortIcon('producto')"></i>
           </th>
 
           <!-- <th style="white-space:nowrap;">Cód. barras</th> -->
@@ -86,17 +87,17 @@
 
           <th class="text-end sortable" (click)="setSort('cantidad')">
             Vendidos
-            <mat-icon class="ms-1" inline>{{ sortIcon('cantidad') }}</mat-icon>
+            <i class="fa sort-icon" [ngClass]="sortIcon('cantidad')"></i>
           </th>
 
           <th class="text-end sortable" (click)="setSort('costo')">
             Costo total
-            <mat-icon class="ms-1" inline>{{ sortIcon('costo') }}</mat-icon>
+            <i class="fa sort-icon" [ngClass]="sortIcon('costo')"></i>
           </th>
 
           <th class="text-end sortable" (click)="setSort('importe')">
             Imp. Tot.
-            <mat-icon class="ms-1" inline>{{ sortIcon('importe') }}</mat-icon>
+            <i class="fa sort-icon" [ngClass]="sortIcon('importe')"></i>
           </th>
 
           <th>
@@ -105,12 +106,12 @@
 
           <th class="text-end sortable" (click)="setSort('utilidad')">
             Utilidad
-            <mat-icon class="ms-1" inline>{{ sortIcon('utilidad') }}</mat-icon>
+            <i class="fa sort-icon" [ngClass]="sortIcon('utilidad')"></i>
           </th>
 
           <th class="text-end sortable" (click)="setSort('margen')">
             % Gan.
-            <mat-icon class="ms-1" inline>{{ sortIcon('margen') }}</mat-icon>
+            <i class="fa sort-icon" [ngClass]="sortIcon('margen')"></i>
           </th>
 
           <th>Stock Mín.</th>
@@ -118,7 +119,7 @@
 
           <th class="text-end sortable" (click)="setSort('existencia')">
             Existencia
-            <mat-icon class="ms-1" inline>{{ sortIcon('existencia') }}</mat-icon>
+            <i class="fa sort-icon" [ngClass]="sortIcon('existencia')"></i>
           </th>
 
         </tr>

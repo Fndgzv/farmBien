@@ -138,6 +138,9 @@
           <li [routerLink]="'reporte/ventas'" routerLinkActive="active" class="submenu-item">
             <span>Ventas<fa-icon [icon]="'cash-register'" class="menu-icon"></fa-icon></span>
           </li>
+          <li *ngIf="userRol === 'admin'" [routerLink]="'/reporte/ventas-por-categoria'" routerLinkActive="active" class="submenu-item">
+            <span>Ventas - Categorías<fa-icon [icon]="'chart-pie'" class="menu-icon"></fa-icon></span>
+          </li>
           <li [routerLink]="'/reporte/ventas-por-farmacia'" routerLinkActive="active" class="submenu-item">
             <span>Productos Ventas - Exist <fa-icon [icon]="icons.reporteVentas" class="menu-icon"></fa-icon></span>
           </li>

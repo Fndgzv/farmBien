@@ -143,6 +143,13 @@ export const routes: Routes = [
       { path: 'reporte/ventas-por-farmacia', component: ReporteVentasPorFarmaciaComponent },
       { path: 'reporte/ventas-producto', component: ReporteVentasProductoComponent },
       { path: 'reporte/ventas', component: ReporteVentasComponent },
+      {
+        path: 'reporte/ventas-por-categoria',
+        loadComponent: () => import('./pages/ventas-por-categoria/ventas-por-categoria.component')
+          .then(m => m.VentasPorCategoriaComponent),
+        canActivate: [authGuard],
+        data: { rolesPermitidos: ['admin'] }
+      },
       { path: 'reporte/pedidos', component: ReportePedidosComponent },
       { path: 'reporte/resumen-utilidades', component: ReporteResumenUtilidadesComponent },
       { path: 'reporte/utilidades', component: ReportesUtilidadComponent },
