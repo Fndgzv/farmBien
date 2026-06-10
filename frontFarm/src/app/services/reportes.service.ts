@@ -133,7 +133,9 @@ export class ReportesService {
 
   getServiciosMedicosRealizados(params: {
     farmaciaId: string;
-    fecha: string | Date;
+    fecha?: string | Date;
+    fechaInicial?: string | Date;
+    fechaFinal?: string | Date;
     medicoId: string;
   }) {
     const httpParams = this.buildParams(params);

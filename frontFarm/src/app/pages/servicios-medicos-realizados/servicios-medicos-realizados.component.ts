@@ -14,6 +14,8 @@ import { formatearTurnoConsultorioVisual } from '../../shared/utils/turno-visual
 interface ServicioMedicoRealizadoRow {
   fichaId: string;
   ficha: string;
+  llegadaAt: string;
+  fechaHoraLlegada: string;
   folio: string;
   turnoFecha: string;
   turnoConsecutivo: number | null;
@@ -45,13 +47,17 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   medicos: Usuario[] = [];
 
   farmaciaId = '';
-  fecha = this.hoyCdmx();
+  fechaInicial = this.lunesSemanaActualCdmx();
+  fechaFinal = this.hoyCdmx();
   medicoId = '';
 
   cargando = false;
   buscado = false;
   rows: ServicioMedicoRealizadoRow[] = [];
   totales: ServicioMedicoRealizadoTotales = this.totalesVacios();
+  private farmaciasCargadas = false;
+  private medicosCargados = false;
+  private busquedaInicialEjecutada = false;
 
   constructor(
     private farmaciaService: FarmaciaService,
@@ -66,12 +72,17 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   }
 
   puedeBuscar(): boolean {
-    return !!this.farmaciaId && !!this.fecha && !!this.medicoId && !this.cargando;
+    return !!this.farmaciaId && !!this.fechaInicial && !!this.fechaFinal && !!this.medicoId && !this.cargando;
   }
 
   buscar(): void {
     if (!this.puedeBuscar()) {
-      Swal.fire('Aviso', 'Selecciona farmacia, fecha y médico.', 'info');
+      Swal.fire('Aviso', 'Selecciona farmacia, fecha inicial, fecha final y médico.', 'info');
+      return;
+    }
+
+    if (!this.rangoFechasValido()) {
+      Swal.fire('Aviso', 'La fecha inicial no puede ser mayor que la fecha final.', 'warning');
       return;
     }
 
@@ -80,7 +91,8 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
 
     this.reportesService.getServiciosMedicosRealizados({
       farmaciaId: this.farmaciaId,
-      fecha: this.fecha,
+      fechaInicial: this.fechaInicial,
+      fechaFinal: this.fechaFinal,
       medicoId: this.medicoId,
     })
       .pipe(finalize(() => this.cargando = false))
@@ -116,6 +128,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
 
     const data: Array<Record<string, string | number>> = this.rows.map((r) => ({
       Ficha: r.ficha || '',
+      'Fecha y hora de llegada': r.fechaHoraLlegada || '',
       Paciente: r.paciente || '',
       'Servicio realizado': r.servicioRealizado || '',
       Cantidad: this.numero(r.cantidad),
@@ -127,6 +140,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
 
     data.push({
       Ficha: 'Total',
+      'Fecha y hora de llegada': '',
       Paciente: '',
       'Servicio realizado': '',
       Cantidad: '',
@@ -139,6 +153,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [
       { wch: 12 },
+      { wch: 22 },
       { wch: 32 },
       { wch: 42 },
       { wch: 10 },
@@ -182,12 +197,17 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
         );
 
         this.farmacias = ordenadas;
-        if (this.farmaciaId && ordenadas.some(f => f._id === this.farmaciaId)) return;
-        this.farmaciaId = ordenadas[0]?._id || '';
+        if (!this.farmaciaId || !ordenadas.some(f => f._id === this.farmaciaId)) {
+          this.farmaciaId = ordenadas[0]?._id || '';
+        }
+        this.farmaciasCargadas = true;
+        this.buscarInicialSiListo();
       },
       error: () => {
         this.farmacias = [];
         this.farmaciaId = '';
+        this.farmaciasCargadas = true;
+        this.buscarInicialSiListo();
       }
     });
   }
@@ -204,10 +224,17 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
         if (this.medicoId && !this.medicos.some(m => m._id === this.medicoId)) {
           this.medicoId = '';
         }
+        if (!this.medicoId) {
+          this.medicoId = this.medicos[0]?._id || '';
+        }
+        this.medicosCargados = true;
+        this.buscarInicialSiListo();
       },
       error: () => {
         this.medicos = [];
         this.medicoId = '';
+        this.medicosCargados = true;
+        this.buscarInicialSiListo();
       }
     });
   }
@@ -221,6 +248,8 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     return {
       fichaId: String(r?.fichaId || ''),
       ficha,
+      llegadaAt: String(r?.llegadaAt || ''),
+      fechaHoraLlegada: this.fechaHoraCdmx(r?.llegadaAt),
       folio: String(r?.folio || ''),
       turnoFecha: String(r?.turnoFecha || ''),
       turnoConsecutivo: this.numeroONull(r?.turnoConsecutivo),
@@ -296,6 +325,34 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     return `${get('day')}/${get('month')}/${get('year')}`;
   }
 
+  private fechaHoraCdmx(fecha: any): string {
+    if (!fecha) return '';
+
+    const d = new Date(fecha);
+    if (Number.isNaN(d.getTime())) return '';
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(d);
+
+    const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+    return `${get('day')}/${get('month')}/${get('year')} ${get('hour')}:${get('minute')}`;
+  }
+
+  private rangoServiciosTexto(): string {
+    const ini = this.fechaDdMmYyyy(this.fechaInicial);
+    const fin = this.fechaDdMmYyyy(this.fechaFinal);
+    if (!ini && !fin) return '';
+    if (this.fechaInicial === this.fechaFinal) return ini || fin;
+    return `${ini} - ${fin}`;
+  }
+
   private formatoCantidad(v: any): string {
     return new Intl.NumberFormat('es-MX', {
       minimumFractionDigits: 0,
@@ -316,6 +373,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     const filas = this.rows.map((r) => `
       <tr>
         <td>${this.esc(r.ficha)}</td>
+        <td>${this.esc(r.fechaHoraLlegada || '-')}</td>
         <td class="texto-cell">${this.esc(r.paciente || '-')}</td>
         <td class="servicio-cell">${this.esc(r.servicioRealizado || '-')}</td>
         <td class="num">${this.esc(this.formatoCantidad(r.cantidad))}</td>
@@ -350,13 +408,14 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     .num { text-align: right; white-space: nowrap; font-size: 6.8px; }
     tfoot td { font-weight: 700; background: #f3f3f3; }
     .col-ficha { width: 7%; }
-    .col-paciente { width: 16%; }
-    .col-servicio { width: 25%; }
+    .col-llegada { width: 13%; }
+    .col-paciente { width: 15%; }
+    .col-servicio { width: 23%; }
     .col-cantidad { width: 7%; }
-    .col-insumos { width: 11%; }
-    .col-honorarios { width: 12%; }
-    .col-total { width: 10%; }
-    .col-precio { width: 9%; }
+    .col-insumos { width: 10%; }
+    .col-honorarios { width: 11%; }
+    .col-total { width: 7%; }
+    .col-precio { width: 7%; }
     @media print {
       @page { size: letter portrait; margin: 6mm; }
       .page { padding: 0; }
@@ -369,17 +428,18 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     <table>
       <thead>
         <tr class="title-row">
-          <th colspan="8">Servicios Médicos realizados</th>
+          <th colspan="9">Servicios Médicos realizados</th>
         </tr>
         <tr class="doctor-row">
-          <th colspan="8">Nombre del médico: ${this.esc(this.medicoSeleccionadoNombre())}</th>
+          <th colspan="9">Nombre del médico: ${this.esc(this.medicoSeleccionadoNombre())}</th>
         </tr>
         <tr class="meta-row">
           <th colspan="4" class="meta-left">Fecha de impresión: ${this.esc(this.fechaDdMmYyyy(this.hoyCdmx()))}</th>
-          <th colspan="4" class="meta-right">Fecha de los servicios: ${this.esc(this.fechaDdMmYyyy(this.fecha))}</th>
+          <th colspan="5" class="meta-right">Fecha de los servicios: ${this.esc(this.rangoServiciosTexto())}</th>
         </tr>
         <tr class="columns">
           <th class="col-ficha">Ficha</th>
+          <th class="col-llegada">Fecha y hora de llegada</th>
           <th class="col-paciente">Paciente</th>
           <th class="col-servicio">Servicio realizado</th>
           <th class="col-cantidad num">Cantidad</th>
@@ -392,7 +452,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
       <tbody>${filas}</tbody>
       <tfoot>
         <tr>
-          <td colspan="4" class="num">Total</td>
+          <td colspan="5" class="num">Total</td>
           <td class="num">${this.esc(this.formatoMoneda(this.totales.costoInsumos))}</td>
           <td class="num">${this.esc(this.formatoMoneda(this.totales.costoHonorarios))}</td>
           <td class="num">${this.esc(this.formatoMoneda(this.totales.costoTotal))}</td>
@@ -419,15 +479,54 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   }
 
   private hoyCdmx(): string {
+    const parts = this.fechaCdmxParts();
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
+  private lunesSemanaActualCdmx(): string {
+    const parts = this.fechaCdmxParts();
+    const fechaActual = new Date(Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day)
+    ));
+
+    const diaSemana = fechaActual.getUTCDay();
+    const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
+    fechaActual.setUTCDate(fechaActual.getUTCDate() - diasDesdeLunes);
+
+    return this.ymdUtc(fechaActual);
+  }
+
+  private fechaCdmxParts(date: Date = new Date()): { year: string; month: string; day: string } {
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Mexico_City',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-    }).formatToParts(new Date());
+    }).formatToParts(date);
 
     const get = (type: string) => parts.find(p => p.type === type)?.value || '';
-    return `${get('year')}-${get('month')}-${get('day')}`;
+    return { year: get('year'), month: get('month'), day: get('day') };
+  }
+
+  private ymdUtc(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private rangoFechasValido(): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(this.fechaInicial)
+      && /^\d{4}-\d{2}-\d{2}$/.test(this.fechaFinal)
+      && this.fechaInicial <= this.fechaFinal;
+  }
+
+  private buscarInicialSiListo(): void {
+    if (this.busquedaInicialEjecutada || !this.farmaciasCargadas || !this.medicosCargados) return;
+    this.busquedaInicialEjecutada = true;
+    if (this.puedeBuscar()) this.buscar();
   }
 
   private obtenerFarmaciaActivaId(): string {

@@ -251,12 +251,22 @@ exports.reporteSurtidos = async (req, res) => {
 
 exports.serviciosMedicosRealizados = async (req, res) => {
   try {
-    const { farmaciaId, fecha, medicoId } = req.query;
+    const {
+      farmaciaId,
+      fecha,
+      fechaInicial,
+      fechaFinal,
+      fechaIni,
+      fechaFin,
+      medicoId,
+    } = req.query;
+    const fechaInicialParam = fechaInicial || fechaIni || fecha;
+    const fechaFinalParam = fechaFinal || fechaFin || fechaInicialParam;
 
-    if (!farmaciaId || !fecha || !medicoId) {
+    if (!farmaciaId || !fechaInicialParam || !fechaFinalParam || !medicoId) {
       return res.status(400).json({
         ok: false,
-        mensaje: 'farmaciaId, fecha y medicoId son obligatorios'
+        mensaje: 'farmaciaId, fechaInicial, fechaFinal y medicoId son obligatorios'
       });
     }
 
@@ -268,12 +278,17 @@ exports.serviciosMedicosRealizados = async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: 'medicoId inválido' });
     }
 
-    const fechaKey = String(fecha || '').slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaKey)) {
-      return res.status(400).json({ ok: false, mensaje: 'fecha inválida' });
+    const fechaInicialKey = String(fechaInicialParam || '').slice(0, 10);
+    const fechaFinalKey = String(fechaFinalParam || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaInicialKey) || !/^\d{4}-\d{2}-\d{2}$/.test(fechaFinalKey)) {
+      return res.status(400).json({ ok: false, mensaje: 'rango de fechas inválido' });
     }
 
-    const { gte, lt } = dayRangeUtc(fechaKey, fechaKey);
+    if (fechaInicialKey > fechaFinalKey) {
+      return res.status(400).json({ ok: false, mensaje: 'La fecha inicial no puede ser mayor que la fecha final' });
+    }
+
+    const { gte, lt } = dayRangeUtc(fechaInicialKey, fechaFinalKey);
     const farmaciaOid = new Types.ObjectId(farmaciaId);
     const medicoOid = new Types.ObjectId(medicoId);
 
@@ -285,7 +300,7 @@ exports.serviciosMedicosRealizados = async (req, res) => {
           estado: { $ne: 'CANCELADA' },
           servicios: { $exists: true, $ne: [] },
           $or: [
-            { turnoFecha: fechaKey },
+            { turnoFecha: { $gte: fechaInicialKey, $lte: fechaFinalKey } },
             { llegadaAt: { $gte: gte, $lt: lt } },
             { inicioAtencionAt: { $gte: gte, $lt: lt } },
             { finAtencionAt: { $gte: gte, $lt: lt } },
@@ -331,6 +346,7 @@ exports.serviciosMedicosRealizados = async (req, res) => {
           _id: 0,
           fichaId: '$_id',
           folio: 1,
+          llegadaAt: 1,
           turnoFecha: 1,
           turnoConsecutivo: 1,
           paciente: '$pacienteNombre',
@@ -342,7 +358,7 @@ exports.serviciosMedicosRealizados = async (req, res) => {
           precioUnitario: '$inventario.precioVenta',
         },
       },
-      { $sort: { turnoConsecutivo: 1, paciente: 1, servicioRealizado: 1 } },
+      { $sort: { llegadaAt: 1, turnoConsecutivo: 1, paciente: 1, servicioRealizado: 1 } },
     ]).allowDiskUse(true);
 
     const rows = rawRows.map((r) => {
@@ -355,6 +371,7 @@ exports.serviciosMedicosRealizados = async (req, res) => {
       return {
         fichaId: r.fichaId,
         folio: r.folio || '',
+        llegadaAt: r.llegadaAt || null,
         turnoFecha: r.turnoFecha || '',
         turnoConsecutivo: r.turnoConsecutivo ?? null,
         ficha: construirFichaVisualReporte(r.turnoFecha, r.turnoConsecutivo) || r.folio || '',
@@ -387,7 +404,7 @@ exports.serviciosMedicosRealizados = async (req, res) => {
 
     return res.json({
       ok: true,
-      filtros: { farmaciaId, fecha: fechaKey, medicoId },
+      filtros: { farmaciaId, fecha: fechaInicialKey, fechaInicial: fechaInicialKey, fechaFinal: fechaFinalKey, medicoId },
       rango: { fechaIni: gte, fechaFin: lt },
       rows,
       totales,

@@ -32,6 +32,10 @@
   white-space: nowrap;
 }
 
+.llegada-cell {
+  white-space: nowrap;
+}
+
 .total-label {
   font-weight: 700;
 }
