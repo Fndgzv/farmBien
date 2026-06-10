@@ -22,6 +22,18 @@
   white-space: nowrap;
 }
 
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
 .tabla th,
 .tabla td {
   vertical-align: middle;

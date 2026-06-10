@@ -11,6 +11,9 @@ import { ReportesService } from '../../services/reportes.service';
 import { Usuario, UsuarioService } from '../../services/usuario.service';
 import { formatearTurnoConsultorioVisual } from '../../shared/utils/turno-visual';
 
+type SortCol = 'llegada' | 'paciente' | 'servicio';
+type SortKey = 'llegadaAt' | 'paciente' | 'servicioRealizado';
+
 interface ServicioMedicoRealizadoRow {
   fichaId: string;
   ficha: string;
@@ -55,9 +58,14 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   buscado = false;
   rows: ServicioMedicoRealizadoRow[] = [];
   totales: ServicioMedicoRealizadoTotales = this.totalesVacios();
+  sort: { key: SortKey; dir: 'asc' | 'desc' } = { key: 'llegadaAt', dir: 'asc' };
   private farmaciasCargadas = false;
   private medicosCargados = false;
   private busquedaInicialEjecutada = false;
+  private readonly collator = new Intl.Collator('es', {
+    sensitivity: 'base',
+    numeric: true,
+  });
 
   constructor(
     private farmaciaService: FarmaciaService,
@@ -99,6 +107,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
       .subscribe({
         next: (resp: any) => {
           this.rows = (resp?.rows || []).map((r: any) => this.mapRow(r));
+          this.setSortDefault();
           this.totales = this.normalizarTotales(resp?.totales);
         },
         error: (err) => {
@@ -126,7 +135,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
       return;
     }
 
-    const data: Array<Record<string, string | number>> = this.rows.map((r) => ({
+    const data: Array<Record<string, string | number>> = this.sortedRows.map((r) => ({
       Ficha: r.ficha || '',
       'Fecha y hora de llegada': r.fechaHoraLlegada || '',
       Paciente: r.paciente || '',
@@ -166,6 +175,59 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Servicios medicos');
     XLSX.writeFile(wb, 'servicios-medicos-realizados.xlsx');
+  }
+
+  setSort(col: SortCol): void {
+    const map: Record<SortCol, SortKey> = {
+      llegada: 'llegadaAt',
+      paciente: 'paciente',
+      servicio: 'servicioRealizado',
+    };
+
+    const key = map[col];
+    if (!this.sort || this.sort.key !== key) {
+      this.sort = { key, dir: 'asc' };
+      return;
+    }
+
+    this.sort = { key, dir: this.sort.dir === 'asc' ? 'desc' : 'asc' };
+  }
+
+  sortIcon(col: SortCol): string {
+    const map: Record<SortCol, SortKey> = {
+      llegada: 'llegadaAt',
+      paciente: 'paciente',
+      servicio: 'servicioRealizado',
+    };
+
+    const key = map[col];
+    if (!this.sort || this.sort.key !== key) return 'fa-sort';
+    return this.sort.dir === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
+  }
+
+  get sortedRows(): ServicioMedicoRealizadoRow[] {
+    if (!this.sort) return this.rows;
+
+    const { key, dir } = this.sort;
+    const factor = dir === 'asc' ? 1 : -1;
+
+    return [...this.rows].sort((a, b) => {
+      if (key === 'llegadaAt') {
+        const av = this.fechaEpoch(a.llegadaAt);
+        const bv = this.fechaEpoch(b.llegadaAt);
+
+        if (av == null && bv == null) return this.compararTexto(a.paciente, b.paciente);
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (av < bv) return -1 * factor;
+        if (av > bv) return 1 * factor;
+        return this.compararTexto(a.paciente, b.paciente);
+      }
+
+      const cmp = this.compararTexto(a[key], b[key]);
+      if (cmp !== 0) return cmp * factor;
+      return this.compararFecha(a.llegadaAt, b.llegadaAt);
+    });
   }
 
   imprimir(): void {
@@ -301,6 +363,36 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     return Number.isFinite(n) ? n : null;
   }
 
+  private setSortDefault(): void {
+    this.sort = { key: 'llegadaAt', dir: 'asc' };
+  }
+
+  private fechaEpoch(v: any): number | null {
+    if (!v) return null;
+    const d = new Date(v);
+    const t = d.getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+
+  private compararTexto(a: any, b: any): number {
+    return this.collator.compare(this.texto(a), this.texto(b));
+  }
+
+  private compararFecha(a: any, b: any): number {
+    const av = this.fechaEpoch(a);
+    const bv = this.fechaEpoch(b);
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (av < bv) return -1;
+    if (av > bv) return 1;
+    return 0;
+  }
+
+  private texto(v: any): string {
+    return String(v ?? '').trim();
+  }
+
   private medicoSeleccionadoNombre(): string {
     const medico = this.medicos.find(m => m._id === this.medicoId);
     return String(medico?.nombre || medico?.usuario || '').trim() || '-';
@@ -370,7 +462,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   }
 
   private buildPrintHtml(): string {
-    const filas = this.rows.map((r) => `
+    const filas = this.sortedRows.map((r) => `
       <tr>
         <td>${this.esc(r.ficha)}</td>
         <td>${this.esc(r.fechaHoraLlegada || '-')}</td>
