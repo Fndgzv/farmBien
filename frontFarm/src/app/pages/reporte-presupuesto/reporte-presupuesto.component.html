@@ -10,8 +10,8 @@
             <label class="form-label">Fecha final *</label>
             <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" required>
         </div>
-        <div class="col-sm-3">
-            <label class="form-label" style="white-space: nowrap;">Nombre</label>
+        <div class="col-sm-2">
+            <label class="form-label" style="white-space: nowrap;">Producto</label>
             <div class="position-relative">
                 <input type="text" class="form-control" [(ngModel)]="nombre" name="nombre" (ngModelChange)="onFiltroChange()">
                 <button *ngIf="nombre" type="button" matTooltip="Limpiar nombre"
@@ -21,7 +21,7 @@
                 </button>
             </div>
         </div>
-        <div class="col-sm-3">
+        <div class="col-sm-1">
             <label class="form-label" style="white-space: nowrap;">Categoría</label>
             <div class="position-relative">
                 <input type="text" class="form-control" [(ngModel)]="categoria" name="categoria" (ngModelChange)="onFiltroChange()">
@@ -32,7 +32,7 @@
                 </button>
             </div>
         </div>
-        <div class="col-sm-2 d-flex align-items-end">
+        <div class="col-sm-2 d-flex align-items-center">
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" [(ngModel)]="soloExistMenorQueVentas" name="soloExistMenorQueVentas" (ngModelChange)="onFiltroChange()">
                 <label class="form-check-label" for="chkExist">
@@ -41,8 +41,8 @@
             </div>
         </div>
 
-        <div class="col-sm-2 mt-2">
-            <label class="form-label">Registros por página</label>
+        <div class="col-sm-1">
+            <label class="form-label">Reg. x pág</label>
             <select class="form-select" [ngModel]="limit" (ngModelChange)="cambiarLimit($event)" name="limit">
                 <option [ngValue]="10">10</option>
                 <option [ngValue]="20">20</option>
@@ -51,7 +51,7 @@
             </select>
         </div>
 
-        <div class="col-sm-10 d-flex align-items-end justify-content-end mt-2">
+        <div class="col-sm-2 d-flex align-items-end justify-content-end">
             <button class="btn-gris" type="submit" [disabled]="cargando" matTooltip="Calcular y contar las ventas del periodo Fecha Inicial y Fecha Final">
                 {{ cargando ? 'Contando y Calculando...' : 'Calcular ventas' }}
             </button>
@@ -87,14 +87,13 @@
             <colgroup>
                 <col class="col-grab">
                 <col class="col-prod">
-                <col class="col-cb">
                 <col class="col-cat">
                 <col class="col-n1">
                 <col class="col-n1">
                 <col class="col-n1">
                 <col class="col-num">
                 <col class="col-num">
-                <col class="col-n1">
+                <col class="col-comp">
                 <col class="col-num">
             </colgroup>
 
@@ -104,7 +103,6 @@
                     <th (click)="ordenarPor('nombre')" class="sortable">Producto
                         <span [class.active]="sortBy==='nombre'">▲▼</span>
                     </th>
-                    <th>Cod. Barras</th>
                     <th (click)="ordenarPor('categoria')" class="sortable">Categoría
                         <span [class.active]="sortBy==='categoria'">▲▼</span>
                     </th>
@@ -117,7 +115,9 @@
                         <span [class.active]="sortBy==='vendidos'">▲▼</span>
                     </th>
                     <th matTooltip="Stock Mín estimado" class="text-end">Stk Mín Es</th>
-                    <th matTooltip="# productos requeridos p/alcanzar stock Máx estimado" class="text-end">Comp.</th>
+                    <th matTooltip="# productos requeridos p/alcanzar stock Máx estimado" (click)="ordenarPor('comprar')" class="sortable text-end">Comp.
+                        <span [class.active]="sortBy==='comprar'">▲▼</span>
+                    </th>
                     <th matTooltip="Costo estimado" class="text-end">Costo Est</th>
                 </tr>
             </thead>
@@ -133,8 +133,15 @@
                     </td>
 
                     <!-- Agrega .truncate a columnas de texto largo -->
-                    <td class="truncate" title="{{ r.producto }}">{{ r.producto }}</td>
-                    <td class="mono">{{ r.codigoBarras }}</td>
+                    <td class="truncate" [title]="r.producto + ' - ' + r.codigoBarras">
+                        <div class="producto-nombre">
+                            {{ r.producto }}
+                        </div>
+
+                        <div class="producto-codigo">
+                            {{ r.codigoBarras }}
+                        </div>
+                    </td>
                     <td class="truncate" title="{{ r.categoria }}">{{ r.categoria }}</td>
 
                     <td class="text-end nowrap">{{ fmtNumber(r.existencia) }}</td>
@@ -149,13 +156,13 @@
                 </tr>
 
                 <tr *ngIf="rows.length===0 && !cargando">
-                    <td colspan="11" class="text-center text-muted py-3">Sin resultados</td>
+                    <td colspan="10" class="text-center text-muted py-3">Sin resultados</td>
                 </tr>
             </tbody>
 
             <tfoot>
                 <tr>
-                    <td colspan="10" class="text-end"><b>Total Costo Est. (todas las filas filtradas):</b></td>
+                    <td colspan="9" class="text-end"><b>Total Costo Est. (todas las filas filtradas):</b></td>
                     <td class="text-end"><b>{{ fmtMoney(totalCostoEst) }}</b></td>
                 </tr>
             </tfoot>

@@ -53,7 +53,7 @@ export class ReportePresupuestoComponent implements OnInit {
     // Paginación/orden
     page = 1;
     limit = 20;
-    sortBy: 'nombre' | 'categoria' | 'existencia' | 'vendidos' = 'nombre';
+    sortBy: 'nombre' | 'categoria' | 'existencia' | 'vendidos' | 'comprar' = 'nombre';
     sortDir: 'asc' | 'desc' = 'asc';
 
     // UI
@@ -94,7 +94,7 @@ export class ReportePresupuestoComponent implements OnInit {
     }
 
     // ====== Eventos UI ahora solo reconstruyen la vista local ======
-    ordenarPor(campo: 'nombre' | 'categoria' | 'existencia' | 'vendidos'): void {
+    ordenarPor(campo: 'nombre' | 'categoria' | 'existencia' | 'vendidos' | 'comprar'): void {
         if (this.sortBy === campo) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
         else { this.sortBy = campo; this.sortDir = 'asc'; }
         this.applyClientView(); // sin red
@@ -202,7 +202,10 @@ export class ReportePresupuestoComponent implements OnInit {
 
         const dir = this.sortDir === 'asc' ? 1 : -1;
         const safeStr = (v: any) => String(v ?? '').toLowerCase();
-        const safeNum = (v: any) => Number.isFinite(v) ? Number(v) : 0;
+        const safeNum = (v: any) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        };
 
         filtered = [...filtered].sort((a, b) => {
             switch (this.sortBy) {
@@ -210,6 +213,7 @@ export class ReportePresupuestoComponent implements OnInit {
                 case 'categoria': return dir * (safeStr(a.categoria) > safeStr(b.categoria) ? 1 : -1);
                 case 'existencia': return dir * (safeNum(a.existencia) - safeNum(b.existencia));
                 case 'vendidos': return dir * (safeNum(a.vendidosSMaxE) - safeNum(b.vendidosSMaxE));
+                case 'comprar': return dir * (safeNum(a.comprar) - safeNum(b.comprar));
                 default: return 0;
             }
         });

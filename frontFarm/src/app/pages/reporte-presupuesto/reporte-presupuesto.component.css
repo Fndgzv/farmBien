@@ -24,15 +24,26 @@
 /* Anchos por columna (ajusta valores) */
 .col-grab { width: 4%; }           /* checkbox */
 .col-prod { width: auto; }          /* nombre del producto (largo) */
-.col-cb   { width: 10%; }          /* código de barras */
-.col-cat  { width: 10%; }          /* categoría */
-.col-n1  { width: 5%; }          /* 4 columas numéricas: existencia, stock Max, stock Min, comprar */
-.col-num  { width: 7%; }           /* 3 columnas numéricas */
+.col-cat  { width: 12%; }          /* categoría */
+.col-n1  { width: 6%; }          /* 3 columas numéricas: existencia, stock Max, stock Min */
+.col-comp { width: 8%; }     /* comprar */
+.col-num  { width: 7%; }           /* 2 columnas numéricas */
 
 th, td { padding: .5rem .6rem; }
 
 /* Evita que los números se partan en varias líneas */
 .nowrap { white-space: nowrap; }
+
+.producto-nombre {
+  font-weight: 500;
+}
+
+.producto-codigo {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+  line-height: 1.2;
+}
 
 /* Trunca texto largo con "..." */
 /* .truncate {
