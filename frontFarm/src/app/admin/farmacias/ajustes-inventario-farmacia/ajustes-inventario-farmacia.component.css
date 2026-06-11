@@ -5,6 +5,35 @@
 
 .th-sort { cursor: pointer; user-select: none; }
 
+.vista-inventario-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+.vista-inventario-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.vista-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #0453b3;
+  border-radius: 999px;
+  color: #0453b3;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 10px;
+  background: #eef5ff;
+}
+
 /* Nombre + código en dos líneas compactas */
 .nombre-cell .nombre-text {
   font-weight: 600;

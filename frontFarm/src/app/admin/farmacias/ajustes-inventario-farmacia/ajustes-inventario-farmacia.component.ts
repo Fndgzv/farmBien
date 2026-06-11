@@ -13,6 +13,7 @@ import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faSpinner, faCheck, faSave, faPen, faTimes, faTags } from '@fortawesome/free-solid-svg-icons';
 import { PromosInventarioDialogComponent } from './promos-inventario-dialog.component';
 
+type VistaInventario = 'sinCeros' | 'completa';
 
 @Component({
   selector: 'app-ajustes-inventario-farmacia',
@@ -34,6 +35,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   formFiltros!: FormGroup;
   inventario: any[] = [];
   farmacias: any[] = [];
+  vistaInventario: VistaInventario = 'sinCeros';
 
 
   aplicandoMasivoPromosPrecio = false;
@@ -188,6 +190,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
             ubicacionFarmacia: item.ubicacionFarmacia,
           }
         }));
+        this.vistaInventario = 'sinCeros';
         this.paginaActual = 1;
         this.cargando = false;
       },
@@ -213,7 +216,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
 
   seleccionarTodos(event: any) {
     const checked = event.target.checked;
-    this.inventario.forEach(p => p.seleccionado = checked);
+    this.inventarioActivo.forEach(p => p.seleccionado = checked);
   }
 
   guardarAjusteMasivo() {
@@ -283,7 +286,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     }
 
     // 6) Filtra seleccionados con diferencias REALES
-    const productosAjustar = this.inventario.filter(p => {
+    const productosAjustar = this.inventarioActivo.filter(p => {
       const difEx = hasEx && p.existencia !== exNum;
       const difMx = hasMx && p.stockMax !== mxNum;
       const difMn = hasMn && p.stockMin !== mnNum;
@@ -341,6 +344,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
 
         // Reset a “vacío”
         this.ajusteMasivo = { precioVenta: '', existencia: '', stockMax: '', stockMin: '', ubicacionFarmacia: '' };
+        this.ajustarPaginaActual();
 
         Swal.fire({
           icon: 'success',
@@ -449,6 +453,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
         // this.buscar();
         this.estadoEdicion[i._id] = false;
         this.edicionPromos = true;
+        this.ajustarPaginaActual();
       },
       error: (err) => {
         console.error('Error al guardar fila:', err);
@@ -466,16 +471,46 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   }
 
   get totalPaginas(): number {
-    return Math.ceil(this.inventario.length / this.tamanoPagina);
+    return Math.max(1, Math.ceil(this.inventarioActivo.length / this.tamanoPagina));
   }
 
   get inventarioPaginado() {
     const inicio = (this.paginaActual - 1) * this.tamanoPagina;
-    return this.inventario.slice(inicio, inicio + this.tamanoPagina);
+    return this.inventarioActivo.slice(inicio, inicio + this.tamanoPagina);
   }
 
   get seleccionadosCount(): number {
-    return this.inventario?.filter(x => x?.seleccionado).length ?? 0;
+    return this.inventarioActivo?.filter(x => x?.seleccionado).length ?? 0;
+  }
+
+  get inventarioActivo(): any[] {
+    if (this.vistaInventario === 'completa') return this.inventario;
+    return this.inventario.filter(p => this.debeMostrarEnSinCeros(p));
+  }
+
+  get totalInventarioActivo(): number {
+    return this.inventarioActivo.length;
+  }
+
+  get totalInventarioCompleto(): number {
+    return this.inventario.length;
+  }
+
+  get totalInventarioSinCeros(): number {
+    return this.inventario.filter(p => this.debeMostrarEnSinCeros(p)).length;
+  }
+
+  get etiquetaVistaInventario(): string {
+    return this.vistaInventario === 'sinCeros' ? 'Sin ceros' : 'Completa';
+  }
+
+  get etiquetaToggleVistaInventario(): string {
+    return this.vistaInventario === 'sinCeros' ? 'Ver completa' : 'Ver sin ceros';
+  }
+
+  alternarVistaInventario(): void {
+    this.vistaInventario = this.vistaInventario === 'sinCeros' ? 'completa' : 'sinCeros';
+    this.paginaActual = 1;
   }
 
   paginaAnterior() {
@@ -492,6 +527,23 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
 
   irAUltima() {
     this.paginaActual = this.totalPaginas;
+  }
+
+  private debeMostrarEnSinCeros(producto: any): boolean {
+    if (this.estadoEdicion?.[producto?._id]) return true;
+
+    return Number(producto?.existencia || 0) !== 0 ||
+      Number(producto?.stockMax || 0) !== 0 ||
+      Number(producto?.stockMin || 0) !== 0;
+  }
+
+  private ajustarPaginaActual(): void {
+    if (this.paginaActual > this.totalPaginas) {
+      this.paginaActual = this.totalPaginas;
+    }
+    if (this.paginaActual < 1) {
+      this.paginaActual = 1;
+    }
   }
 
   sePuedeGuardar(i: any): boolean {
@@ -563,6 +615,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     this.estadoEdicion[item._id] = false;
     this.estadoGuardado[item._id] = 'idle';
     this.edicionPromos = true;
+    this.ajustarPaginaActual();
   }
 
   limpiarFiltro(campo: string) {
@@ -777,7 +830,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     const farmacia = this.formFiltros.get('farmacia')?.value;
     if (!farmacia) return;
 
-    const seleccionados = this.inventario.filter(x => x?.seleccionado);
+    const seleccionados = this.inventarioActivo.filter(x => x?.seleccionado);
     if (!seleccionados.length) {
       Swal.fire('Aviso', 'No hay productos seleccionados.', 'info');
       return;

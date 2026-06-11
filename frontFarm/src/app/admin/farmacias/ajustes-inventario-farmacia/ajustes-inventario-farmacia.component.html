@@ -99,6 +99,22 @@
 
 </form>
 
+<div class="vista-inventario-bar" *ngIf="inventario.length > 0">
+    <div class="vista-inventario-info">
+        <span class="vista-pill">{{ etiquetaVistaInventario }}</span>
+        <span>Mostrando {{ totalInventarioActivo }} de {{ totalInventarioCompleto }} productos</span>
+        <small>Sin ceros: {{ totalInventarioSinCeros }}</small>
+    </div>
+
+    <button
+        type="button"
+        [ngClass]="vistaInventario === 'sinCeros' ? 'btn-verde' : 'btn-gris'"
+        (click)="alternarVistaInventario()"
+        >
+        {{ etiquetaToggleVistaInventario }}
+    </button>
+</div>
+
 <!-- ================== CAMBIOS MASIVOS (PROMOS + PRECIO) ================== -->
 <details class="cm-details" *ngIf="inventario.length > 0" [open]="cmOpen" (toggle)="onToggleCambiosMasivos($event)">
   <summary class="cm-summary">
@@ -509,6 +525,11 @@
                 </td>
 
             </tr>
+            <tr *ngIf="inventarioPaginado.length === 0">
+                <td colspan="12" class="text-center text-muted py-3">
+                    Sin productos en la vista {{ etiquetaVistaInventario }}.
+                </td>
+            </tr>
         </tbody>
 
     </table>
@@ -524,7 +545,7 @@
     </button>
 
     Página {{ paginaActual }} de {{ totalPaginas }}
-    <span class="total-registros">({{ inventario.length }} productos)</span>
+    <span class="total-registros">({{ totalInventarioActivo }} productos)</span>
 
     <button (click)="paginaSiguiente()" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
         <i class="fa fa-angle-right"></i>
