@@ -1,0 +1,173 @@
+.pacientes-admin {
+  width: 100%;
+}
+
+.filtros {
+  border-bottom: 2px solid #0453b3;
+  padding-bottom: 1rem;
+}
+
+.form-label {
+  margin-bottom: 0 !important;
+}
+
+.acciones-reporte {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pacientes-status {
+  min-height: 28px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.92rem;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.pacientes-table th,
+.pacientes-table td {
+  vertical-align: middle;
+}
+
+.curp-cell {
+  min-width: 138px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.92rem;
+}
+
+.acciones-cell {
+  min-width: 86px;
+  white-space: nowrap;
+}
+
+.acciones-cell button {
+  width: 30px;
+  height: 30px;
+  margin: 0 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pacientes-paginacion {
+  margin-top: 10px;
+}
+
+.pacientes-paginacion button {
+  margin: 0 2px;
+}
+
+.expediente-header {
+  background: #4fbeff;
+  color: #0d2438;
+}
+
+.expediente-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: #2f4254;
+}
+
+.expediente-meta span {
+  padding: 5px 8px;
+  border: 1px solid #c9d6e3;
+  border-radius: 6px;
+  background: #f6fbff;
+}
+
+.expediente-tabs {
+  flex-wrap: wrap;
+}
+
+.expediente-tabs .btn {
+  white-space: nowrap;
+}
+
+.exp-section {
+  border: 1px solid #cbdced;
+  border-radius: 8px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.exp-section h6 {
+  margin: 0 0 10px;
+  color: #173455;
+  font-weight: 700;
+}
+
+.readonly-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.readonly-item {
+  border: 1px solid #d2dfeb;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 10px;
+  min-height: 78px;
+}
+
+.readonly-item span {
+  display: block;
+  color: #35516b;
+  font-weight: 700;
+  font-size: 0.86rem;
+  margin-bottom: 4px;
+}
+
+.readonly-item p {
+  margin: 0;
+  color: #172536;
+  white-space: pre-wrap;
+}
+
+.expediente-table {
+  margin-top: 0;
+  font-size: 0.9rem;
+}
+
+.expediente-table th,
+.expediente-table td {
+  vertical-align: top;
+}
+
+.empty-state {
+  padding: 18px;
+  border: 1px dashed #a7b7c7;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #596b7c;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .acciones-reporte {
+    justify-content: flex-start;
+  }
+
+  .expediente-tabs .btn {
+    flex: 1 1 48%;
+  }
+}

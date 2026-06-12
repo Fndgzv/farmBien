@@ -38,7 +38,7 @@
           [disabled]="cargando">
       </div>
 
-      <div class="col-md-3">
+      <div class="col-md-2">
         <label class="form-label">Médico</label>
         <select
           class="form-select"
@@ -48,6 +48,18 @@
           [disabled]="cargando">
           <option value="" disabled>Seleccione</option>
           <option *ngFor="let m of medicos" [ngValue]="m._id || ''">{{ m.nombre }}</option>
+        </select>
+      </div>
+
+      <div class="col-md-1">
+        <label class="form-label">Renglones</label>
+        <select
+          class="form-select"
+          [(ngModel)]="limit"
+          name="limit"
+          (change)="cambiarRegistrosPorPagina()"
+          [disabled]="cargando">
+          <option *ngFor="let opcion of opcionesRegistrosPorPagina" [ngValue]="opcion">{{ opcion }}</option>
         </select>
       </div>
 
@@ -63,7 +75,7 @@
           [disabled]="cargando || rows.length === 0"
           matTooltip="Exportar a excel">
           <i class="fas fa-file-excel"></i>
-          Exportar a excel
+          Excel
         </button>
 
         <button
@@ -73,7 +85,7 @@
           [disabled]="cargando || rows.length === 0"
           matTooltip="Imprimir reporte">
           <i class="fas fa-print"></i>
-          Imprimir
+          Impr.
         </button>
       </div>
     </form>
@@ -102,7 +114,7 @@
       </thead>
 
       <tbody>
-        <tr *ngFor="let r of sortedRows; let i = index; trackBy: trackByRow">
+        <tr *ngFor="let r of registrosPaginados; let i = index; trackBy: trackByRow">
           <td class="ficha-cell">{{ r.ficha }}</td>
           <td class="llegada-cell">{{ r.fechaHoraLlegada || '-' }}</td>
           <td>{{ r.paciente || '-' }}</td>
@@ -131,5 +143,22 @@
         </tr>
       </tfoot>
     </table>
+  </div>
+
+  <div class="paginacion servicios-paginacion">
+    <button type="button" (click)="primera()" [disabled]="cargando || page === 1" matTooltip="Inicio">
+      <i class="fa fa-angle-double-left"></i>
+    </button>
+    <button type="button" (click)="anterior()" [disabled]="cargando || page === 1" matTooltip="Anterior">
+      <i class="fa fa-angle-left"></i>
+    </button>
+    Servicios: {{ totalRegistros }}
+    &nbsp; | &nbsp; Pagina: {{ page }} / {{ totalPaginas || 1 }}
+    <button type="button" (click)="siguiente()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0" matTooltip="Siguiente">
+      <i class="fa fa-angle-right"></i>
+    </button>
+    <button type="button" (click)="ultima()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0" matTooltip="Fin">
+      <i class="fa fa-angle-double-right"></i>
+    </button>
   </div>
 </div>

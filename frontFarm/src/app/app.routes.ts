@@ -127,6 +127,15 @@ export const routes: Routes = [
         canActivate: [authGuard]
       },
       {
+        path: 'pacientes',
+        loadComponent: () =>
+          import('./pages/pacientes/pacientes.component').then(m => m.PacientesComponent),
+        data: {
+          rolesPermitidos: ['admin']
+        },
+        canActivate: [authGuard]
+      },
+      {
         path: 'proveedores',
         loadComponent: () =>
           import('./admin/proveedores/proveedores.component').then(m => m.ProveedoresComponent),

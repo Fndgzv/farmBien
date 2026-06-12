@@ -11,15 +11,15 @@
   margin-bottom: 0 !important;
 }
 
-.acciones-reporte {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
 .acciones-reporte button {
   white-space: nowrap;
+}
+
+.acciones-reporte {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .sortable {
@@ -55,4 +55,12 @@
 tfoot td {
   background: #f3f4f6;
   font-weight: 700;
+}
+
+.servicios-paginacion {
+  margin-top: 10px;
+}
+
+.servicios-paginacion button {
+  margin: 0 2px;
 }

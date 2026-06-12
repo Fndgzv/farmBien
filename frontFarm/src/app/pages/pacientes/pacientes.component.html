@@ -1,0 +1,471 @@
+<div class="pacientes-admin">
+  <h2 class="titulo text-center">Pacientes</h2>
+
+  <form class="row g-2 filtros align-items-end" (ngSubmit)="buscar()">
+    <div class="col-md-2">
+      <label class="form-label">Busqueda general</label>
+      <input
+        type="text"
+        class="form-control"
+        name="q"
+        [(ngModel)]="filtros.q"
+        placeholder="Buscar por nombre, CURP, telefono o correo"
+        [disabled]="cargando">
+    </div>
+
+    <div class="col-md-1">
+      <label class="form-label">Sexo</label>
+      <select class="form-select" name="sexo" [(ngModel)]="filtros.sexo" [disabled]="cargando">
+        <option *ngFor="let s of sexoOptions" [ngValue]="s.value">{{ s.label }}</option>
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label">Fec. nac. inicial</label>
+      <input
+        type="date"
+        class="form-control"
+        name="fechaNacimientoInicial"
+        [(ngModel)]="filtros.fechaNacimientoInicial"
+        [disabled]="cargando">
+    </div>
+
+    <div class="col-md-2">
+      <label class="form-label">Fec. nac. final</label>
+      <input
+        type="date"
+        class="form-control"
+        name="fechaNacimientoFinal"
+        [(ngModel)]="filtros.fechaNacimientoFinal"
+        [disabled]="cargando">
+    </div>
+
+    <div class="col-md-1" *ngIf="farmaciasDisponibles.length > 0">
+      <label class="form-label">Farmacia</label>
+      <select class="form-select" name="farmaciaId" [(ngModel)]="filtros.farmaciaId" [disabled]="cargando">
+        <option value="">Todas</option>
+        <option *ngFor="let f of farmaciasDisponibles" [ngValue]="f._id">{{ f.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="col-md-1">
+      <label class="form-label">Renglones</label>
+      <select
+        class="form-select"
+        name="limit"
+        [(ngModel)]="limit"
+        (change)="cambiarRegistrosPorPagina()"
+        [disabled]="cargando">
+        <option *ngFor="let opcion of opcionesRegistrosPorPagina" [ngValue]="opcion">{{ opcion }}</option>
+      </select>
+    </div>
+
+    <div class="col acciones-reporte">
+      <button type="submit" class="btn-gris" [disabled]="cargando">
+        {{ cargando ? 'Cargando...' : 'Buscar' }}
+      </button>
+
+      <button type="button" class="btn-rojo" (click)="limpiarFiltros()" [disabled]="cargando" matTooltip="Limpiar filtros">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </form>
+
+  <div class="pacientes-status">
+    <span *ngIf="!errorCarga">
+      Mostrando {{ pacientesPaginados.length }} de {{ totalRegistros }} pacientes filtrados
+    </span>
+    <span class="text-danger" *ngIf="errorCarga">{{ errorCarga }}</span>
+    <span class="text-muted" *ngIf="cargandoExpediente">Cargando expediente...</span>
+  </div>
+
+  <div class="table-responsive mt-2">
+    <table class="tabla pacientes-table">
+      <thead>
+        <tr>
+          <th class="sortable" (click)="setSort('nombre')">
+            Nombre <i class="fa sort-icon" [ngClass]="sortIcon('nombre')"></i>
+          </th>
+          <th class="sortable" (click)="setSort('apPaterno')">
+            Ap. paterno <i class="fa sort-icon" [ngClass]="sortIcon('apPaterno')"></i>
+          </th>
+          <th class="sortable" (click)="setSort('apMaterno')">
+            Ap. materno <i class="fa sort-icon" [ngClass]="sortIcon('apMaterno')"></i>
+          </th>
+          <th class="sortable text-nowrap" (click)="setSort('fechaNacimiento')">
+            Fec. Nac. <i class="fa sort-icon" [ngClass]="sortIcon('fechaNacimiento')"></i>
+          </th>
+          <th class="sortable" (click)="setSort('sexo')">
+            Sexo <i class="fa sort-icon" [ngClass]="sortIcon('sexo')"></i>
+          </th>
+          <th class="sortable" (click)="setSort('curp')">
+            CURP <i class="fa sort-icon" [ngClass]="sortIcon('curp')"></i>
+          </th>
+          <th class="sortable" (click)="setSort('contacto')">
+            Contacto <i class="fa sort-icon" [ngClass]="sortIcon('contacto')"></i>
+          </th>
+          <th class="sortable" (click)="setSort('telefono')">
+            Tel&eacute;fono <i class="fa sort-icon" [ngClass]="sortIcon('telefono')"></i>
+          </th>
+          <th class="sortable" (click)="setSort('parentesco')">
+            Parentesco <i class="fa sort-icon" [ngClass]="sortIcon('parentesco')"></i>
+          </th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let p of pacientesPaginados; trackBy: trackById">
+          <td>{{ texto(p?.nombre) }}</td>
+          <td>{{ texto(p?.apPaterno) }}</td>
+          <td>{{ texto(p?.apMaterno) }}</td>
+          <td class="text-nowrap">{{ fechaMx(p?.datosGenerales?.fechaNacimiento) || '-' }}</td>
+          <td>{{ sexoLabel(p?.datosGenerales?.sexo) }}</td>
+          <td class="curp-cell">{{ texto(p?.datosGenerales?.curp) }}</td>
+          <td>{{ texto(p?.contacto?.emergencia?.nombre) }}</td>
+          <td>{{ texto(p?.contacto?.emergencia?.telefono) }}</td>
+          <td>{{ texto(p?.contacto?.emergencia?.parentesco) }}</td>
+          <td class="acciones-cell">
+            <button
+              type="button"
+              class="btn-icon-chico btn-rojo-chico"
+              (click)="eliminarPaciente(p)"
+              [disabled]="cargando || cargandoExpediente"
+              matTooltip="Borrar paciente">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+
+            <button
+              type="button"
+              class="btn-icon-chico btn-gris-chico"
+              (click)="abrirExpediente(p)"
+              [disabled]="cargando || cargandoExpediente"
+              matTooltip="Ver expediente">
+              <i class="fas fa-folder-open"></i>
+            </button>
+          </td>
+        </tr>
+
+        <tr *ngIf="pacientesVisibles.length === 0">
+          <td colspan="10" class="text-center text-muted py-3">
+            {{ cargando ? 'Cargando...' : 'Sin resultados' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="paginacion pacientes-paginacion">
+    <button type="button" (click)="primera()" [disabled]="cargando || page === 1" matTooltip="Inicio">
+      <i class="fa fa-angle-double-left"></i>
+    </button>
+    <button type="button" (click)="anterior()" [disabled]="cargando || page === 1" matTooltip="Anterior">
+      <i class="fa fa-angle-left"></i>
+    </button>
+    Pacientes: {{ totalRegistros }}
+    &nbsp; | &nbsp; Pagina: {{ page }} / {{ totalPaginas || 1 }}
+    <button type="button" (click)="siguiente()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0" matTooltip="Siguiente">
+      <i class="fa fa-angle-right"></i>
+    </button>
+    <button type="button" (click)="ultima()" [disabled]="cargando || page === totalPaginas || totalPaginas === 0" matTooltip="Fin">
+      <i class="fa fa-angle-double-right"></i>
+    </button>
+  </div>
+</div>
+
+<div class="modal fade pacientes-expediente-modal" id="modalExpedientePaciente" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header expediente-header">
+        <div>
+          <h5 class="modal-title">Expediente - {{ nombreCompleto(pacienteExpediente) || 'Paciente' }}</h5>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="expediente-meta">
+          <span>CURP: {{ texto(pacienteExpediente?.datosGenerales?.curp) }}</span>
+          <span>Activo: {{ pacienteExpediente?.activo === false ? 'No' : 'Si' }}</span>
+          <span>Creado: {{ fechaHoraMx(pacienteExpediente?.createdAt) || '-' }}</span>
+          <span>Actualizado: {{ fechaHoraMx(pacienteExpediente?.updatedAt) || '-' }}</span>
+        </div>
+
+        <div class="btn-group w-100 mb-3 expediente-tabs" role="group">
+          <button type="button" class="btn" [class.btn-primary]="activeTab==='datos'" [class.btn-outline-primary]="activeTab!=='datos'" (click)="setTab('datos')">
+            Datos del paciente
+          </button>
+          <button type="button" class="btn" [class.btn-primary]="activeTab==='contacto'" [class.btn-outline-primary]="activeTab!=='contacto'" (click)="setTab('contacto')">
+            Contacto
+          </button>
+          <button type="button" class="btn" [class.btn-primary]="activeTab==='antecedentes'" [class.btn-outline-primary]="activeTab!=='antecedentes'" (click)="setTab('antecedentes')">
+            Antecedentes
+          </button>
+          <button type="button" class="btn" [class.btn-primary]="activeTab==='signos'" [class.btn-outline-primary]="activeTab!=='signos'" (click)="setTab('signos')">
+            Signos vitales
+          </button>
+          <button type="button" class="btn" [class.btn-primary]="activeTab==='notas'" [class.btn-outline-primary]="activeTab!=='notas'" (click)="setTab('notas')">
+            Notas clinicas
+          </button>
+          <button type="button" class="btn" [class.btn-primary]="activeTab==='recetas'" [class.btn-outline-primary]="activeTab!=='recetas'" (click)="setTab('recetas')">
+            Recetas
+          </button>
+          <button type="button" class="btn" [class.btn-primary]="activeTab==='farmacias'" [class.btn-outline-primary]="activeTab!=='farmacias'" (click)="setTab('farmacias')">
+            Farmacias vinculadas
+          </button>
+        </div>
+
+        <div class="exp-section" *ngIf="activeTab === 'datos'">
+          <h6>Datos del paciente</h6>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Nombre</label>
+              <input class="form-control" [(ngModel)]="editForm.nombre" [disabled]="guardando">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Ap. paterno</label>
+              <input class="form-control" [(ngModel)]="editForm.apPaterno" [disabled]="guardando">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Ap. materno</label>
+              <input class="form-control" [(ngModel)]="editForm.apMaterno" [disabled]="guardando">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Fecha nacimiento</label>
+              <input type="date" class="form-control" [(ngModel)]="editForm.datosGenerales.fechaNacimiento" [disabled]="guardando">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Sexo</label>
+              <select class="form-select" [(ngModel)]="editForm.datosGenerales.sexo" [disabled]="guardando">
+                <option *ngFor="let s of sexoEditOptions" [ngValue]="s.value">{{ s.label }}</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">CURP</label>
+              <input class="form-control text-uppercase" [(ngModel)]="editForm.datosGenerales.curp" [disabled]="guardando" maxlength="18">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Entidad nacimiento</label>
+              <select class="form-select" [(ngModel)]="editForm.datosGenerales.entidadNacimiento" [disabled]="guardando">
+                <option *ngFor="let e of entidadesNacimiento" [ngValue]="e.value">{{ e.label }}</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Ocupacion</label>
+              <input class="form-control" [(ngModel)]="editForm.datosGenerales.ocupacion" [disabled]="guardando">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Escolaridad</label>
+              <input class="form-control" [(ngModel)]="editForm.datosGenerales.escolaridad" [disabled]="guardando">
+            </div>
+          </div>
+        </div>
+
+        <div class="exp-section" *ngIf="activeTab === 'contacto'">
+          <h6>Contacto</h6>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Tel&eacute;fono</label>
+              <input class="form-control" [(ngModel)]="editForm.contacto.telefono" [disabled]="guardando">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Correo</label>
+              <input type="email" class="form-control" [(ngModel)]="editForm.contacto.email" [disabled]="guardando">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Direccion</label>
+              <input class="form-control" [(ngModel)]="editForm.contacto.direccion" [disabled]="guardando">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Contacto emergencia</label>
+              <input class="form-control" [(ngModel)]="editForm.contacto.emergencia.nombre" [disabled]="guardando">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Tel&eacute;fono emergencia</label>
+              <input class="form-control" [(ngModel)]="editForm.contacto.emergencia.telefono" [disabled]="guardando">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Parentesco</label>
+              <input class="form-control" [(ngModel)]="editForm.contacto.emergencia.parentesco" [disabled]="guardando">
+            </div>
+          </div>
+        </div>
+
+        <div class="exp-section" *ngIf="activeTab === 'antecedentes'">
+          <h6>Antecedentes</h6>
+          <div class="readonly-grid">
+            <div class="readonly-item">
+              <span>Alergias</span>
+              <p>{{ listaTexto(antecedentes?.alergias) }}</p>
+            </div>
+            <div class="readonly-item">
+              <span>Enfermedades cronicas</span>
+              <p>{{ listaTexto(antecedentes?.enfermedadesCronicas) }}</p>
+            </div>
+            <div class="readonly-item">
+              <span>Cirugias previas</span>
+              <p>{{ listaTexto(antecedentes?.cirugiasPrevias) }}</p>
+            </div>
+            <div class="readonly-item">
+              <span>Medicamentos actuales</span>
+              <p>{{ listaTexto(antecedentes?.medicamentosActuales) }}</p>
+            </div>
+            <div class="readonly-item">
+              <span>Antecedentes familiares</span>
+              <p>{{ listaTexto(antecedentes?.antecedentesFamiliares) }}</p>
+            </div>
+            <div class="readonly-item">
+              <span>Tabaquismo</span>
+              <p>{{ texto(antecedentes?.tabaquismo) }}</p>
+            </div>
+            <div class="readonly-item">
+              <span>Alcohol</span>
+              <p>{{ texto(antecedentes?.alcohol) }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="exp-section" *ngIf="activeTab === 'signos'">
+          <h6>Signos vitales</h6>
+          <div class="table-responsive" *ngIf="signosVitales.length; else sinSignos">
+            <table class="detalle-tabla expediente-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Peso</th>
+                  <th>Talla</th>
+                  <th>IMC</th>
+                  <th>Temp.</th>
+                  <th>Presion</th>
+                  <th>FC</th>
+                  <th>FR</th>
+                  <th>SpO2</th>
+                  <th>Glucosa</th>
+                  <th>Farmacia</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let sv of signosVitales; let i = index">
+                  <td>{{ fechaHoraMx(sv?.fecha) || '-' }}</td>
+                  <td>{{ texto(sv?.pesoKg) }}</td>
+                  <td>{{ texto(sv?.tallaCm) }}</td>
+                  <td>{{ texto(sv?.imc) }}</td>
+                  <td>{{ texto(sv?.temperatura) }}</td>
+                  <td>{{ presionTexto(sv) }}</td>
+                  <td>{{ texto(sv?.fc) }}</td>
+                  <td>{{ texto(sv?.fr) }}</td>
+                  <td>{{ texto(sv?.spo2) }}</td>
+                  <td>{{ texto(sv?.glucosaCapilar) }}</td>
+                  <td>{{ farmaciaNombre(sv?.farmaciaId) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #sinSignos>
+            <div class="empty-state">Sin signos vitales registrados.</div>
+          </ng-template>
+        </div>
+
+        <div class="exp-section" *ngIf="activeTab === 'notas'">
+          <h6>Notas clinicas</h6>
+          <div class="table-responsive" *ngIf="notasClinicas.length; else sinNotas">
+            <table class="detalle-tabla expediente-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Motivo</th>
+                  <th>Padecimiento</th>
+                  <th>Diagnosticos</th>
+                  <th>Plan</th>
+                  <th>Medico</th>
+                  <th>Farmacia</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let n of notasClinicas; let i = index">
+                  <td>{{ fechaHoraMx(n?.fecha) || '-' }}</td>
+                  <td>{{ texto(n?.motivoConsulta) }}</td>
+                  <td>{{ texto(n?.padecimientoActual) }}</td>
+                  <td>{{ diagnosticosTexto(n?.diagnosticos) }}</td>
+                  <td>{{ texto(n?.plan) }}</td>
+                  <td>{{ personaNombre(n?.medicoId) }}</td>
+                  <td>{{ farmaciaNombre(n?.farmaciaId) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #sinNotas>
+            <div class="empty-state">Sin notas clinicas registradas.</div>
+          </ng-template>
+        </div>
+
+        <div class="exp-section" *ngIf="activeTab === 'recetas'">
+          <h6>Recetas</h6>
+          <div class="table-responsive" *ngIf="recetas.length; else sinRecetas">
+            <table class="detalle-tabla expediente-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Diagnostico</th>
+                  <th>Medicamentos</th>
+                  <th>Medico</th>
+                  <th>Farmacia</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of recetas; let i = index">
+                  <td>{{ fechaHoraMx(r?.fecha) || '-' }}</td>
+                  <td>{{ diagnosticosTexto(r) }}</td>
+                  <td>{{ medicamentosTexto(r) }}</td>
+                  <td>{{ personaNombre(r?.medicoId) }}</td>
+                  <td>{{ farmaciaNombre(r?.farmaciaId) }}</td>
+                  <td>{{ texto(r?.estado) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #sinRecetas>
+            <div class="empty-state">Sin recetas registradas.</div>
+          </ng-template>
+        </div>
+
+        <div class="exp-section" *ngIf="activeTab === 'farmacias'">
+          <h6>Farmacias vinculadas</h6>
+          <div class="table-responsive" *ngIf="farmaciasVinculadas.length; else sinFarmacias">
+            <table class="detalle-tabla expediente-table">
+              <thead>
+                <tr>
+                  <th>Farmacia</th>
+                  <th>Direccion</th>
+                  <th>Telefono</th>
+                  <th>ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let f of farmaciasVinculadas; let i = index">
+                  <td>{{ farmaciaNombre(f) }}</td>
+                  <td>{{ texto(f?.direccion) }}</td>
+                  <td>{{ texto(f?.telefono) }}</td>
+                  <td>{{ texto(f?._id || f) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #sinFarmacias>
+            <div class="empty-state">Sin farmacias vinculadas.</div>
+          </ng-template>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-rojo-chico" data-bs-dismiss="modal" [disabled]="guardando">
+          Cancelar
+        </button>
+        <button type="button" class="btn-verde" (click)="guardarExpediente()" [disabled]="guardando">
+          {{ guardando ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

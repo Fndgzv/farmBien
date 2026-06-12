@@ -97,6 +97,7 @@ app.use('/api/reportes', require('./routes/reportesRoutes'));
 app.use('/api/reportes', require('./routes/reportesPresupuestoRoutes'));
 app.use('/api/inventario-fisico', require('./routes/inventarioFisico.routes'));
 app.use("/api/fichas-consultorio", require("./routes/fichasConsultorio.routes"));
+app.use("/api/admin/pacientes", require("./routes/adminPacientes.routes"));
 app.use("/api/pacientes", require("./routes/pacientes.routes"));
 app.use("/api/recetas", require("./routes/recetas.routes"));
 app.use("/api/pantalla-turnos", require("./routes/pantallaTurnos.routes"));

@@ -59,6 +59,9 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   rows: ServicioMedicoRealizadoRow[] = [];
   totales: ServicioMedicoRealizadoTotales = this.totalesVacios();
   sort: { key: SortKey; dir: 'asc' | 'desc' } = { key: 'llegadaAt', dir: 'asc' };
+  page = 1;
+  limit = 20;
+  readonly opcionesRegistrosPorPagina = [10, 20, 50, 100];
   private farmaciasCargadas = false;
   private medicosCargados = false;
   private busquedaInicialEjecutada = false;
@@ -108,12 +111,14 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
         next: (resp: any) => {
           this.rows = (resp?.rows || []).map((r: any) => this.mapRow(r));
           this.setSortDefault();
+          this.resetPaginacion();
           this.totales = this.normalizarTotales(resp?.totales);
         },
         error: (err) => {
           console.error('[servicios-medicos-realizados][ERROR]', err);
           this.rows = [];
           this.totales = this.totalesVacios();
+          this.resetPaginacion();
           Swal.fire('Error', err?.error?.mensaje || 'No se pudo consultar el reporte.', 'error');
         }
       });
@@ -123,6 +128,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     this.rows = [];
     this.totales = this.totalesVacios();
     this.buscado = false;
+    this.resetPaginacion();
   }
 
   trackByRow(index: number, row: ServicioMedicoRealizadoRow): string {
@@ -187,10 +193,12 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     const key = map[col];
     if (!this.sort || this.sort.key !== key) {
       this.sort = { key, dir: 'asc' };
+      this.resetPaginacion();
       return;
     }
 
     this.sort = { key, dir: this.sort.dir === 'asc' ? 'desc' : 'asc' };
+    this.resetPaginacion();
   }
 
   sortIcon(col: SortCol): string {
@@ -228,6 +236,44 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
       if (cmp !== 0) return cmp * factor;
       return this.compararFecha(a.llegadaAt, b.llegadaAt);
     });
+  }
+
+  get totalRegistros(): number {
+    return this.sortedRows.length;
+  }
+
+  get totalPaginas(): number {
+    return this.totalRegistros > 0 ? Math.ceil(this.totalRegistros / this.limit) : 0;
+  }
+
+  get registrosPaginados(): ServicioMedicoRealizadoRow[] {
+    const rows = this.sortedRows;
+    const total = rows.length > 0 ? Math.ceil(rows.length / this.limit) : 0;
+    const pagina = total > 0 ? Math.min(this.page, total) : 1;
+    const inicio = (pagina - 1) * this.limit;
+    return rows.slice(inicio, inicio + this.limit);
+  }
+
+  cambiarRegistrosPorPagina(): void {
+    const value = Number(this.limit);
+    this.limit = this.opcionesRegistrosPorPagina.includes(value) ? value : 20;
+    this.resetPaginacion();
+  }
+
+  primera(): void {
+    if (this.page !== 1) this.page = 1;
+  }
+
+  anterior(): void {
+    if (this.page > 1) this.page--;
+  }
+
+  siguiente(): void {
+    if (this.page < this.totalPaginas) this.page++;
+  }
+
+  ultima(): void {
+    if (this.totalPaginas > 0 && this.page !== this.totalPaginas) this.page = this.totalPaginas;
   }
 
   imprimir(): void {
@@ -365,6 +411,10 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
 
   private setSortDefault(): void {
     this.sort = { key: 'llegadaAt', dir: 'asc' };
+  }
+
+  private resetPaginacion(): void {
+    this.page = 1;
   }
 
   private fechaEpoch(v: any): number | null {

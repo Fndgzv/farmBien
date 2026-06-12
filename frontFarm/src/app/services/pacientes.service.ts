@@ -1,6 +1,6 @@
 // frontFarm/src/app/services/pacientes.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -33,9 +33,18 @@ export interface ActualizarPacientePayload {
   antecedentes?: any;
 }
 
+export interface PacientesAdminFiltros {
+  q?: string;
+  sexo?: string;
+  fechaNacimientoInicial?: string;
+  fechaNacimientoFinal?: string;
+  farmaciaId?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PacientesService {
   private baseUrl = `${environment.apiUrl}/pacientes`;
+  private adminBaseUrl = `${environment.apiUrl}/admin/pacientes`;
 
   constructor(private http: HttpClient) { }
 
@@ -94,6 +103,38 @@ export class PacientesService {
 
   actualizarPaciente(pacienteId: string, payload: ActualizarPacientePayload | any): Observable<any> {
     return this.http.patch<any>(`${this.baseUrl}/${pacienteId}`, payload, {
+      headers: this.headers()
+    });
+  }
+
+  listarPacientes(filtros: PacientesAdminFiltros = {}): Observable<PacienteResp> {
+    let params = new HttpParams();
+
+    Object.entries(filtros).forEach(([key, value]) => {
+      const limpio = String(value ?? '').trim();
+      if (limpio) params = params.set(key, limpio);
+    });
+
+    return this.http.get<PacienteResp>(this.adminBaseUrl, {
+      headers: this.headers(),
+      params,
+    });
+  }
+
+  obtenerPaciente(pacienteId: string): Observable<PacienteResp> {
+    return this.http.get<PacienteResp>(`${this.adminBaseUrl}/${pacienteId}`, {
+      headers: this.headers()
+    });
+  }
+
+  actualizarPacienteAdmin(pacienteId: string, payload: any): Observable<PacienteResp> {
+    return this.http.patch<PacienteResp>(`${this.adminBaseUrl}/${pacienteId}`, payload, {
+      headers: this.headers()
+    });
+  }
+
+  eliminarPaciente(pacienteId: string): Observable<any> {
+    return this.http.delete<any>(`${this.adminBaseUrl}/${pacienteId}`, {
       headers: this.headers()
     });
   }
