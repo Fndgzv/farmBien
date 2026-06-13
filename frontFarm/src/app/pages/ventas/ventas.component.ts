@@ -168,6 +168,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   productosFiltrados: any[] = [];
   productosFiltradosPorCodigo: any[] = [];
   productos: any[] = [];
+  private readonly maxProductosAutocomplete = 30;
   clientes: any[] = [];
 
   farmaciaId: string = '';
@@ -295,6 +296,44 @@ export class VentasComponent implements OnInit, AfterViewInit {
   onImgError(ev: Event) {
     const el = ev.target as HTMLImageElement | null;
     if (el && !el.src.includes(this.placeholderSrc)) el.src = this.placeholderSrc;
+  }
+
+  private getProductoIdVenta(item: any): string {
+    const producto = item?.producto;
+    if (producto && typeof producto === 'object') {
+      return String(producto._id ?? producto.id ?? producto.productoId ?? '').trim();
+    }
+    return String(producto ?? item?.productoId ?? '').trim();
+  }
+
+  private getProductoVenta(item: any): any {
+    const producto = item?.producto;
+    if (producto && typeof producto === 'object') return producto;
+
+    const productoId = this.getProductoIdVenta(item);
+    if (!productoId) return null;
+
+    return (this.productos || []).find(p => String(p?._id ?? p?.id ?? '') === productoId) ?? null;
+  }
+
+  private getImagenCandidate(entity: any): string {
+    return String(entity?.imagen ?? entity?.imagenUrl ?? entity?.urlImagen ?? entity?.imageUrl ?? '').trim();
+  }
+
+  getImagenProductoVenta(item: any): string {
+    const productoId = this.getProductoIdVenta(item);
+    const thumb = productoId ? this.thumbs?.[productoId] : '';
+    if (thumb === this.placeholderSrc) return this.placeholderSrc;
+    if (thumb) return thumb;
+
+    const producto = this.getProductoVenta(item);
+    const imagenProducto = this.getImagenCandidate(producto);
+    if (imagenProducto) return this.productoService.getPublicImageUrl(imagenProducto);
+
+    const imagenItem = this.getImagenCandidate(item);
+    if (imagenItem) return this.productoService.getPublicImageUrl(imagenItem);
+
+    return this.placeholderSrc;
   }
 
   private resetConsulta(): void {
@@ -865,13 +904,46 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   filtrarProductos() {
-    if (this.busquedaProducto) {
-      this.productosFiltrados = this.productos.filter(producto =>
-        producto.nombre.toLowerCase().includes(this.busquedaProducto.toLowerCase())
-      );
-    } else {
-      this.productosFiltrados = this.productos;
-    }
+    const terminos = this.normalizarBusquedaProducto(this.busquedaProducto)
+      .split(' ')
+      .filter(Boolean);
+    const productos = Array.isArray(this.productos) ? this.productos : [];
+
+    const filtrados = terminos.length
+      ? productos.filter(producto => {
+        const textoProducto = this.textoBusquedaProducto(producto);
+        return terminos.every(termino => textoProducto.includes(termino));
+      })
+      : productos;
+
+    this.productosFiltrados = filtrados.slice(0, this.maxProductosAutocomplete);
+  }
+
+  private normalizarBusquedaProducto(valor: any): string {
+    return String(valor ?? '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private textoBusquedaProducto(producto: any): string {
+    const categoria = producto?.categoria;
+    const categoriaTexto = typeof categoria === 'object'
+      ? [categoria?.nombre, categoria?.descripcion, categoria?._id].filter(Boolean).join(' ')
+      : categoria;
+
+    return this.normalizarBusquedaProducto([
+      producto?.nombre,
+      producto?.codigoBarras,
+      categoriaTexto,
+      producto?.ubicacion,
+      producto?.ubicacionFarmacia,
+      producto?.ingreActivo,
+      producto?.principioActivo,
+      producto?.sustanciaActiva,
+    ].filter(Boolean).join(' '));
   }
 
   filtrarPorCodigo() {
@@ -1001,6 +1073,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         }
 
         // 🔧 FIN de carga: desbloquea y procesa el escaneo pendiente
+        this.filtrarProductos();
         this.productosCargando = false;
 
         if (this.pendingScan) {
@@ -1024,9 +1097,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
   onThumbError(ev: Event, p: any) {
     const img = ev.target as HTMLImageElement;
     if (!img) return;
-    if (img.src !== this.placeholderSrc) {
+    if (img.getAttribute('src') !== this.placeholderSrc) {
+      const productoId = this.getProductoIdVenta(p);
       img.src = this.placeholderSrc;              // evita loop
-      this.thumbs[p.producto] = this.placeholderSrc; // cachea el placeholder
+      if (productoId) this.thumbs[productoId] = this.placeholderSrc; // cachea el placeholder
     }
   }
 
@@ -2293,13 +2367,9 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   // Modal con imagen grande
   openPreviewVenta(item: any) {
-    const prod = (this.productos || []).find(x => x._id === item.producto);
-    const base = prod?.imagen
-      ? this.productoService.obtenerImagenProductoUrl(item.producto)
-      : this.placeholderSrc;
+    const base = this.getImagenProductoVenta(item);
 
     const img = new Image();
-    img.src = base;
 
     img.onload = () => {
       // tamaño original
@@ -2319,6 +2389,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
       const finalW = Math.max(1, Math.round(targetW * fit));
       const finalH = Math.max(1, Math.round(targetH * fit));
+      const safeBase = base.replace(/"/g, '&quot;');
 
       Swal.fire({
         width: 'auto',
@@ -2328,20 +2399,40 @@ export class VentasComponent implements OnInit, AfterViewInit {
         padding: 0,
         html: `
         <div style="max-width:${maxW}px;max-height:${maxH}px;display:flex;align-items:center;justify-content:center;">
-          <img src="${base}" alt=""
+          <img src="${safeBase}" alt=""
                style="width:${finalW}px;height:${finalH}px;object-fit:contain;display:block;"/>
         </div>`
       });
     };
 
     img.onerror = () => {
-      // fallback simple si falla la carga
+      const productoId = this.getProductoIdVenta(item);
+      if (productoId) this.thumbs[productoId] = this.placeholderSrc;
+
+      if (base !== this.placeholderSrc) {
+        Swal.fire({
+          width: 'auto',
+          background: '#000',
+          showConfirmButton: false,
+          showCloseButton: true,
+          padding: 0,
+          html: `
+          <div style="max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center;">
+            <img src="${this.placeholderSrc}" alt=""
+                 style="max-width:90vw;max-height:90vh;object-fit:contain;display:block;"/>
+          </div>`
+        });
+        return;
+      }
+
       Swal.fire({
-        icon: 'error',
-        title: 'No se pudo cargar la imagen',
-        text: 'Inténtalo de nuevo.',
+        icon: 'info',
+        title: 'Imagen no disponible',
+        text: 'Este producto no tiene una imagen disponible.',
       });
     };
+
+    img.src = base;
   }
 
 

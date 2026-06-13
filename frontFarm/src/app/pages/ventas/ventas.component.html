@@ -638,7 +638,7 @@
           <td class="col-img">
             <div class="img-cell">
               <button type="button" class="img-button" (click)="openPreviewVenta(p)">
-                <img [src]="thumbs[p.producto] || placeholderSrc" (error)="onThumbError($event, p)" alt=""
+                <img [src]="getImagenProductoVenta(p)" (error)="onThumbError($event, p)" alt=""
                   loading="lazy" decoding="async">
               </button>
             </div>
