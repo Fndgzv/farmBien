@@ -204,6 +204,7 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
             nombre: '$prod.nombre',
             costo: '$prod.costo',
             codigoBarras: '$prod.codigoBarras',
+            imagen: '$prod.imagen',
             categoria: '$prod.categoria',
             generico: '$prod.generico',
             descuentoINAPAM: '$prod.descuentoINAPAM',

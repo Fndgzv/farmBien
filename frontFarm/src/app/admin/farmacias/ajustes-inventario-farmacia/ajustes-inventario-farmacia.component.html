@@ -335,7 +335,8 @@
     <table class="tabla">
         <thead class="text-center">
             <tr style="color: blue;">
-                <th style="font-size: small;">AJUSTE MASIVO</th>
+                <th style="font-size: smaller;">Ajuste Masivo</th>
+                <th class="col-img-ajuste"></th>
                 <th></th>
                 <th>
                     <input [(ngModel)]="ajusteMasivo.ubicacionFarmacia" class="form-control form-control-sm" type="text"
@@ -379,6 +380,7 @@
                 <th>
                     <input type="checkbox" (change)="seleccionarTodos($event)">
                 </th>
+                <th class="col-img-ajuste">Imagen</th>
                 <th (click)="clickSortNombre()" class="th-sort" title="Ordenar por nombre">
                     Nombre
                     <i class="bi" [ngClass]="{
@@ -416,8 +418,18 @@
                     <input type="checkbox" [(ngModel)]="i.seleccionado">
                 </td>
 
+                <td class="col-img-ajuste">
+                    <div class="img-cell">
+                        <button type="button" class="img-button" (click)="openPreviewInventario(i)"
+                            matTooltip="Ver imagen">
+                            <img [src]="getImagenInventario(i)" (error)="onThumbErrorInventario($event, i)"
+                                [alt]="i.producto?.nombre || 'Producto'" loading="lazy" decoding="async">
+                        </button>
+                    </div>
+                </td>
+
                 <td class="nombre-cell">
-                    <div class="nombre-text">{{ i.producto?.nombre }}</div>
+                    <div class="nombre-text" style="font-size: small;" >{{ i.producto?.nombre }}</div>
                     <small class="codigo-mini">{{ i.producto?.codigoBarras || '—' }}</small>
                 </td>
 
@@ -526,7 +538,7 @@
 
             </tr>
             <tr *ngIf="inventarioPaginado.length === 0">
-                <td colspan="12" class="text-center text-muted py-3">
+                <td colspan="13" class="text-center text-muted py-3">
                     Sin productos en la vista {{ etiquetaVistaInventario }}.
                 </td>
             </tr>

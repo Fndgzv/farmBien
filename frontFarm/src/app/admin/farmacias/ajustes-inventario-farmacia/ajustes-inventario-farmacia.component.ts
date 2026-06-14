@@ -5,6 +5,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { InventarioFarmaciaService } from '../../../services/inventario-farmacia.service';
 import { FarmaciaService } from '../../../services/farmacia.service';
+import { ProductoService } from '../../../services/producto.service';
 import Swal from 'sweetalert2';
 import { finalize } from 'rxjs/operators';
 
@@ -36,6 +37,8 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   inventario: any[] = [];
   farmacias: any[] = [];
   vistaInventario: VistaInventario = 'sinCeros';
+  placeholderSrc = 'assets/images/farmBienIcon.png';
+  thumbs: Record<string, string> = {};
 
 
   aplicandoMasivoPromosPrecio = false;
@@ -87,6 +90,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     private fb: FormBuilder,
     private inventarioService: InventarioFarmaciaService,
     private farmaciaService: FarmaciaService,
+    private productoService: ProductoService,
     private dialog: MatDialog,
     library: FaIconLibrary
   ) { library.addIcons(faSave, faSpinner, faCheck, faTags); }
@@ -170,6 +174,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       return;
     }
     this.cargando = true;
+    this.thumbs = {};
 
     const params = {
       ...filtros,
@@ -190,6 +195,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
             ubicacionFarmacia: item.ubicacionFarmacia,
           }
         }));
+        this.buildThumbsInventario();
         this.vistaInventario = 'sinCeros';
         this.paginaActual = 1;
         this.cargando = false;
@@ -200,6 +206,122 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
         this.cargando = false;
       }
     });
+  }
+
+  private buildThumbsInventario(): void {
+    this.thumbs = {};
+
+    for (const item of this.inventario || []) {
+      const productoId = this.getProductoIdInventario(item);
+      if (!productoId) continue;
+      this.thumbs[productoId] = this.getImagenInventario(item);
+    }
+  }
+
+  private getProductoIdInventario(item: any): string {
+    const producto = item?.producto;
+    if (producto && typeof producto === 'object') {
+      return String(producto._id ?? producto.id ?? producto.productoId ?? '').trim();
+    }
+    return String(producto ?? item?.productoId ?? '').trim();
+  }
+
+  private getImagenCandidate(entity: any): string {
+    return String(
+      entity?.imagen ??
+      entity?.imagenes?.[0] ??
+      entity?.foto ??
+      entity?.rutaImagen ??
+      entity?.imagenUrl ??
+      entity?.urlImagen ??
+      entity?.imageUrl ??
+      ''
+    ).trim();
+  }
+
+  getImagenInventario(item: any): string {
+    const productoId = this.getProductoIdInventario(item);
+    const thumb = productoId ? this.thumbs?.[productoId] : '';
+    if (thumb === this.placeholderSrc) return this.placeholderSrc;
+    if (thumb) return thumb;
+
+    const imagenProducto = this.getImagenCandidate(item?.producto);
+    if (imagenProducto) return this.productoService.getPublicImageUrl(imagenProducto);
+
+    const imagenItem = this.getImagenCandidate(item);
+    if (imagenItem) return this.productoService.getPublicImageUrl(imagenItem);
+
+    return this.placeholderSrc;
+  }
+
+  onThumbErrorInventario(ev: Event, item: any): void {
+    const img = ev.target as HTMLImageElement;
+    if (!img) return;
+    if (img.getAttribute('src') !== this.placeholderSrc) {
+      const productoId = this.getProductoIdInventario(item);
+      img.src = this.placeholderSrc;
+      if (productoId) this.thumbs[productoId] = this.placeholderSrc;
+    }
+  }
+
+  openPreviewInventario(item: any): void {
+    const base = this.getImagenInventario(item);
+    const img = new Image();
+
+    img.onload = () => {
+      const ow = img.naturalWidth || 0;
+      const oh = img.naturalHeight || 0;
+      const targetW = ow * 3;
+      const targetH = oh * 3;
+      const maxW = Math.floor(window.innerWidth * 0.9);
+      const maxH = Math.floor(window.innerHeight * 0.9);
+      const fit = Math.min(maxW / targetW, maxH / targetH, 1);
+      const finalW = Math.max(1, Math.round(targetW * fit));
+      const finalH = Math.max(1, Math.round(targetH * fit));
+      const safeBase = base.replace(/"/g, '&quot;');
+
+      Swal.fire({
+        width: 'auto',
+        background: '#000',
+        showConfirmButton: false,
+        showCloseButton: true,
+        padding: 0,
+        html: `
+        <div style="max-width:${maxW}px;max-height:${maxH}px;display:flex;align-items:center;justify-content:center;">
+          <img src="${safeBase}" alt=""
+               style="width:${finalW}px;height:${finalH}px;object-fit:contain;display:block;"/>
+        </div>`
+      });
+    };
+
+    img.onerror = () => {
+      const productoId = this.getProductoIdInventario(item);
+      if (productoId) this.thumbs[productoId] = this.placeholderSrc;
+
+      if (base !== this.placeholderSrc) {
+        Swal.fire({
+          width: 'auto',
+          background: '#000',
+          showConfirmButton: false,
+          showCloseButton: true,
+          padding: 0,
+          html: `
+          <div style="max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center;">
+            <img src="${this.placeholderSrc}" alt=""
+                 style="max-width:90vw;max-height:90vh;object-fit:contain;display:block;"/>
+          </div>`
+        });
+        return;
+      }
+
+      Swal.fire({
+        icon: 'info',
+        title: 'Imagen no disponible',
+        text: 'Este producto no tiene una imagen disponible.',
+      });
+    };
+
+    img.src = base;
   }
 
   clickSortExistencia() {
