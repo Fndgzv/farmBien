@@ -8,6 +8,7 @@ import { FarmaciaService } from '../../../services/farmacia.service';
 import { ProductoService } from '../../../services/producto.service';
 import Swal from 'sweetalert2';
 import { finalize } from 'rxjs/operators';
+import * as XLSX from 'xlsx';
 
 import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -622,6 +623,10 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     return this.inventario.filter(p => this.debeMostrarEnSinCeros(p)).length;
   }
 
+  get totalInventarioExportable(): number {
+    return this.registrosInventarioExportables().length;
+  }
+
   get etiquetaVistaInventario(): string {
     return this.vistaInventario === 'sinCeros' ? 'Sin ceros' : 'Completa';
   }
@@ -633,6 +638,107 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   alternarVistaInventario(): void {
     this.vistaInventario = this.vistaInventario === 'sinCeros' ? 'completa' : 'sinCeros';
     this.paginaActual = 1;
+  }
+
+  exportarExcel(): void {
+    const registros = this.registrosInventarioExportables();
+
+    if (!registros.length) {
+      Swal.fire('Sin registros', 'No hay productos para exportar en la vista actual.', 'info');
+      return;
+    }
+
+    try {
+      const farmacia = this.nombreFarmaciaSeleccionada;
+      const data = registros.map((i, idx) => ({
+        No: idx + 1,
+        Farmacia: farmacia,
+        'Nombre producto': this.textoExcel(i?.producto?.nombre),
+        'Codigo de barras': this.textoExcel(i?.producto?.codigoBarras),
+        Ubicacion: this.textoExcel(i?.ubicacionFarmacia || i?.producto?.ubicacion),
+        Categoria: this.textoExcel(i?.producto?.categoria),
+        Generico: i?.producto?.generico ? 'Si' : 'No',
+        INAPAM: (i?.descuentoINAPAM ?? i?.producto?.descuentoINAPAM) ? 'Si' : 'No',
+        Existencia: this.numeroExcel(i?.existencia),
+        'Stock minimo': this.numeroExcel(i?.stockMin),
+        'Stock maximo': this.numeroExcel(i?.stockMax),
+        Costo: this.numeroExcel(i?.producto?.costo),
+        'Precio venta': this.numeroExcel(i?.precioVenta),
+        Imagen: this.tieneImagenInventario(i) ? 'Con imagen' : 'Sin imagen',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      ws['!cols'] = [
+        { wch: 6 },
+        { wch: 28 },
+        { wch: 42 },
+        { wch: 18 },
+        { wch: 24 },
+        { wch: 20 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 10 },
+        { wch: 13 },
+        { wch: 13 },
+        { wch: 12 },
+        { wch: 14 },
+        { wch: 12 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+      XLSX.writeFile(wb, this.nombreArchivoExcel());
+    } catch (error) {
+      console.error(error);
+      Swal.fire('Error', 'No se pudo exportar el archivo de Excel.', 'error');
+    }
+  }
+
+  private registrosInventarioExportables(): any[] {
+    if (this.vistaInventario === 'completa') return [...this.inventario];
+    return this.inventario.filter(p => this.tieneValoresInventario(p));
+  }
+
+  private tieneValoresInventario(producto: any): boolean {
+    return Number(producto?.existencia || 0) !== 0 ||
+      Number(producto?.stockMax || 0) !== 0 ||
+      Number(producto?.stockMin || 0) !== 0;
+  }
+
+  private textoExcel(valor: any): string {
+    if (valor === null || valor === undefined) return '';
+    if (typeof valor === 'object') {
+      return String(valor?.nombre ?? valor?.descripcion ?? valor?._id ?? '').trim();
+    }
+    return String(valor).trim();
+  }
+
+  private numeroExcel(valor: any): number {
+    const n = Number(valor);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  private tieneImagenInventario(item: any): boolean {
+    return !!(this.getImagenCandidate(item?.producto) || this.getImagenCandidate(item));
+  }
+
+  private nombreArchivoExcel(): string {
+    const farmacia = this.slugArchivo(this.nombreFarmaciaSeleccionada || 'farmacia');
+    return `ajustes-inventario-${farmacia}-${this.fechaArchivo()}.xlsx`;
+  }
+
+  private fechaArchivo(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  private slugArchivo(valor: string): string {
+    return String(valor || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'farmacia';
   }
 
   paginaAnterior() {

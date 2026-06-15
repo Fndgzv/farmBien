@@ -106,13 +106,22 @@
         <small>Sin ceros: {{ totalInventarioSinCeros }}</small>
     </div>
 
-    <button
-        type="button"
-        [ngClass]="vistaInventario === 'sinCeros' ? 'btn-verde' : 'btn-gris'"
-        (click)="alternarVistaInventario()"
-        >
-        {{ etiquetaToggleVistaInventario }}
-    </button>
+    <div class="vista-inventario-actions">
+        <button
+            type="button"
+            class="btn-amarillo"
+            (click)="exportarExcel()"
+            [disabled]="cargando || totalInventarioExportable === 0">
+            Exportar Excel
+        </button>
+
+        <button
+            type="button"
+            [ngClass]="vistaInventario === 'sinCeros' ? 'btn-verde' : 'btn-gris'"
+            (click)="alternarVistaInventario()">
+            {{ etiquetaToggleVistaInventario }}
+        </button>
+    </div>
 </div>
 
 <!-- ================== CAMBIOS MASIVOS (PROMOS + PRECIO) ================== -->
