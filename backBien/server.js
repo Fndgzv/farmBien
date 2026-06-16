@@ -39,6 +39,7 @@ conectarDB();
 // =============================================================
 require('./models/Usuario');
 require('./models/Farmacia');
+require('./models/Laboratorio');
 
 const Producto = require('./models/Producto'); // ← IMPORTAR AQUÍ
 const InventarioFisico = require('./models/InventarioFisico'); // ← NECESARIO TAMBIÉN
@@ -84,6 +85,7 @@ app.use('/api/usuarios', require('./routes/usuarioRoutes'));
 app.use('/api/productos', require('./routes/productoRoutes'));
 app.use('/api/farmacias', require('./routes/farmaciaRoutes'));
 app.use('/api/proveedores', require('./routes/proveedorRoutes'));
+app.use('/api/laboratorios', require('./routes/laboratoriosRoutes'));
 app.use('/api/cortes', require('./routes/corteCajaRoutes'));
 app.use('/api/surtirFarmacias', require('./routes/surtidoFarmaciaRoutes'));
 app.use('/api/compras', require('./routes/compraRoutes'));

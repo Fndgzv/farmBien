@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Producto = require('../models/Producto');
 const Farmacia = require('../models/Farmacia');
 const InventarioFarmacia = require('../models/InventarioFarmacia');
+const Laboratorio = require('../models/Laboratorio');
 
 const multer = require('multer');
 const path = require('path');
@@ -20,6 +21,48 @@ const normalizarTexto = (s = '') => String(s ?? '')
   .trim();
 
 const esServicioMedico = (categoria) => normalizarTexto(categoria) === 'servicio medico';
+
+function extraerId(valor) {
+  if (valor === undefined) return undefined;
+  if (valor === null) return '';
+  if (Array.isArray(valor)) return extraerId(valor[0]);
+  if (typeof valor === 'object') {
+    return extraerId(valor._id || valor.id || valor.$oid || valor.laboratorio);
+  }
+  return String(valor).trim();
+}
+
+function normalizarObjectIdOpcional(valor, nombreCampo) {
+  if (valor === undefined) {
+    return { definido: false, valor: undefined };
+  }
+
+  const id = extraerId(valor);
+  if (!id) {
+    return { definido: true, valor: null };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return { definido: true, error: `${nombreCampo} invalido.` };
+  }
+
+  return { definido: true, valor: id };
+}
+
+async function validarLaboratorioDisponible(valor, session = null) {
+  const normalizado = normalizarObjectIdOpcional(valor, 'Laboratorio');
+  if (normalizado.error || !normalizado.definido || normalizado.valor === null) {
+    return normalizado;
+  }
+
+  const query = Laboratorio.exists({ _id: normalizado.valor });
+  const existe = session ? await query.session(session) : await query;
+  if (!existe) {
+    return { definido: true, error: 'Laboratorio no encontrado.' };
+  }
+
+  return normalizado;
+}
 
 const numeroMedico = (valor) => {
   const n = Number(valor);
@@ -371,11 +414,23 @@ exports.obtenerProductos = async (req, res) => {
         }
       },
 
+      {
+        $lookup: {
+          from: "laboratorios",
+          localField: "laboratorio",
+          foreignField: "_id",
+          as: "laboratorioDoc"
+        }
+      },
+
       // 6) Exponer nombre proveedor
       {
         $addFields: {
           ultimoProveedorNombre: {
             $ifNull: [{ $first: "$ultimoProveedorDoc.nombre" }, null]
+          },
+          laboratorioNombre: {
+            $ifNull: [{ $first: "$laboratorioDoc.laboratorio" }, null]
           }
         }
       },
@@ -384,6 +439,7 @@ exports.obtenerProductos = async (req, res) => {
       {
         $project: {
           ultimoProveedorDoc: 0,
+          laboratorioDoc: 0,
           lotesValidos: 0,
           inicioMananaCdmx: 0
         }
@@ -408,8 +464,15 @@ exports.crearProducto = async (req, res) => {
     const {
       nombre, ingreActivo, renglon1, renglon2, codigoBarras, unidad, precio, costo, iva,
       stockMinimo, stockMaximo, ubicacion, categoria, generico,
-      costoHonorariosMedicos, costoInsumosMedicos
+      costoHonorariosMedicos, costoInsumosMedicos, laboratorio
     } = req.body;
+
+    const laboratorioValidado = await validarLaboratorioDisponible(laboratorio, session);
+    if (laboratorioValidado.error) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ mensaje: laboratorioValidado.error });
+    }
 
     const extraerIdFarmacia = (valor) => {
       if (!valor) return '';
@@ -447,6 +510,7 @@ exports.crearProducto = async (req, res) => {
       stockMaximo,
       ubicacion,
       categoria,
+      laboratorio: laboratorioValidado.definido ? laboratorioValidado.valor : null,
       generico,
       costoHonorariosMedicos: honorariosMedicos,
       costoInsumosMedicos: insumosMedicos
@@ -903,6 +967,15 @@ exports.actualizarProductos = async (req, res) => {
         if (typeof prod.stockMaximo === 'number') productoActual.stockMaximo = prod.stockMaximo;
         if (typeof prod.ubicacion !== 'undefined') productoActual.ubicacion = prod.ubicacion;
         if (typeof prod.categoria !== 'undefined') productoActual.categoria = prod.categoria;
+        if (typeof prod.laboratorio !== 'undefined') {
+          const laboratorioValidado = await validarLaboratorioDisponible(prod.laboratorio, session);
+          if (laboratorioValidado.error) {
+            const err = new Error(laboratorioValidado.error);
+            err.status = 400;
+            throw err;
+          }
+          productoActual.laboratorio = laboratorioValidado.valor;
+        }
         if (typeof prod.generico !== 'undefined') productoActual.generico = prod.generico;
         if (typeof prod.descuentoINAPAM !== 'undefined') productoActual.descuentoINAPAM = prod.descuentoINAPAM;
 
@@ -947,7 +1020,7 @@ exports.actualizarProductos = async (req, res) => {
     res.json({ mensaje: 'Productos actualizados correctamente' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ mensaje: 'Error actualizando productos', detalle: error.message });
+    res.status(error.status || 500).json({ mensaje: 'Error actualizando productos', detalle: error.message });
   } finally {
     session.endSession();
   }
@@ -1181,6 +1254,14 @@ exports.actualizarProducto = async (req, res) => {
       if (prod.ultimoProveedorId && mongoose.Types.ObjectId.isValid(prod.ultimoProveedorId)) {
         productoActual.ultimoProveedorId = prod.ultimoProveedorId;
       }
+    }
+
+    if (prod.laboratorio !== undefined) {
+      const laboratorioValidado = await validarLaboratorioDisponible(prod.laboratorio);
+      if (laboratorioValidado.error) {
+        return res.status(400).json({ mensaje: laboratorioValidado.error });
+      }
+      productoActual.laboratorio = laboratorioValidado.valor;
     }
 
     // Lotes

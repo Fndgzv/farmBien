@@ -28,8 +28,8 @@
         <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Código de barras</label>
             <div class="position-relative">
-                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras" (keyup.enter)="aplicarFiltros()"
-                    class="form-control pe-4 flex-grow-1">
+                <input type="text" [(ngModel)]="filtros.codigoBarras" name="codigoBarras"
+                    (keyup.enter)="aplicarFiltros()" class="form-control pe-4 flex-grow-1">
                 <button *ngIf="filtros.codigoBarras" type="button" matTooltip="Limpiar cód. barras"
                     class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
                     (click)="limpiarFiltro('codigoBarras')">
@@ -52,6 +52,24 @@
         </div>
 
         <div class="col-md-2">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Laboratorio</label>
+            <div class="position-relative">
+                <select [(ngModel)]="filtros.laboratorioId" name="laboratorioId" class="form-control pe-4 flex-grow-1"
+                    (change)="aplicarFiltros()">
+                    <option [ngValue]="null">--</option>
+                    <option *ngFor="let lab of laboratorios" [ngValue]="lab._id">
+                        {{ lab.laboratorio }}
+                    </option>
+                </select>
+                <button *ngIf="filtros.laboratorioId" type="button" matTooltip="Limpiar laboratorio"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('laboratorioId')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Ubicación</label>
             <div class="position-relative">
                 <input type="text" [(ngModel)]="filtros.ubicacion" name="ubicacion" (keyup.enter)="aplicarFiltros()"
@@ -63,25 +81,6 @@
                 </button>
             </div>
         </div>
-
-<!--         <div class="col-md-1">
-            <label class="me-2 mb-0" style="white-space: nowrap;">INAPAM</label>
-            <div class="position-relative">
-                <select [(ngModel)]="filtros.descuentoINAPAM" name="descuentoINAPAM"
-                    class="form-control pe-4 flex-grow-1">
-                    <option [ngValue]="null">--</option>
-                    <option [ngValue]="true">Sí</option>
-                    <option [ngValue]="false">No</option>
-                </select>
-                <button *ngIf="filtros.descuentoINAPAM !== null" type="button" matTooltip="Limpiar INAPAM"
-                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                    (click)="limpiarFiltro('descuentoINAPAM')">
-                    <fa-icon [icon]="faTimes"></fa-icon>
-                </button>
-            </div>
-        </div> -->
-
-
         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">Genérico?</label>
             <div class="position-relative">
@@ -117,17 +116,11 @@
             <label class="me-2 mb-0" style="white-space: nowrap;">Productos caducados</label>
             <div class="position-relative">
                 <div class="form-check mt-2">
-                <input
-                    type="checkbox"
-                    class="form-check-input"
-                    id="filtroCaducados"
-                    [(ngModel)]="filtros.caducados"
-                    name="caducados"
-                    (change)="onToggleCaducados()"
-                />
-                <label class="form-check-label" for="filtroCaducados">
-                    Solo caducados
-                </label>
+                    <input type="checkbox" class="form-check-input" id="filtroCaducados" [(ngModel)]="filtros.caducados"
+                        name="caducados" (change)="onToggleCaducados()" />
+                    <label class="form-check-label" for="filtroCaducados">
+                        Solo caducados
+                    </label>
                 </div>
             </div>
         </div>
@@ -136,26 +129,18 @@
         <div class="col-md-1">
             <label class="me-2 mb-0" style="white-space: nowrap;">Caducan en:</label>
             <div class="position-relative">
-                <select
-                [(ngModel)]="filtros.caducanEnMeses"
-                name="caducanEnMeses"
-                class="form-control pe-4 flex-grow-1"
-                (change)="onChangeCaducanEn()"
-                >
-                <option [ngValue]="null">--</option>
-                <option *ngFor="let m of mesesCaducidad" [ngValue]="m">
-                    {{ m }} mes{{ m === 1 ? '' : 'es' }}
-                </option>
+                <select [(ngModel)]="filtros.caducanEnMeses" name="caducanEnMeses" class="form-control pe-4 flex-grow-1"
+                    (change)="onChangeCaducanEn()">
+                    <option [ngValue]="null">--</option>
+                    <option *ngFor="let m of mesesCaducidad" [ngValue]="m">
+                        {{ m }} mes{{ m === 1 ? '' : 'es' }}
+                    </option>
                 </select>
 
-                <button
-                *ngIf="filtros.caducanEnMeses !== null"
-                type="button"
-                matTooltip="Limpiar caducidad"
-                class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                (click)="limpiarFiltro('caducanEnMeses')"
-                >
-                <fa-icon [icon]="faTimes"></fa-icon>
+                <button *ngIf="filtros.caducanEnMeses !== null" type="button" matTooltip="Limpiar caducidad"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('caducanEnMeses')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
         </div>
@@ -166,44 +151,32 @@
 
             <!-- Checkbox + texto -->
             <div class="form-check me-3 mb-0">
-                <input
-                type="checkbox"
-                class="form-check-input"
-                id="filtroCBDuplicados"
-                [(ngModel)]="filtros.duplicadosCB"
-                name="duplicadosCB"
-                (change)="aplicarFiltros()"
-                />
+                <input type="checkbox" class="form-check-input" id="filtroCBDuplicados"
+                    [(ngModel)]="filtros.duplicadosCB" name="duplicadosCB" (change)="aplicarFiltros()" />
                 <label class="form-check-label" for="filtroCBDuplicados">
-                Mostrar duplicados
+                    Mostrar duplicados
                 </label>
             </div>
         </div>
-    
+
         <!-- Último proveedor -->
         <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Último proveedor</label>
             <div class="position-relative">
-                <select
-                [(ngModel)]="filtros.ultimoProveedorId"
-                name="ultimoProveedorId"
-                class="form-control pe-4 flex-grow-1"
-                (change)="aplicarFiltros()"
-                >
-                <option [ngValue]="null">--</option>
-                <option [ngValue]="'__SIN__'">Sin proveedor</option>
-                
-                <option *ngFor="let pr of proveedores" [ngValue]="pr._id">
-                    {{ pr.nombre }}
-                </option>
+                <select [(ngModel)]="filtros.ultimoProveedorId" name="ultimoProveedorId"
+                    class="form-control pe-4 flex-grow-1" (change)="aplicarFiltros()">
+                    <option [ngValue]="null">--</option>
+                    <option [ngValue]="'__SIN__'">Sin proveedor</option>
+
+                    <option *ngFor="let pr of proveedores" [ngValue]="pr._id">
+                        {{ pr.nombre }}
+                    </option>
                 </select>
 
-                <button *ngIf="filtros.ultimoProveedorId"
-                type="button"
-                matTooltip="Limpiar proveedor"
-                class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
-                (click)="limpiarFiltro('ultimoProveedorId')">
-                <fa-icon [icon]="faTimes"></fa-icon>
+                <button *ngIf="filtros.ultimoProveedorId" type="button" matTooltip="Limpiar proveedor"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('ultimoProveedorId')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
                 </button>
             </div>
         </div>
@@ -234,130 +207,55 @@
         </div>
 
         <!-- 🟢 Zona General -->
-        <!-- <div class="container-masivos"> -->
-            <div class="row mb-2 container-masivos align-items-end g-2">
-                <div class="col-xl-3 col-lg-3 col-md-6">
-                    <label style="margin-right: 10px;">Categoría:</label>
-                    <input type="text" formControlName="categoria">
-                </div>
-                <div class="col-xl-3 col-lg-3 col-md-6"> 
-                    <label style="margin-right: 10px;">Ubicación:</label>
-                    <input type="text" formControlName="ubicacion">
-                </div>
-                <div class="col-xl-2 col-lg-2 col-md-3 col-sm-6" style="text-align: end;">
-                    <label style="margin-right: 10px;">Stock Mínimo:</label>
-                    <input style="width: 60px;" type="number" formControlName="stockMinimo">
-                </div>
-                <div class="col-xl-2 col-lg-2 col-md-3 col-sm-6" style="text-align: end;">
-                    <label style="margin-right: 10px;">Stock Máximo:</label>
-                    <input style="width: 60px;" type="number" formControlName="stockMaximo">
-                </div>
-                <div class="col-xl-2 col-lg-2 col-md-12 d-flex align-items-end justify-content-lg-end justify-content-start">
-                    <button class="btn-rojo-chico" type="button"
-                        [disabled]="quitandoLotes"
-                        matTooltip="Dejar las existencias en CERO"
-                        (click)="quitarLotesSeleccionados()">
-                        <i class="fa fa-spinner fa-spin me-1" *ngIf="quitandoLotes"></i>
-                        {{ quitandoLotes ? 'Quitando...' : 'Quitar lotes' }}
+        <div class="row mb-2 align-items-end">
+
+            <div class="col-md-2">
+                <label class="form-label mb-1">Categoría:</label>
+                <input type="text" formControlName="categoria" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label mb-1">Laboratorio:</label>
+                <div class="d-flex gap-1">
+                    <select class="form-select form-select-sm" formControlName="laboratorio">
+                        <option [ngValue]="null">--</option>
+                        <option [ngValue]="'__SIN__'">Sin laboratorio</option>
+                        <option *ngFor="let lab of laboratorios" [ngValue]="lab._id">
+                            {{ lab.laboratorio }}
+                        </option>
+                    </select>
+
+                    <button class="btn-amarillo-chico" type="button" matTooltip="Agregar laboratorio"
+                        (click)="agregarLaboratorioRapido('masivo')">
+                        <fa-icon [icon]="'plus'"></fa-icon>
                     </button>
                 </div>
-                <!-- <label style="margin-right: 10px;">INAPAM:</label>
-                <select formControlName="descuentoINAPAM">
-                    <option [ngValue]="null">--</option>
-                    <option [ngValue]="true">Sí</option>
-                    <option [ngValue]="false">No</option>
-                </select> -->
-            </div>
-            <!-- 🟡 Zona Ajuste de Precios -->
-           <!--  <div>
-                <label class="tit-promo" style="text-align: right; margin-right: 10px">Sube/baja Precios:</label>
-
-                <label [ngClass]="{'selected-radio': formularioMasivo.get('ajustePrecioModo')?.value === 'porcentaje'}"
-                    style="text-align: right; margin-right: 5px">
-                    <input type="radio" formControlName="ajustePrecioModo" value="porcentaje">Porcentaje
-                </label>
-                <input [class.disabled-label]="formularioMasivo.get('ajustePrecioModo')?.value != 'porcentaje'"
-                    type="number" style="width: 50px; margin-right: 5px;" formControlName="ajustePrecioPorcentaje">
-                <label style="text-align: left; margin-right: 2rem;">%</label>
-
-                <label [ngClass]="{'selected-radio': formularioMasivo.get('ajustePrecioModo')?.value === 'cantidad'}"
-                    style="margin-right: 1rem;">
-                    <input type="radio" formControlName="ajustePrecioModo" value="cantidad">Cantidad
-                </label>
-                <label [class.disabled-label]="formularioMasivo.get('ajustePrecioModo')?.value != 'cantidad'"
-                    style="margin-right: 10px;">$:</label>
-                <input [class.disabled-label]="formularioMasivo.get('ajustePrecioModo')?.value != 'cantidad'"
-                    type="number" style="width: 50px; margin-right: 5rem;" formControlName="ajustePrecioCantidad">
-            </div> -->
-        <!-- </div> -->
-
-        <!-- Zona Promociones -->
-       <!--  <div>
-            <div class="container-masivos mb-1">
-                <div>
-                    <label style="margin-right: 10px;" class="tit-promo">Promo Cantidad Requerida:</label>
-                    <select formControlName="promoCantidadRequerida" style="margin-right: 1rem;">
-                        <option [ngValue]="null">--</option>
-                        <option [ngValue]="2">2x1</option>
-                        <option [ngValue]="3">3x2</option>
-                        <option [ngValue]="4">4x3</option>
-                    </select>
-                    <label style="margin-right: 10px;">Inicia:</label>
-                    <input type="date" formControlName="inicioPromoCantidad" style="margin-right: 1rem;">
-                    <label style="margin-right: 10px;">Termina:</label>
-                    <input type="date" formControlName="finPromoCantidad">
-                </div>
-
-                <div>
-                    <label class="tit-promo" style="margin-right: 10px;">Promo Temporada:</label>
-                    <label style="margin-right: 10px;">% Desc.:</label>
-                    <input style="width: 50px; margin-right: 1rem;" type="number"
-                        formControlName="promoDeTemporadaPorcentaje">
-                    <label style="margin-right: 10px;">Inicia:</label>
-                    <input style="margin-right: 1rem;" type="date" formControlName="promoDeTemporadaInicio">
-                    <label style="margin-right: 10px;">Termina:</label>
-                    <input style="margin-right: 1rem;" type="date" formControlName="promoDeTemporadaFin">
-                    <label style="margin-right: 10px;">Monedero:</label>
-                    <select formControlName="promoDeTemporadaMonedero" style="margin-right: 2rem;">
-                        <option [ngValue]="null">--</option>
-                        <option [ngValue]="true">Sí</option>
-                        <option [ngValue]="false">No</option>
-                    </select>
-                </div>
             </div>
 
-            <div [formGroup]="promosPorDiaForm" style="margin-top: 10px;">
-                <div *ngFor="let dia of diasSemana">
-                    <div [formGroupName]="'promo' + dia" class="row" style="margin-bottom: 5px;">
-
-                        <div class="col-2"><label class="tit-promo" style="margin-left: 3rem;">Promo {{ dia }}:</label>
-                        </div>
-
-                        <div class="col-2"><label style="margin-right: 10px;">% Desc.:</label>
-                            <input type="number" formControlName="porcentaje" style="width:50px; height: 20px;">
-                        </div>
-
-                        <div class="col-3"><label style="margin-right: 10px;">Inicia:</label>
-                            <input type="date" formControlName="inicio">
-                        </div>
-
-                        <div class="col-3"><label style="margin-right: 10px;">Termina:</label>
-                            <input type="date" formControlName="fin">
-                        </div>
-
-                        <div class="col-2"><label style="margin-right: 10px;">Monedero:</label>
-                            <select formControlName="monedero">
-                                <option [ngValue]="null">--</option>
-                                <option [ngValue]="true">Sí</option>
-                                <option [ngValue]="false">No</option>
-                            </select>
-                        </div>
-
-                    </div>
-                </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1">Ubicación:</label>
+                <input type="text" formControlName="ubicacion" class="form-control form-control-sm">
             </div>
-        </div> -->
 
+            <div class="col-md-1">
+                <label class="form-label mb-1">Stock Mín:</label>
+                <input type="number" formControlName="stockMinimo" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-md-1">
+                <label class="form-label mb-1">Stock Máx:</label>
+                <input type="number" formControlName="stockMaximo" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-md-3" style="text-align: end;">
+                <button class="btn-rojo-chico w-80" type="button" [disabled]="quitandoLotes"
+                    matTooltip="Dejar las existencias en CERO" (click)="quitarLotesSeleccionados()">
+                    <i class="fa fa-spinner fa-spin me-1" *ngIf="quitandoLotes"></i>
+                    {{ quitandoLotes ? 'Quitando...' : 'Quitar lotes' }}
+                </button>
+            </div>
+
+        </div>
         <!-- Botones -->
         <div class="modal-actions mt-3">
             <button class="btn-rojo-chico" style="margin-left: 4rem;" type="button"
@@ -372,8 +270,7 @@
     </form>
 
     <div class="acciones-tabla mb-1 mt-2">
-        <button class="btn-amarillo-chico" type="button"
-            matTooltip="Exportar registros filtrados"
+        <button class="btn-amarillo-chico" type="button" matTooltip="Exportar registros filtrados"
             (click)="exportarExcelFiltrados()">
             Exportar Excel
         </button>
@@ -403,6 +300,15 @@
                         'bi-caret-up-fill': columnaOrden === 'categoria' && direccionOrden === 'asc',
                         'bi-caret-down-fill': columnaOrden === 'categoria' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'categoria'
+                    }" class="icono-orden"></i>
+                </th>
+                <th (click)="ordenar('laboratorioNombre')">
+                    Laboratorio
+                    <i [ngClass]="{
+                        'bi': true,
+                        'bi-caret-up-fill': columnaOrden === 'laboratorioNombre' && direccionOrden === 'asc',
+                        'bi-caret-down-fill': columnaOrden === 'laboratorioNombre' && direccionOrden === 'desc',
+                        'bi-caret-up': columnaOrden !== 'laboratorioNombre'
                     }" class="icono-orden"></i>
                 </th>
                 <th (click)="ordenar('ubicacion')">
@@ -448,7 +354,7 @@
                     }" class="icono-orden"></i>
                 </th>
                 <th matTooltip="Cantidad de productos por caducar">Cant. prox. caduc.</th>
-                <th  (click)="ordenar('fechaCaducos')" matTooltip="Fecha mas reciente de caducados">
+                <th (click)="ordenar('fechaCaducos')" matTooltip="Fecha mas reciente de caducados">
                     Fecha caducos
                     <i [ngClass]="{
                         'bi': true,
@@ -472,11 +378,8 @@
                             [disabled]="subiendoId === p._id"
                             [attr.aria-label]="p.imagen ? 'Cambiar imagen' : 'Agregar imagen'"
                             matTooltip="Cambiar ó Subir imagen">
-                            <img
-                                [src]="p._imgSrc || placeholderSrc"
-                                (error)="onImgError($event,p)"
-                                loading="lazy" decoding="async"
-                            />
+                            <img [src]="p._imgSrc || placeholderSrc" (error)="onImgError($event,p)" loading="lazy"
+                                decoding="async" />
 
                             <span class="overlay" *ngIf="subiendoId !== p._id">
                                 <i class="fas fa-upload"></i>
@@ -504,6 +407,7 @@
                     <small class="prod-ubicacion" *ngIf="p.codigoBarras">{{ p.codigoBarras }}</small>
                 </td>
                 <td>{{ p.categoria }}</td>
+                <td>{{ nombreLaboratorioProducto(p) }}</td>
                 <td>{{ p.ubicacion }}</td>
                 <!-- <td style="text-align: center;">
                     <input type="checkbox" [checked]="p.generico" disabled>
@@ -591,39 +495,74 @@
                     </div>
 
                     <div class="col-3">
-                        <label>Código de barras *</label>
+                        <label>Cód. de barras *</label>
                         <input type="text" formControlName="codigoBarras" class="form-control" />
                     </div>
                     <div class="col-3">
                         <label>Categoría *</label>
                         <input type="text" formControlName="categoria" class="form-control" />
                     </div>
+                    <div class="col-4">
+                        <label>Laboratorio</label>
+                        <div class="d-flex gap-1">
+                            <select class="form-select" formControlName="laboratorio">
+                                <option [ngValue]="null">Sin laboratorio</option>
+                                <option *ngFor="let lab of laboratorios" [ngValue]="lab._id">
+                                    {{ lab.laboratorio }}
+                                </option>
+                            </select>
+                            <button class="btn-amarillo-chico" type="button" matTooltip="Agregar laboratorio"
+                                (click)="agregarLaboratorioRapido('nuevo')">
+                                <fa-icon [icon]="'plus'"></fa-icon>
+                            </button>
+                        </div>
+                        <div class="alta-laboratorio-inline" *ngIf="mostrarAltaLaboratorioNuevo">
+                            <input type="text" class="form-control form-control-sm" placeholder="Nuevo laboratorio"
+                                [(ngModel)]="nuevoLaboratorioRapido" [ngModelOptions]="{standalone: true}"
+                                (keyup.enter)="guardarLaboratorioRapidoNuevo()" />
+                            <div class="alta-laboratorio-actions">
+                                <button class="btn-verde-chico" type="button" [disabled]="guardandoLaboratorioRapido"
+                                    (click)="guardarLaboratorioRapidoNuevo()">
+                                    {{ guardandoLaboratorioRapido ? 'Guardando...' : 'Guardar' }}
+                                </button>
+                                <button class="btn-rojo-chico" type="button" [disabled]="guardandoLaboratorioRapido"
+                                    (click)="cancelarAltaLaboratorioNuevo()">
+                                    Cancelar
+                                </button>
+                            </div>
+                            <small class="text-danger" *ngIf="errorLaboratorioRapido">
+                                {{ errorLaboratorioRapido }}
+                            </small>
+                        </div>
+                    </div>
                     <div class="col-2">
                         <label>Unidad *</label>
                         <input type="text" formControlName="unidad" class="form-control" />
                     </div>
+
+                    <div class="col-2">
+                        <label>Ubicación</label>
+                        <input type="text" formControlName="ubicacion" class="form-control" />
+                    </div>
+
                     <div class="col-2">
                         <label>Costo *</label>
-                        <input type="number" formControlName="costo" class="form-control" [readonly]="mostrarCostosMedicosNuevo()" />
+                        <input type="number" formControlName="costo" class="form-control"
+                            [readonly]="mostrarCostosMedicosNuevo()" />
                     </div>
                     <div class="col-2">
                         <label>Precio *</label>
                         <input type="number" formControlName="precio" class="form-control" />
                     </div>
 
-                    <div class="col-3" *ngIf="mostrarCostosMedicosNuevo()">
-                        <label>Honorarios médicos</label>
+                    <div class="col-2" *ngIf="mostrarCostosMedicosNuevo()">
+                        <label>Honorarios méd.</label>
                         <input type="number" formControlName="costoHonorariosMedicos" class="form-control" min="0" />
                     </div>
 
-                    <div class="col-3" *ngIf="mostrarCostosMedicosNuevo()">
-                        <label>Insumos médicos</label>
+                    <div class="col-2" *ngIf="mostrarCostosMedicosNuevo()">
+                        <label>Insumos méd.</label>
                         <input type="number" formControlName="costoInsumosMedicos" class="form-control" min="0" />
-                    </div>
-
-                    <div class="col-2">
-                        <label>Ubicación</label>
-                        <input type="text" formControlName="ubicacion" class="form-control" />
                     </div>
 
                     <div class="col-2">
@@ -636,12 +575,12 @@
                         <input type="number" formControlName="stockMaximo" class="form-control" />
                     </div>
 
-                    <div class="col-2 form-check-vertical">
+                    <div class="col-1 form-check-vertical">
                         <label for="chkIva" class="form-label">IVA</label>
                         <input type="checkbox" class="form-check-input" formControlName="iva" id="chkIva" />
                     </div>
 
-                    <div class="col-2 form-check-vertical">
+                    <div class="col-1 form-check-vertical">
                         <label for="chkGen" class="form-label">Genérico</label>
                         <input type="checkbox" class="form-check-input" formControlName="generico" id="chkGen" />
                     </div>

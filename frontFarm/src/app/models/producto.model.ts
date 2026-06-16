@@ -36,6 +36,8 @@ export interface Producto {
 
   ubicacion: string;
   categoria: string;
+  laboratorio?: string | { _id?: string; laboratorio?: string } | null;
+  laboratorioNombre?: string | null;
   generico: boolean;
   descuentoINAPAM: boolean;
 

@@ -143,6 +143,13 @@ export const routes: Routes = [
         canActivate: [authGuard]
       },
       {
+        path: 'laboratorios',
+        loadComponent: () =>
+          import('./pages/laboratorios/laboratorios.component').then(m => m.LaboratoriosComponent),
+        data: { rolesPermitidos: ['admin'] },
+        canActivate: [authGuard]
+      },
+      {
         path: 'cortes-de-caja',
         loadComponent: () =>
           import('./admin/cortes-de-caja/cortes-de-caja.component').then(m => m.CortesDeCajaComponent),

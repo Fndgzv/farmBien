@@ -31,6 +31,16 @@
             </div>
 
             <div class="edit-seccion">
+                <label>Laboratorio:</label>
+                <select formControlName="laboratorio" style="width: 18rem;">
+                    <option [ngValue]="null">-- Sin laboratorio --</option>
+                    <option *ngFor="let lab of laboratorios" [ngValue]="lab._id">
+                        {{ lab.laboratorio }}
+                    </option>
+                </select>
+            </div>
+
+            <div class="edit-seccion">
                 <label>Cod. Barras:</label>
                 <input type="text" formControlName="codigoBarras" style="width: 10rem;">
 

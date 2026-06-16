@@ -1,0 +1,149 @@
+<!-- <div class="container"> -->
+  <h2 class="titulo text-center">Mantenimiento de Laboratorios</h2>
+
+  <!-- <div class="toolbar-laboratorios"> -->
+  <div class="row g-3">
+    <div class="col-2">
+      <label>Laboratorio:</label>
+      <input type="text" class="form-control" [(ngModel)]="filtroLaboratorio" (keyup.enter)="cargarLaboratorios()">
+    </div>
+    <div class="col-4">
+      <div class="row">
+        <div class="col-4">
+          <label>Buscar</label>
+          <select class="form-select" [(ngModel)]="tipoBusqueda">
+            <option value="incluye">Incluye</option>
+            <option value="comienza">Comienza</option>
+          </select>
+        </div>
+        <div class="col-3 mt-3">
+          <button class="btn-rojo" type="button" (click)="limpiarFiltros()" matTooltip="Limpiar filtros">
+            <fa-icon [icon]="'times'"></fa-icon>
+          </button>
+        </div>
+        <div class="col-5 mt-3">
+          <button class="btn-gris" type="button" (click)="cargarLaboratorios()" matTooltip="Buscar laboratorios">
+            <fa-icon [icon]="'search'"></fa-icon> Buscar
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="col-6" style="text-align: end;">
+      <div class="row">
+        <div class="col-4 mt-3">
+          <button class="btn-amarillo" type="button" (click)="exportarExcel()"
+            matTooltip="Exportar tabla visible a Excel">
+            <fa-icon [icon]="'file-excel'"></fa-icon> Exportar
+          </button>
+        </div>
+        <div class="col-4 mt-3">
+          <button class="btn-verde" type="button" (click)="abrirModalAgregar()" matTooltip="Dar de alta un laboratorio">
+            <fa-icon [icon]="'plus'"></fa-icon> Laboratorio
+          </button>
+        </div>
+
+        <div class="col-4 d-flex flex-column align-items-end">
+          <label>Mostrar</label>
+          <select class="form-select" style="max-width: 5rem; align-items: self-end;" [(ngModel)]="laboratoriosPorPagina"
+            (ngModelChange)="cambiarTamanioPagina()">
+            <option *ngFor="let opcion of opcionesPagina" [ngValue]="opcion">{{ opcion }}</option>
+          </select>
+          <small class="total-registros">{{ laboratorios.length }} registros</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th (click)="ordenarPorLaboratorio()" class="th-sortable">
+          Laboratorio
+          <i [ngClass]="{
+            'bi': true,
+            'bi-caret-up-fill': columnaOrden === 'laboratorio' && direccionOrden === 'asc',
+            'bi-caret-down-fill': columnaOrden === 'laboratorio' && direccionOrden === 'desc',
+            'bi-caret-up': columnaOrden !== 'laboratorio'
+          }" class="icono-orden"></i>
+        </th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngIf="cargando">
+        <td colspan="2" class="text-center">Cargando...</td>
+      </tr>
+      <tr *ngIf="!cargando && laboratorios.length === 0">
+        <td colspan="2" class="text-center">Sin laboratorios</td>
+      </tr>
+      <tr *ngFor="let lab of laboratoriosPaginados">
+        <td>{{ lab.laboratorio }}</td>
+        <td>
+          <button class="btn-icon-chico btn-gris-chico" type="button" (click)="editar(lab)"
+            matTooltip="Modificar laboratorio">
+            <fa-icon [icon]="'pen'"></fa-icon>
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <nav class="d-flex justify-content-center align-items-center mt-3 gap-2">
+    <ul class="pagination">
+      <li class="page-item" [class.disabled]="paginaActual === 1">
+        <button class="page-link" type="button" (click)="irPrimeraPagina()" [disabled]="paginaActual === 1"
+          matTooltip="Inicio">
+          <i class="fa fa-angle-double-left"></i>
+        </button>
+      </li>
+      <li class="page-item" [class.disabled]="paginaActual === 1">
+        <button class="page-link" type="button" (click)="paginaAnterior()"
+          [disabled]="paginaActual === 1" matTooltip="Anterior">
+          <i class="fa fa-angle-left"></i>
+        </button>
+      </li>
+      <li class="page-item" *ngFor="let pagina of paginas">
+        <button class="page-link" type="button" [class.activo]="paginaActual === pagina"
+          (click)="irPagina(pagina)">
+          {{ pagina }}
+        </button>
+      </li>
+      <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
+        <button class="page-link" type="button" (click)="paginaSiguiente()"
+          [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
+          <i class="fa fa-angle-right"></i>
+        </button>
+      </li>
+      <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
+        <button class="page-link" type="button" (click)="irUltimaPagina()"
+          [disabled]="paginaActual === totalPaginas" matTooltip="Fin">
+          <i class="fa fa-angle-double-right"></i>
+        </button>
+      </li>
+    </ul>
+    <span class="pagina-resumen">Pagina {{ paginaActual }} / {{ totalPaginas || 1 }}</span>
+  </nav>
+<!-- </div> -->
+
+<div class="modal fade" id="modalLaboratorio" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-3">
+      <div class="modal-header">
+        <h5 class="modal-title titulo">{{ modoEdicion ? 'Editar Laboratorio' : 'Agregar Laboratorio' }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="formLaboratorio">
+          <label>Laboratorio</label>
+          <input type="text" class="form-control" formControlName="laboratorio">
+        </form>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button class="btn-rojo" type="button" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn-gris" type="button" [disabled]="formLaboratorio.invalid || guardando" (click)="guardar()">
+          {{ guardando ? 'Guardando...' : (modoEdicion ? 'Actualizar' : 'Guardar') }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

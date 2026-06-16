@@ -25,6 +25,7 @@
   /* font-size: small; */
   width: 100%;
   background-color: rgb(183, 251, 228);
+  padding: 10px;
 }
 
 .center-content {
@@ -146,6 +147,25 @@ body.modal-open {
 }
 .form-check-input{
   transform: scale(1.05);      /* opcional: un pelín más grande */
+}
+
+.alta-laboratorio-inline {
+  background: #fff;
+  border: 1px solid #d7d7d7;
+  border-radius: 6px;
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px;
+}
+
+.alta-laboratorio-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.alta-laboratorio-actions button {
+  flex: 1;
 }
 
 

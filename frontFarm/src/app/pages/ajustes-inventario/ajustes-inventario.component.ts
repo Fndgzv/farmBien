@@ -7,6 +7,7 @@ import { ModalOverlayService } from '../../services/modal-overlay.service';
 import { ProductoService } from '../../services/producto.service';
 import { ProveedorService } from '../../services/proveedor.service';
 import { FarmaciaService } from '../../services/farmacia.service';
+import { Laboratorio, LaboratoriosService } from '../../services/laboratorios.service';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -17,7 +18,7 @@ import * as XLSX from 'xlsx';
 import { firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
 
-type ColumnaOrden = '' | keyof Producto | 'existencia';
+type ColumnaOrden = '' | keyof Producto | 'existencia' | 'laboratorioNombre';
 
 // Ajusta los campos mínimos que ya usas en la vista
 type ProductoUI = Omit<Producto, 'imagen'> & {
@@ -56,6 +57,7 @@ export class AjustesInventarioComponent implements OnInit {
     generico: boolean | null;
     bajoStock: boolean | null;
     duplicadosCB: boolean | null;
+    laboratorioId: string | null;
 
     caducados: boolean | null;
     caducanEnMeses: number | null;
@@ -68,6 +70,7 @@ export class AjustesInventarioComponent implements OnInit {
       generico: null,
       bajoStock: false,
       duplicadosCB: false,
+      laboratorioId: null,
 
       caducados: false,
       caducanEnMeses: null,
@@ -86,6 +89,10 @@ export class AjustesInventarioComponent implements OnInit {
 
   mostrarNuevoProducto = false;
   guardandoNuevo = false;
+  mostrarAltaLaboratorioNuevo = false;
+  nuevoLaboratorioRapido = '';
+  errorLaboratorioRapido = '';
+  guardandoLaboratorioRapido = false;
   quitandoLotes = false;
   nuevoProductoForm!: FormGroup;
 
@@ -95,6 +102,7 @@ export class AjustesInventarioComponent implements OnInit {
   placeholderSrc = 'assets/images/farmBienIcon.png';
 
   proveedores: any[] = [];
+  laboratorios: Laboratorio[] = [];
 
   // ajustes-inventario.component.ts (helper)
   imgUrl(p: any): string {
@@ -113,6 +121,7 @@ export class AjustesInventarioComponent implements OnInit {
     private modalService: ModalOverlayService,
     private productoService: ProductoService,
     private proveedorService: ProveedorService,
+    private laboratoriosService: LaboratoriosService,
     private farmaciaService: FarmaciaService,
     library: FaIconLibrary,
     private renderer: Renderer2
@@ -123,6 +132,7 @@ export class AjustesInventarioComponent implements OnInit {
     this.inicializarFormulario();
     this.cargarProductos(true);
     this.cargarProveedores();
+    this.cargarLaboratorios();
 
     this.formularioMasivo.valueChanges.subscribe(() => {
       this.cdr.detectChanges();
@@ -148,6 +158,7 @@ export class AjustesInventarioComponent implements OnInit {
       stockMaximo: [100, [Validators.required, Validators.min(0)]],
       ubicacion: [''],
       categoria: ['', Validators.required],
+      laboratorio: [null],
       generico: [false]
     });
 
@@ -181,7 +192,7 @@ export class AjustesInventarioComponent implements OnInit {
     });
 
     this.formularioMasivo = this.fb.group({
-      categoria: [null], ubicacion: [null], descuentoINAPAM: [null], stockMinimo: [null], stockMaximo: [null],
+      categoria: [null], laboratorio: [null], ubicacion: [null], descuentoINAPAM: [null], stockMinimo: [null], stockMaximo: [null],
       ajustePrecioModo: [null], ajustePrecioPorcentaje: [null], ajustePrecioCantidad: [null],
       promoCantidadRequerida: [null], inicioPromoCantidad: [null], finPromoCantidad: [null],
       promoDeTemporadaPorcentaje: [null], promoDeTemporadaInicio: [null], promoDeTemporadaFin: [null],
@@ -203,6 +214,151 @@ export class AjustesInventarioComponent implements OnInit {
   /** Divide en palabras no vacías */
   private splitWords(v: string): string[] {
     return this.normTxt(v).split(' ').filter(Boolean);
+  }
+
+  private ordenarLaboratorios(data: Laboratorio[] = []): Laboratorio[] {
+    return [...data].sort((a, b) =>
+      String(a?.laboratorio || '').localeCompare(String(b?.laboratorio || ''), 'es', { sensitivity: 'base' })
+    );
+  }
+
+  private obtenerLaboratorioId(valor: any): string | null {
+    if (!valor) return null;
+    if (typeof valor === 'object') {
+      return this.obtenerLaboratorioId(valor._id || valor.id || valor.$oid || valor.laboratorio);
+    }
+    const id = String(valor || '').trim();
+    return id && id !== '__SIN__' ? id : null;
+  }
+
+  private normalizarLaboratorioPayload(valor: any): string | null {
+    return this.obtenerLaboratorioId(valor);
+  }
+
+  nombreLaboratorioProducto(producto: any): string {
+    const nombreDirecto = String(producto?.laboratorioNombre || '').trim();
+    if (nombreDirecto) return nombreDirecto;
+
+    if (producto?.laboratorio && typeof producto.laboratorio === 'object') {
+      const nombreObjeto = String(producto.laboratorio?.laboratorio || '').trim();
+      if (nombreObjeto) return nombreObjeto;
+    }
+
+    const id = this.obtenerLaboratorioId(producto?.laboratorio);
+    const encontrado = id ? this.laboratorios.find(l => l._id === id) : null;
+    return encontrado?.laboratorio || 'Sin laboratorio';
+  }
+
+  async refrescarLaboratorios(): Promise<Laboratorio[]> {
+    const data = await firstValueFrom(this.laboratoriosService.obtenerLaboratorios());
+    this.laboratorios = this.ordenarLaboratorios(data || []);
+    this.cdr.detectChanges();
+    return this.laboratorios;
+  }
+
+  cargarLaboratorios(): void {
+    this.refrescarLaboratorios().catch((err) => {
+      console.error('Error al cargar laboratorios:', err);
+    });
+  }
+
+  private resolverLaboratorioCreadoId(creado: Laboratorio | any, laboratorios: Laboratorio[]): string | null {
+    return creado?._id
+      || laboratorios.find(l => this.normTxt(l.laboratorio) === this.normTxt(creado?.laboratorio))?._id
+      || null;
+  }
+
+  private seleccionarLaboratorioCreado(destino: 'nuevo' | 'masivo', laboratorioId: string): void {
+    if (destino === 'masivo') {
+      this.formularioMasivo.patchValue({ laboratorio: laboratorioId });
+    } else {
+      this.nuevoProductoForm.patchValue({ laboratorio: laboratorioId });
+    }
+  }
+
+  abrirAltaLaboratorioNuevo(): void {
+    this.nuevoLaboratorioRapido = '';
+    this.errorLaboratorioRapido = '';
+    this.mostrarAltaLaboratorioNuevo = true;
+  }
+
+  cancelarAltaLaboratorioNuevo(): void {
+    if (this.guardandoLaboratorioRapido) return;
+    this.mostrarAltaLaboratorioNuevo = false;
+    this.nuevoLaboratorioRapido = '';
+    this.errorLaboratorioRapido = '';
+  }
+
+  async guardarLaboratorioRapidoNuevo(): Promise<void> {
+    if (this.guardandoLaboratorioRapido) return;
+
+    const nombre = String(this.nuevoLaboratorioRapido || '').trim();
+    if (!nombre) {
+      this.errorLaboratorioRapido = 'Captura el nombre del laboratorio.';
+      return;
+    }
+
+    this.guardandoLaboratorioRapido = true;
+    this.errorLaboratorioRapido = '';
+
+    try {
+      const resp: any = await firstValueFrom(this.laboratoriosService.crearLaboratorio({ laboratorio: nombre }));
+      const laboratorios = await this.refrescarLaboratorios();
+      const idCreado = this.resolverLaboratorioCreadoId(resp?.laboratorio || resp, laboratorios);
+
+      if (idCreado) {
+        this.seleccionarLaboratorioCreado('nuevo', idCreado);
+      }
+
+      this.mostrarAltaLaboratorioNuevo = false;
+      this.nuevoLaboratorioRapido = '';
+    } catch (err: any) {
+      this.errorLaboratorioRapido = err?.error?.mensaje || 'No se pudo crear el laboratorio.';
+    } finally {
+      this.guardandoLaboratorioRapido = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async agregarLaboratorioRapido(destino: 'nuevo' | 'masivo' = 'nuevo'): Promise<void> {
+    if (destino === 'nuevo' && this.mostrarNuevoProducto) {
+      this.abrirAltaLaboratorioNuevo();
+      return;
+    }
+
+    const resultado = await Swal.fire({
+      title: 'Nuevo laboratorio',
+      input: 'text',
+      inputLabel: 'Laboratorio',
+      inputPlaceholder: 'Nombre del laboratorio',
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      cancelButtonText: 'Cancelar',
+      inputValidator: (value) => {
+        return String(value || '').trim() ? null : 'Captura el nombre del laboratorio.';
+      },
+      preConfirm: async (value) => {
+        try {
+          const nombre = String(value || '').trim();
+          const resp: any = await firstValueFrom(this.laboratoriosService.crearLaboratorio({ laboratorio: nombre }));
+          return resp?.laboratorio || resp;
+        } catch (err: any) {
+          const msg = err?.error?.mensaje || 'No se pudo crear el laboratorio.';
+          Swal.showValidationMessage(msg);
+          return false;
+        }
+      },
+      allowOutsideClick: () => !Swal.isLoading(),
+    });
+
+    if (!resultado.isConfirmed || !resultado.value) return;
+
+    const laboratorios = await this.refrescarLaboratorios();
+    const creado = resultado.value as Laboratorio;
+    const idCreado = this.resolverLaboratorioCreadoId(creado, laboratorios);
+
+    if (!idCreado) return;
+    this.seleccionarLaboratorioCreado(destino, idCreado);
   }
 
   esServicioMedicoCategoria(categoria: any): boolean {
@@ -294,6 +450,11 @@ export class AjustesInventarioComponent implements OnInit {
               ? (provIdProd === null || provIdProd === undefined || provIdProd === '')
               : String(provIdProd ?? '') === String(f.ultimoProveedorId);
 
+        const laboratorioIdProd = this.obtenerLaboratorioId((p as any).laboratorio);
+        const coincideLaboratorio = f.laboratorioId === null
+          ? true
+          : String(laboratorioIdProd ?? '') === String(f.laboratorioId);
+
         const coincideCaducanEn = (() => {
           if (f.caducanEnMeses === null) return true;
 
@@ -346,6 +507,7 @@ export class AjustesInventarioComponent implements OnInit {
           coincideDuplicadosCB &&
           coincideCaducados &&
           coincideCaducanEn &&
+          coincideLaboratorio &&
           coincideProveedor
         );
       });
@@ -440,6 +602,7 @@ export class AjustesInventarioComponent implements OnInit {
       case 'generico': this.filtros.generico = null; break;
       case 'bajoStock': this.filtros.bajoStock = false; break;
       case 'duplicadosCB': this.filtros.duplicadosCB = false; break;
+      case 'laboratorioId': this.filtros.laboratorioId = null; break;
 
       case 'caducados': this.filtros.caducados = false; break;
       case 'caducanEnMeses': this.filtros.caducanEnMeses = null; break;
@@ -490,6 +653,7 @@ export class AjustesInventarioComponent implements OnInit {
         Nombre: String(p?.nombre || '').trim(),
         CodigoBarras: String(p?.codigoBarras || '').trim(),
         Categoria: String(p?.categoria || '').trim(),
+        Laboratorio: this.nombreLaboratorioProducto(p),
         Ubicacion: String(p?.ubicacion || '').trim(),
         Existencia: Number(p?.existencia ?? 0),
         StockMinimo: Number(p?.stockMinimo ?? 0),
@@ -696,6 +860,15 @@ export class AjustesInventarioComponent implements OnInit {
     productosSeleccionados.forEach(producto => {
       Object.keys(cambios).forEach(campo => {
         if (cambios[campo] !== null && !['ajustePrecioModo', 'ajustePrecioPorcentaje', 'ajustePrecioCantidad'].includes(campo) && campo !== 'promosPorDia') {
+          if (campo === 'laboratorio') {
+            const laboratorioId = cambios[campo] === '__SIN__' ? null : cambios[campo];
+            (producto as any).laboratorio = laboratorioId;
+            (producto as any).laboratorioNombre = laboratorioId
+              ? this.laboratorios.find(l => l._id === laboratorioId)?.laboratorio || null
+              : null;
+            return;
+          }
+
           (producto as any)[campo] = cambios[campo];
         }
       });
@@ -756,11 +929,11 @@ export class AjustesInventarioComponent implements OnInit {
 
   get cambiosMasivosValidos(): boolean {
     const form = this.formularioMasivo.value;
-    const { categoria, ubicacion, stockMinimo, stockMaximo, descuentoINAPAM, ajustePrecioModo, ajustePrecioPorcentaje, ajustePrecioCantidad,
+    const { categoria, laboratorio, ubicacion, stockMinimo, stockMaximo, descuentoINAPAM, ajustePrecioModo, ajustePrecioPorcentaje, ajustePrecioCantidad,
       promoCantidadRequerida, inicioPromoCantidad, finPromoCantidad,
       promoDeTemporadaPorcentaje, promoDeTemporadaInicio, promoDeTemporadaFin, promoDeTemporadaMonedero } = form;
 
-    const hayAlgunCambio = categoria != null || ubicacion != null || stockMinimo != null || stockMaximo != null || descuentoINAPAM != null || ajustePrecioModo != null ||
+    const hayAlgunCambio = categoria != null || laboratorio != null || ubicacion != null || stockMinimo != null || stockMaximo != null || descuentoINAPAM != null || ajustePrecioModo != null ||
       promoCantidadRequerida != null || inicioPromoCantidad != null || finPromoCantidad != null ||
       promoDeTemporadaPorcentaje != null || promoDeTemporadaInicio != null || promoDeTemporadaFin != null || promoDeTemporadaMonedero != null ||
       this.hayCambiosEnPromosPorDia();
@@ -872,6 +1045,7 @@ export class AjustesInventarioComponent implements OnInit {
     // iva y generico son boolean
     // ultimoProveedorId se manda tal cual (string o null)
     if (payload.ultimoProveedorId === '') payload.ultimoProveedorId = null;
+    payload.laboratorio = this.normalizarLaboratorioPayload(payload.laboratorio);
     this.productoService.actualizarProductoIndividual(id, payload).subscribe({
       next: () => {
         Swal.fire({
@@ -932,7 +1106,12 @@ export class AjustesInventarioComponent implements OnInit {
         });
 
         // ⚠️ IMPORTANTE: el backend espera { productos: [...] }
-        this.productoService.actualizarProductos({ productos: productosModificados as unknown as Producto[] }).subscribe({
+        const productosPayload = productosModificados.map((p) => ({
+          ...p,
+          laboratorio: this.normalizarLaboratorioPayload((p as any).laboratorio)
+        }));
+
+        this.productoService.actualizarProductos({ productos: productosPayload as unknown as Producto[] }).subscribe({
           next: () => {
             Swal.close(); // cierra el loading
             Swal.fire({
@@ -983,8 +1162,12 @@ export class AjustesInventarioComponent implements OnInit {
     }
 
     this.productosFiltrados.sort((a, b) => {
-      const valorA = (a as any)?.[columna];
-      const valorB = (b as any)?.[columna];
+      const valorA = columna === 'laboratorioNombre'
+        ? this.nombreLaboratorioProducto(a)
+        : (a as any)?.[columna];
+      const valorB = columna === 'laboratorioNombre'
+        ? this.nombreLaboratorioProducto(b)
+        : (b as any)?.[columna];
 
       const aNum = typeof valorA === 'number' && !isNaN(valorA);
       const bNum = typeof valorB === 'number' && !isNaN(valorB);
@@ -1021,8 +1204,12 @@ export class AjustesInventarioComponent implements OnInit {
       stockMaximo: 20,
       ubicacion: '',
       categoria: '',
+      laboratorio: null,
       generico: false
     });
+    this.mostrarAltaLaboratorioNuevo = false;
+    this.nuevoLaboratorioRapido = '';
+    this.errorLaboratorioRapido = '';
     this.mostrarNuevoProducto = true;
     // Bloquear el scroll del body (opcional)
     this.renderer.addClass(document.body, 'no-scroll');
@@ -1036,6 +1223,9 @@ export class AjustesInventarioComponent implements OnInit {
 
   cerrarNuevoProducto() {
     this.mostrarNuevoProducto = false;
+    this.mostrarAltaLaboratorioNuevo = false;
+    this.nuevoLaboratorioRapido = '';
+    this.errorLaboratorioRapido = '';
     this.renderer.removeClass(document.body, 'no-scroll');
   }
 
@@ -1047,6 +1237,7 @@ export class AjustesInventarioComponent implements OnInit {
     }
 
     const payload = { ...this.nuevoProductoForm.value };
+    payload.laboratorio = this.normalizarLaboratorioPayload(payload.laboratorio);
     this.limpiarCamposPromocionProducto(payload);
     this.prepararCostosMedicosPayload(payload);
 
@@ -1255,6 +1446,7 @@ export class AjustesInventarioComponent implements OnInit {
             ubicacion: '',
             /* descuentoINAPAM: null,*/ generico: null,
             bajoStock: false, duplicadosCB: false,
+            laboratorioId: null,
             caducados: false, caducanEnMeses: null, ultimoProveedorId: null
           };
         }

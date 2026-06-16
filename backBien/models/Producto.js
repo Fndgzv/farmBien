@@ -36,6 +36,7 @@ const ProductoSchema = new Schema({
   ubicacion: { type: String, trim: true },
 
   categoria: { type: String, required: true, trim: true },
+  laboratorio: { type: Schema.Types.ObjectId, ref: "Laboratorio", default: null, index: true },
   generico: { type: Boolean, default: false },
   renglon1: { type: String, trim: true },
   renglon2: { type: String, trim: true },

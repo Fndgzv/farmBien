@@ -2,10 +2,12 @@ import { Component, EventEmitter, Inject, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ValidatorFn, AbstractControl, FormArray, FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { Producto, Lote } from '../../../models/producto.model';
+import { Laboratorio, LaboratoriosService } from '../../../services/laboratorios.service';
 
 type ModalProductoData = {
   producto: Producto;
   proveedores: any[]; // o Proveedor[] si tienes la interfaz
+  laboratorios?: Laboratorio[];
 };
 @Component({
   selector: 'app-modal-editar-producto',
@@ -18,17 +20,41 @@ export class ModalEditarProductoComponent implements OnInit {
 
   formulario!: FormGroup;
   proveedores: any[] = [];
+  laboratorios: Laboratorio[] = [];
 
   @Output() guardar = new EventEmitter<Producto>();
   @Output() cerrar = new EventEmitter<void>();
 
   constructor(
     private fb: FormBuilder,
+    private laboratoriosService: LaboratoriosService,
     @Inject('PRODUCTO_DATA') public data: ModalProductoData
   ) { }
 
   get producto(): Producto {
     return this.data.producto;
+  }
+
+  private ordenarLaboratorios(data: Laboratorio[] = []): Laboratorio[] {
+    return [...data].sort((a, b) =>
+      String(a?.laboratorio || '').localeCompare(String(b?.laboratorio || ''), 'es', { sensitivity: 'base' })
+    );
+  }
+
+  private obtenerLaboratorioId(valor: any): string | null {
+    if (!valor) return null;
+    if (typeof valor === 'object') {
+      return this.obtenerLaboratorioId(valor._id || valor.id || valor.$oid || valor.laboratorio);
+    }
+    const id = String(valor || '').trim();
+    return id || null;
+  }
+
+  private cargarLaboratorios(): void {
+    this.laboratoriosService.obtenerLaboratorios().subscribe({
+      next: (data) => this.laboratorios = this.ordenarLaboratorios(data || []),
+      error: (err) => console.error('Error al cargar laboratorios:', err),
+    });
   }
 
   get utilAbs(): number | null {
@@ -78,6 +104,9 @@ export class ModalEditarProductoComponent implements OnInit {
 
   ngOnInit(): void {
     this.proveedores = Array.isArray(this.data?.proveedores) ? this.data.proveedores : [];
+    this.laboratorios = Array.isArray(this.data?.laboratorios) ? this.ordenarLaboratorios(this.data.laboratorios) : [];
+    if (!this.laboratorios.length) this.cargarLaboratorios();
+
     this.formulario = this.fb.group({
       nombre: [this.producto.nombre, [Validators.required]],
       ingreActivo: [this.producto.ingreActivo],
@@ -96,6 +125,7 @@ export class ModalEditarProductoComponent implements OnInit {
       descuentoINAPAM: [this.producto.descuentoINAPAM],
       stockMinimo: [this.producto.stockMinimo, [Validators.required, Validators.min(0)]],
       stockMaximo: [this.producto.stockMaximo, [Validators.required, Validators.min(0)]],
+      laboratorio: [this.obtenerLaboratorioId((this.producto as any).laboratorio)],
       ultimoProveedorId: [(this.producto as any).ultimoProveedorId ?? null],
       lotes: this.fb.array(this.producto.lotes.map(l => this.crearLoteForm(l))),
       promosPorDia: this.fb.group(this.inicializarPromosPorDia()),
@@ -388,7 +418,8 @@ export class ModalEditarProductoComponent implements OnInit {
       ...v,
       lotes,
       // por si v lo trae como '' lo normalizamos a null:
-      ultimoProveedorId: v.ultimoProveedorId || null
+      ultimoProveedorId: v.ultimoProveedorId || null,
+      laboratorio: v.laboratorio || null
     } as any;
     this.guardar.emit(productoActualizado);
   }

@@ -50,6 +50,10 @@
         </ul>
       </li>
 
+      <li *ngIf="userRol === 'admin'" [routerLink]="'/laboratorios'" routerLinkActive="active">Laboratorios
+        <fa-icon [icon]="'capsules'" class="menu-icon"></fa-icon>
+      </li>
+
       <li [routerLink]="'/proveedores'" routerLinkActive="active">Proveedores
         <fa-icon [icon]="'truck'" class="menu-icon"></fa-icon>
       </li>
