@@ -1,9 +1,10 @@
 <h2 class="titulo" style="text-align: center;">Mantenimiento y consultas de Clientes</h2>
-<div class="d-flex justify-content-between align-items-center mb-2">
+<div class="d-flex justify-content-between align-items-center mb-2 clientes-toolbar">
 
+    <div class="filtros-clientes">
     <mat-form-field appearance="outline" class="filtro-nombre" style="width: 18rem;">
         <mat-label>Buscar por nombre</mat-label>
-        <input matInput [(ngModel)]="filtro" (keyup.enter)="buscar()" #filtroInput />
+        <input matInput [(ngModel)]="filtro" (keyup.enter)="buscarDesdeFiltros()" #filtroInput />
 
         <button *ngIf="filtro" matSuffix aria-label="Limpiar filtro" (click)="limpiarFiltro()"
             class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
@@ -12,6 +13,19 @@
         </button>
         <mat-hint align="end">Ingresa nombre y enter p/buscar</mat-hint>
     </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filtro-telefono" style="width: 13rem;">
+        <mat-label>Teléfono</mat-label>
+        <input matInput [(ngModel)]="filtroTelefono" (keyup.enter)="buscarDesdeFiltros()"
+            placeholder="Buscar por teléfono" inputmode="numeric" />
+        <button *ngIf="filtroTelefono" matSuffix aria-label="Limpiar filtro telefono" (click)="limpiarFiltro()"
+            class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+            style="width: 40px; height: 40px;" [disabled]="cargando">
+            <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
+        <mat-hint align="end">Completo o parcial</mat-hint>
+    </mat-form-field>
+    </div>
 
     <div class="fechas-movs" style="margin-top: -1rem;">
         <label class="lbl">Fechas de los movimientos</label>

@@ -85,10 +85,6 @@ export class LaboratoriosComponent implements OnInit {
     return Math.max(1, Math.ceil(this.laboratorios.length / this.laboratoriosPorPagina));
   }
 
-  get paginas(): number[] {
-    return Array.from({ length: this.totalPaginas }, (_, i) => i + 1);
-  }
-
   cambiarTamanioPagina(): void {
     this.paginaActual = 1;
   }
@@ -99,11 +95,6 @@ export class LaboratoriosComponent implements OnInit {
 
   paginaAnterior(): void {
     if (this.paginaActual > 1) this.paginaActual--;
-  }
-
-  irPagina(pagina: number): void {
-    const paginaSegura = Math.min(Math.max(Number(pagina) || 1, 1), this.totalPaginas);
-    this.paginaActual = paginaSegura;
   }
 
   paginaSiguiente(): void {

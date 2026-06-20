@@ -18,6 +18,18 @@
     min-width: 160px;
 }
 
+.clientes-toolbar {
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.filtros-clientes {
+    align-items: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
 .btn-monedero {
     font-size: small;
     font-weight: 400;

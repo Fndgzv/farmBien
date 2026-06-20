@@ -60,6 +60,7 @@ export class ClientesComponent implements OnInit {
 
   clientes: any[] = [];
   filtro = '';
+  filtroTelefono = '';
   page = 1;
   limit = 20;
   totalDocs = 0;
@@ -179,7 +180,12 @@ export class ClientesComponent implements OnInit {
   buscar(): void {
     this.cargando = true;
 
-    const baseParams: any = { q: this.filtro, page: this.page, limit: this.limit };
+    const baseParams: any = {
+      q: this.filtro,
+      telefono: this.filtroTelefono,
+      page: this.page,
+      limit: this.limit
+    };
 
     // Solo mandamos sort si es por totalMonedero; por nombre es el default del back
     const sortParams = (this.sortBy === 'totalMonedero')
@@ -208,6 +214,11 @@ export class ClientesComponent implements OnInit {
           this.cargando = false;
         }
       });
+  }
+
+  buscarDesdeFiltros(): void {
+    this.page = 1;
+    this.buscar();
   }
 
   // Estado de orden
@@ -499,6 +510,7 @@ export class ClientesComponent implements OnInit {
 
   limpiarFiltro(): void {
     this.filtro = '';
+    this.filtroTelefono = '';
     this.page = 1;               // volver a la primera página
     this.buscar();               // recargar resultados
     setTimeout(() => this.filtroInput?.nativeElement.focus(), 0);

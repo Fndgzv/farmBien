@@ -9,3 +9,20 @@
 .folio-ticket {
   font-size: 13px !important;
 }
+
+.leyenda-pedidos-especiales {
+  text-align: center;
+  font-size: 10px !important;
+  line-height: 1.2;
+  margin: 6px 0 4px;
+  word-break: normal;
+}
+
+@media print {
+  .leyenda-pedidos-especiales {
+    text-align: center;
+    font-size: 10px !important;
+    line-height: 1.2;
+    margin: 6px 0 4px;
+  }
+}

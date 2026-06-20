@@ -42,34 +42,14 @@
   margin-left: 4px;
 }
 
-.pagination {
-  margin-bottom: 0;
-  text-align: center;
-  font-size: large;
-  font-weight: 500;
-  color: blueviolet;
+.laboratorios-paginacion {
+  margin-top: 12px;
 }
 
-.pagination button {
-  color: aqua;
-  background-color: blueviolet;
+.laboratorios-paginacion button {
+  margin: 0 4px;
 }
 
-.pagination button:disabled,
-.pagination button[disabled] {
-  cursor: not-allowed;
-  opacity: 0.6;
-  color: gray;
-}
-
-.pagination button.activo {
-  background-color: white;
-  color: blueviolet;
-  font-weight: bold;
-  border: 2px solid blueviolet;
-}
-
-.pagina-resumen,
 .total-registros {
   color: blueviolet;
   font-weight: 600;

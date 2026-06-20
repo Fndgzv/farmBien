@@ -87,12 +87,13 @@ export class ClienteService {
   }
 
 
-  listar(params: { q?: string; page?: number; limit?: number; sortBy?: string; sortDir?: string }) {
+  listar(params: { q?: string; telefono?: string; page?: number; limit?: number; sortBy?: string; sortDir?: string }) {
     let httpParams = new HttpParams()
       .set('page', String(params.page ?? 1))
       .set('limit', String(params.limit ?? 20));
 
     if (params.q) httpParams = httpParams.set('q', params.q);
+    if (params.telefono) httpParams = httpParams.set('telefono', params.telefono);
     if (params.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
     if (params.sortDir) httpParams = httpParams.set('sortDir', params.sortDir);
 

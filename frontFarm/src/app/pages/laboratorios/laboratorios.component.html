@@ -88,41 +88,22 @@
     </tbody>
   </table>
 
-  <nav class="d-flex justify-content-center align-items-center mt-3 gap-2">
-    <ul class="pagination">
-      <li class="page-item" [class.disabled]="paginaActual === 1">
-        <button class="page-link" type="button" (click)="irPrimeraPagina()" [disabled]="paginaActual === 1"
-          matTooltip="Inicio">
-          <i class="fa fa-angle-double-left"></i>
-        </button>
-      </li>
-      <li class="page-item" [class.disabled]="paginaActual === 1">
-        <button class="page-link" type="button" (click)="paginaAnterior()"
-          [disabled]="paginaActual === 1" matTooltip="Anterior">
-          <i class="fa fa-angle-left"></i>
-        </button>
-      </li>
-      <li class="page-item" *ngFor="let pagina of paginas">
-        <button class="page-link" type="button" [class.activo]="paginaActual === pagina"
-          (click)="irPagina(pagina)">
-          {{ pagina }}
-        </button>
-      </li>
-      <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
-        <button class="page-link" type="button" (click)="paginaSiguiente()"
-          [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
-          <i class="fa fa-angle-right"></i>
-        </button>
-      </li>
-      <li class="page-item" [class.disabled]="paginaActual === totalPaginas">
-        <button class="page-link" type="button" (click)="irUltimaPagina()"
-          [disabled]="paginaActual === totalPaginas" matTooltip="Fin">
-          <i class="fa fa-angle-double-right"></i>
-        </button>
-      </li>
-    </ul>
-    <span class="pagina-resumen">Pagina {{ paginaActual }} / {{ totalPaginas || 1 }}</span>
-  </nav>
+  <div class="paginacion laboratorios-paginacion">
+    <button type="button" (click)="irPrimeraPagina()" [disabled]="paginaActual === 1" matTooltip="Inicio">
+      <i class="fa fa-angle-double-left"></i>
+    </button>
+    <button type="button" (click)="paginaAnterior()" [disabled]="paginaActual === 1" matTooltip="Anterior">
+      <i class="fa fa-angle-left"></i>
+    </button>
+    Laboratorios: {{ laboratorios.length }}
+    &nbsp; | &nbsp; Pagina: {{ paginaActual }} / {{ totalPaginas || 1 }}
+    <button type="button" (click)="paginaSiguiente()" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
+      <i class="fa fa-angle-right"></i>
+    </button>
+    <button type="button" (click)="irUltimaPagina()" [disabled]="paginaActual === totalPaginas" matTooltip="Fin">
+      <i class="fa fa-angle-double-right"></i>
+    </button>
+  </div>
 <!-- </div> -->
 
 <div class="modal fade" id="modalLaboratorio" tabindex="-1" aria-hidden="true">

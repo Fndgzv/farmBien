@@ -174,12 +174,15 @@ exports.crearClienteDesdeVenta = async (req, res) => {
 };
 
 const okId = id => mongoose.isValidObjectId(id);
+const normalizarTelefono = valor => String(valor || '').replace(/\D/g, '');
+const patronTelefonoFlexible = valor => normalizarTelefono(valor).split('').join('\\D*');
 
 // Listar clientes con paginación y filtro por nombre
 exports.listarClientes = async (req, res) => {
   try {
     const {
       q = "",           // filtro por nombre
+      telefono = "",    // filtro por telefono
       page = 1,         // página
       limit = 20,       // documentos por página
       sortBy = "nombre",// "nombre" | "totalMonedero"
@@ -190,8 +193,12 @@ exports.listarClientes = async (req, res) => {
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
     const skip     = (pageNum - 1) * limitNum;
 
-    // Filtro por nombre (case-insensitive)
-    const filtro = q ? { nombre: { $regex: String(q), $options: "i" } } : {};
+    // Filtros combinables
+    const filtro = {};
+    if (q) filtro.nombre = { $regex: String(q), $options: "i" };
+
+    const telefonoRegex = patronTelefonoFlexible(telefono);
+    if (telefonoRegex) filtro.telefono = { $regex: telefonoRegex };
 
     // Validación y armado de sort
     const allowed = new Set(["nombre", "totalMonedero"]);
