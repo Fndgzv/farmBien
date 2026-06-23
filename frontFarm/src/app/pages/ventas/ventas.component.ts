@@ -239,7 +239,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   readonly motivosFichaCatalogo = [
     'Consulta',
-    'Inyección',
+    'Inyección consulta',
+    'Inyección externa',
     'Toma de glucosa',
     'Toma de presión',
     'Laboratorio',
