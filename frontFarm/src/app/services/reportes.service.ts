@@ -137,6 +137,7 @@ export class ReportesService {
     fechaInicial?: string | Date;
     fechaFinal?: string | Date;
     medicoId: string;
+    estado?: string;
   }) {
     const httpParams = this.buildParams(params);
     return this.http.get<any>(

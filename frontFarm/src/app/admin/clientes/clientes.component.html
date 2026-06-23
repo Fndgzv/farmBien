@@ -198,7 +198,7 @@
             <ng-container *ngIf="expandedRow === (row._id + '_ventas')">
 
                 <!-- Si hay filas, pinta la tabla; si no, muestra #sinCompras -->
-                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinCompras">
+                <ng-container *ngIf="(subRows[expandedRow]?.length || 0) > 0; else sinCompras">
                     <div class="sub-title-tabla">Compras de: {{ row.nombre }}</div>
                     <div class="detalle-tabla-wrapper">
                         <table class="detalle-tabla">
@@ -355,7 +355,7 @@
 
             <!-- subtabla pedidos -->
             <ng-container *ngIf="expandedRow === (row._id + '_pedidos')">
-                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinPedidos">
+                <ng-container *ngIf="(subRows[expandedRow]?.length || 0) > 0; else sinPedidos">
                     <div class="sub-title-tabla">Pedidos de: {{ row.nombre }}</div>
                     <div class="detalle-tabla-wrapper">
                         <table class="detalle-tabla">
@@ -492,7 +492,7 @@
 
             <!-- subtabla devoluciones -->
             <ng-container *ngIf="expandedRow === (row._id + '_devoluciones')">
-                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinDevoluciones">
+                <ng-container *ngIf="(subRows[expandedRow]?.length || 0) > 0; else sinDevoluciones">
                     <div class="sub-title-tabla">Devoluciones de: {{ row.nombre }}</div>
                     <div class="detalle-tabla-wrapper">
                         <table class="detalle-tabla">
@@ -563,7 +563,7 @@
 
             <!-- subtabla cancelaciones -->
             <ng-container *ngIf="expandedRow === (row._id + '_cancelaciones')">
-                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinCancelaciones">
+                <ng-container *ngIf="(subRows[expandedRow]?.length || 0) > 0; else sinCancelaciones">
                     <div class="sub-title-tabla">Cancelaciones de: {{ row.nombre }}</div>
                     <div class="detalle-tabla-wrapper">
                         <table class="detalle-tabla">
@@ -599,7 +599,7 @@
 
             <!-- subtabla monedero -->
             <ng-container *ngIf="expandedRow === (row._id + '_monedero')">
-                <ng-container *ngIf="(subRows[expandedRow]?.length ?? 0) > 0; else sinMonedero">
+                <ng-container *ngIf="(subRows[expandedRow]?.length || 0) > 0; else sinMonedero">
                     <div class="sub-title-tabla">Movimientos del monedero de: {{ row.nombre }}</div>
                     <div class="detalle-tabla-wrapper">
                         <table class="detalle-tabla">

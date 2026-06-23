@@ -11,14 +11,17 @@ import { ReportesService } from '../../services/reportes.service';
 import { Usuario, UsuarioService } from '../../services/usuario.service';
 import { formatearTurnoConsultorioVisual } from '../../shared/utils/turno-visual';
 
-type SortCol = 'llegada' | 'paciente' | 'servicio';
-type SortKey = 'llegadaAt' | 'paciente' | 'servicioRealizado';
+type SortCol = 'llegada' | 'estado' | 'paciente' | 'servicio';
+type SortKey = 'llegadaAt' | 'estado' | 'paciente' | 'servicioRealizado';
+type EstadoFichaConsultorio = 'EN_ESPERA' | 'EN_ATENCION' | 'LISTA_PARA_COBRO' | 'EN_COBRO' | 'ATENDIDA' | 'CANCELADA';
+type EstadoFiltro = EstadoFichaConsultorio | 'TODOS';
 
 interface ServicioMedicoRealizadoRow {
   fichaId: string;
   ficha: string;
   llegadaAt: string;
   fechaHoraLlegada: string;
+  estado: string;
   folio: string;
   turnoFecha: string;
   turnoConsecutivo: number | null;
@@ -53,6 +56,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   fechaInicial = this.lunesSemanaActualCdmx();
   fechaFinal = this.hoyCdmx();
   medicoId = '';
+  estadoFiltro: EstadoFiltro = 'ATENDIDA';
 
   cargando = false;
   buscado = false;
@@ -61,6 +65,14 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   sort: { key: SortKey; dir: 'asc' | 'desc' } = { key: 'llegadaAt', dir: 'asc' };
   page = 1;
   limit = 20;
+  readonly estadosFichaConsultorio: EstadoFichaConsultorio[] = [
+    'EN_ESPERA',
+    'EN_ATENCION',
+    'LISTA_PARA_COBRO',
+    'EN_COBRO',
+    'ATENDIDA',
+    'CANCELADA',
+  ];
   readonly opcionesRegistrosPorPagina = [10, 20, 50, 100];
   private farmaciasCargadas = false;
   private medicosCargados = false;
@@ -105,6 +117,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
       fechaInicial: this.fechaInicial,
       fechaFinal: this.fechaFinal,
       medicoId: this.medicoId,
+      estado: this.estadoFiltro,
     })
       .pipe(finalize(() => this.cargando = false))
       .subscribe({
@@ -129,6 +142,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     this.totales = this.totalesVacios();
     this.buscado = false;
     this.resetPaginacion();
+    this.buscar();
   }
 
   trackByRow(index: number, row: ServicioMedicoRealizadoRow): string {
@@ -144,6 +158,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     const data: Array<Record<string, string | number>> = this.sortedRows.map((r) => ({
       Ficha: r.ficha || '',
       'Fecha y hora de llegada': r.fechaHoraLlegada || '',
+      Estado: r.estado || '',
       Paciente: r.paciente || '',
       'Servicio realizado': r.servicioRealizado || '',
       Cantidad: this.numero(r.cantidad),
@@ -156,6 +171,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     data.push({
       Ficha: 'Total',
       'Fecha y hora de llegada': '',
+      Estado: '',
       Paciente: '',
       'Servicio realizado': '',
       Cantidad: '',
@@ -169,6 +185,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     ws['!cols'] = [
       { wch: 12 },
       { wch: 22 },
+      { wch: 18 },
       { wch: 32 },
       { wch: 42 },
       { wch: 10 },
@@ -186,6 +203,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   setSort(col: SortCol): void {
     const map: Record<SortCol, SortKey> = {
       llegada: 'llegadaAt',
+      estado: 'estado',
       paciente: 'paciente',
       servicio: 'servicioRealizado',
     };
@@ -204,6 +222,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   sortIcon(col: SortCol): string {
     const map: Record<SortCol, SortKey> = {
       llegada: 'llegadaAt',
+      estado: 'estado',
       paciente: 'paciente',
       servicio: 'servicioRealizado',
     };
@@ -358,6 +377,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
       ficha,
       llegadaAt: String(r?.llegadaAt || ''),
       fechaHoraLlegada: this.fechaHoraCdmx(r?.llegadaAt),
+      estado: String(r?.estado || '').trim(),
       folio: String(r?.folio || ''),
       turnoFecha: String(r?.turnoFecha || ''),
       turnoConsecutivo: this.numeroONull(r?.turnoConsecutivo),
@@ -516,6 +536,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
       <tr>
         <td>${this.esc(r.ficha)}</td>
         <td>${this.esc(r.fechaHoraLlegada || '-')}</td>
+        <td>${this.esc(r.estado || '-')}</td>
         <td class="texto-cell">${this.esc(r.paciente || '-')}</td>
         <td class="servicio-cell">${this.esc(r.servicioRealizado || '-')}</td>
         <td class="num">${this.esc(this.formatoCantidad(r.cantidad))}</td>
@@ -533,7 +554,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
   <title>Servicios médicos realizados</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #111; font-size: 7.4px; }
+    body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #111; font-size: 7.1px; }
     .page { padding: 6mm; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     thead { display: table-header-group; }
@@ -547,16 +568,17 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     .meta-right { text-align: right; }
     .columns th { font-size: 7px; line-height: 1.05; }
     .texto-cell, .servicio-cell { word-break: normal; }
-    .num { text-align: right; white-space: nowrap; font-size: 6.8px; }
+    .num { text-align: right; white-space: nowrap; font-size: 6.4px; }
     tfoot td { font-weight: 700; background: #f3f3f3; }
-    .col-ficha { width: 7%; }
+    .col-ficha { width: 6%; }
     .col-llegada { width: 13%; }
-    .col-paciente { width: 15%; }
-    .col-servicio { width: 23%; }
-    .col-cantidad { width: 7%; }
-    .col-insumos { width: 10%; }
-    .col-honorarios { width: 11%; }
-    .col-total { width: 7%; }
+    .col-estado { width: 10%; }
+    .col-paciente { width: 13%; }
+    .col-servicio { width: 20%; }
+    .col-cantidad { width: 6%; }
+    .col-insumos { width: 9%; }
+    .col-honorarios { width: 10%; }
+    .col-total { width: 6%; }
     .col-precio { width: 7%; }
     @media print {
       @page { size: letter portrait; margin: 6mm; }
@@ -570,18 +592,19 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
     <table>
       <thead>
         <tr class="title-row">
-          <th colspan="9">Servicios Médicos realizados</th>
+          <th colspan="10">Servicios Médicos realizados</th>
         </tr>
         <tr class="doctor-row">
-          <th colspan="9">Nombre del médico: ${this.esc(this.medicoSeleccionadoNombre())}</th>
+          <th colspan="10">Nombre del médico: ${this.esc(this.medicoSeleccionadoNombre())}</th>
         </tr>
         <tr class="meta-row">
-          <th colspan="4" class="meta-left">Fecha de impresión: ${this.esc(this.fechaDdMmYyyy(this.hoyCdmx()))}</th>
+          <th colspan="5" class="meta-left">Fecha de impresión: ${this.esc(this.fechaDdMmYyyy(this.hoyCdmx()))}</th>
           <th colspan="5" class="meta-right">Fecha de los servicios: ${this.esc(this.rangoServiciosTexto())}</th>
         </tr>
         <tr class="columns">
           <th class="col-ficha">Ficha</th>
           <th class="col-llegada">Fecha y hora de llegada</th>
+          <th class="col-estado">Estado</th>
           <th class="col-paciente">Paciente</th>
           <th class="col-servicio">Servicio realizado</th>
           <th class="col-cantidad num">Cantidad</th>
@@ -594,7 +617,7 @@ export class ServiciosMedicosRealizadosComponent implements OnInit {
       <tbody>${filas}</tbody>
       <tfoot>
         <tr>
-          <td colspan="5" class="num">Total</td>
+          <td colspan="6" class="num">Total</td>
           <td class="num">${this.esc(this.formatoMoneda(this.totales.costoInsumos))}</td>
           <td class="num">${this.esc(this.formatoMoneda(this.totales.costoHonorarios))}</td>
           <td class="num">${this.esc(this.formatoMoneda(this.totales.costoTotal))}</td>

@@ -13,6 +13,8 @@ const FichaConsultorio = require('../models/FichaConsultorio');
 
 const { parseSortTop } = require('../utils/sort');
 
+const ESTADOS_FICHA_CONSULTORIO = FichaConsultorio.schema.path('estado').enumValues;
+
 const oid = (s) => (s && mongoose.isValidObjectId(s)) ? new Types.ObjectId(s) : undefined;
 
 const toId = v => (v && Types.ObjectId.isValid(v) ? new Types.ObjectId(String(v)) : null);
@@ -259,6 +261,7 @@ exports.serviciosMedicosRealizados = async (req, res) => {
       fechaIni,
       fechaFin,
       medicoId,
+      estado,
     } = req.query;
     const fechaInicialParam = fechaInicial || fechaIni || fecha;
     const fechaFinalParam = fechaFinal || fechaFin || fechaInicialParam;
@@ -278,6 +281,12 @@ exports.serviciosMedicosRealizados = async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: 'medicoId inválido' });
     }
 
+    const estadoFiltro = String(estado || '').trim();
+    const filtrarEstado = !!estadoFiltro && estadoFiltro !== 'TODOS';
+    if (filtrarEstado && !ESTADOS_FICHA_CONSULTORIO.includes(estadoFiltro)) {
+      return res.status(400).json({ ok: false, mensaje: 'estado inválido' });
+    }
+
     const fechaInicialKey = String(fechaInicialParam || '').slice(0, 10);
     const fechaFinalKey = String(fechaFinalParam || '').slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaInicialKey) || !/^\d{4}-\d{2}-\d{2}$/.test(fechaFinalKey)) {
@@ -291,22 +300,23 @@ exports.serviciosMedicosRealizados = async (req, res) => {
     const { gte, lt } = dayRangeUtc(fechaInicialKey, fechaFinalKey);
     const farmaciaOid = new Types.ObjectId(farmaciaId);
     const medicoOid = new Types.ObjectId(medicoId);
+    const matchServiciosMedicos = {
+      farmaciaId: farmaciaOid,
+      medicoId: medicoOid,
+      servicios: { $exists: true, $ne: [] },
+      $or: [
+        { turnoFecha: { $gte: fechaInicialKey, $lte: fechaFinalKey } },
+        { llegadaAt: { $gte: gte, $lt: lt } },
+        { inicioAtencionAt: { $gte: gte, $lt: lt } },
+        { finAtencionAt: { $gte: gte, $lt: lt } },
+        { cobradaAt: { $gte: gte, $lt: lt } },
+      ],
+    };
+    if (filtrarEstado) matchServiciosMedicos.estado = estadoFiltro;
 
     const rawRows = await FichaConsultorio.aggregate([
       {
-        $match: {
-          farmaciaId: farmaciaOid,
-          medicoId: medicoOid,
-          estado: { $ne: 'CANCELADA' },
-          servicios: { $exists: true, $ne: [] },
-          $or: [
-            { turnoFecha: { $gte: fechaInicialKey, $lte: fechaFinalKey } },
-            { llegadaAt: { $gte: gte, $lt: lt } },
-            { inicioAtencionAt: { $gte: gte, $lt: lt } },
-            { finAtencionAt: { $gte: gte, $lt: lt } },
-            { cobradaAt: { $gte: gte, $lt: lt } },
-          ],
-        },
+        $match: matchServiciosMedicos,
       },
       { $unwind: '$servicios' },
       {
@@ -347,6 +357,7 @@ exports.serviciosMedicosRealizados = async (req, res) => {
           fichaId: '$_id',
           folio: 1,
           llegadaAt: 1,
+          estado: 1,
           turnoFecha: 1,
           turnoConsecutivo: 1,
           paciente: '$pacienteNombre',
@@ -372,6 +383,7 @@ exports.serviciosMedicosRealizados = async (req, res) => {
         fichaId: r.fichaId,
         folio: r.folio || '',
         llegadaAt: r.llegadaAt || null,
+        estado: r.estado || '',
         turnoFecha: r.turnoFecha || '',
         turnoConsecutivo: r.turnoConsecutivo ?? null,
         ficha: construirFichaVisualReporte(r.turnoFecha, r.turnoConsecutivo) || r.folio || '',
@@ -404,7 +416,14 @@ exports.serviciosMedicosRealizados = async (req, res) => {
 
     return res.json({
       ok: true,
-      filtros: { farmaciaId, fecha: fechaInicialKey, fechaInicial: fechaInicialKey, fechaFinal: fechaFinalKey, medicoId },
+      filtros: {
+        farmaciaId,
+        fecha: fechaInicialKey,
+        fechaInicial: fechaInicialKey,
+        fechaFinal: fechaFinalKey,
+        medicoId,
+        estado: filtrarEstado ? estadoFiltro : 'TODOS',
+      },
       rango: { fechaIni: gte, fechaFin: lt },
       rows,
       totales,

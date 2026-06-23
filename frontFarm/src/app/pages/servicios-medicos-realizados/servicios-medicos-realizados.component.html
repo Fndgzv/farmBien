@@ -52,6 +52,19 @@
       </div>
 
       <div class="col-md-1">
+        <label class="form-label">Estado</label>
+        <select
+          class="form-select"
+          [(ngModel)]="estadoFiltro"
+          name="estadoFiltro"
+          (change)="limpiarResultados()"
+          [disabled]="cargando">
+          <option [ngValue]="'TODOS'">TODOS</option>
+          <option *ngFor="let estado of estadosFichaConsultorio" [ngValue]="estado">{{ estado }}</option>
+        </select>
+      </div>
+
+      <div class="col-md-1">
         <label class="form-label">Renglones</label>
         <select
           class="form-select"
@@ -63,7 +76,7 @@
         </select>
       </div>
 
-      <div class="col-md-4 acciones-reporte">
+      <div class="col-md-3 acciones-reporte">
         <button type="submit" class="btn-gris" [disabled]="!puedeBuscar()" matTooltip="Buscar servicios médicos realizados">
           {{ cargando ? 'Buscando...' : 'Buscar' }}
         </button>
@@ -99,6 +112,9 @@
           <th class="sortable" (click)="setSort('llegada')">
             Fecha y hora de llegada <i class="fa sort-icon" [ngClass]="sortIcon('llegada')"></i>
           </th>
+          <th class="sortable" (click)="setSort('estado')">
+            Estado <i class="fa sort-icon" [ngClass]="sortIcon('estado')"></i>
+          </th>
           <th class="sortable" (click)="setSort('paciente')">
             Paciente <i class="fa sort-icon" [ngClass]="sortIcon('paciente')"></i>
           </th>
@@ -117,6 +133,7 @@
         <tr *ngFor="let r of registrosPaginados; let i = index; trackBy: trackByRow">
           <td class="ficha-cell">{{ r.ficha }}</td>
           <td class="llegada-cell">{{ r.fechaHoraLlegada || '-' }}</td>
+          <td>{{ r.estado || '-' }}</td>
           <td>{{ r.paciente || '-' }}</td>
           <td>{{ r.servicioRealizado || '-' }}</td>
           <td class="text-end">{{ r.cantidad | number:'1.0-2' }}</td>
@@ -127,7 +144,7 @@
         </tr>
 
         <tr *ngIf="rows.length === 0">
-          <td colspan="9" class="text-center text-muted py-3">
+          <td colspan="10" class="text-center text-muted py-3">
             {{ cargando ? 'Cargando...' : 'Sin resultados' }}
           </td>
         </tr>
@@ -135,7 +152,7 @@
 
       <tfoot *ngIf="rows.length > 0">
         <tr>
-          <td colspan="5" class="text-end total-label">Total</td>
+          <td colspan="6" class="text-end total-label">Total</td>
           <td class="text-end">{{ totales.costoInsumos | currency:'MXN':'symbol':'1.2-2' }}</td>
           <td class="text-end">{{ totales.costoHonorarios | currency:'MXN':'symbol':'1.2-2' }}</td>
           <td class="text-end">{{ totales.costoTotal | currency:'MXN':'symbol':'1.2-2' }}</td>
