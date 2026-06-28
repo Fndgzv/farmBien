@@ -1276,6 +1276,74 @@ exports.actualizarProducto = async (req, res) => {
   }
 };
 
+function calcularExistenciaAlmacenProducto(producto) {
+  return (Array.isArray(producto?.lotes) ? producto.lotes : []).reduce((total, lote) => {
+    const cantidad = Number(lote?.cantidad || 0);
+    return total + (Number.isFinite(cantidad) ? cantidad : 0);
+  }, 0);
+}
+
+async function existeProductoConExistenciaEnFarmacias(productoId, session = null) {
+  const pipeline = [
+    { $match: { producto: new mongoose.Types.ObjectId(productoId) } },
+    {
+      $addFields: {
+        existenciaNumerica: {
+          $convert: {
+            input: '$existencia',
+            to: 'double',
+            onError: 0,
+            onNull: 0,
+          },
+        },
+      },
+    },
+    { $match: { existenciaNumerica: { $gt: 0 } } },
+    { $limit: 1 },
+    { $project: { _id: 1 } },
+  ];
+
+  const query = InventarioFarmacia.aggregate(pipeline);
+  if (session) query.session(session);
+  const resultado = await query;
+  return resultado.length > 0;
+}
+
+function mensajeProductoConExistencias(tieneExistenciaAlmacen, tieneExistenciaFarmacias) {
+  if (tieneExistenciaAlmacen && tieneExistenciaFarmacias) {
+    return 'No se puede eliminar el producto porque tiene existencias en almac\u00e9n y farmacias.';
+  }
+
+  if (tieneExistenciaAlmacen) {
+    return 'No se puede eliminar el producto porque tiene existencia en almac\u00e9n.';
+  }
+
+  return 'No se puede eliminar el producto porque tiene existencia en una o m\u00e1s farmacias.';
+}
+
+async function validarProductoSinExistenciasParaEliminar(producto, productoId, session = null) {
+  const existenciaAlmacen = calcularExistenciaAlmacenProducto(producto);
+  const tieneExistenciaAlmacen = existenciaAlmacen > 0;
+  const tieneExistenciaFarmacias = await existeProductoConExistenciaEnFarmacias(productoId, session);
+
+  if (!tieneExistenciaAlmacen && !tieneExistenciaFarmacias) {
+    return { bloqueado: false };
+  }
+
+  const message = mensajeProductoConExistencias(tieneExistenciaAlmacen, tieneExistenciaFarmacias);
+  return {
+    bloqueado: true,
+    status: 409,
+    payload: {
+      mensaje: message,
+      message,
+      tieneExistenciaAlmacen,
+      tieneExistenciaFarmacias,
+      existenciaAlmacen,
+    },
+  };
+}
+
 exports.eliminarProducto = async (req, res) => {
   const { id } = req.params;
 
@@ -1296,6 +1364,15 @@ exports.eliminarProducto = async (req, res) => {
           // Lanzamos error controlado para abortar la transacción y responder 404
           const err = new Error('NOT_FOUND');
           err.code = 'NOT_FOUND';
+          throw err;
+        }
+
+        const validacionExistencias = await validarProductoSinExistenciasParaEliminar(prod, id, session);
+        if (validacionExistencias.bloqueado) {
+          const err = new Error(validacionExistencias.payload.message);
+          err.code = 'PRODUCTO_CON_EXISTENCIAS';
+          err.status = validacionExistencias.status;
+          err.payload = validacionExistencias.payload;
           throw err;
         }
 
@@ -1324,6 +1401,10 @@ exports.eliminarProducto = async (req, res) => {
         return res.status(404).json({ mensaje: 'Producto no encontrado' });
       }
 
+      if (txErr?.code === 'PRODUCTO_CON_EXISTENCIAS') {
+        return res.status(txErr.status || 409).json(txErr.payload);
+      }
+
       // Si tu Mongo no soporta transacciones (no es réplica), hacemos fallback
       const msg = String(txErr && txErr.message || '');
       const noReplica =
@@ -1334,6 +1415,11 @@ exports.eliminarProducto = async (req, res) => {
         // Fallback sin transacción
         const prod = await Producto.findById(id);
         if (!prod) return res.status(404).json({ mensaje: 'Producto no encontrado' });
+
+        const validacionExistencias = await validarProductoSinExistenciasParaEliminar(prod, id);
+        if (validacionExistencias.bloqueado) {
+          return res.status(validacionExistencias.status).json(validacionExistencias.payload);
+        }
 
         const invRes = await InventarioFarmacia.deleteMany({ producto: id });
         inventariosEliminados = invRes?.deletedCount || 0;

@@ -1322,8 +1322,10 @@ export class AjustesInventarioComponent implements OnInit {
       this.aplicarFiltros(); // repinta página actual
       Swal.fire('Eliminado', resp?.mensaje || 'Producto eliminado correctamente', 'success');
     } catch (err: any) {
-      const msg = err?.error?.mensaje || err?.message || 'No se pudo eliminar el producto';
-      Swal.fire('Error', msg, 'error');
+      const msg = err?.error?.mensaje || err?.error?.message || err?.message || 'No se pudo eliminar el producto';
+      const title = err?.status === 409 ? 'No se puede eliminar' : 'Error';
+      const icon = err?.status === 409 ? 'warning' : 'error';
+      Swal.fire(title, msg, icon);
     } finally {
       this.eliminandoId = null;
     }
