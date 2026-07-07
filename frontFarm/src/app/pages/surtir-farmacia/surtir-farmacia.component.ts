@@ -287,9 +287,9 @@ export class SurtirFarmaciaComponent implements OnInit {
 
     const filas = filasData.map(r => `
       <tr>
-        <td>${r.codigoBarras || ''}</td>
-        <td>${r.nombre || ''}</td>
         <td class="num">${r.podranSurtirse ?? 0}</td>
+        <td>${r.nombre || ''}</td>
+        <td>${r.codigoBarras || ''}</td>
         <td>${r.ubicacion || '-'}</td>
         <td>${r.ubicacionFarmacia || '-'}</td>
       </tr>
@@ -313,13 +313,14 @@ export class SurtirFarmaciaComponent implements OnInit {
   th { background:#f6f6f6; text-align:left; }
   td.num { text-align: right; }
   td.writein {
-    width: 110px;
+    width: 170px;
     border-bottom: 1px solid #999;
     padding: 3px 6px;
     line-height: 1.2;
   }  
   thead th.codigo { width: 110px; }
-  thead th.cant   { width: 110px; text-align: right; }
+  thead th.cant   { width: 50px; text-align: right; }
+  /* thead th.cant   { width: 110px; text-align: right; } */
   thead th.ubic   { width: 180px; }
   thead th.ubf { width: 180px; }
   tfoot td { border-top: 2px solid #000; font-weight: bold; padding-top: 4px; }
@@ -344,9 +345,9 @@ export class SurtirFarmaciaComponent implements OnInit {
   <table>
     <thead>
       <tr>
-        <th class="codigo">Código</th>
+        <th class="cant">Surtir</th>
         <th>Producto</th>
-        <th class="cant">Cant. a surtir</th>
+        <th class="codigo">Código</th>
         <th class="ubic">Ubicación almacén</th>
         <th class="ubf">Ubicación farmacia</th>
       </tr>
@@ -389,9 +390,9 @@ export class SurtirFarmaciaComponent implements OnInit {
 
     const filas = items.map((it: any) => `
     <tr>
-      <td>${it?.producto?.codigoBarras || ''}</td>
-      <td>${it?.producto?.nombre || ''}</td>
       <td class="num">${it?.cantidad ?? 0}</td>
+      <td>${it?.producto?.nombre || ''}</td>
+      <td>${it?.producto?.codigoBarras || ''}</td>
       <td>${it?.producto?.ubicacion || '-'}</td>
       <td>${it?.ubicacionFarmacia || '-'}</td>
     </tr>
@@ -414,9 +415,9 @@ export class SurtirFarmaciaComponent implements OnInit {
   th, td { border-bottom: 1px solid #ddd; padding: 3px 6px; }
   th { background:#f6f6f6; text-align:left; }
   td.num { text-align: right; }
-  td.writein { width: 110px; }
+  td.writein { width: 170px; }
   thead th.codigo { width: 110px; }
-  thead th.cant   { width: 110px; text-align: right; }
+  thead th.cant   { width: 50px; text-align: right; }
   thead th.ubic   { width: 160px; }
   thead th.ubf { width: 160px; }
   tfoot td { border-top: 2px solid #000; font-weight: bold; padding-top: 4px; }
@@ -442,9 +443,9 @@ export class SurtirFarmaciaComponent implements OnInit {
   <table>
     <thead>
       <tr>
-        <th class="codigo">Código</th>
+        <th class="cant">Surtir</th>
         <th>Producto</th>
-        <th class="cant">Cant. a surtir</th>
+        <th class="codigo">Código</th>
         <th class="ubic">Ubicación almacén</th>
         <th class="ubf">Ubicación farmacia</th>
       </tr>

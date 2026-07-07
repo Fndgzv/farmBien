@@ -56,7 +56,8 @@
             <div class="position-relative">
                 <select [(ngModel)]="filtros.laboratorioId" name="laboratorioId" class="form-control pe-4 flex-grow-1"
                     (change)="aplicarFiltros()">
-                    <option [ngValue]="null">--</option>
+                    <option [ngValue]="null">Todos</option>
+                    <option [ngValue]="valorLaboratorioSinAsignar">Sin laboratorio</option>
                     <option *ngFor="let lab of laboratorios" [ngValue]="lab._id">
                         {{ lab.laboratorio }}
                     </option>

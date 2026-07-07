@@ -103,6 +103,7 @@ export class AjustesInventarioComponent implements OnInit {
 
   proveedores: any[] = [];
   laboratorios: Laboratorio[] = [];
+  readonly valorLaboratorioSinAsignar = '__SIN__';
 
   // ajustes-inventario.component.ts (helper)
   imgUrl(p: any): string {
@@ -451,9 +452,11 @@ export class AjustesInventarioComponent implements OnInit {
               : String(provIdProd ?? '') === String(f.ultimoProveedorId);
 
         const laboratorioIdProd = this.obtenerLaboratorioId((p as any).laboratorio);
-        const coincideLaboratorio = f.laboratorioId === null
-          ? true
-          : String(laboratorioIdProd ?? '') === String(f.laboratorioId);
+        const coincideLaboratorio = (() => {
+          if (f.laboratorioId === null) return true;
+          if (f.laboratorioId === this.valorLaboratorioSinAsignar) return laboratorioIdProd === null;
+          return String(laboratorioIdProd ?? '') === String(f.laboratorioId);
+        })();
 
         const coincideCaducanEn = (() => {
           if (f.caducanEnMeses === null) return true;
