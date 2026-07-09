@@ -279,14 +279,17 @@ export class ReportesService {
     hasta: string;
     escala: string;
     farmacia: string;
+    comparar?: string;
+    incluirPromedios?: boolean | string;
   }) {
     let httpParams = new HttpParams();
 
     Object.entries(params).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === '') return;
       httpParams = httpParams.set(k, v);
     });
 
-    return this.http.get<any[]>(`${this.url}/ingresos-por-tiempo`, {
+    return this.http.get<any>(`${this.url}/ingresos-por-tiempo`, {
       params: httpParams
     });
   }

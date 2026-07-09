@@ -14,12 +14,24 @@
     <label>Hasta</label>
     <input type="date" [(ngModel)]="hasta" (change)="cargar()">
 
-    <select [(ngModel)]="escala" (change)="cargar()">
+    <label>Agrupar</label>
+    <select [(ngModel)]="escala" (change)="onEscalaChange()">
         <option value="hora">Por hora</option>
         <option value="dia">Por día</option>
+        <option value="semana">Por semana</option>
         <option value="mes">Por mes</option>
         <option value="anio">Por año</option>
     </select>
+
+    <ng-container *ngIf="mostrarComparacion">
+        <label>Comparar</label>
+        <select [(ngModel)]="comparacionSeleccionada" (change)="cargar()">
+            <option value="">Sin comparar</option>
+            <option *ngFor="let opcion of opcionesComparacion" [value]="opcion.valor">
+                {{ opcion.label }}
+            </option>
+        </select>
+    </ng-container>
 
     <!-- <div class="col-md-1 text-end mt-3"> -->
         <button class="btn-gris"
@@ -81,18 +93,18 @@
     🟢 {{ etiquetaAlta }}:
   </div>
   <div class="col-2" style="color: #F57C00; font-weight: 600;">
-    {{ formatearPeriodo(horaPicoVentas.periodo) }} –
+    {{ formatearPeriodo(horaPicoVentas.periodo, horaPicoVentas) }} –
     {{ horaPicoVentas.ventas }} ventas
   </div>
   <div class="col-4" style="color: #1E88E5; font-weight: 600;">
-    {{ formatearPeriodo(horaPicoIngresos.periodo) }} –
+    {{ formatearPeriodo(horaPicoIngresos.periodo, horaPicoIngresos) }} –
     ingresos: ${{ horaPicoIngresos.ingresos }}
     <span style="font-size: small;">
      ({{ horaPicoIngresos.ventas }} ventas)
     </span>
   </div>
   <div class="col-4" style="color: #00551c; font-weight: 600;">
-    {{ formatearPeriodo(horaPicoUtilidad.periodo) }} –
+    {{ formatearPeriodo(horaPicoUtilidad.periodo, horaPicoUtilidad) }} –
     utilidad: ${{ horaPicoUtilidad.utilidad }}
     <span style="font-size: small;">
      ({{ horaPicoUtilidad.ventas }} ventas)
@@ -105,22 +117,39 @@
     🔴 {{ etiquetaBaja }}:
   </div>
   <div class="col-2" style="color: #F57C00; font-weight: 600;">
-    {{ formatearPeriodo(horaMuertaVentas.periodo) }} –
+    {{ formatearPeriodo(horaMuertaVentas.periodo, horaMuertaVentas) }} –
     {{ horaMuertaVentas.ventas }} ventas
   </div>
   <div class="col-4" style="color: #1E88E5; font-weight: 600;">
-    {{ formatearPeriodo(horaMuertaIngresos.periodo) }} –
+    {{ formatearPeriodo(horaMuertaIngresos.periodo, horaMuertaIngresos) }} –
     ingresos: ${{ horaMuertaIngresos.ingresos }}
      <span style="font-size: small;">
       ({{ horaMuertaIngresos.ventas }} ventas)
     </span>
   </div>
   <div class="col-4" style="color: #00551c; font-weight: 600;">
-    {{ formatearPeriodo(horaMuertaUtilidad.periodo) }} –
+    {{ formatearPeriodo(horaMuertaUtilidad.periodo, horaMuertaUtilidad) }} –
     utilidad: ${{ horaMuertaUtilidad.utilidad }}
      <span style="font-size: small;">
       ({{ horaMuertaUtilidad.ventas }} ventas)
     </span>
+  </div>
+</div>
+
+<div class="row promedio-row" *ngIf="promedios.periodos">
+  <div class="col-2" style="font-weight: 700;" >
+    {{ etiquetaPromedio }}:
+  </div>
+  <div class="col-2" style="color: #F57C00; font-weight: 600;">
+    {{ promedios.ventas | number:'1.0-2' }} ventas
+  </div>
+  <div class="col-4" style="color: #1E88E5; font-weight: 600;">
+    ingresos:
+    {{ promedios.ingresos | currency:'MXN':'symbol-narrow':'1.2-2' }}
+  </div>
+  <div class="col-4" style="color: #00551c; font-weight: 600;">
+    utilidad:
+    {{ promedios.utilidad | currency:'MXN':'symbol-narrow':'1.2-2' }}
   </div>
 </div>
 

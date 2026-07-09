@@ -1,5 +1,6 @@
 .filtros {
   display: flex;
+  flex-wrap: wrap;
   gap: .6rem;
   margin-bottom: .8rem;
   align-items: center;
@@ -74,4 +75,8 @@ select, input {
   height: 380px;
   min-height: 380px;
   display: block;
+}
+
+.promedio-row {
+  margin-top: .25rem;
 }

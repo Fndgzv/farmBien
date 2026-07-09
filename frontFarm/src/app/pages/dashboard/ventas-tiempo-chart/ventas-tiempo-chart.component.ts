@@ -29,6 +29,20 @@ export type ChartOptions = {
     colors: string[];
 };
 
+type EscalaVentasTiempo = 'hora' | 'dia' | 'semana' | 'mes' | 'anio';
+
+type OpcionComparacion = {
+    valor: string;
+    label: string;
+};
+
+type PromediosVentasTiempo = {
+    periodos: number;
+    ventas: number;
+    ingresos: number;
+    utilidad: number;
+};
+
 @Component({
     selector: 'app-ventas-tiempo-chart',
     standalone: true,
@@ -40,9 +54,43 @@ export class VentasTiempoChartComponent implements OnInit {
 
     data: any[] = [];
 
-    escala: 'hora' | 'dia' | 'mes' | 'anio' = 'hora';
+    escala: EscalaVentasTiempo = 'hora';
+    comparacionSeleccionada = '';
     desde!: string;
     hasta!: string;
+
+    readonly horasComparacion: OpcionComparacion[] = Array.from({ length: 17 }, (_, index) => {
+        const hora = index + 6;
+        return { valor: String(hora), label: `${hora}:00` };
+    });
+
+    readonly diasComparacion: OpcionComparacion[] = [
+        { valor: '1', label: 'Lunes' },
+        { valor: '2', label: 'Martes' },
+        { valor: '3', label: 'Miércoles' },
+        { valor: '4', label: 'Jueves' },
+        { valor: '5', label: 'Viernes' },
+        { valor: '6', label: 'Sábado' },
+        { valor: '7', label: 'Domingo' }
+    ];
+
+    readonly mesesComparacion: OpcionComparacion[] = [
+        { valor: '1', label: 'Enero' },
+        { valor: '2', label: 'Febrero' },
+        { valor: '3', label: 'Marzo' },
+        { valor: '4', label: 'Abril' },
+        { valor: '5', label: 'Mayo' },
+        { valor: '6', label: 'Junio' },
+        { valor: '7', label: 'Julio' },
+        { valor: '8', label: 'Agosto' },
+        { valor: '9', label: 'Septiembre' },
+        { valor: '10', label: 'Octubre' },
+        { valor: '11', label: 'Noviembre' },
+        { valor: '12', label: 'Diciembre' }
+    ];
+
+    private readonly mesesCortos = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    private promediosApi: PromediosVentasTiempo | null = null;
 
     farmacias: any[] = [];
     farmaciaSeleccionada = 'ALL';
@@ -60,6 +108,13 @@ export class VentasTiempoChartComponent implements OnInit {
     horaMuertaIngresos: any = null;
     horaPicoVentas: any = null;
     horaMuertaVentas: any = null;
+
+    promedios: PromediosVentasTiempo = {
+        periodos: 0,
+        ventas: 0,
+        ingresos: 0,
+        utilidad: 0
+    };
 
     chartOptions: ChartOptions = {
         series: [],
@@ -109,20 +164,52 @@ export class VentasTiempoChartComponent implements OnInit {
        DATOS
        ========================= */
     cargar() {
+        if (!this.mostrarComparacion && this.comparacionSeleccionada) {
+            this.comparacionSeleccionada = '';
+        }
+
         this.reportesService.ventasPorTiempo({
             desde: this.desde,
             hasta: this.hasta,
             escala: this.escala,
-            farmacia: this.farmaciaSeleccionada
+            farmacia: this.farmaciaSeleccionada,
+            comparar: this.mostrarComparacion ? this.comparacionSeleccionada : undefined,
+            incluirPromedios: true
         }).subscribe(res => {
-            this.data = res || [];
+            const payload: any = res || [];
+            this.data = Array.isArray(payload) ? payload : (payload.data || []);
+            this.promediosApi = Array.isArray(payload) ? null : (payload.promedios || null);
             this.buildChart();
         });
+    }
+
+    onEscalaChange() {
+        this.comparacionSeleccionada = '';
+        this.cargar();
+    }
+
+    get mostrarComparacion(): boolean {
+        return this.escala === 'hora' || this.escala === 'dia' || this.escala === 'mes';
+    }
+
+    get opcionesComparacion(): OpcionComparacion[] {
+        switch (this.escala) {
+            case 'hora':
+                return this.horasComparacion;
+            case 'dia':
+                return this.diasComparacion;
+            case 'mes':
+                return this.mesesComparacion;
+            default:
+                return [];
+        }
     }
 
     buildChart() {
 
         this.data = this.ordenarData(this.data);
+        this.promedios = this.promediosApi || this.calcularPromedios(this.data);
+        this.promediosApi = null;
         const hasData = this.data.length > 0;
 
         /* ================= KPIs ================= */
@@ -153,7 +240,7 @@ export class VentasTiempoChartComponent implements OnInit {
 
         /* ================= DATA ================= */
         const categorias = hasData
-            ? this.data.map(d => this.formatearPeriodo(d.periodo))
+            ? this.data.map(d => this.formatearPeriodo(d.periodo, d))
             : [];
 
         const ventas = hasData ? this.data.map(d => d.ingresos ?? 0) : [];
@@ -221,6 +308,37 @@ export class VentasTiempoChartComponent implements OnInit {
         this.calcularHorasClave();
     }
 
+    calcularPromedios(data: any[]): PromediosVentasTiempo {
+        const periodos = data.length;
+
+        if (!periodos) {
+            return {
+                periodos: 0,
+                ventas: 0,
+                ingresos: 0,
+                utilidad: 0
+            };
+        }
+
+        const total = data.reduce((acc, row) => {
+            acc.ventas += row.ventas ?? 0;
+            acc.ingresos += row.ingresos ?? 0;
+            acc.utilidad += row.utilidad ?? 0;
+            return acc;
+        }, { ventas: 0, ingresos: 0, utilidad: 0 });
+
+        return {
+            periodos,
+            ventas: this.redondear(total.ventas / periodos),
+            ingresos: this.redondear(total.ingresos / periodos),
+            utilidad: this.redondear(total.utilidad / periodos)
+        };
+    }
+
+    private redondear(value: number): number {
+        return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+    }
+
 
     /* =========================
    HORAS CLAVE
@@ -263,20 +381,35 @@ export class VentasTiempoChartComponent implements OnInit {
         );
     }
 
-    formatearPeriodo(periodo: string): string {
+    formatearPeriodo(periodo: string, item?: any): string {
         if (!periodo) return '';
 
         switch (this.escala) {
 
             case 'hora':
+                if (this.comparacionSeleccionada) {
+                    return this.formatearFechaCorta(periodo);
+                }
                 return periodo;
 
             case 'dia': {
+                if (this.comparacionSeleccionada) {
+                    return this.formatearFechaCorta(periodo);
+                }
                 const [yyyy, mm, dd] = periodo.split('-');
                 return `${dd}/${mm}/${yyyy}`;
             }
 
+            case 'semana': {
+                const inicio = item?.periodoInicio || periodo;
+                const fin = item?.periodoFin || this.sumarDias(periodo, 6);
+                return `Semana ${inicio} a ${fin}`;
+            }
+
             case 'mes': {
+                if (this.comparacionSeleccionada) {
+                    return this.formatearMesAnio(periodo);
+                }
                 const [yyyy, mm] = periodo.split('-');
                 return `${mm}/${yyyy}`;
             }
@@ -289,10 +422,38 @@ export class VentasTiempoChartComponent implements OnInit {
         }
     }
 
+    private formatearFechaCorta(periodo: string): string {
+        const [yyyy, mm, dd] = periodo.split('-').map(Number);
+        if (!yyyy || !mm || !dd) return periodo;
+
+        return `${String(dd).padStart(2, '0')} ${this.mesesCortos[mm - 1] || ''}`.trim();
+    }
+
+    private formatearMesAnio(periodo: string): string {
+        const [yyyy, mm] = periodo.split('-').map(Number);
+        if (!yyyy || !mm) return periodo;
+
+        return `${this.mesesCortos[mm - 1] || String(mm).padStart(2, '0')} ${yyyy}`;
+    }
+
+    private sumarDias(periodo: string, dias: number): string {
+        const [yyyy, mm, dd] = periodo.split('-').map(Number);
+        if (!yyyy || !mm || !dd) return periodo;
+
+        const date = new Date(yyyy, mm - 1, dd);
+        date.setDate(date.getDate() + dias);
+
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
     get etiquetaAlta(): string {
         switch (this.escala) {
             case 'hora': return 'Hora pico';
             case 'dia': return 'Día más alto';
+            case 'semana': return 'Semana más alta';
             case 'mes': return 'Mes más alto';
             case 'anio': return 'Año más alto';
             default: return 'Máximo';
@@ -303,18 +464,51 @@ export class VentasTiempoChartComponent implements OnInit {
         switch (this.escala) {
             case 'hora': return 'Hora muerta';
             case 'dia': return 'Día más bajo';
+            case 'semana': return 'Semana más baja';
             case 'mes': return 'Mes más bajo';
             case 'anio': return 'Año más bajo';
             default: return 'Mínimo';
         }
     }
 
+    get etiquetaPromedio(): string {
+        if (this.comparacionSeleccionada) {
+            switch (this.escala) {
+                case 'hora':
+                case 'dia':
+                    return 'Promedio por día';
+                case 'mes':
+                    return 'Promedio por mes';
+                default:
+                    break;
+            }
+        }
+
+        switch (this.escala) {
+            case 'hora': return 'Promedio por hora';
+            case 'dia': return 'Promedio por día';
+            case 'semana': return 'Promedio por semana';
+            case 'mes': return 'Promedio por mes';
+            case 'anio': return 'Promedio por año';
+            default: return 'Promedio';
+        }
+    }
+
     ordenarData(data: any[]): any[] {
         return [...data].sort((a, b) => {
-            if (this.escala === 'hora') {
-                return Number(a.periodo) - Number(b.periodo);
+            const periodoA = String(a.periodo ?? '');
+            const periodoB = String(b.periodo ?? '');
+
+            if (
+                this.escala === 'hora' &&
+                !this.comparacionSeleccionada &&
+                /^\d+$/.test(periodoA) &&
+                /^\d+$/.test(periodoB)
+            ) {
+                return Number(periodoA) - Number(periodoB);
             }
-            return a.periodo.localeCompare(b.periodo);
+
+            return periodoA.localeCompare(periodoB);
         });
     }
 
