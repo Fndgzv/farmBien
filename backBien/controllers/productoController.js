@@ -464,7 +464,7 @@ exports.crearProducto = async (req, res) => {
     const {
       nombre, ingreActivo, renglon1, renglon2, codigoBarras, unidad, precio, costo, iva,
       stockMinimo, stockMaximo, ubicacion, categoria, generico,
-      costoHonorariosMedicos, costoInsumosMedicos, laboratorio
+      costoHonorariosMedicos, costoInsumosMedicos, laboratorio, sintomas, descripcionUso
     } = req.body;
 
     const laboratorioValidado = await validarLaboratorioDisponible(laboratorio, session);
@@ -499,6 +499,8 @@ exports.crearProducto = async (req, res) => {
     const nuevoProducto = await Producto.create([{
       nombre,
       ingreActivo,
+      sintomas,
+      descripcionUso,
       renglon1,
       renglon2,
       codigoBarras,
@@ -967,6 +969,8 @@ exports.actualizarProductos = async (req, res) => {
         if (typeof prod.stockMaximo === 'number') productoActual.stockMaximo = prod.stockMaximo;
         if (typeof prod.ubicacion !== 'undefined') productoActual.ubicacion = prod.ubicacion;
         if (typeof prod.categoria !== 'undefined') productoActual.categoria = prod.categoria;
+        if (typeof prod.sintomas !== 'undefined') productoActual.sintomas = prod.sintomas;
+        if (typeof prod.descripcionUso !== 'undefined') productoActual.descripcionUso = prod.descripcionUso;
         if (typeof prod.laboratorio !== 'undefined') {
           const laboratorioValidado = await validarLaboratorioDisponible(prod.laboratorio, session);
           if (laboratorioValidado.error) {
@@ -1201,6 +1205,84 @@ exports.buscarProductos = async (req, res) => {
   }
 };
 
+exports.buscarPorSintomasFarmacia = async (req, res) => {
+  try {
+    const farmacia = String(req.query.farmacia || '').trim();
+    const qOriginal = String(req.query.q || '').trim();
+    const qNorm = normalizarTexto(qOriginal);
+
+    if (!farmacia) {
+      return res.status(400).json({ mensaje: 'Debe enviar farmacia.' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(farmacia)) {
+      return res.status(400).json({ mensaje: 'Farmacia invalida.' });
+    }
+
+    if (!qOriginal) {
+      return res.status(400).json({ mensaje: 'Debe enviar q con el texto de busqueda.' });
+    }
+
+    const rxOriginal = new RegExp(escapeRegex(qOriginal), 'i');
+    const rxNorm = new RegExp(escapeRegex(qNorm), 'i');
+
+    const productos = await InventarioFarmacia.aggregate([
+      {
+        $match: {
+          farmacia: new mongoose.Types.ObjectId(farmacia)
+        }
+      },
+      {
+        $lookup: {
+          from: 'productos',
+          localField: 'producto',
+          foreignField: '_id',
+          as: 'producto'
+        }
+      },
+      { $unwind: '$producto' },
+      {
+        $match: {
+          $or: [
+            { 'producto.sintomas': { $regex: rxOriginal } },
+            { 'producto.sintomasNorm': { $regex: rxNorm } }
+          ]
+        }
+      },
+      {
+        $project: {
+          _id: '$producto._id',
+          nombre: '$producto.nombre',
+          sintomas: '$producto.sintomas',
+          sintomasNorm: '$producto.sintomasNorm',
+          imagen: '$producto.imagen',
+
+          existencia: '$existencia',
+          precioVenta: '$precioVenta',
+          descuentoINAPAM: '$descuentoINAPAM',
+          finPromoCantidad: '$finPromoCantidad',
+          inicioPromoCantidad: '$inicioPromoCantidad',
+          promoCantidadRequerida: '$promoCantidadRequerida',
+          promoTemporada: { $ifNull: ['$promoTemporada', '$promoDeTemporada'] },
+          promoLunes: '$promoLunes',
+          promoMartes: '$promoMartes',
+          promoMiercoles: '$promoMiercoles',
+          promoJueves: '$promoJueves',
+          promoViernes: '$promoViernes',
+          promoSabado: '$promoSabado',
+          promoDomingo: '$promoDomingo'
+        }
+      },
+      { $sort: { nombre: 1 } }
+    ]);
+
+    return res.json(productos);
+  } catch (err) {
+    console.error('[buscarPorSintomasFarmacia][ERROR]', err);
+    return res.status(500).json({ mensaje: 'Error al buscar productos por sintomas' });
+  }
+};
+
 
 exports.actualizarProducto = async (req, res) => {
   /* Actualiza un producto en Almacen */
@@ -1221,6 +1303,8 @@ exports.actualizarProducto = async (req, res) => {
     // Actualización de campos
     productoActual.nombre = prod.nombre;
     productoActual.ingreActivo = prod.ingreActivo;
+    if (typeof prod.sintomas !== 'undefined') productoActual.sintomas = prod.sintomas;
+    if (typeof prod.descripcionUso !== 'undefined') productoActual.descripcionUso = prod.descripcionUso;
     productoActual.renglon1 = prod.renglon1;
     productoActual.renglon2 = prod.renglon2;
     productoActual.codigoBarras = prod.codigoBarras;

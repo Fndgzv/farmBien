@@ -11,6 +11,20 @@ function norm(s) {
     .trim();
 }
 
+function normArray(value) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined && item !== null && String(item).trim() !== "")
+      .map((item) => norm(item));
+  }
+
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return [];
+  }
+
+  return [norm(value)];
+}
+
 // === Subdocumento de lotes ===
 const LoteSchema = new Schema({
   lote: { type: String, trim: true },
@@ -22,6 +36,8 @@ const LoteSchema = new Schema({
 const ProductoSchema = new Schema({
   nombre: { type: String, required: true, trim: true },
   ingreActivo: { type: String, trim: true },
+  sintomas: { type: [String], default: [] },
+  descripcionUso: { type: String, trim: true },
 
   codigoBarras: { type: String, trim: true },
   unidad: { type: String, required: true, trim: true },
@@ -45,6 +61,7 @@ const ProductoSchema = new Schema({
   nombreNorm: { type: String, default: "" },
   categoriaNorm: { type: String, default: "" },
   ingreActivoNorm: { type: String, default: "" },
+  sintomasNorm: { type: [String], default: [] },
 
   ultimoProveedorId: { type: Schema.Types.ObjectId, ref: "Proveedor", default: null, index: true },
   ultimaCompraAt: { type: Date, default: null, index: true },
@@ -122,6 +139,9 @@ function applyNormToDoc(doc) {
   if (doc.isNew || doc.isModified("ingreActivo")) {
     doc.ingreActivoNorm = norm(doc.ingreActivo);
   }
+  if (doc.isNew || doc.isModified("sintomas")) {
+    doc.sintomasNorm = normArray(doc.sintomas);
+  }
 }
 
 function applyNormToUpdate(update) {
@@ -141,14 +161,19 @@ function applyNormToUpdate(update) {
   const nombre = pick("nombre");
   const categoria = pick("categoria");
   const ingreActivo = pick("ingreActivo");
+  const sintomas = pick("sintomas");
 
   if (nombre !== undefined) update.$set.nombreNorm = norm(nombre);
   if (categoria !== undefined) update.$set.categoriaNorm = norm(categoria);
   if (ingreActivo !== undefined) update.$set.ingreActivoNorm = norm(ingreActivo);
+  if (sintomas !== undefined) update.$set.sintomasNorm = normArray(sintomas);
 
   // Si lo están “borrando”
   if ($unset && $unset.ingreActivo !== undefined) {
     update.$set.ingreActivoNorm = "";
+  }
+  if ($unset && $unset.sintomas !== undefined) {
+    update.$set.sintomasNorm = [];
   }
 }
 
@@ -165,6 +190,7 @@ ProductoSchema.pre("insertMany", function (next, docs) {
     d.nombreNorm = norm(d.nombre);
     d.categoriaNorm = norm(d.categoria);
     d.ingreActivoNorm = norm(d.ingreActivo);
+    d.sintomasNorm = normArray(d.sintomas);
   }
   next();
 });
@@ -190,11 +216,13 @@ ProductoSchema.pre("replaceOne", function (next) {
 /* =========================== Índices útiles ============================ */
 ProductoSchema.index({ codigoBarras: 1 }, { sparse: true });
 ProductoSchema.index({ nombre: 1 });
+ProductoSchema.index({ sintomas: 1 });
 ProductoSchema.index({ categoria: 1 });       // opcional, útil para orden/lookup
 ProductoSchema.index({ ingreActivo: 1 });       // opcional, útil para orden/lookup
 ProductoSchema.index({ nombreNorm: 1 });      // clave para búsquedas sin acentos
 ProductoSchema.index({ categoriaNorm: 1 });   // clave para búsquedas sin acentos
 ProductoSchema.index({ ingreActivoNorm: 1 });   // clave para búsquedas sin acentos
+ProductoSchema.index({ sintomasNorm: 1 });   // clave para búsquedas sin acentos
 ProductoSchema.index({ categoriaNorm: 1, nombreNorm: 1 });
 
 module.exports = mongoose.models.Producto || mongoose.model("Producto", ProductoSchema);

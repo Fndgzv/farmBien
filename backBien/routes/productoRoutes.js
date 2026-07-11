@@ -19,6 +19,7 @@ const {
   quitarLotesMasivo,
   actualizarProducto,
   searchProductos,
+  buscarPorSintomasFarmacia,
   buscarPorCodigoBarras,
   eliminarProducto,
   buscarProductos,
@@ -30,6 +31,7 @@ const {
 
 // --- búsquedas / consultas puntuales ---
 router.get('/search', authMiddleware,searchProductos);
+router.get('/buscar-por-sintomas', authMiddleware, buscarPorSintomasFarmacia);
 router.get('/buscar', buscarProductos);
 router.get('/precio/:farmaciaId/:codigoBarras', authMiddleware,consultarPrecioPorCodigo);
 router.get('/inventario/:farmaciaId/:productoId', authMiddleware,obtenerExistenciaEnFarmacia);
