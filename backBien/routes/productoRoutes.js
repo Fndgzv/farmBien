@@ -20,6 +20,7 @@ const {
   actualizarProducto,
   searchProductos,
   buscarPorSintomasFarmacia,
+  obtenerCatalogoNaucalpan,
   buscarPorCodigoBarras,
   eliminarProducto,
   buscarProductos,
@@ -31,6 +32,7 @@ const {
 
 // --- búsquedas / consultas puntuales ---
 router.get('/search', authMiddleware,searchProductos);
+router.get('/catalogo-naucalpan', obtenerCatalogoNaucalpan);
 router.get('/buscar-por-sintomas', authMiddleware, buscarPorSintomasFarmacia);
 router.get('/buscar', buscarProductos);
 router.get('/precio/:farmaciaId/:codigoBarras', authMiddleware,consultarPrecioPorCodigo);

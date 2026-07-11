@@ -12,6 +12,7 @@ const fsp = require('fs/promises');
 const mime = require('mime-types');
 
 const escapeRegex = (s = '') => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const FARMACIA_NAUCALPAN_ID = '6901b8db573b04d722ea9963';
 
 const normalizarTexto = (s = '') => String(s ?? '')
   .normalize('NFD')
@@ -1280,6 +1281,59 @@ exports.buscarPorSintomasFarmacia = async (req, res) => {
   } catch (err) {
     console.error('[buscarPorSintomasFarmacia][ERROR]', err);
     return res.status(500).json({ mensaje: 'Error al buscar productos por sintomas' });
+  }
+};
+
+exports.obtenerCatalogoNaucalpan = async (_req, res) => {
+  try {
+    const productos = await InventarioFarmacia.aggregate([
+      {
+        $match: {
+          farmacia: new mongoose.Types.ObjectId(FARMACIA_NAUCALPAN_ID)
+        }
+      },
+      {
+        $lookup: {
+          from: 'productos',
+          localField: 'producto',
+          foreignField: '_id',
+          as: 'producto'
+        }
+      },
+      { $unwind: '$producto' },
+      {
+        $project: {
+          _id: 0,
+          productoId: '$producto._id',
+          nombre: '$producto.nombre',
+          categoria: '$producto.categoria',
+          sintomas: '$producto.sintomas',
+          sintomasNorm: '$producto.sintomasNorm',
+          imagen: '$producto.imagen',
+
+          existencia: '$existencia',
+          precioVenta: '$precioVenta',
+          descuentoINAPAM: '$descuentoINAPAM',
+          finPromoCantidad: '$finPromoCantidad',
+          inicioPromoCantidad: '$inicioPromoCantidad',
+          promoCantidadRequerida: '$promoCantidadRequerida',
+          promoTemporada: { $ifNull: ['$promoTemporada', '$promoDeTemporada'] },
+          promoLunes: '$promoLunes',
+          promoMartes: '$promoMartes',
+          promoMiercoles: '$promoMiercoles',
+          promoJueves: '$promoJueves',
+          promoViernes: '$promoViernes',
+          promoSabado: '$promoSabado',
+          promoDomingo: '$promoDomingo'
+        }
+      },
+      { $sort: { nombre: 1 } }
+    ]);
+
+    return res.json(productos);
+  } catch (err) {
+    console.error('[obtenerCatalogoNaucalpan][ERROR]', err);
+    return res.status(500).json({ mensaje: 'Error al obtener catalogo Naucalpan' });
   }
 };
 
