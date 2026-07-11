@@ -1307,6 +1307,7 @@ exports.obtenerCatalogoNaucalpan = async (_req, res) => {
           productoId: '$producto._id',
           nombre: '$producto.nombre',
           categoria: '$producto.categoria',
+          descripcionUso: '$producto.descripcionUso',
           sintomas: '$producto.sintomas',
           sintomasNorm: '$producto.sintomasNorm',
           imagen: '$producto.imagen',
