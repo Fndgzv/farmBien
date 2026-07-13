@@ -89,6 +89,7 @@
                 <table class="detalle-tabla">
                   <thead>
                     <tr>
+                      <th class="text-end">Cant.</th>
                       <th class="th-sort" (click)="sortDetalle(r, 'producto')">
                         Producto <i class="fa sort-icon" [ngClass]="getDetalleSortIcon(r, 'producto')"></i>
                       </th>
@@ -96,7 +97,6 @@
                       <th class="th-sort" (click)="sortDetalle(r, 'categoria')">
                         Categoría <i class="fa sort-icon" [ngClass]="getDetalleSortIcon(r, 'categoria')"></i>
                       </th>
-                      <th class="text-end">Cant.</th>
                       <th class="th-sort" (click)="sortDetalle(r, 'ubicacionAlmacen')">
                         Ubic. Almac. <i class="fa sort-icon" [ngClass]="getDetalleSortIcon(r, 'ubicacionAlmacen')"></i>
                       </th>
@@ -107,10 +107,10 @@
                   </thead>
                   <tbody>
                     <tr *ngFor="let it of r.items">
+                      <td class="text-end">{{ it.cantidad }}</td>
                       <td>{{ it.producto || '-' }}</td>
                       <td>{{ it.codigoBarras || '-' }}</td>
                       <td>{{ it.categoria || '-' }}</td>
-                      <td class="text-end">{{ it.cantidad }}</td>
                       <td>{{ it.ubicacionAlmacen || '-' }}</td>
                       <td>{{ it.ubicacionFarmacia || '-' }}</td>
                     </tr>

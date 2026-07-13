@@ -207,20 +207,20 @@ export class ReporteSurtidosComponent implements OnInit {
     }
 
     const data = items.map((it) => ({
+      'Cant.': Number(it.cantidad || 0),
       Producto: it.producto || '',
       'Código': it.codigoBarras || '',
       'Categoría': it.categoria || '',
-      'Cant.': Number(it.cantidad || 0),
       'Ubic. Almac': it.ubicacionAlmacen || '',
       'Ubic. Farma': it.ubicacionFarmacia || '',
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [
+      { wch: 8 },
       { wch: 45 },
       { wch: 18 },
       { wch: 22 },
-      { wch: 8 },
       { wch: 22 },
       { wch: 22 },
     ];
@@ -253,10 +253,10 @@ export class ReporteSurtidosComponent implements OnInit {
     const usuario = this.usuarioImpresion(row);
     const filas = (row.items || []).map((it) => `
       <tr>
+        <td class="num">${Number(it.cantidad || 0)}</td>
         <td class="producto"><span>${this.esc(it.producto)}</span></td>
         <td>${this.esc(it.codigoBarras)}</td>
         <td>${this.esc(it.categoria)}</td>
-        <td class="num">${Number(it.cantidad || 0)}</td>
         <td>${this.esc(it.ubicacionAlmacen)}</td>
         <td>${this.esc(it.ubicacionFarmacia)}</td>
       </tr>
@@ -286,10 +286,10 @@ export class ReporteSurtidosComponent implements OnInit {
       line-height: 1.15;
       max-height: 2.3em;
     }
-    .col-producto { width: 34%; }
-    .col-codigo { width: 15%; }
+    .col-cant { width: 4%; }
+    .col-producto { width: 42%; }
+    .col-codigo { width: 10%; }
     .col-categoria { width: 15%; }
-    .col-cant { width: 7%; }
     .col-ubic { width: 14.5%; }
     @media print {
       @page { size: letter portrait; margin: 7mm; }
@@ -309,10 +309,10 @@ export class ReporteSurtidosComponent implements OnInit {
     <table>
       <thead>
         <tr>
+          <th class="col-cant num">Cant.</th>
           <th class="col-producto">Producto</th>
           <th class="col-codigo">Código</th>
           <th class="col-categoria">Categoría</th>
-          <th class="col-cant num">Cant.</th>
           <th class="col-ubic">Ubic. Almac</th>
           <th class="col-ubic">Ubic. Farma</th>
         </tr>
