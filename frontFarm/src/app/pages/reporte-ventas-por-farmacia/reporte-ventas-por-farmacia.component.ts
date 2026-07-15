@@ -8,6 +8,7 @@ import { MatTooltip } from '@angular/material/tooltip';
 import * as XLSX from 'xlsx';
 
 import { FarmaciaService } from '../../services/farmacia.service';
+import { Laboratorio, LaboratoriosService } from '../../services/laboratorios.service';
 import { ReportesService } from '../../services/reportes.service';
 
 import {
@@ -16,9 +17,11 @@ import {
 } from '../../models/reportes.models';
 import Swal from 'sweetalert2';
 
-type SortCol = 'producto' | 'existencia' | 'cantidad' | 'importe' | 'costo' | 'utilidad' | 'margen';
+type SortCol = 'producto' | 'categoria' | 'laboratorio' | 'existencia' | 'cantidad' | 'importe' | 'costo' | 'utilidad' | 'margen';
 type SortKey =
   | 'nombre'          // producto
+  | 'categoria'
+  | 'laboratorioNombre'
   | 'existencia'
   | 'cantidadVendida'
   | 'importeVendido'
@@ -59,7 +62,11 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
 
   // ====== Filtros base ======
   farmacias: any[] = [];
+  laboratorios: Laboratorio[] = [];
+  readonly valorLaboratorioSinAsignar = '__SIN__';
+  readonly textoLaboratorioSinAsignar = 'Sin laboratorio';
   farmaciaId: string | '' = '';
+  laboratorioId: string | null = null;
   fechaIni = this.defaultIni();
   fechaFin = this.defaultFin();
   productoQ = '';
@@ -90,10 +97,23 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
 
   // Ordenamiento (client-side)
   sort: { key: SortKey; dir: 'asc' | 'desc' } | null = null;
+  private readonly sortMap: Record<SortCol, SortKey> = {
+    producto: 'nombre',
+    categoria: 'categoria',
+    laboratorio: 'laboratorioNombre',
+    existencia: 'existencia',
+    cantidad: 'cantidadVendida',
+    importe: 'importeVendido',
+    costo: 'costoTotal',
+    utilidad: 'utilidad',
+    margen: 'margenPct',
+  };
 
   constructor(
     private reportes: ReportesService,
-    private farmaciaService: FarmaciaService  ) { }
+    private farmaciaService: FarmaciaService,
+    private laboratoriosService: LaboratoriosService
+  ) { }
 
   ngOnInit(): void {
 
@@ -108,6 +128,7 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
     this.farmaciaId = farmacia._id;
 
     this.cargarFarmacias();
+    this.cargarLaboratorios();
 
     this.buscar();
   }
@@ -116,6 +137,19 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
     this.farmaciaService.obtenerFarmacias().subscribe({
       next: (data) => this.farmacias = data ?? [],
       error: () => this.farmacias = []
+    });
+  }
+
+  private ordenarLaboratorios(data: Laboratorio[] = []): Laboratorio[] {
+    return [...data].sort((a, b) =>
+      String(a?.laboratorio || '').localeCompare(String(b?.laboratorio || ''), 'es', { sensitivity: 'base' })
+    );
+  }
+
+  cargarLaboratorios(): void {
+    this.laboratoriosService.obtenerLaboratorios().subscribe({
+      next: (data) => this.laboratorios = this.ordenarLaboratorios(data || []),
+      error: () => this.laboratorios = []
     });
   }
 
@@ -130,7 +164,10 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
       fechaFin: toDateOnly(this.fechaFin),
       // 🔹 enviamos la query de texto (nombre o código)
       productoQ: this.productoQ?.trim() || undefined,
-      categoriaQ: this.categoriaQ?.trim() || undefined
+      categoriaQ: this.categoriaQ?.trim() || undefined,
+      laboratorioId: this.laboratorioId || undefined,
+      sortBy: this.sort?.key,
+      sortDir: this.sort?.dir
     })
     .subscribe({
       next: (resp: ResumenVentasResponse) => {
@@ -148,9 +185,6 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
 
         this.resetPagination?.();
         this.cargando = false;
-
-        console.log('productos filtrados =====>', resp);
-        
       },
       error: (err) => {
         console.error('Error reporte ventas:', err);
@@ -173,21 +207,35 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
   return costoTotal / cantidadVendida;
 }
 
+  nombreLaboratorio(r: VentaProductoResumen | any): string {
+    return String(r?.laboratorioNombre || '').trim() || this.textoLaboratorioSinAsignar;
+  }
+
   // 🔹 limpiar solo el filtro de texto
   clearProducto() {
     this.productoQ = '';
   }
 
+  onLaboratorioChange(): void {
+    this.page = 1;
+    this.buscar();
+  }
+
   limpiarFiltros(): void {
     this.farmaciaId = '';
+    this.laboratorioId = null;
     this.fechaIni = this.defaultIni();
     this.fechaFin = this.defaultFin();
     this.clearProducto();
+    this.categoriaQ = '';
 
     this.rows = [];
     this.totalCantidad = 0;
     this.totalExistencia = 0;
     this.totalImporte = 0;
+    this.totalCosto = 0;
+    this.totalUtilidad = 0;
+    this.totalMargenPct = null;
     this.totalItems = 0;
     this.page = 1;
 
@@ -211,6 +259,7 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
       Farmacia: r.farmacia || '',
       'Nombre / Código barras': `${r.nombre || ''}${r.codigoBarras ? ` / ${r.codigoBarras}` : ''}`,
       Categoría: r.categoria || '',
+      Laboratorio: this.nombreLaboratorio(r),
       'Ubic. farma': r.ubicacionFarmacia || '',
       Vendidos: toNum(r.cantidadVendida),
       'Costo total': toNum(r.costoTotal),
@@ -227,6 +276,7 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
       Farmacia: 'Totales:',
       'Nombre / Código barras': '',
       Categoría: '',
+      Laboratorio: '',
       'Ubic. farma': '',
       Vendidos: toNum(this.totalCantidad),
       'Costo total': toNum(this.totalCosto),
@@ -244,6 +294,7 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
       { wch: 24 },
       { wch: 42 },
       { wch: 22 },
+      { wch: 24 },
       { wch: 18 },
       { wch: 10 },
       { wch: 15 },
@@ -264,34 +315,18 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
 
   // === ORDENAMIENTO (client-side) ===
   setSort(col: SortCol) {
-    const map: Record<SortCol, SortKey> = {
-      producto: 'nombre',
-      existencia: 'existencia',
-      cantidad: 'cantidadVendida',
-      importe: 'importeVendido',
-      costo: 'costoTotal',
-      utilidad: 'utilidad',
-      margen: 'margenPct',
-    };
-    const key = map[col];
+    const key = this.sortMap[col];
     if (!this.sort || this.sort.key !== key) {
       this.sort = { key, dir: 'asc' };     // primer click asc
     } else {
       this.sort = { key, dir: this.sort.dir === 'asc' ? 'desc' : 'asc' };
-    } this.page = 1;
+    }
+    this.page = 1;
+    this.buscar();
   }
 
   sortIcon(col: SortCol): string {
-    const map: Record<SortCol, SortKey> = {
-      producto: 'nombre',
-      existencia: 'existencia',
-      cantidad: 'cantidadVendida',
-      importe: 'importeVendido',
-      costo: 'costoTotal',
-      utilidad: 'utilidad',
-      margen: 'margenPct',
-    };
-    const key = map[col];
+    const key = this.sortMap[col];
     if (!this.sort || this.sort.key !== key) return 'fa-sort';
     return this.sort.dir === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
   }
@@ -300,12 +335,22 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
   get sortedRows() {
     if (!this.sort) return this.rows;
     const { key, dir } = this.sort;
+    const compareText = (a: string, b: string) =>
+      String(a || '').localeCompare(String(b || ''), 'es', { sensitivity: 'base' });
+    const desempate = (a: any, b: any) => {
+      const porNombre = compareText(a?.nombre, b?.nombre);
+      if (porNombre !== 0) return porNombre;
+      return compareText(a?.productoId, b?.productoId);
+    };
 
-    // producto: ordena por nombre usando locale 'es'
-    if (key === 'nombre') {
+    // producto, categorÃ­a y laboratorio: ordena por texto usando locale 'es'
+    if (key === 'nombre' || key === 'categoria' || key === 'laboratorioNombre') {
       return [...this.rows].sort((a: any, b: any) => {
-        const r = (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' });
-        return dir === 'asc' ? r : -r;
+        const aText = key === 'laboratorioNombre' ? this.nombreLaboratorio(a) : String(a?.[key] || '');
+        const bText = key === 'laboratorioNombre' ? this.nombreLaboratorio(b) : String(b?.[key] || '');
+        const r = compareText(aText, bText);
+        if (r !== 0) return dir === 'asc' ? r : -r;
+        return desempate(a, b);
       });
     }
 
@@ -323,7 +368,7 @@ export class ReporteVentasPorFarmaciaComponent implements OnInit {
       if (av < bv) return dir === 'asc' ? -1 : 1;
       if (av > bv) return dir === 'asc' ? 1 : -1;
       // desempate estable
-      return (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' });
+      return desempate(a, b);
     });
   }
 

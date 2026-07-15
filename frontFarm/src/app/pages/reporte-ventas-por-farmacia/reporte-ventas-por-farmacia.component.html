@@ -1,31 +1,23 @@
-<div class="p-1">
+<!-- <div class="p-1"> -->
+<div>
   <div class="titulo-container">
-    <h2 class="mb-3 titulo">Productos:&nbsp; Ventas - Existencia</h2>
+    <h2 class="titulo">Productos:&nbsp; Ventas - Existencia</h2>
   </div>
 
   <!-- Filtros -->
-  <form (ngSubmit)="buscar()" class="row filtros align-items-end">
+  <form (ngSubmit)="buscar()" class="filtros">
+    <div class="row">
+    <div class="col-md-1" style="text-align: end;"><label class="form-label">Farmacia:</label></div>
     <div class="col-md-2">
-      <label class="form-label">Farmacia</label>
       <select class="form-select" [(ngModel)]="farmaciaId" name="farmaciaId">
         <option value="">Todas</option>
         <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
       </select>
     </div>
 
-    <div class="col-md-2">
-      <label class="form-label">Fecha inicial</label>
-      <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" />
-    </div>
-
-    <div class="col-md-2">
-      <label class="form-label">Fecha final</label>
-      <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
-    </div>
-
     <!-- Producto (texto libre) -->
+    <div class="col-md-1" style="text-align: end;"><label class="form-label">Producto:</label></div>
     <div class="col-md-2">
-      <label class="form-label">Producto</label>
       <div class="d-flex gap-2">
         <input type="text" class="form-control" [(ngModel)]="productoQ" name="productoQ"
           placeholder="7501234, ibuprof..." (keyup.enter)="buscar()" />
@@ -34,9 +26,9 @@
         </button>
       </div>
     </div>
-
+    
+    <div class="col-md-1" style="text-align: end;"><label class="form-label">Categ.</label></div>
     <div class="col-md-2">
-      <label class="form-label">Categ.</label>
       <div class="d-flex gap-2">
         <input type="text" class="form-control" [(ngModel)]="categoriaQ" name="categoriaQ"
           (keyup.enter)="buscar()" />
@@ -45,9 +37,30 @@
         </button>
       </div>
     </div>
+    
+    <div class="col-md-1" style="text-align: end;"><label class="form-label">Laborat.</label></div>
+    <div class="col-md-2"> 
+      <select class="form-select" [(ngModel)]="laboratorioId" name="laboratorioId" (change)="onLaboratorioChange()">
+        <option [ngValue]="null">Todos</option>
+        <option [ngValue]="valorLaboratorioSinAsignar">Sin laboratorio</option>
+        <option *ngFor="let lab of laboratorios" [ngValue]="lab._id">{{ lab.laboratorio }}</option>
+      </select>
+    </div>
+    </div>
+
+    <div class="row filtros2 mt-2">
+      <div class="col-md-1" style="text-align: end;"><label class="form-label">Fec. ini:</label></div>
+      <div class="col-md-2">
+        <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" />
+      </div>
+
+      <div class="col-md-1" style="text-align: end;"><label class="form-label">Fec. fin:</label></div>
+      <div class="col-md-2">
+        <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
+      </div>
 
     <!-- Botones -->
-    <div class="col-md-2 d-flex gap-2 justify-content-end align-items-end">
+    <div class="col-md-6 d-flex gap-2 justify-content-end align-items-end">
       <button type="button" class="btn-rojo" (click)="limpiarFiltros()" [disabled]="cargando"
         matTooltip="Limpiar filtro">
         <i class="fas fa-times"></i>
@@ -56,6 +69,7 @@
       <button class="btn-gris" type="submit" [disabled]="cargando">
         {{ cargando ? 'Buscando...' : 'Buscar' }}
       </button>
+    </div>
     </div>
   </form>
 
@@ -68,8 +82,8 @@
   </div>
 
   <!-- Tabla -->
-  <div class="mt-2">
-    <table class="align-middle tabla">
+  <div class="mt-2 tabla-reporte-wrapper">
+    <table class="align-middle tabla tabla-reporte-ventas-farmacia">
       <thead>
         <tr>
           <th>Farmacia</th>
@@ -81,7 +95,15 @@
 
           <!-- <th style="white-space:nowrap;">Cód. barras</th> -->
 
-          <th style="white-space:nowrap;">Categoría</th>
+          <th class="sortable" style="white-space:nowrap;" (click)="setSort('categoria')">
+            Categoría
+            <i class="fa sort-icon" [ngClass]="sortIcon('categoria')"></i>
+          </th>
+
+          <th class="sortable" style="white-space:nowrap;" (click)="setSort('laboratorio')">
+            Laboratorio
+            <i class="fa sort-icon" [ngClass]="sortIcon('laboratorio')"></i>
+          </th>
 
           <th style="white-space:nowrap;">Ubic. farma</th>
 
@@ -133,6 +155,7 @@
           </td>
           <!-- <td>{{ r.codigoBarras || '—' }}</td> -->
           <td>{{ r.categoria || '—' }}</td>
+          <td>{{ nombreLaboratorio(r) }}</td>
           <td>{{ r.ubicacionFarmacia || '—' }}</td>
           <td class="text-end">{{ r.cantidadVendida | number}}</td>
           <td class="text-end">{{ r.costoTotal | currency }}</td>
@@ -154,13 +177,13 @@
         </tr>
 
         <tr *ngIf="rows.length === 0">
-          <td colspan="13" class="text-center text-muted">Sin resultados</td>
+          <td colspan="14" class="text-center text-muted">Sin resultados</td>
         </tr>
       </tbody>
 
       <tfoot *ngIf="rows.length">
         <tr class="fw-bold">
-          <td colspan="4" class="text-end">Totales:</td>
+          <td colspan="5" class="text-end">Totales:</td>
           <td class="text-end">{{ totalCantidad | number}}</td>
           <td class="text-end">{{ totalCosto | currency }}</td>
           <td class="text-end">{{ totalImporte | currency }}</td>

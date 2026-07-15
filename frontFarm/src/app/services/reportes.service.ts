@@ -72,6 +72,9 @@ export class ReportesService {
     fechaFin?: string | Date;
     productoQ?: string;
     categoriaQ?: string;
+    laboratorioId?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
   }): Observable<ResumenVentasResponse> {
     const httpParams = this.buildParams(params);
     return this.http.get<ResumenVentasResponse>(`${this.url}/ventas-por-farmacia`, { params: httpParams });

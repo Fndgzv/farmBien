@@ -11,6 +11,8 @@ export interface VentaProductoResumen {
   farmacia: string;
   unidad?: string;
   categoria?: string;
+  laboratorioId?: string | null;
+  laboratorioNombre?: string | null;
   ubicacionFarmacia?: string;
   cantidadVendida: number;
   importeVendido: number;

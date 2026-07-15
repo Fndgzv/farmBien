@@ -3,8 +3,11 @@
     padding-bottom: 1rem;
 }
 
+.filtros2{
+    align-items: end;
+}
 .form-label {
-    margin-bottom: 0 !important;
+    align-items: flex-end;
 }
 
 .sortable { cursor: pointer; user-select: none; }
@@ -14,6 +17,20 @@
   margin-left: 4px;
   color: #6b7280;
   font-size: 11px;
+}
+
+.tabla-reporte-wrapper {
+  overflow-x: auto;
+}
+
+.tabla-reporte-ventas-farmacia {
+  width: 100%;
+  min-width: 1180px;
+  font-size: 0.82rem;
+}
+
+.tabla-reporte-ventas-farmacia small {
+  font-size: 0.76rem;
 }
 
 

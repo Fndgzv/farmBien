@@ -10,10 +10,14 @@ const Cancelacion = require('../models/Cancelacion');
 const Compra = require('../models/Compra');
 const SurtidoFarmacia = require('../models/SurtidoFarmacia');
 const FichaConsultorio = require('../models/FichaConsultorio');
+const Laboratorio = require('../models/Laboratorio');
 
 const { parseSortTop } = require('../utils/sort');
 
 const ESTADOS_FICHA_CONSULTORIO = FichaConsultorio.schema.path('estado').enumValues;
+const LABORATORIOS_COLLECTION = Laboratorio.collection.name;
+const VALOR_LABORATORIO_SIN_ASIGNAR = '__SIN__';
+const TEXTO_LABORATORIO_SIN_ASIGNAR = 'Sin laboratorio';
 
 const oid = (s) => (s && mongoose.isValidObjectId(s)) ? new Types.ObjectId(s) : undefined;
 
@@ -444,10 +448,21 @@ exports.resumenProductosVendidos = async (req, res) => {
       sortBy = 'producto',
       sortDir = 'asc',
       productoQ = '',
-      categoriaQ = ''
+      categoriaQ = '',
+      laboratorioId = ''
     } = req.query;
 
     const { gte, lt } = dayRangeUtc(fechaIni, fechaFin);
+    const laboratorioRaw = String(laboratorioId || '').trim();
+    const filtrarSinLaboratorio = laboratorioRaw === VALOR_LABORATORIO_SIN_ASIGNAR;
+    let laboratorioOid = null;
+
+    if (laboratorioRaw && !filtrarSinLaboratorio) {
+      if (!Types.ObjectId.isValid(laboratorioRaw)) {
+        return res.status(400).json({ ok: false, mensaje: 'laboratorioId invalido' });
+      }
+      laboratorioOid = new Types.ObjectId(laboratorioRaw);
+    }
 
     const match = { fecha: { $gte: gte, $lt: lt } };
     const fId = toId(farmaciaId);
@@ -502,7 +517,31 @@ exports.resumenProductosVendidos = async (req, res) => {
       });
     }
 
+    if (laboratorioOid) {
+      pipe.push({ $match: { 'prod.laboratorio': laboratorioOid } });
+    } else if (filtrarSinLaboratorio) {
+      pipe.push({
+        $match: {
+          $or: [
+            { 'prod.laboratorio': { $exists: false } },
+            { 'prod.laboratorio': null },
+            { 'prod.laboratorio': '' },
+            { 'prod.laboratorio': [] },
+          ]
+        }
+      });
+    }
+
     pipe.push(
+      {
+        $lookup: {
+          from: LABORATORIOS_COLLECTION,
+          localField: 'prod.laboratorio',
+          foreignField: '_id',
+          as: 'lab',
+        },
+      },
+      { $unwind: { path: '$lab', preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: 'farmacias',
@@ -540,6 +579,9 @@ exports.resumenProductosVendidos = async (req, res) => {
               { $multiply: [{ $divide: [{ $subtract: ['$importeVendido', '$costoTotal'] }, '$importeVendido'] }, 100] },
               null
             ]
+          },
+          laboratorioNombre: {
+            $ifNull: ['$lab.laboratorio', TEXTO_LABORATORIO_SIN_ASIGNAR]
           }
         }
       },
@@ -552,6 +594,8 @@ exports.resumenProductosVendidos = async (req, res) => {
           codigoBarras: '$prod.codigoBarras',
           nombre: '$prod.nombre',
           categoria: '$prod.categoria',
+          laboratorioId: '$prod.laboratorio',
+          laboratorioNombre: 1,
           cantidadVendida: 1,
           importeVendido: 1,
           costoTotal: 1,
@@ -566,15 +610,32 @@ exports.resumenProductosVendidos = async (req, res) => {
     );
 
     const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
-    if (String(sortBy) === 'existencia') {
-      pipe.push({ $sort: { existencia: dir, farmacia: 1, nombre: 1 } });
-    } else if (String(sortBy) === 'producto') {
-      pipe.push({ $sort: { nombre: dir, farmacia: 1 } });
-    } else {
-      pipe.push({ $sort: { farmacia: 1, nombre: 1 } });
-    }
+    const sortFields = {
+      producto: 'nombre',
+      nombre: 'nombre',
+      categoria: 'categoria',
+      laboratorio: 'laboratorioNombre',
+      laboratorioNombre: 'laboratorioNombre',
+      existencia: 'existencia',
+      cantidad: 'cantidadVendida',
+      cantidadVendida: 'cantidadVendida',
+      vendidos: 'cantidadVendida',
+      importe: 'importeVendido',
+      importeVendido: 'importeVendido',
+      costo: 'costoTotal',
+      costoTotal: 'costoTotal',
+      utilidad: 'utilidad',
+      margen: 'margenPct',
+      margenPct: 'margenPct',
+    };
+    const sortField = sortFields[String(sortBy)] || 'nombre';
+    const sortStage = { [sortField]: dir };
+    if (sortField !== 'nombre') sortStage.nombre = 1;
+    sortStage.farmacia = 1;
+    sortStage.productoId = 1;
+    pipe.push({ $sort: sortStage });
 
-    const data = await Venta.aggregate(pipe).allowDiskUse(true);
+    const data = await Venta.aggregate(pipe).collation({ locale: 'es', strength: 1 }).allowDiskUse(true);
     return res.json({ ok: true, rango: { fechaIni: gte, fechaFin: lt }, data });
   } catch (e) {
     console.error(e);
