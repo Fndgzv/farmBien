@@ -3,12 +3,14 @@
     "target": "http://localhost:5000",
     "secure": false,
     "changeOrigin": true,
+    "xfwd": true,
     "logLevel": "silent"
   },
   "/uploads": {
     "target": "http://localhost:5000",
     "secure": false,
     "changeOrigin": true,
+    "xfwd": true,
     "logLevel": "silent"
   }
 }

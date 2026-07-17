@@ -1,52 +1,47 @@
 const ORIGENES_CATALOGO_PERMITIDOS = new Set([
   'http://localhost:3000',
+  'http://localhost:4200',
   'https://www.farmaciasantoremedio.com',
   'https://farmbien.onrender.com',
-  'http://localhost:4200',
 ]);
 
 const HEADERS_CATALOGO_PERMITIDOS = 'Content-Type, Authorization';
 const METODOS_CATALOGO_PERMITIDOS = 'GET, OPTIONS';
 
-const HOSTS_LOCALES = new Set([
-  'localhost',
-  '127.0.0.1',
-  '::1',
+const HOSTS_CATALOGO_PERMITIDOS = new Set([
+  'localhost:3000',
+  'localhost:4200',
+  'farmbien.onrender.com',
+  'www.farmaciasantoremedio.com',
 ]);
 
-const DIRECCIONES_LOCALES = new Set([
-  '127.0.0.1',
-  '::1',
-  '::ffff:127.0.0.1',
-]);
+const normalizarHost = (host = '') => String(host).split(',')[0].trim().toLowerCase();
 
-const normalizarHostname = (hostname = '') => String(hostname).toLowerCase().replace(/^\[|\]$/g, '');
+const confiarEnProxy = (req) => Boolean(req.app?.enabled?.('trust proxy'));
 
-const esDesarrollo = () => process.env.NODE_ENV !== 'production';
+const obtenerHostSolicitud = (req) => {
+  const forwardedHost = req.get('X-Forwarded-Host');
 
-const esDireccionLocal = (req) => {
-  const direccion = req.socket?.remoteAddress || req.ip || '';
-  return DIRECCIONES_LOCALES.has(direccion);
-};
+  if (forwardedHost && confiarEnProxy(req)) {
+    return normalizarHost(forwardedHost);
+  }
 
-const esSolicitudLocalSinOrigin = (req, origin) => {
-  if (origin || !esDesarrollo()) return false;
-
-  return HOSTS_LOCALES.has(normalizarHostname(req.hostname)) && esDireccionLocal(req);
+  return normalizarHost(req.get('Host'));
 };
 
 const logDiagnosticoCatalogo = (req, origin) => {
-  if (!esDesarrollo()) return;
+  if (process.env.DEBUG_CATALOGO_ORIGIN !== 'true') return;
 
-  console.log('[catalogo-naucalpan][origin-check]', {
-    metodo: req.method,
-    origin: origin || '(sin Origin)',
-    host: req.get('Host'),
-    hostname: req.hostname,
-    referer: req.get('Referer'),
+  console.log('[catalogo-naucalpan]', {
+    method: req.method,
+    origin: origin || null,
+    host: req.get('Host') || null,
+    hostSolicitud: obtenerHostSolicitud(req) || null,
     forwardedHost: req.get('X-Forwarded-Host'),
-    remoteAddress: req.socket?.remoteAddress,
-    url: req.originalUrl,
+    hostname: req.hostname,
+    protocol: req.protocol,
+    secure: req.secure,
+    originalUrl: req.originalUrl,
     nodeEnv: process.env.NODE_ENV,
   });
 };
@@ -66,10 +61,13 @@ const responderOrigenNoAutorizado = (res) => {
   });
 };
 
-const aplicarHeadersCorsCatalogo = (res, origin) => {
+const aplicarHeadersCorsCatalogo = (req, res, origin) => {
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', METODOS_CATALOGO_PERMITIDOS);
-  res.setHeader('Access-Control-Allow-Headers', HEADERS_CATALOGO_PERMITIDOS);
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    req.get('Access-Control-Request-Headers') || HEADERS_CATALOGO_PERMITIDOS
+  );
   res.vary('Origin');
 };
 
@@ -78,30 +76,37 @@ const validarOrigenCatalogo = (req, res, next) => {
 
   logDiagnosticoCatalogo(req, origin);
 
-  if (esSolicitudLocalSinOrigin(req, origin)) {
-    limpiarHeadersCorsCatalogo(res);
-
-    if (req.method === 'OPTIONS') {
-      return res.status(204).end();
+  if (req.method === 'OPTIONS') {
+    if (!origin || !ORIGENES_CATALOGO_PERMITIDOS.has(origin)) {
+      return responderOrigenNoAutorizado(res);
     }
 
-    return next();
-  }
-
-  if (!origin || !ORIGENES_CATALOGO_PERMITIDOS.has(origin)) {
-    return responderOrigenNoAutorizado(res);
-  }
-
-  aplicarHeadersCorsCatalogo(res, origin);
-
-  if (req.method === 'OPTIONS') {
+    aplicarHeadersCorsCatalogo(req, res, origin);
     return res.status(204).end();
   }
 
+  if (origin && !ORIGENES_CATALOGO_PERMITIDOS.has(origin)) {
+    return responderOrigenNoAutorizado(res);
+  }
+
+  if (origin) {
+    aplicarHeadersCorsCatalogo(req, res, origin);
+    return next();
+  }
+
+  const hostSolicitud = obtenerHostSolicitud(req);
+
+  if (!HOSTS_CATALOGO_PERMITIDOS.has(hostSolicitud)) {
+    return responderOrigenNoAutorizado(res);
+  }
+
+  limpiarHeadersCorsCatalogo(res);
   return next();
 };
 
 module.exports = {
+  HOSTS_CATALOGO_PERMITIDOS,
   ORIGENES_CATALOGO_PERMITIDOS,
+  obtenerHostSolicitud,
   validarOrigenCatalogo,
 };

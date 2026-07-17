@@ -15,6 +15,7 @@ const { isEnabled: isSessionSecurityEnabled } = require('./utils/sessionSecurity
 const { validarOrigenCatalogo } = require('./middlewares/validarOrigenCatalogo');
 
 const app = express();
+app.set('trust proxy', 1);
 
 // =============================================================
 // 🔧 MIDDLEWARES BASE
