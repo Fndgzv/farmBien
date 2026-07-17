@@ -12,17 +12,25 @@ function norm(s) {
 }
 
 function normArray(value) {
-  if (Array.isArray(value)) {
-    return value
-      .filter((item) => item !== undefined && item !== null && String(item).trim() !== "")
-      .map((item) => norm(item));
+  return cleanArray(value).map((item) => norm(item));
+}
+
+function cleanArray(value) {
+  const items = Array.isArray(value)
+    ? value
+    : String(value ?? "").split(",");
+  const seen = new Set();
+  const result = [];
+
+  for (const item of items) {
+    const text = String(item ?? "").replace(/\s+/g, " ").trim();
+    const key = norm(text);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(text);
   }
 
-  if (value === undefined || value === null || String(value).trim() === "") {
-    return [];
-  }
-
-  return [norm(value)];
+  return result;
 }
 
 // === Subdocumento de lotes ===
@@ -36,8 +44,8 @@ const LoteSchema = new Schema({
 const ProductoSchema = new Schema({
   nombre: { type: String, required: true, trim: true },
   ingreActivo: { type: String, trim: true },
-  sintomas: { type: [String], default: [] },
-  descripcionUso: { type: String, trim: true },
+  sintomas: { type: [String], default: [], set: cleanArray },
+  descripcionUso: { type: String, trim: true, default: "", set: (value) => String(value ?? "") },
 
   codigoBarras: { type: String, trim: true },
   unidad: { type: String, required: true, trim: true },
@@ -140,6 +148,7 @@ function applyNormToDoc(doc) {
     doc.ingreActivoNorm = norm(doc.ingreActivo);
   }
   if (doc.isNew || doc.isModified("sintomas")) {
+    doc.sintomas = cleanArray(doc.sintomas);
     doc.sintomasNorm = normArray(doc.sintomas);
   }
 }
@@ -162,11 +171,24 @@ function applyNormToUpdate(update) {
   const categoria = pick("categoria");
   const ingreActivo = pick("ingreActivo");
   const sintomas = pick("sintomas");
+  const sintomasEnSet = $set.sintomas !== undefined;
+  const sintomasEnSetOnInsert = !sintomasEnSet && $soi.sintomas !== undefined;
 
   if (nombre !== undefined) update.$set.nombreNorm = norm(nombre);
   if (categoria !== undefined) update.$set.categoriaNorm = norm(categoria);
   if (ingreActivo !== undefined) update.$set.ingreActivoNorm = norm(ingreActivo);
-  if (sintomas !== undefined) update.$set.sintomasNorm = normArray(sintomas);
+  if (sintomas !== undefined) {
+    const sintomasLimpios = cleanArray(sintomas);
+    if (sintomasEnSetOnInsert) {
+      if (!update.$setOnInsert) update.$setOnInsert = {};
+      update.$setOnInsert.sintomas = sintomasLimpios;
+      update.$setOnInsert.sintomasNorm = normArray(sintomasLimpios);
+    } else {
+      update.$set.sintomas = sintomasLimpios;
+      update.$set.sintomasNorm = normArray(sintomasLimpios);
+      if (update.sintomas !== undefined) delete update.sintomas;
+    }
+  }
 
   // Si lo están “borrando”
   if ($unset && $unset.ingreActivo !== undefined) {
@@ -190,6 +212,7 @@ ProductoSchema.pre("insertMany", function (next, docs) {
     d.nombreNorm = norm(d.nombre);
     d.categoriaNorm = norm(d.categoria);
     d.ingreActivoNorm = norm(d.ingreActivo);
+    d.sintomas = cleanArray(d.sintomas);
     d.sintomasNorm = normArray(d.sintomas);
   }
   next();

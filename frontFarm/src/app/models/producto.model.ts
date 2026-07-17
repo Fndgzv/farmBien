@@ -16,6 +16,9 @@ export interface Producto {
   _id: string;
   nombre: string;
   ingreActivo: string;
+  descripcionUso?: string;
+  sintomas?: string[];
+  sintomasNorm?: string[];
   renglon1: string;
   renglon2: string;
   codigoBarras: string;
@@ -28,7 +31,9 @@ export interface Producto {
   stockMinimo: number;
   stockMaximo: number;
   existencia: number;
+  ultimoProveedorId?: string | { _id?: string; nombre?: string } | null;
   ultimoProveedorNombre: string;
+  proveedor?: string | null;
   proximaCaducidad: Date;
   cantidadProximaCaducidad: number,
   fechaCaducos: Date;

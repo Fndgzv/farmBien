@@ -103,8 +103,8 @@
 .modal-dialog{
   background: azure;
   color: #222;
-  width: min(1000px, 96vw);
-  max-height: 90vh;
+  width: min(1120px, 96vw);
+  max-height: 92vh;
   overflow: auto;
   border-radius: 12px;
   padding: 16px 18px;
@@ -147,6 +147,64 @@ body.modal-open {
 }
 .form-check-input{
   transform: scale(1.05);      /* opcional: un pelín más grande */
+}
+
+.mismaFila-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.mismaFila-fila {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.mismaFila-fila label {
+  flex: 0 0 auto;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.mismaFila-fila .form-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mismaFila-fila button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.mismaFila-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sintoma-tag {
+  align-items: center;
+  background: #eef7ff;
+  border: 1px solid #b8daf5;
+  border-radius: 6px;
+  color: #12384f;
+  display: inline-flex;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+}
+
+.sintoma-tag button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #8a1f1f;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
 }
 
 .alta-laboratorio-inline {

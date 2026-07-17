@@ -92,6 +92,7 @@ export class AjustesInventarioComponent implements OnInit {
   mostrarAltaLaboratorioNuevo = false;
   nuevoLaboratorioRapido = '';
   errorLaboratorioRapido = '';
+  nuevoSintomaInput = '';
   guardandoLaboratorioRapido = false;
   quitandoLotes = false;
   nuevoProductoForm!: FormGroup;
@@ -148,6 +149,8 @@ export class AjustesInventarioComponent implements OnInit {
       ingreActivo: [''],
       renglon1: [''],
       renglon2: [''],
+      descripcionUso: [''],
+      sintomas: [[]],
       codigoBarras: ['', Validators.required],
       unidad: ['', Validators.required],
       precio: [null, [Validators.required, Validators.min(0)]],
@@ -159,6 +162,7 @@ export class AjustesInventarioComponent implements OnInit {
       stockMaximo: [100, [Validators.required, Validators.min(0)]],
       ubicacion: [''],
       categoria: ['', Validators.required],
+      ultimoProveedorId: [null],
       laboratorio: [null],
       generico: [false]
     });
@@ -210,6 +214,45 @@ export class AjustesInventarioComponent implements OnInit {
       .toLowerCase()
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  private limpiarSintomas(valor: any): string[] {
+    const items = Array.isArray(valor)
+      ? valor
+      : String(valor ?? '').split(',');
+    const vistos = new Set<string>();
+    const sintomas: string[] = [];
+
+    for (const item of items) {
+      const texto = String(item ?? '').replace(/\s+/g, ' ').trim();
+      const clave = this.normTxt(texto);
+      if (!clave || vistos.has(clave)) continue;
+      vistos.add(clave);
+      sintomas.push(texto);
+    }
+
+    return sintomas;
+  }
+
+  get sintomasNuevoProducto(): string[] {
+    return this.limpiarSintomas(this.nuevoProductoForm?.get('sintomas')?.value);
+  }
+
+  agregarSintomaNuevo(): void {
+    const nuevos = this.limpiarSintomas(this.nuevoSintomaInput);
+    if (!nuevos.length) return;
+
+    const control = this.nuevoProductoForm.get('sintomas');
+    control?.setValue(this.limpiarSintomas([...(control?.value || []), ...nuevos]));
+    control?.markAsDirty();
+    this.nuevoSintomaInput = '';
+  }
+
+  quitarSintomaNuevo(index: number): void {
+    const control = this.nuevoProductoForm.get('sintomas');
+    const sintomas = this.sintomasNuevoProducto.filter((_, i) => i !== index);
+    control?.setValue(sintomas);
+    control?.markAsDirty();
   }
 
   /** Divide en palabras no vacías */
@@ -1043,6 +1086,8 @@ export class AjustesInventarioComponent implements OnInit {
     });
 
     this.limpiarCamposPromocionProducto(payload);
+    payload.descripcionUso = String(payload.descripcionUso ?? '');
+    payload.sintomas = this.limpiarSintomas(payload.sintomas);
     this.prepararCostosMedicosPayload(payload);
 
     // iva y generico son boolean
@@ -1111,6 +1156,8 @@ export class AjustesInventarioComponent implements OnInit {
         // ⚠️ IMPORTANTE: el backend espera { productos: [...] }
         const productosPayload = productosModificados.map((p) => ({
           ...p,
+          descripcionUso: String((p as any).descripcionUso ?? ''),
+          sintomas: this.limpiarSintomas((p as any).sintomas),
           laboratorio: this.normalizarLaboratorioPayload((p as any).laboratorio)
         }));
 
@@ -1197,6 +1244,8 @@ export class AjustesInventarioComponent implements OnInit {
       codigoBarras: '',
       renglon1: '',
       renglon2: '',
+      descripcionUso: '',
+      sintomas: [],
       unidad: 'PZA',
       precio: null,
       costo: null,
@@ -1207,12 +1256,14 @@ export class AjustesInventarioComponent implements OnInit {
       stockMaximo: 20,
       ubicacion: '',
       categoria: '',
+      ultimoProveedorId: null,
       laboratorio: null,
       generico: false
     });
     this.mostrarAltaLaboratorioNuevo = false;
     this.nuevoLaboratorioRapido = '';
     this.errorLaboratorioRapido = '';
+    this.nuevoSintomaInput = '';
     this.mostrarNuevoProducto = true;
     // Bloquear el scroll del body (opcional)
     this.renderer.addClass(document.body, 'no-scroll');
@@ -1229,6 +1280,7 @@ export class AjustesInventarioComponent implements OnInit {
     this.mostrarAltaLaboratorioNuevo = false;
     this.nuevoLaboratorioRapido = '';
     this.errorLaboratorioRapido = '';
+    this.nuevoSintomaInput = '';
     this.renderer.removeClass(document.body, 'no-scroll');
   }
 
@@ -1240,6 +1292,9 @@ export class AjustesInventarioComponent implements OnInit {
     }
 
     const payload = { ...this.nuevoProductoForm.value };
+    payload.descripcionUso = String(payload.descripcionUso ?? '');
+    payload.sintomas = this.limpiarSintomas(payload.sintomas);
+    payload.ultimoProveedorId = payload.ultimoProveedorId || null;
     payload.laboratorio = this.normalizarLaboratorioPayload(payload.laboratorio);
     this.limpiarCamposPromocionProducto(payload);
     this.prepararCostosMedicosPayload(payload);
@@ -1437,6 +1492,9 @@ export class AjustesInventarioComponent implements OnInit {
       next: (productos) => {
         this.productos = (productos || []).map((p: any) => ({
           ...p,
+          descripcionUso: p?.descripcionUso ?? '',
+          sintomas: this.limpiarSintomas(p?.sintomas),
+          ultimoProveedorId: p?.ultimoProveedorId ?? null,
           _imgSrc: p?.imagen
             ? this.productoService.getPublicImageUrl(p.imagen)
             : this.placeholderSrc,

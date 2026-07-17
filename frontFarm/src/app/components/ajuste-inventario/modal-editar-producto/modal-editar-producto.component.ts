@@ -21,6 +21,7 @@ export class ModalEditarProductoComponent implements OnInit {
   formulario!: FormGroup;
   proveedores: any[] = [];
   laboratorios: Laboratorio[] = [];
+  sintomaInput = '';
 
   @Output() guardar = new EventEmitter<Producto>();
   @Output() cerrar = new EventEmitter<void>();
@@ -112,6 +113,8 @@ export class ModalEditarProductoComponent implements OnInit {
       ingreActivo: [this.producto.ingreActivo],
       renglon1: [this.producto.renglon1],
       renglon2: [this.producto.renglon2],
+      descripcionUso: [(this.producto as any).descripcionUso ?? ''],
+      sintomas: [this.limpiarSintomas((this.producto as any).sintomas)],
       codigoBarras: [this.producto.codigoBarras, [Validators.required]],
       ubicacion: [this.producto.ubicacion],
       unidad: [this.producto.unidad],
@@ -385,6 +388,45 @@ export class ModalEditarProductoComponent implements OnInit {
       .trim();
   }
 
+  private limpiarSintomas(valor: any): string[] {
+    const items = Array.isArray(valor)
+      ? valor
+      : String(valor ?? '').split(',');
+    const vistos = new Set<string>();
+    const sintomas: string[] = [];
+
+    for (const item of items) {
+      const texto = String(item ?? '').replace(/\s+/g, ' ').trim();
+      const clave = this.normTxt(texto);
+      if (!clave || vistos.has(clave)) continue;
+      vistos.add(clave);
+      sintomas.push(texto);
+    }
+
+    return sintomas;
+  }
+
+  get sintomasFormulario(): string[] {
+    return this.limpiarSintomas(this.formulario?.get('sintomas')?.value);
+  }
+
+  agregarSintoma(): void {
+    const nuevos = this.limpiarSintomas(this.sintomaInput);
+    if (!nuevos.length) return;
+
+    const control = this.formulario.get('sintomas');
+    control?.setValue(this.limpiarSintomas([...(control?.value || []), ...nuevos]));
+    control?.markAsDirty();
+    this.sintomaInput = '';
+  }
+
+  quitarSintoma(index: number): void {
+    const control = this.formulario.get('sintomas');
+    const sintomas = this.sintomasFormulario.filter((_, i) => i !== index);
+    control?.setValue(sintomas);
+    control?.markAsDirty();
+  }
+
   guardarProducto() {
 
     if (this.formulario.invalid) {
@@ -396,6 +438,8 @@ export class ModalEditarProductoComponent implements OnInit {
     }
 
     const v = { ...(this.formulario.value as any) };
+    v.descripcionUso = String(v.descripcionUso ?? '');
+    v.sintomas = this.limpiarSintomas(v.sintomas);
     this.prepararCostosMedicosPayload(v);
 
     const lotes = (v.lotes || []).map((l: any) => {

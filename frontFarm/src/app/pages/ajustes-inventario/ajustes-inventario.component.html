@@ -475,24 +475,54 @@
             <h3 class="titulo text-center mb-3">Nuevo producto</h3>
 
             <form [formGroup]="nuevoProductoForm" autocomplete="off">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label>Nombre *</label>
+                <div class="row g-2">
+                    <div class="col-2"><label>Nombre *</label></div>
+                    <div class="col-10">
                         <input type="text" formControlName="nombre" #firstInput class="form-control" />
                     </div>
 
-                    <div class="col-12">
-                        <label>Ingredientes activos</label>
+                    <div class="col-2"><label>Ingred. activos:</label></div>
+                    <div class="col-10">
                         <input type="text" formControlName="ingreActivo" #firstInput class="form-control" />
                     </div>
 
-                    <div class="col-6">
-                        <label>Renglón 1</label>
-                        <input type="text" formControlName="renglon1" class="form-control" />
+                    <div class="col-12">
+                        <div class="mismaFila-editor">
+                            <div class="mismaFila-fila">
+                                <label>Reng. 1</label>
+                                <input type="text" formControlName="renglon1" class="form-control" />
+                                <label>Reng. 2</label>
+                                <input type="text" formControlName="renglon2" class="form-control" />
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-6">
-                        <label>Renglón 2</label>
-                        <input type="text" formControlName="renglon2" class="form-control" />
+                    <div class="col-2"><label>Descrip. uso:</label></div>
+                    <div class="col-10">
+                        <input type="text" formControlName="descripcionUso" class="form-control" rows="3">
+                    </div>
+
+                    <div class="col-12">
+                        <div class="mismaFila-editor">
+                            <div class="mismaFila-fila">
+                                <label for="sintomaInputNuevo">Síntomas</label>
+                                <input
+                                    id="sintomaInputNuevo"
+                                    type="text"
+                                    class="form-control"
+                                    [(ngModel)]="nuevoSintomaInput"
+                                    [ngModelOptions]="{standalone: true}"
+                                    placeholder="Ej. asma, rinitis alergica"
+                                    (keydown.enter)="$event.preventDefault(); agregarSintomaNuevo()"
+                                />
+                                <button type="button" class="btn-gris-chico" (click)="agregarSintomaNuevo()">Agregar</button>
+                            </div>
+                            <div class="mismaFila-tags" *ngIf="sintomasNuevoProducto.length">
+                                <span class="sintoma-tag" *ngFor="let sintoma of sintomasNuevoProducto; let i = index">
+                                    {{ sintoma }}
+                                    <button type="button" (click)="quitarSintomaNuevo(i)" aria-label="Eliminar sintoma">&times;</button>
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-3">
@@ -502,6 +532,19 @@
                     <div class="col-3">
                         <label>Categoría *</label>
                         <input type="text" formControlName="categoria" class="form-control" />
+                    </div>
+                    <div class="col-3">
+                        <label>Proveedor</label>
+                        <select class="form-select" formControlName="ultimoProveedorId">
+                            <option [ngValue]="null">Sin proveedor</option>
+                            <option *ngFor="let pr of proveedores" [ngValue]="pr._id">
+                                {{ pr.nombre }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-2">
+                        <label>Unidad *</label>
+                        <input type="text" formControlName="unidad" class="form-control" />
                     </div>
                     <div class="col-4">
                         <label>Laboratorio</label>
@@ -536,34 +579,30 @@
                             </small>
                         </div>
                     </div>
-                    <div class="col-2">
-                        <label>Unidad *</label>
-                        <input type="text" formControlName="unidad" class="form-control" />
-                    </div>
-
-                    <div class="col-2">
-                        <label>Ubicación</label>
-                        <input type="text" formControlName="ubicacion" class="form-control" />
-                    </div>
 
                     <div class="col-2">
                         <label>Costo *</label>
                         <input type="number" formControlName="costo" class="form-control"
                             [readonly]="mostrarCostosMedicosNuevo()" />
                     </div>
+
+                    <div class="col-2" *ngIf="mostrarCostosMedicosNuevo()">
+                        <label>Hon. médic.</label>
+                        <input type="number" formControlName="costoHonorariosMedicos" class="form-control" min="0" />
+                    </div>
+
+                    <div class="col-2" *ngIf="mostrarCostosMedicosNuevo()">
+                        <label>Insum. médic.</label>
+                        <input type="number" formControlName="costoInsumosMedicos" class="form-control" min="0" />
+                    </div>
                     <div class="col-2">
                         <label>Precio *</label>
                         <input type="number" formControlName="precio" class="form-control" />
                     </div>
 
-                    <div class="col-2" *ngIf="mostrarCostosMedicosNuevo()">
-                        <label>Honorarios méd.</label>
-                        <input type="number" formControlName="costoHonorariosMedicos" class="form-control" min="0" />
-                    </div>
-
-                    <div class="col-2" *ngIf="mostrarCostosMedicosNuevo()">
-                        <label>Insumos méd.</label>
-                        <input type="number" formControlName="costoInsumosMedicos" class="form-control" min="0" />
+                    <div class="col-2">
+                        <label>Ubicación</label>
+                        <input type="text" formControlName="ubicacion" class="form-control" />
                     </div>
 
                     <div class="col-2">

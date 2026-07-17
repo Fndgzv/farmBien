@@ -4,6 +4,7 @@ const Producto = require('../models/Producto');
 const Farmacia = require('../models/Farmacia');
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 const Laboratorio = require('../models/Laboratorio');
+const Proveedor = require('../models/Proveedor');
 
 const multer = require('multer');
 const path = require('path');
@@ -28,7 +29,7 @@ function extraerId(valor) {
   if (valor === null) return '';
   if (Array.isArray(valor)) return extraerId(valor[0]);
   if (typeof valor === 'object') {
-    return extraerId(valor._id || valor.id || valor.$oid || valor.laboratorio);
+    return extraerId(valor._id || valor.id || valor.$oid || valor.laboratorio || valor.ultimoProveedorId || valor.proveedor);
   }
   return String(valor).trim();
 }
@@ -63,6 +64,39 @@ async function validarLaboratorioDisponible(valor, session = null) {
   }
 
   return normalizado;
+}
+
+async function validarProveedorDisponible(valor, session = null) {
+  const normalizado = normalizarObjectIdOpcional(valor, 'Proveedor');
+  if (normalizado.error || !normalizado.definido || normalizado.valor === null) {
+    return normalizado;
+  }
+
+  const query = Proveedor.exists({ _id: normalizado.valor });
+  const existe = session ? await query.session(session) : await query;
+  if (!existe) {
+    return { definido: true, error: 'Proveedor no encontrado.' };
+  }
+
+  return normalizado;
+}
+
+function limpiarSintomas(valor) {
+  const items = Array.isArray(valor)
+    ? valor
+    : String(valor ?? '').split(',');
+  const vistos = new Set();
+  const sintomas = [];
+
+  for (const item of items) {
+    const texto = String(item ?? '').replace(/\s+/g, ' ').trim();
+    const clave = normalizarTexto(texto);
+    if (!clave || vistos.has(clave)) continue;
+    vistos.add(clave);
+    sintomas.push(texto);
+  }
+
+  return sintomas;
 }
 
 const numeroMedico = (valor) => {
@@ -465,7 +499,8 @@ exports.crearProducto = async (req, res) => {
     const {
       nombre, ingreActivo, renglon1, renglon2, codigoBarras, unidad, precio, costo, iva,
       stockMinimo, stockMaximo, ubicacion, categoria, generico,
-      costoHonorariosMedicos, costoInsumosMedicos, laboratorio, sintomas, descripcionUso
+      costoHonorariosMedicos, costoInsumosMedicos, laboratorio, sintomas, descripcionUso,
+      ultimoProveedorId, proveedor
     } = req.body;
 
     const laboratorioValidado = await validarLaboratorioDisponible(laboratorio, session);
@@ -473,6 +508,16 @@ exports.crearProducto = async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({ mensaje: laboratorioValidado.error });
+    }
+
+    const proveedorValidado = await validarProveedorDisponible(
+      ultimoProveedorId !== undefined ? ultimoProveedorId : proveedor,
+      session
+    );
+    if (proveedorValidado.error) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ mensaje: proveedorValidado.error });
     }
 
     const extraerIdFarmacia = (valor) => {
@@ -495,13 +540,15 @@ exports.crearProducto = async (req, res) => {
     const esMedico = esServicioMedico(categoria);
     const honorariosMedicos = esMedico ? numeroMedico(costoHonorariosMedicos) : 0;
     const insumosMedicos = esMedico ? numeroMedico(costoInsumosMedicos) : 0;
+    const sintomasLimpios = limpiarSintomas(sintomas);
+    const descripcionUsoLimpia = String(descripcionUso ?? '');
 
     // 1) Crear producto
     const nuevoProducto = await Producto.create([{
       nombre,
       ingreActivo,
-      sintomas,
-      descripcionUso,
+      sintomas: sintomasLimpios,
+      descripcionUso: descripcionUsoLimpia,
       renglon1,
       renglon2,
       codigoBarras,
@@ -514,6 +561,7 @@ exports.crearProducto = async (req, res) => {
       ubicacion,
       categoria,
       laboratorio: laboratorioValidado.definido ? laboratorioValidado.valor : null,
+      ultimoProveedorId: proveedorValidado.definido ? proveedorValidado.valor : null,
       generico,
       costoHonorariosMedicos: honorariosMedicos,
       costoInsumosMedicos: insumosMedicos
@@ -970,8 +1018,8 @@ exports.actualizarProductos = async (req, res) => {
         if (typeof prod.stockMaximo === 'number') productoActual.stockMaximo = prod.stockMaximo;
         if (typeof prod.ubicacion !== 'undefined') productoActual.ubicacion = prod.ubicacion;
         if (typeof prod.categoria !== 'undefined') productoActual.categoria = prod.categoria;
-        if (typeof prod.sintomas !== 'undefined') productoActual.sintomas = prod.sintomas;
-        if (typeof prod.descripcionUso !== 'undefined') productoActual.descripcionUso = prod.descripcionUso;
+        if (typeof prod.sintomas !== 'undefined') productoActual.sintomas = limpiarSintomas(prod.sintomas);
+        if (typeof prod.descripcionUso !== 'undefined') productoActual.descripcionUso = String(prod.descripcionUso ?? '');
         if (typeof prod.laboratorio !== 'undefined') {
           const laboratorioValidado = await validarLaboratorioDisponible(prod.laboratorio, session);
           if (laboratorioValidado.error) {
@@ -980,6 +1028,18 @@ exports.actualizarProductos = async (req, res) => {
             throw err;
           }
           productoActual.laboratorio = laboratorioValidado.valor;
+        }
+        if (typeof prod.ultimoProveedorId !== 'undefined' || typeof prod.proveedor !== 'undefined') {
+          const proveedorValidado = await validarProveedorDisponible(
+            prod.ultimoProveedorId !== undefined ? prod.ultimoProveedorId : prod.proveedor,
+            session
+          );
+          if (proveedorValidado.error) {
+            const err = new Error(proveedorValidado.error);
+            err.status = 400;
+            throw err;
+          }
+          productoActual.ultimoProveedorId = proveedorValidado.valor;
         }
         if (typeof prod.generico !== 'undefined') productoActual.generico = prod.generico;
         if (typeof prod.descuentoINAPAM !== 'undefined') productoActual.descuentoINAPAM = prod.descuentoINAPAM;
@@ -1358,8 +1418,8 @@ exports.actualizarProducto = async (req, res) => {
     // Actualización de campos
     productoActual.nombre = prod.nombre;
     productoActual.ingreActivo = prod.ingreActivo;
-    if (typeof prod.sintomas !== 'undefined') productoActual.sintomas = prod.sintomas;
-    if (typeof prod.descripcionUso !== 'undefined') productoActual.descripcionUso = prod.descripcionUso;
+    if (typeof prod.sintomas !== 'undefined') productoActual.sintomas = limpiarSintomas(prod.sintomas);
+    if (typeof prod.descripcionUso !== 'undefined') productoActual.descripcionUso = String(prod.descripcionUso ?? '');
     productoActual.renglon1 = prod.renglon1;
     productoActual.renglon2 = prod.renglon2;
     productoActual.codigoBarras = prod.codigoBarras;
@@ -1387,12 +1447,14 @@ exports.actualizarProducto = async (req, res) => {
       productoActual.costoInsumosMedicos = 0;
     }
 
-    // ✅ ultimoProveedorId (solo si llega un ObjectId válido)
-    if (prod.ultimoProveedorId !== undefined) {
-      // si llega string vacío o null, no lo actualizamos (no lo tocamos)
-      if (prod.ultimoProveedorId && mongoose.Types.ObjectId.isValid(prod.ultimoProveedorId)) {
-        productoActual.ultimoProveedorId = prod.ultimoProveedorId;
+    if (prod.ultimoProveedorId !== undefined || prod.proveedor !== undefined) {
+      const proveedorValidado = await validarProveedorDisponible(
+        prod.ultimoProveedorId !== undefined ? prod.ultimoProveedorId : prod.proveedor
+      );
+      if (proveedorValidado.error) {
+        return res.status(400).json({ mensaje: proveedorValidado.error });
       }
+      productoActual.ultimoProveedorId = proveedorValidado.valor;
     }
 
     if (prod.laboratorio !== undefined) {
