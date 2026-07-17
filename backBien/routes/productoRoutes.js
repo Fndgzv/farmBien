@@ -4,6 +4,7 @@ const router = express.Router();
 const authMiddleware = require('../middlewares/authMiddleware');
 const isAdmin = require("../middlewares/isAdmin");
 const checkRole = require("../middlewares/checkRole");
+const { validarOrigenCatalogo } = require('../middlewares/validarOrigenCatalogo');
 
 const {
   obtenerProductos,
@@ -32,7 +33,8 @@ const {
 
 // --- búsquedas / consultas puntuales ---
 router.get('/search', authMiddleware,searchProductos);
-router.get('/catalogo-naucalpan', obtenerCatalogoNaucalpan);
+router.options('/catalogo-naucalpan', validarOrigenCatalogo);
+router.get('/catalogo-naucalpan', validarOrigenCatalogo, obtenerCatalogoNaucalpan);
 router.get('/buscar-por-sintomas', authMiddleware, buscarPorSintomasFarmacia);
 router.get('/buscar', buscarProductos);
 router.get('/precio/:farmaciaId/:codigoBarras', authMiddleware,consultarPrecioPorCodigo);
