@@ -67,7 +67,7 @@ const FichaConsultorioSchema = new Schema(
 
     canceladaAt: { type: Date },
     canceladaPor: { type: Schema.Types.ObjectId, ref: "Usuario" },
-    motivoCancelacion: { type: String, trim: true },
+    motivoCancelacion: { type: String, trim: true, default: "" },
 
   },
   { timestamps: true }

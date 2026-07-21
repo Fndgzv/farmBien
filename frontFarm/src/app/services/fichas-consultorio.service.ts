@@ -80,6 +80,14 @@ export class FichasConsultorioService {
     return this.http.post(`${this.baseUrl}/${id}/regresar-a-espera`, {}, { headers: this.headers() });
   }
 
+  cancelarFicha(id: string, motivoCancelacion: string): Observable<any> {
+    return this.http.post(
+      `${this.baseUrl}/${id}/cancelar`,
+      { motivoCancelacion },
+      { headers: this.headers() }
+    );
+  }
+
   // (Opcional) Buscar ficha por folio/tel/nombre en cobro
   buscar(q: string): Observable<any> {
     return this.http.get(`${this.baseUrl}/buscar`, { headers: this.headers(), params: { q } });

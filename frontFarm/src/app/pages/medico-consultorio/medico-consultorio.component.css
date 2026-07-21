@@ -136,3 +136,7 @@
   max-height: 420px;
   overflow: auto;
 }
+
+.modal-cancelar-ficha__header{
+  background: #8ad3fd;
+}

@@ -65,6 +65,7 @@ async function generarTurnoFicha(farmaciaId, intento = 0) {
 }
 
 const cleanStr = (v) => String(v ?? "").trim();
+const MOTIVO_CANCELACION_DEFAULT = "El paciente se retiró";
 
 const cleanArr = (v) => {
   if (!Array.isArray(v)) return [];
@@ -1006,7 +1007,11 @@ exports.cancelarFicha = async (req, res) => {
     const usuario = req.usuario; // viene del authMiddleware
     const rol = usuario?.rol;
 
-    const { motivoCancelacion } = req.body;
+    const { motivoCancelacion } = req.body || {};
+    if (motivoCancelacion != null && typeof motivoCancelacion !== "string") {
+      return res.status(400).json({ msg: "El motivo de cancelación debe ser texto" });
+    }
+    const motivoFinal = cleanStr(motivoCancelacion) || MOTIVO_CANCELACION_DEFAULT;
 
     const ficha = await FichaConsultorio.findOne({ _id: id, farmaciaId });
     if (!ficha) return res.status(404).json({ msg: "Ficha no encontrada" });
@@ -1038,14 +1043,14 @@ exports.cancelarFicha = async (req, res) => {
 
     // Listo: cancelar
     ficha.estado = "CANCELADA";
-    ficha.motivoCancelacion = (motivoCancelacion || "").trim();
+    ficha.motivoCancelacion = motivoFinal;
     ficha.canceladaAt = new Date();
     ficha.canceladaPor = usuario._id;
     ficha.actualizadaPor = usuario._id;
 
     await ficha.save();
 
-    return res.json({ ok: true, ficha });
+    return res.json({ ok: true, mensaje: "Ficha cancelada correctamente", ficha });
   } catch (err) {
     console.error("cancelarFicha:", err);
     return res.status(500).json({ msg: "Error al cancelar ficha" });

@@ -115,14 +115,19 @@ export class MedicoConsultorioComponent implements OnInit {
 
   cola: any[] = [];
   fichaActual: any = null;
+  fichaParaCancelar: any = null;
+  motivoCancelacion = 'El paciente se retiró';
+  motivoCancelacionError = '';
 
   servicios: ServicioUI[] = [];
 
   guardando = false;
+  cancelandoFicha = false;
 
   private timers = new Map<number, any>();
 
   private tick: any;
+  private readonly motivoCancelacionPredeterminado = 'El paciente se retiró';
   colaExpandida = true;
   // colapsables (ATENCIÓN)
   svExpandida = false;
@@ -715,6 +720,104 @@ export class MedicoConsultorioComponent implements OnInit {
 
     // 2) si no hay fichaActual (por refresh), pero la cola trae una EN_ATENCION mía
     return (this.cola || []).some(f => f?.estado === 'EN_ATENCION' && this.esMia(f));
+  }
+
+  puedeCancelarFicha(f: any): boolean {
+    const estado = String(f?.estado || '').trim();
+    if (!estado) return false;
+    if (['ATENDIDA', 'CANCELADA', 'EN_COBRO'].includes(estado)) return false;
+    if (estado === 'EN_ATENCION' && !this.esMia(f)) return false;
+    return ['EN_ESPERA', 'EN_ATENCION', 'LISTA_PARA_COBRO'].includes(estado);
+  }
+
+  abrirCancelarFicha(f: any) {
+    if (!this.puedeCancelarFicha(f) || this.cancelandoFicha) return;
+
+    this.fichaParaCancelar = f;
+    this.motivoCancelacion = this.motivoCancelacionPredeterminado;
+    this.motivoCancelacionError = '';
+
+    const el = document.getElementById('modalCancelarFicha');
+    if (el) {
+      bootstrap.Modal.getOrCreateInstance(el, { backdrop: 'static', keyboard: false }).show();
+      setTimeout(() => {
+        (document.getElementById('motivo-cancelacion-input') as HTMLTextAreaElement | null)?.focus();
+      }, 120);
+    }
+  }
+
+  onMotivoCancelacionInput() {
+    if (String(this.motivoCancelacion || '').trim()) {
+      this.motivoCancelacionError = '';
+    }
+  }
+
+  cerrarModalCancelarFicha() {
+    if (this.cancelandoFicha) return;
+    this.ocultarModalCancelarFicha();
+    this.limpiarCancelacionFicha();
+  }
+
+  private ocultarModalCancelarFicha() {
+    const el = document.getElementById('modalCancelarFicha');
+    if (!el) return;
+    bootstrap.Modal.getInstance(el)?.hide();
+  }
+
+  private limpiarCancelacionFicha() {
+    this.fichaParaCancelar = null;
+    this.motivoCancelacion = this.motivoCancelacionPredeterminado;
+    this.motivoCancelacionError = '';
+    this.cancelandoFicha = false;
+  }
+
+  async confirmarCancelacionFicha() {
+    if (this.cancelandoFicha) return;
+
+    const fichaId = String(this.fichaParaCancelar?._id || '').trim();
+    const motivoFinal = String(this.motivoCancelacion || '').trim();
+
+    if (!fichaId) {
+      this.motivoCancelacionError = 'Selecciona una ficha válida.';
+      return;
+    }
+
+    if (!motivoFinal) {
+      this.motivoCancelacionError = 'Captura el motivo de cancelación.';
+      return;
+    }
+
+    this.motivoCancelacionError = '';
+    this.cancelandoFicha = true;
+
+    try {
+      const resp: any = await firstValueFrom(this.fichasService.cancelarFicha(fichaId, motivoFinal));
+
+      this.cola = (this.cola || []).filter((f) => String(f?._id || '') !== fichaId);
+
+      if (String(this.fichaActual?._id || '') === fichaId) {
+        this.removeRecetaActivaDeFicha(fichaId);
+        this.removeSignosPasoDeFicha(fichaId);
+        this.cancelarAtencion();
+      }
+
+      this.ocultarModalCancelarFicha();
+      this.limpiarCancelacionFicha();
+      await this.cargarCola({ expand: true });
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Listo',
+        text: resp?.mensaje || 'Ficha cancelada correctamente',
+        timer: 1300,
+        showConfirmButton: false,
+      });
+    } catch (e: any) {
+      console.error(e);
+      Swal.fire('No se pudo cancelar', e?.error?.msg || 'Error de red o servidor', 'error');
+    } finally {
+      this.cancelandoFicha = false;
+    }
   }
 
   async llamar(f: any) {
