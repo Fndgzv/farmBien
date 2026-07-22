@@ -917,7 +917,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
       })
       : productos;
 
-    this.productosFiltrados = filtrados.slice(0, this.maxProductosAutocomplete);
+    this.productosFiltrados = this.filtrarProductosManualesPermitidos(filtrados)
+      .slice(0, this.maxProductosAutocomplete);
   }
 
   private normalizarBusquedaProducto(valor: any): string {
@@ -947,46 +948,108 @@ export class VentasComponent implements OnInit, AfterViewInit {
     ].filter(Boolean).join(' '));
   }
 
+  private obtenerCategoriaProducto(producto: any): string {
+    const categoria = producto?.categoria;
+    if (categoria && typeof categoria === 'object') {
+      return String(categoria?.nombre || categoria?.descripcion || categoria?.categoria || '').trim();
+    }
+
+    return String(categoria || '').trim();
+  }
+
+  private esServicioMedicoProducto(producto: any): boolean {
+    return this.obtenerCategoriaProducto(producto) === 'Servicio Médico';
+  }
+
+  private esServicioMedicoRestringido(producto: any): boolean {
+    return this.esRolEmpleado() && this.esServicioMedicoProducto(producto);
+  }
+
+  private filtrarProductosManualesPermitidos(productos: any[]): any[] {
+    if (!this.esRolEmpleado()) return productos;
+    return productos.filter(producto => !this.esServicioMedicoProducto(producto));
+  }
+
+  private async bloquearServicioMedicoManualSiAplica(producto: any): Promise<boolean> {
+    if (!this.esServicioMedicoRestringido(producto)) return false;
+
+    this.codigoBarras = '';
+    this.busquedaProducto = '';
+    this.busquedaPorCodigo = '';
+    this.productosFiltrados = this.filtrarProductosManualesPermitidos(this.productos);
+    this.productosFiltradosPorCodigo = this.filtrarProductosManualesPermitidos(this.productos);
+
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Producto restringido',
+      text: 'Los productos de Servicio Médico solo pueden agregarse mediante una ficha de consultorio.',
+      confirmButtonText: 'Entendido',
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    });
+
+    this.focusBarcode(60, true);
+    return true;
+  }
+
   filtrarPorCodigo() {
+    const productos = Array.isArray(this.productos) ? this.productos : [];
+    const busqueda = String(this.busquedaPorCodigo || '').trim();
+
     if (this.busquedaPorCodigo) {
-      this.productosFiltradosPorCodigo = this.productos.filter(producto =>
-        producto.codigoBarras.includes(this.busquedaPorCodigo)
+      const filtrados = productos.filter(producto =>
+        String(producto?.codigoBarras || '').includes(busqueda)
       );
+      this.productosFiltradosPorCodigo = this.filtrarProductosManualesPermitidos(filtrados);
     } else {
-      this.productosFiltradosPorCodigo = this.productos;
+      this.productosFiltradosPorCodigo = this.filtrarProductosManualesPermitidos(productos);
     }
   }
 
-  seleccionarProducto(event: any) {
+  async seleccionarProducto(event: any) {
     const productoId = event.option.value;
     const producto = this.productos.find(p => p._id === productoId);
     if (producto) {
+      if (await this.bloquearServicioMedicoManualSiAplica(producto)) {
+        return;
+      }
+
       this.busquedaProducto = producto.nombre;
       this.nombreDelProducto = producto.nombre;
 
-      this.guardConsultaMedica(producto).then(async cand => {
-        if (!cand) { this.focusBarcode(100, true); return; }
-        const ok = await this.existenciaProducto(this.farmaciaId, cand._id, 1).catch(() => null);
-        if (!this.hayProducto) return;
-        this.agregarProductoAlCarrito(cand);
-      });
+      const cand = await this.guardConsultaMedica(producto);
+      if (!cand) { this.focusBarcode(100, true); return; }
+      if (await this.bloquearServicioMedicoManualSiAplica(cand)) {
+        return;
+      }
+
+      await this.existenciaProducto(this.farmaciaId, cand._id, 1).catch(() => null);
+      if (!this.hayProducto) return;
+      await this.agregarProductoAlCarrito(cand);
     }
     this.focusBarcode(100, true);
   }
 
-  seleccionarPorCodigo(event: any) {
+  async seleccionarPorCodigo(event: any) {
     const productoId = event.option.value;
     const productoC = this.productos.find(p => p._id === productoId);
     if (productoC) {
+      if (await this.bloquearServicioMedicoManualSiAplica(productoC)) {
+        return;
+      }
+
       this.busquedaPorCodigo = productoC.codigoBarras;
       this.nombreDelProducto = productoC.nombre;
 
-      this.guardConsultaMedica(productoC).then(async cand => {
-        if (!cand) { this.focusBarcode(100, true); return; }
-        const ok = await this.existenciaProducto(this.farmaciaId, cand._id, 1).catch(() => null);
-        if (!this.hayProducto) return;
-        this.agregarProductoAlCarrito(cand);
-      });
+      const cand = await this.guardConsultaMedica(productoC);
+      if (!cand) { this.focusBarcode(100, true); return; }
+      if (await this.bloquearServicioMedicoManualSiAplica(cand)) {
+        return;
+      }
+
+      await this.existenciaProducto(this.farmaciaId, cand._id, 1).catch(() => null);
+      if (!this.hayProducto) return;
+      await this.agregarProductoAlCarrito(cand);
     }
     this.focusBarcode(100, true);
   }
@@ -1169,9 +1232,17 @@ export class VentasComponent implements OnInit, AfterViewInit {
     }
 
     // 7) Guardia: Consulta Médica correcta según el día (con posible sustitución)
+    if (await this.bloquearServicioMedicoManualSiAplica(producto)) {
+      return;
+    }
+
     const candidato = await this.guardConsultaMedica(producto);
     if (!candidato) { this.focusBarcode(60, true); return; }
     producto = candidato;
+
+    if (await this.bloquearServicioMedicoManualSiAplica(producto)) {
+      return;
+    }
 
     this.nombreDelProducto = producto.nombre;
 
@@ -2752,7 +2823,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   private esRolEmpleado(): boolean {
-    const rolStorage = String(localStorage.getItem('user_rol') || '').trim();
+    const rolStorage = String(localStorage.getItem('user_rol') || '').trim().toLowerCase();
     if (rolStorage) {
       return rolStorage === 'empleado';
     }
@@ -2760,7 +2831,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     try {
       const raw = localStorage.getItem('usuario');
       const parsed = raw ? JSON.parse(raw) : null;
-      return parsed?.rol === 'empleado';
+      return String(parsed?.rol || '').trim().toLowerCase() === 'empleado';
     } catch {
       return false;
     }

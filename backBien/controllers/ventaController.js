@@ -21,6 +21,9 @@ const norm = (s) => String(s || '')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   .toLowerCase().trim();
 
+const esCategoriaServicioMedicoExacta = (categoria) =>
+  String(categoria || '').trim() === 'Servicio Médico';
+
 function toMxStart(val) {
   if (!val) return null;
 
@@ -352,6 +355,20 @@ const crearVenta = async (req, res) => {
       if (toNumber(inv.existencia) < reqQty) {
         return res.status(400).json({
           mensaje: `** No hay suficiente stock en la farmacia para ${inv.producto.nombre} (req: ${reqQty}, disp: ${inv.existencia}) **`
+        });
+      }
+    }
+
+    const esEmpleado = String(usuario?.rol || '').trim().toLowerCase() === 'empleado';
+    if (esEmpleado && !fichaId) {
+      const productoServicioMedicoManual = uniqueIds.some(pid => {
+        const inv = invByProd.get(pid);
+        return esCategoriaServicioMedicoExacta(inv?.producto?.categoria);
+      });
+
+      if (productoServicioMedicoManual) {
+        return res.status(403).json({
+          mensaje: 'Los productos de Servicio Médico solo pueden agregarse mediante una ficha de consultorio.'
         });
       }
     }
