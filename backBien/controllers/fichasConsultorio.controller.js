@@ -1102,6 +1102,7 @@ exports.liberarCobro = async (req, res) => {
         $unset: {
           cobroPor: 1,
           cobroAt: 1,
+          ventaId: 1,
         },
       },
       { new: true }

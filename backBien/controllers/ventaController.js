@@ -254,6 +254,7 @@ const crearVenta = async (req, res) => {
       folio,
       clienteId,
       fichaId,
+      fichasConsultorioIds = [],
       productos,
       aplicaInapam,
       efectivo = 0,
@@ -271,8 +272,16 @@ const crearVenta = async (req, res) => {
       return res.status(400).json({ mensaje: 'No hay productos para vender' });
     }
 
-    if (fichaId && !mongoose.isValidObjectId(fichaId)) {
-      return res.status(400).json({ mensaje: 'fichaId inválido' });
+    const fichasInput = Array.isArray(fichasConsultorioIds)
+      ? fichasConsultorioIds
+      : (fichasConsultorioIds ? [fichasConsultorioIds] : []);
+    const fichasIds = [...new Set([fichaId, ...fichasInput]
+      .map((id) => String(id || '').trim())
+      .filter(Boolean))];
+    const hayFichasConsultorio = fichasIds.length > 0;
+
+    if (fichasIds.some(id => !mongoose.isValidObjectId(id))) {
+      return res.status(400).json({ mensaje: 'fichasConsultorioIds inválido' });
     }
 
     const usuario = req.usuario;
@@ -360,7 +369,7 @@ const crearVenta = async (req, res) => {
     }
 
     const esEmpleado = String(usuario?.rol || '').trim().toLowerCase() === 'empleado';
-    if (esEmpleado && !fichaId) {
+    if (esEmpleado && !hayFichasConsultorio) {
       const productoServicioMedicoManual = uniqueIds.some(pid => {
         const inv = invByProd.get(pid);
         return esCategoriaServicioMedicoExacta(inv?.producto?.categoria);
@@ -404,7 +413,7 @@ const crearVenta = async (req, res) => {
 
     // === bandera calculada: ¿hay al menos un producto de categoría "Servicio Médico"?
     let esVentaDeServicio = false;
-    if (fichaId) esVentaDeServicio = true;
+    if (hayFichasConsultorio) esVentaDeServicio = true;
 
     // ===================== Procesar por PRODUCTO =====================
     for (const pid of uniqueIds) {
@@ -556,27 +565,27 @@ const crearVenta = async (req, res) => {
 
     try {
       await session.withTransaction(async () => {
-        // ✅ 0) Validar ficha dentro de la transacción (si aplica)
-        let fichaDoc = null;
-
-        if (fichaId) {
-          fichaDoc = await FichaConsultorio.findOne(
-            { _id: fichaId, farmaciaId: farmaciaId },
+        // ✅ 0) Validar fichas dentro de la transacción (si aplica)
+        if (hayFichasConsultorio) {
+          const fichasDocs = await FichaConsultorio.find(
+            { _id: { $in: fichasIds }, farmaciaId: farmaciaId },
             null,
             { session }
           );
 
-          if (!fichaDoc) throw new Error("FICHA_NO_ENCONTRADA");
+          if (fichasDocs.length !== fichasIds.length) throw new Error("FICHA_NO_ENCONTRADA");
 
-          if (fichaDoc.estado !== "EN_COBRO") {
-            throw new Error(`FICHA_NO_EN_COBRO:${fichaDoc.estado}`);
-          }
+          for (const fichaDoc of fichasDocs) {
+            if (fichaDoc.estado !== "EN_COBRO") {
+              throw new Error(`FICHA_NO_EN_COBRO:${fichaDoc.estado}`);
+            }
 
-          if (fichaDoc.ventaId) throw new Error("FICHA_YA_COBRADA");
+            if (fichaDoc.ventaId) throw new Error("FICHA_YA_COBRADA");
 
-          // ✅ opcional (muy recomendable): que la misma caja que la tomó sea quien cobre
-          if (fichaDoc.cobroPor && String(fichaDoc.cobroPor) !== String(usuario._id)) {
-            throw new Error("FICHA_EN_COBRO_POR_OTRO_USUARIO");
+            // ✅ opcional (muy recomendable): que la misma caja que la tomó sea quien cobre
+            if (fichaDoc.cobroPor && String(fichaDoc.cobroPor) !== String(usuario._id)) {
+              throw new Error("FICHA_EN_COBRO_POR_OTRO_USUARIO");
+            }
           }
         }
 
@@ -616,20 +625,25 @@ const crearVenta = async (req, res) => {
           fecha: new Date(),
           folio: folioFinal,
           // 👇 calculado automáticamente
-          porServicioMedico: esVentaDeServicio
+          porServicioMedico: esVentaDeServicio,
+          fichaConsultorioId: fichasIds[0] || undefined,
+          fichasConsultorioIds: fichasIds
         };
 
         const arr = await Venta.create([ventaPayload], { session });
         ventaCreada = arr[0];
 
-        // ✅ 2.1) Cerrar ficha en la misma transacción
-        if (fichaId) {
-          const upd = await FichaConsultorio.updateOne(
+        // ✅ 2.1) Cerrar fichas en la misma transacción
+        if (hayFichasConsultorio) {
+          const upd = await FichaConsultorio.updateMany(
             {
-              _id: fichaId,
+              _id: { $in: fichasIds },
               farmaciaId: farmaciaId,
               estado: "EN_COBRO",
-              ventaId: { $exists: false },
+              $or: [
+                { ventaId: { $exists: false } },
+                { ventaId: null },
+              ],
             },
             {
               $set: {
@@ -644,8 +658,8 @@ const crearVenta = async (req, res) => {
             { session }
           );
 
-          if ((upd.modifiedCount || 0) !== 1) {
-            throw new Error("NO_SE_PUDO_CERRAR_FICHA");
+          if ((upd.modifiedCount || 0) !== fichasIds.length) {
+            throw new Error("NO_SE_PUDO_CERRAR_FICHAS");
           }
         }
 
@@ -693,6 +707,9 @@ const crearVenta = async (req, res) => {
       }
       if (String(err.message) === "NO_SE_PUDO_CERRAR_FICHA") {
         return res.status(409).json({ mensaje: "No se pudo cerrar la ficha (posible concurrencia). Intenta de nuevo." });
+      }
+      if (String(err.message) === "NO_SE_PUDO_CERRAR_FICHAS") {
+        return res.status(409).json({ mensaje: "No se pudieron cerrar todas las fichas (posible concurrencia). Intenta de nuevo." });
       }
 
       if (String(err.message) === "FICHA_ID_INVALIDO") {

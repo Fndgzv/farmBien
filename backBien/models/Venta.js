@@ -57,6 +57,8 @@ const VentaSchema = new mongoose.Schema({
   },
 
   porServicioMedico: { type: Boolean, default: false },
+  fichaConsultorioId: { type: mongoose.Schema.Types.ObjectId, ref: "FichaConsultorio", index: true },
+  fichasConsultorioIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "FichaConsultorio", index: true }],
 
   fecha: { type: Date, default: Date.now }
 }, { timestamps: true });

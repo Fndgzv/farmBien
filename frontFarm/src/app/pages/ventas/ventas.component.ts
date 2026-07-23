@@ -226,6 +226,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   fichasParaCobro: any[] = [];
   fichaSeleccionada: any = null;
   fichaIdSeleccionada: string | null = null;
+  fichasLigadas: any[] = [];
 
   busquedaPaciente = '';
   buscandoPaciente = false;
@@ -1066,6 +1067,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   };
 
   pausarVenta() {
+    const fichasConsultorioIds = this.obtenerFichasLigadasIds();
+
     this.ventasPausadas.push({
       _uid: 'p' + Date.now() + Math.random().toString(36).slice(2, 8),
       cliente: this.ventaForm.value.cliente,
@@ -1080,6 +1083,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
       totalAlmonedero: this.totalAlmonedero,
       aplicaInapam: this.aplicaInapam,
       captionButtomReanudar: this.captionButtomReanudar || '(venta pausada)',
+      fichaIdSeleccionada: fichasConsultorioIds[0] || null,
+      fichaSeleccionada: this.fichaSeleccionada || null,
+      fichasConsultorioIds,
+      fichasLigadas: [...this.fichasLigadas],
     });
     this.ventaService.setVentasPausadas(this.ventasPausadas);
 
@@ -1100,11 +1107,12 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.hayCliente = false;
     this.actualizarVisibilidadInapam();
     this.limpiarCliente();
+    this.limpiarFichasLigadas();
     this.focusBarcode(0, true);
   }
 
   reanudarVenta(index: number) {
-    if (this.carrito.length) this.pausarVenta();
+    if (this.carrito.length || this.tieneFichasLigadas()) this.pausarVenta();
     const venta = this.ventasPausadas[index];
     this.ventaForm.patchValue({ cliente: venta.cliente });
     this.carrito = [...venta.productos];
@@ -1118,6 +1126,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.totalAlmonedero = venta.totalAlmonedero;
     this.aplicaInapam = venta.aplicaInapam;
     this.captionButtomReanudar = venta.captionButtomReanudar;
+    this.restaurarFichasLigadas(venta);
     this.actualizarVisibilidadInapam();
     this.ventasPausadas.splice(index, 1);
     this.ventaService.setVentasPausadas(this.ventasPausadas);
@@ -1763,14 +1772,86 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.resetVentaUI();               // ✅ limpia la UI
   }
 
-  private async liberarFichaSiAplica(): Promise<void> {
-    if (!this.fichaIdSeleccionada) return;
+  private normalizarFichaId(valor: any): string {
+    return String(valor?._id ?? valor ?? '').trim();
+  }
 
-    try {
-      await firstValueFrom(this.fichasService.liberarCobro(this.fichaIdSeleccionada));
-    } catch (err) {
-      console.error('Error liberarCobro:', err);
-      // no bloquea el reset
+  private obtenerFichasLigadasIds(): string[] {
+    const ids: string[] = [];
+    const agregar = (valor: any) => {
+      const id = this.normalizarFichaId(valor);
+      if (id && !ids.includes(id)) ids.push(id);
+    };
+
+    agregar(this.fichaIdSeleccionada);
+    for (const ficha of this.fichasLigadas || []) {
+      agregar(ficha?._id ?? ficha);
+    }
+
+    return ids;
+  }
+
+  private tieneFichasLigadas(): boolean {
+    return this.obtenerFichasLigadasIds().length > 0;
+  }
+
+  private fichaYaLigada(id: any): boolean {
+    const fichaId = this.normalizarFichaId(id);
+    return !!fichaId && this.obtenerFichasLigadasIds().includes(fichaId);
+  }
+
+  private registrarFichaLigada(ficha: any): boolean {
+    const fichaId = this.normalizarFichaId(ficha?._id);
+    if (!fichaId || this.fichaYaLigada(fichaId)) return false;
+
+    this.fichasLigadas = [...this.fichasLigadas, ficha];
+    this.fichaSeleccionada = ficha;
+    if (!this.fichaIdSeleccionada) this.fichaIdSeleccionada = fichaId;
+
+    return true;
+  }
+
+  private restaurarFichasLigadas(venta: any) {
+    this.limpiarFichasLigadas();
+
+    const registrarSnapshot = (valor: any) => {
+      const id = this.normalizarFichaId(valor?._id ?? valor);
+      if (!id || this.fichaYaLigada(id)) return;
+      this.fichasLigadas = [...this.fichasLigadas, (valor && typeof valor === 'object') ? valor : { _id: id }];
+    };
+
+    const fichas = Array.isArray(venta?.fichasLigadas) ? venta.fichasLigadas : [];
+    for (const ficha of fichas) registrarSnapshot(ficha);
+
+    const ids = Array.isArray(venta?.fichasConsultorioIds) ? venta.fichasConsultorioIds : [];
+    for (const id of ids) registrarSnapshot(id);
+
+    registrarSnapshot(venta?.fichaSeleccionada);
+    registrarSnapshot(venta?.fichaIdSeleccionada);
+    registrarSnapshot(venta?.fichaId);
+
+    const fichasIds = this.obtenerFichasLigadasIds();
+    this.fichaIdSeleccionada = fichasIds[0] || null;
+    this.fichaSeleccionada = this.fichasLigadas.find(f => this.normalizarFichaId(f?._id) === this.fichaIdSeleccionada) || null;
+  }
+
+  private limpiarFichasLigadas() {
+    this.fichasLigadas = [];
+    this.fichaIdSeleccionada = null;
+    this.fichaSeleccionada = null;
+  }
+
+  private async liberarFichaSiAplica(): Promise<void> {
+    const fichasIds = this.obtenerFichasLigadasIds();
+    if (!fichasIds.length) return;
+
+    for (const fichaId of fichasIds) {
+      try {
+        await firstValueFrom(this.fichasService.liberarCobro(fichaId));
+      } catch (err) {
+        console.error('Error liberarCobro:', err);
+        // no bloquea el reset
+      }
     }
   }
 
@@ -1797,8 +1878,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.hayCliente = false;
     this.actualizarVisibilidadInapam();
 
-    this.fichaIdSeleccionada = null;
-    this.fichaSeleccionada = null;
+    this.limpiarFichasLigadas();
 
     this.focusBarcode(60, true);
   }
@@ -2108,6 +2188,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   guardarVentaDespuesDeImpresion(folio: string) {
+    const fichasConsultorioIds = this.obtenerFichasLigadasIds();
+
     const productosPayload = this.carrito.map(p => ({
       producto: p.producto,
       cantidad: p.cantidad,
@@ -2130,7 +2212,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
       importeVale: this.pagoVale1,
       farmacia: this.farmaciaId,
       totaMonederoCliente: this.totalAlmonedero,
-      fichaId: this.fichaIdSeleccionada
+      fichaId: fichasConsultorioIds[0] || null,
+      fichasConsultorioIds
     };
 
     this.ventasService.crearVenta(venta).subscribe({
@@ -2138,8 +2221,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
         this.folioVentaGenerado = null;
 
         // ✅ limpiar vínculo de ficha
-        this.fichaIdSeleccionada = null;
-        this.fichaSeleccionada = null;
+        this.limpiarFichasLigadas();
 
         this.limpiarVenta();
         this.mostrarModalPago = false;
@@ -2629,7 +2711,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.bloquearScanner = true;
     this.mostrarModalFichas = true;
     this.fichasParaCobro = [];
-    this.fichaSeleccionada = null;
 
     this.fichasService.listasParaCobro().subscribe({
       next: (resp: any) => {
@@ -2651,14 +2732,14 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async tomarFichaParaCobro(f: any) {
-    if (!f?._id) return;
+    const fichaId = this.normalizarFichaId(f?._id);
+    if (!fichaId) return;
 
-    // Si ya hay una ficha tomada en la venta actual, evita mezclar
-    if (this.fichaIdSeleccionada && this.fichaIdSeleccionada !== f._id) {
+    if (this.fichaYaLigada(fichaId)) {
       await Swal.fire({
-        icon: 'warning',
-        title: 'Ya hay una ficha en esta venta',
-        html: `Esta venta ya está ligada a una ficha.<br><b>Termina o cancela la venta actual</b> antes de tomar otra.`,
+        icon: 'info',
+        title: 'Ficha ya ligada',
+        text: 'Esta ficha ya está ligada a la venta actual.',
         confirmButtonText: 'OK',
         allowOutsideClick: false,
         allowEscapeKey: false
@@ -2666,53 +2747,57 @@ export class VentasComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // ✅ Confirmación antes de bloquear y traspasar
-    const r = await Swal.fire({
-      icon: 'question',
-      title: 'Tomar ficha y agregar al carrito',
-      html: `
-      Al tomar esta ficha:
-      <ul style="text-align:left; margin: 10px 0 0 18px;">
-        <li>Se <b>bloquea</b> para que no la cobren en otra caja</li>
-        <li>Sus <b>servicios se agregan</b> al carrito de esta venta</li>
-      </ul>
-      ¿Deseas continuar?
-    `,
-      showCancelButton: true,
-      confirmButtonText: 'Sí, tomar y agregar',
-      cancelButtonText: 'No, seguir en la lista',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      focusCancel: true
-    });
+    const yaHayFichaLigada = this.tieneFichasLigadas();
+    const r = yaHayFichaLigada
+      ? await Swal.fire({
+        icon: 'question',
+        title: 'Ya hay una ficha en esta venta',
+        html: `Esta venta ya está ligada a una ficha.<br><b>¿Deseas ligar otra ficha a esta venta?</b>`,
+        showCancelButton: true,
+        confirmButtonText: 'SÍ',
+        cancelButtonText: 'NO',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        focusCancel: true
+      })
+      : await Swal.fire({
+        icon: 'question',
+        title: 'Tomar ficha y agregar al carrito',
+        html: `
+        Al tomar esta ficha:
+        <ul style="text-align:left; margin: 10px 0 0 18px;">
+          <li>Se <b>bloquea</b> para que no la cobren en otra caja</li>
+          <li>Sus <b>servicios se agregan</b> al carrito de esta venta</li>
+        </ul>
+        ¿Deseas continuar?
+      `,
+        showCancelButton: true,
+        confirmButtonText: 'Sí, tomar y agregar',
+        cancelButtonText: 'No, seguir en la lista',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        focusCancel: true
+      });
 
-    if (!r.isConfirmed) return;
+    if (!r.isConfirmed) {
+      if (yaHayFichaLigada) this.cerrarModalFichas();
+      return;
+    }
 
-    this.fichasService.tomarParaCobro(f._id).subscribe({
-      next: async (resp: any) => {
-        const ficha = resp?.ficha ?? null;
-        if (!ficha?._id) {
-          Swal.fire('Error', 'No se recibió la ficha tomada.', 'error');
-          return;
-        }
-
-        // ✅ Liga ficha a esta venta
-        this.fichaIdSeleccionada = ficha._id;
-        this.fichaSeleccionada = ficha; // (puedes dejarlo aunque ya no se muestre)
-
-        // ✅ traspasa servicios al carrito
-        await this.agregarServiciosFichaAlCarrito(ficha);
-
-        // refresca lista por si quedó alguna en pantalla (aunque normalmente cierras modal)
-        // this.fichasParaCobro = this.fichasParaCobro.filter(x => x._id !== ficha._id);
-        // this.cdRef.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error tomarParaCobro:', err);
-        const msg = err?.error?.msg || 'No se pudo tomar la ficha para cobro.';
-        Swal.fire('Error', msg, 'error');
+    try {
+      const resp: any = await firstValueFrom(this.fichasService.tomarParaCobro(fichaId));
+      const ficha = resp?.ficha ?? null;
+      if (!ficha?._id) {
+        Swal.fire('Error', 'No se recibió la ficha tomada.', 'error');
+        return;
       }
-    });
+
+      await this.agregarServiciosFichaAlCarrito(ficha);
+    } catch (err: any) {
+      console.error('Error tomarParaCobro:', err);
+      const msg = err?.error?.msg || 'No se pudo tomar la ficha para cobro.';
+      Swal.fire('Error', msg, 'error');
+    }
   }
 
   private agregandoFicha = false;
@@ -2722,14 +2807,22 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.agregandoFicha = true;
 
     try {
+      const fichaId = this.normalizarFichaId(ficha?._id);
+      if (!fichaId) {
+        Swal.fire('Error', 'No se recibió la ficha tomada.', 'error');
+        return;
+      }
+
+      if (!this.registrarFichaLigada(ficha)) {
+        Swal.fire('Aviso', 'Esta ficha ya está ligada a la venta actual.', 'info');
+        return;
+      }
+
       const servicios = Array.isArray(ficha?.servicios) ? ficha.servicios : [];
       if (!servicios.length) {
         Swal.fire('Aviso', 'La ficha no trae servicios para cobrar.', 'info');
         return;
       }
-
-      // ✅ Ligar ficha a esta venta
-      this.fichaIdSeleccionada = ficha._id;
 
       // ✅ Agregar cada servicio como producto normal (usando tu flujo existente)
       // OJO: servicios trae snapshot, pero tú necesitas producto real (de this.productos)
