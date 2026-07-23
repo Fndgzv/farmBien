@@ -66,6 +66,53 @@ async function generarTurnoFicha(farmaciaId, intento = 0) {
 
 const cleanStr = (v) => String(v ?? "").trim();
 const MOTIVO_CANCELACION_DEFAULT = "El paciente se retiró";
+const ESTADOS_FICHA_CONSULTORIO = new Set(FichaConsultorio.schema.path("estado").enumValues);
+
+const parseEstadosQuery = (value) =>
+  cleanStr(value)
+    .split(",")
+    .map((estado) => cleanStr(estado))
+    .filter((estado) => estado && ESTADOS_FICHA_CONSULTORIO.has(estado));
+
+const filtroSinVentaAsociada = () => ({
+  $or: [
+    { ventaId: { $exists: false } },
+    { ventaId: null },
+  ],
+});
+
+const colaEstadoOrden = {
+  EN_ATENCION: 0,
+  EN_ESPERA: 1,
+  LISTA_PARA_COBRO: 2,
+};
+
+const toMs = (value) => {
+  if (!value) return 0;
+  const t = new Date(value).getTime();
+  return Number.isFinite(t) ? t : 0;
+};
+
+const compararFichasCola = (a, b) => {
+  const estadoA = cleanStr(a?.estado);
+  const estadoB = cleanStr(b?.estado);
+  const ordenA = colaEstadoOrden[estadoA] ?? 9;
+  const ordenB = colaEstadoOrden[estadoB] ?? 9;
+  if (ordenA !== ordenB) return ordenA - ordenB;
+
+  if (estadoA === "LISTA_PARA_COBRO") {
+    const fechaA = toMs(a?.finAtencionAt) || toMs(a?.updatedAt) || toMs(a?.llegadaAt);
+    const fechaB = toMs(b?.finAtencionAt) || toMs(b?.updatedAt) || toMs(b?.llegadaAt);
+    if (fechaA !== fechaB) return fechaA - fechaB;
+  } else {
+    if (!!a?.urgencia !== !!b?.urgencia) return a?.urgencia ? -1 : 1;
+    const llegadaA = toMs(a?.llegadaAt);
+    const llegadaB = toMs(b?.llegadaAt);
+    if (llegadaA !== llegadaB) return llegadaA - llegadaB;
+  }
+
+  return String(a?._id || "").localeCompare(String(b?._id || ""));
+};
 
 const cleanArr = (v) => {
   if (!Array.isArray(v)) return [];
@@ -609,7 +656,7 @@ exports.actualizarConceptosFicha = async (req, res) => {
 /**
  * GET /api/fichas-consultorio/cola
  * - Caja: ?estado=EN_ESPERA
- * - Médico: por defecto EN_ESPERA + su propia EN_ATENCION
+ * - Médico: por defecto EN_ESPERA + LISTA_PARA_COBRO + su propia EN_ATENCION
  */
 exports.obtenerCola = async (req, res) => {
   try {
@@ -619,15 +666,34 @@ exports.obtenerCola = async (req, res) => {
     const userId = String(req.usuario?._id || "");
     const rol = req.usuario?.rol;
     const estado = (req.query.estado || "").trim();
+    const estados = parseEstadosQuery(req.query.estados);
 
     let filtro = { farmaciaId };
 
-    if (estado) {
+    if (estados.length) {
+      const incluirMiAtencion = String(req.query.incluirMiAtencion || "1") === "1";
+      const estadosSinAtencion = estados.filter((e) => e !== "EN_ATENCION");
+      const or = [];
+
+      if (estadosSinAtencion.length) {
+        or.push({ estado: { $in: estadosSinAtencion } });
+      }
+
+      if (estados.includes("EN_ATENCION")) {
+        if (rol === "medico") or.push({ estado: "EN_ATENCION", medicoId: userId });
+        else or.push({ estado: "EN_ATENCION" });
+      } else if (rol === "medico" && incluirMiAtencion) {
+        or.push({ estado: "EN_ATENCION", medicoId: userId });
+      }
+
+      if (or.length === 1) Object.assign(filtro, or[0]);
+      else filtro.$or = or;
+    } else if (estado) {
       filtro.estado = estado;
     } else {
       const incluirMiAtencion = String(req.query.incluirMiAtencion || "1") === "1";
 
-      const or = [{ estado: "EN_ESPERA" }];
+      const or = [{ estado: "EN_ESPERA" }, { estado: "LISTA_PARA_COBRO" }];
 
       if (rol === "medico" && incluirMiAtencion) {
         or.push({ estado: "EN_ATENCION", medicoId: userId });
@@ -637,7 +703,7 @@ exports.obtenerCola = async (req, res) => {
     }
 
     const fichas = await FichaConsultorio.find(filtro)
-      .sort({ urgencia: -1, llegadaAt: 1 })
+      .sort({ urgencia: -1, llegadaAt: 1, finAtencionAt: 1 })
       .select(`
         folio
         pacienteNombre
@@ -648,11 +714,15 @@ exports.obtenerCola = async (req, res) => {
         urgencia
         estado
         llegadaAt
+        finAtencionAt
         medicoId
         servicios
         serviciosTotal
+        updatedAt
       `)
       .lean();
+
+    fichas.sort(compararFichasCola);
 
     return res.json({ ok: true, fichas });
   } catch (err) {
@@ -819,14 +889,92 @@ exports.reanudarFicha = async (req, res) => {
       return res.status(403).json({ msg: "Sin permisos" });
     }
 
-    const filtro = { _id: id, farmaciaId, estado: "EN_ATENCION" };
+    const fichaActual = await FichaConsultorio.findOne({ _id: id, farmaciaId })
+      .select("estado medicoId ventaId inicioAtencionAt llamadoAt")
+      .lean();
 
-    // Si es médico: solo puede reanudar su propia ficha
-    if (rol === "medico") filtro.medicoId = userId;
+    if (!fichaActual) {
+      return res.status(404).json({ msg: "Ficha no encontrada" });
+    }
 
-    const ficha = await FichaConsultorio.findOne(filtro).lean();
+    if (fichaActual.estado === "EN_ATENCION") {
+      const filtro = { _id: id, farmaciaId, estado: "EN_ATENCION" };
+
+      // Si es médico: solo puede reanudar su propia ficha
+      if (rol === "medico") filtro.medicoId = userId;
+
+      const ficha = await FichaConsultorio.findOne(filtro).lean();
+      if (!ficha) {
+        return res.status(404).json({ msg: "No se pudo reanudar: ficha no encontrada o no te pertenece" });
+      }
+
+      return res.json({ ok: true, ficha });
+    }
+
+    if (fichaActual.estado === "ATENDIDA") {
+      return res.status(400).json({ msg: "La ficha ya fue atendida" });
+    }
+
+    if (fichaActual.estado === "CANCELADA") {
+      return res.status(400).json({ msg: "La ficha está cancelada" });
+    }
+
+    if (fichaActual.estado === "EN_COBRO") {
+      return res.status(409).json({ msg: "La ficha está siendo cobrada" });
+    }
+
+    if (fichaActual.ventaId) {
+      return res.status(400).json({ msg: "La ficha ya tiene una venta asociada" });
+    }
+
+    if (fichaActual.estado !== "LISTA_PARA_COBRO") {
+      return res.status(400).json({ msg: "El estado actual no permite reanudar la consulta" });
+    }
+
+    if (rol === "medico") {
+      const ocupado = await medicoOcupado(farmaciaId, req.usuario._id);
+      if (ocupado) {
+        return res.status(409).json({ msg: "Ya estás atendiendo a un paciente. Finaliza o regresa la ficha antes de reanudar otra." });
+      }
+    }
+
+    const now = new Date();
+    const ficha = await FichaConsultorio.findOneAndUpdate(
+      {
+        _id: id,
+        farmaciaId,
+        estado: "LISTA_PARA_COBRO",
+        ...filtroSinVentaAsociada(),
+      },
+      {
+        $set: {
+          estado: "EN_ATENCION",
+          medicoId: req.usuario._id,
+          llamadoAt: fichaActual.llamadoAt || now,
+          inicioAtencionAt: fichaActual.inicioAtencionAt || now,
+          actualizadaPor: req.usuario._id,
+        },
+        $unset: {
+          finAtencionAt: 1,
+        },
+      },
+      { new: true }
+    ).lean();
+
     if (!ficha) {
-      return res.status(404).json({ msg: "No se pudo reanudar: ficha no encontrada o no te pertenece" });
+      const fresca = await FichaConsultorio.findOne({ _id: id, farmaciaId })
+        .select("estado ventaId")
+        .lean();
+
+      if (fresca?.estado === "EN_COBRO") {
+        return res.status(409).json({ msg: "La ficha está siendo cobrada" });
+      }
+
+      if (fresca?.ventaId) {
+        return res.status(400).json({ msg: "La ficha ya tiene una venta asociada" });
+      }
+
+      return res.status(409).json({ msg: "No se pudo reanudar: la ficha cambió de estado. Actualiza la lista." });
     }
 
     return res.json({ ok: true, ficha });
@@ -904,7 +1052,7 @@ exports.tomarParaCobro = async (req, res) => {
         _id: id,
         farmaciaId,
         estado: "LISTA_PARA_COBRO",
-        ventaId: { $exists: false },
+        ...filtroSinVentaAsociada(),
       },
       {
         $set: {
@@ -944,7 +1092,7 @@ exports.liberarCobro = async (req, res) => {
         _id: id,
         farmaciaId,
         estado: "EN_COBRO",
-        ventaId: { $exists: false },
+        ...filtroSinVentaAsociada(),
       },
       {
         $set: {

@@ -59,7 +59,7 @@ export class FichasConsultorioService {
 
   obtenerColaMedico(): Observable<{ ok: boolean; fichas: any[] }> {
     return this.http.get<{ ok: boolean; fichas: any[] }>(
-      `${this.baseUrl}/cola`,
+      `${this.baseUrl}/cola?estados=EN_ESPERA,LISTA_PARA_COBRO&incluirMiAtencion=1`,
       { headers: this.headers() }
     );
   }

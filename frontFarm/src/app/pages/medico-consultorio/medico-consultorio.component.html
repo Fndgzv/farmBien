@@ -94,17 +94,17 @@
 
             <td>
               <span class="badge bg-light text-dark border">
-                {{ tiempoEnEspera(f) }}
+                {{ textoEsperaFicha(f) }}
               </span>
             </td>
 
             <td class="text-end">
               <div class="d-flex justify-content-end gap-1 flex-wrap">
-                <button [class]="f.estado === 'EN_ATENCION' ? 'btn-amarillo-chico' : 'btn-gris-chico'"
+                <button [class]="claseAccionFicha(f)"
                   type="button"
-                  [disabled]="medicoOcupado && f.estado !== 'EN_ATENCION'"
-                  (click)="f.estado === 'EN_ATENCION' ? reanudar(f) : llamar(f)">
-                  {{ f.estado === 'EN_ATENCION' ? 'Reanudar' : 'Atender' }}
+                  [disabled]="!puedeUsarAccionPrincipal(f)"
+                  (click)="accionPrincipalFicha(f)">
+                  {{ textoAccionFicha(f) }}
                 </button>
 
                 <button class="btn-rojo-chico"

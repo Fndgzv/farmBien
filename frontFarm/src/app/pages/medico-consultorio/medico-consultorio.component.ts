@@ -659,6 +659,40 @@ export class MedicoConsultorioComponent implements OnInit {
     return !!miId && !!f?.medicoId && String(f.medicoId) === String(miId);
   }
 
+  private estadoFicha(f: any): string {
+    return String(f?.estado || '').trim();
+  }
+
+  esFichaReanudable(f: any): boolean {
+    return ['EN_ATENCION', 'LISTA_PARA_COBRO'].includes(this.estadoFicha(f));
+  }
+
+  textoEsperaFicha(f: any): string {
+    if (this.estadoFicha(f) === 'LISTA_PARA_COBRO') return 'Lista para cobro';
+    return this.tiempoEnEspera(f);
+  }
+
+  textoAccionFicha(f: any): string {
+    return this.esFichaReanudable(f) ? 'Reanudar' : 'Atender';
+  }
+
+  claseAccionFicha(f: any): string {
+    return this.esFichaReanudable(f) ? 'btn-amarillo-chico' : 'btn-gris-chico';
+  }
+
+  puedeUsarAccionPrincipal(f: any): boolean {
+    const estado = this.estadoFicha(f);
+    if (estado === 'EN_ESPERA') return !this.medicoOcupado;
+    if (estado === 'EN_ATENCION') return true;
+    if (estado === 'LISTA_PARA_COBRO') return !this.medicoOcupado;
+    return false;
+  }
+
+  accionPrincipalFicha(f: any) {
+    if (!this.puedeUsarAccionPrincipal(f)) return;
+    return this.esFichaReanudable(f) ? this.reanudar(f) : this.llamar(f);
+  }
+
   async reanudar(f: any) {
     try {
       const resp = await firstValueFrom(this.fichasService.reanudarFicha(f._id));
@@ -1666,6 +1700,7 @@ export class MedicoConsultorioComponent implements OnInit {
   tiempoEnEspera(f: any): string {
     // Si está en atención, no mostramos tiempo de espera.
     if (f?.estado === 'EN_ATENCION') return 'En atención';
+    if (f?.estado === 'LISTA_PARA_COBRO') return 'Lista para cobro';
 
     const t = f?.llegadaAt ? new Date(f.llegadaAt).getTime() : null;
     if (!t || Number.isNaN(t)) return '?';
