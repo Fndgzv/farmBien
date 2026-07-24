@@ -544,7 +544,7 @@ exports.stockPropuesto = async (req, res) => {
       );
 
       const stockMaxPropuesto = Math.ceil(productosPorDia * dias * 1.1);
-      const stockMinPropuesto = Math.round(stockMaxPropuesto / 3);
+      const stockMinPropuesto = Math.round(stockMaxPropuesto * 0.6);
 
       const existencia = inv?.existencia ?? 0;
       return {
