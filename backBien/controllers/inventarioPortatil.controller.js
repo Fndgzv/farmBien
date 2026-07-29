@@ -2,6 +2,44 @@
 const Producto = require('../models/Producto');
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 const InventarioFisico = require('../models/InventarioFisico');
+const Farmacia = require('../models/Farmacia');
+const mongoose = require('mongoose');
+
+const UBICACION_MAX_LENGTH = 120;
+
+function esObjectIdValido(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
+function leerUbicacion(ubicacion) {
+  if (ubicacion === undefined || ubicacion === null) {
+    return { presente: false };
+  }
+
+  if (typeof ubicacion !== 'string') {
+    return { presente: false, error: "La ubicación debe ser texto." };
+  }
+
+  const valor = ubicacion.trim();
+  if (!valor) return { presente: false };
+
+  if (valor.length > UBICACION_MAX_LENGTH) {
+    return {
+      presente: false,
+      error: `La ubicación no puede exceder ${UBICACION_MAX_LENGTH} caracteres.`
+    };
+  }
+
+  return { presente: true, valor };
+}
+
+function puedeAccederFarmacia(req, farmaciaId) {
+  if (req.usuario.rol === "ajustaAlmacen") return true;
+
+  return req.usuario.rol === "ajustaFarma" &&
+    req.usuario.farmacia &&
+    req.usuario.farmacia.toString() === farmaciaId;
+}
 
 /* ======================================================
    1) Buscar producto (por código de barras o nombre)
@@ -39,18 +77,47 @@ exports.buscarProducto = async (req, res) => {
 exports.ajustarExistenciaFarmacia = async (req, res) => {
   try {
     const { farmaciaId, productoId } = req.params;
-    const { nuevaExistencia } = req.body;
+    const { nuevaExistencia, ubicacion } = req.body;
 
     const usuarioId = req.usuario._id; // <-- viene del token
+    const tieneExistencia = nuevaExistencia !== undefined && nuevaExistencia !== null;
+    const ubicacionValidada = leerUbicacion(ubicacion);
 
-    if (typeof nuevaExistencia !== "number" || nuevaExistencia < 0) {
+    if (!esObjectIdValido(farmaciaId) || !esObjectIdValido(productoId)) {
+      return res.status(400).json({ mensaje: "Farmacia o producto inválido." });
+    }
+
+    if (ubicacionValidada.error) {
+      return res.status(400).json({ mensaje: ubicacionValidada.error });
+    }
+
+    if (tieneExistencia &&
+      (typeof nuevaExistencia !== "number" ||
+        !Number.isFinite(nuevaExistencia) ||
+        nuevaExistencia < 0)) {
       return res.status(400).json({ mensaje: "Existencia inválida." });
     }
 
-    // Validación ajustaFarma
-    if (req.usuario.rol === "ajustaFarma" &&
-      req.usuario.farmacia.toString() !== farmaciaId) {
+    if (!tieneExistencia && !ubicacionValidada.presente) {
+      return res.status(400).json({ mensaje: "No hay cambios válidos para guardar." });
+    }
+
+    // ajustaFarma solo puede operar la farmacia asignada en el token.
+    if (!puedeAccederFarmacia(req, farmaciaId)) {
       return res.status(403).json({ mensaje: "No puedes ajustar otras farmacias." });
+    }
+
+    const [farmaciaExiste, prod] = await Promise.all([
+      Farmacia.exists({ _id: farmaciaId }),
+      Producto.findById(productoId).select("costo")
+    ]);
+
+    if (!farmaciaExiste) {
+      return res.status(404).json({ mensaje: "Farmacia no encontrada." });
+    }
+
+    if (!prod) {
+      return res.status(404).json({ mensaje: "Producto no encontrado." });
     }
 
     // Obtener existencia anterior
@@ -60,36 +127,88 @@ exports.ajustarExistenciaFarmacia = async (req, res) => {
     });
 
     const existenciaSistema = invAnterior?.existencia ?? 0;
+    const $set = {};
 
-    // Actualizar
+    if (!invAnterior && !tieneExistencia) {
+      return res.status(404).json({
+        mensaje: "El producto no tiene inventario en la farmacia indicada."
+      });
+    }
+
+    if (tieneExistencia) $set.existencia = nuevaExistencia;
+    if (ubicacionValidada.presente) {
+      $set.ubicacionFarmacia = ubicacionValidada.valor;
+    }
+
+    // Existencia y ubicación se guardan juntas en el mismo documento.
     const inv = await InventarioFarmacia.findOneAndUpdate(
       { farmacia: farmaciaId, producto: productoId },
-      { existencia: nuevaExistencia },
-      { new: true, upsert: true }
+      { $set },
+      { new: true, upsert: tieneExistencia }
     );
 
-    // Registrar inventario físico
-    const diferencia = nuevaExistencia - existenciaSistema;
-    const prod = await Producto.findById(productoId).select("costo");
+    // Una actualización exclusiva de ubicación no genera movimiento físico.
+    if (tieneExistencia) {
+      const diferencia = nuevaExistencia - existenciaSistema;
+      const perdida = diferencia * (prod.costo ?? 0);
 
-    const perdida = diferencia * (prod?.costo ?? 0);
+      await InventarioFisico.create({
+        fechaInv: new Date(),
+        farmaNombre: inv.farmacia.toString(), // puede cambiarse por nombre luego
+        producto: productoId,
+        existenciaSistema,
+        existenciaFisica: nuevaExistencia,
+        diferencia,
+        perdida,
+        usuario: usuarioId
+      });
+    }
 
-    await InventarioFisico.create({
-      fechaInv: new Date(),
-      farmaNombre: inv.farmacia.toString(), // puede cambiarse por nombre luego
-      producto: productoId,
-      existenciaSistema,
-      existenciaFisica: nuevaExistencia,
-      diferencia,
-      perdida,
-      usuario: usuarioId
+    res.json({
+      mensaje: tieneExistencia ? "Existencia actualizada" : "Ubicación actualizada",
+      inventario: inv
     });
-
-    res.json({ mensaje: "Existencia actualizada", inventario: inv });
 
   } catch (error) {
     console.error("❌ Error ajustarExistenciaFarmacia:", error);
-    res.status(500).json({ mensaje: "Error al ajustar existencia." });
+    res.status(500).json({ mensaje: "Error al actualizar el inventario." });
+  }
+};
+
+/* ======================================================
+   2.1) ACTUALIZAR SOLO UBICACIÓN EN ALMACÉN
+====================================================== */
+exports.actualizarUbicacionAlmacen = async (req, res) => {
+  try {
+    const { productoId } = req.params;
+    const ubicacionValidada = leerUbicacion(req.body.ubicacion);
+
+    if (!esObjectIdValido(productoId)) {
+      return res.status(400).json({ mensaje: "Producto inválido." });
+    }
+
+    if (ubicacionValidada.error) {
+      return res.status(400).json({ mensaje: ubicacionValidada.error });
+    }
+
+    if (!ubicacionValidada.presente) {
+      return res.status(400).json({ mensaje: "La ubicación es requerida." });
+    }
+
+    const producto = await Producto.findByIdAndUpdate(
+      productoId,
+      { $set: { ubicacion: ubicacionValidada.valor } },
+      { new: true }
+    ).select("nombre codigoBarras ubicacion");
+
+    if (!producto) {
+      return res.status(404).json({ mensaje: "Producto no encontrado." });
+    }
+
+    res.json({ mensaje: "Ubicación actualizada", producto });
+  } catch (error) {
+    console.error("❌ Error actualizarUbicacionAlmacen:", error);
+    res.status(500).json({ mensaje: "Error al actualizar la ubicación." });
   }
 };
 
@@ -100,6 +219,10 @@ exports.ajustarExistenciaFarmacia = async (req, res) => {
 exports.obtenerLotes = async (req, res) => {
   try {
     const { productoId } = req.params;
+
+    if (!esObjectIdValido(productoId)) {
+      return res.status(400).json({ mensaje: "Producto inválido." });
+    }
 
     const prod = await Producto.findById(productoId).select('lotes nombre codigoBarras');
 
@@ -119,8 +242,17 @@ exports.obtenerLotes = async (req, res) => {
 exports.agregarLote = async (req, res) => {
   try {
     const { productoId } = req.params;
-    const { lote, fechaCaducidad, cantidad } = req.body;
+    const { lote, fechaCaducidad, cantidad, ubicacion } = req.body;
     const usuarioId = req.usuario._id;
+    const ubicacionValidada = leerUbicacion(ubicacion);
+
+    if (!esObjectIdValido(productoId)) {
+      return res.status(400).json({ mensaje: "Producto inválido." });
+    }
+
+    if (ubicacionValidada.error) {
+      return res.status(400).json({ mensaje: ubicacionValidada.error });
+    }
 
     const prod = await Producto.findById(productoId);
     if (!prod) return res.status(404).json({ mensaje: "Producto no encontrado." });
@@ -130,6 +262,9 @@ exports.agregarLote = async (req, res) => {
 
     // Agregar lote
     prod.lotes.push({ lote, fechaCaducidad, cantidad });
+    if (ubicacionValidada.presente) {
+      prod.ubicacion = ubicacionValidada.valor;
+    }
     await prod.save();
 
     // Nuevo total
@@ -164,8 +299,17 @@ exports.agregarLote = async (req, res) => {
 exports.editarLote = async (req, res) => {
   try {
     const { productoId, loteId } = req.params;
-    const { lote, fechaCaducidad, cantidad } = req.body;
+    const { lote, fechaCaducidad, cantidad, ubicacion } = req.body;
     const usuarioId = req.usuario._id;
+    const ubicacionValidada = leerUbicacion(ubicacion);
+
+    if (!esObjectIdValido(productoId) || !esObjectIdValido(loteId)) {
+      return res.status(400).json({ mensaje: "Producto o lote inválido." });
+    }
+
+    if (ubicacionValidada.error) {
+      return res.status(400).json({ mensaje: ubicacionValidada.error });
+    }
 
     const prod = await Producto.findById(productoId);
     if (!prod) return res.status(404).json({ mensaje: "Producto no encontrado." });
@@ -181,6 +325,9 @@ exports.editarLote = async (req, res) => {
     if (lote !== undefined) l.lote = lote;
     if (fechaCaducidad !== undefined) l.fechaCaducidad = fechaCaducidad;
     if (cantidad !== undefined && cantidad >= 0) l.cantidad = cantidad;
+    if (ubicacionValidada.presente) {
+      prod.ubicacion = ubicacionValidada.valor;
+    }
 
     await prod.save();
 
@@ -226,6 +373,10 @@ exports.eliminarLote = async (req, res) => {
   try {
     const { productoId, loteId } = req.params;
     const usuarioId = req.usuario._id;
+
+    if (!esObjectIdValido(productoId) || !esObjectIdValido(loteId)) {
+      return res.status(400).json({ mensaje: "Producto o lote inválido." });
+    }
 
     const prod = await Producto.findById(productoId);
     if (!prod) return res.status(404).json({ mensaje: "Producto no encontrado." });
@@ -278,8 +429,12 @@ exports.obtenerProductoPorId = async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (!esObjectIdValido(id)) {
+      return res.status(400).json({ mensaje: "Producto inválido." });
+    }
+
     const prod = await Producto.findById(id)
-      .select("nombre codigoBarras categoria unidad precio costo lotes");
+      .select("nombre codigoBarras categoria unidad precio costo lotes ubicacion");
 
     if (!prod) return res.status(404).json({ mensaje: "Producto no encontrado" });
 
@@ -295,13 +450,26 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
   try {
     const { farmaciaId, productoId } = req.params;
 
+    if (!esObjectIdValido(farmaciaId) || !esObjectIdValido(productoId)) {
+      return res.status(400).json({ mensaje: "Farmacia o producto inválido." });
+    }
+
+    if (!puedeAccederFarmacia(req, farmaciaId)) {
+      return res.status(403).json({ mensaje: "No puedes consultar otras farmacias." });
+    }
+
+    const farmaciaExiste = await Farmacia.exists({ _id: farmaciaId });
+    if (!farmaciaExiste) {
+      return res.status(404).json({ mensaje: "Farmacia no encontrada." });
+    }
+
     const inv = await InventarioFarmacia.findOne({
       farmacia: farmaciaId,
       producto: productoId
     });
 
     if (!inv) {
-      return res.json({ existencia: 0 }); // No existe → 0
+      return res.json({ existencia: 0, ubicacionFarmacia: "" }); // No existe → 0
     }
 
     res.json(inv);

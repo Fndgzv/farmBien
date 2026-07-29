@@ -15,6 +15,19 @@
 
 <!-- EXISTENCIA (SOLO FARMACIA) -->
 <div *ngIf="farmaciaId !== 'almacen'" class="existencia-box">
+  <div class="ubicacion-edicion">
+    <label for="ubicacionFarmacia">Ubicación:</label>
+    <input
+      id="ubicacionFarmacia"
+      type="text"
+      [(ngModel)]="ubicacion"
+      class="input-ubicacion"
+      maxlength="120"
+      autocomplete="off"
+      placeholder="Ej. A-03-02"
+    />
+  </div>
+
   <div class="existencia-edicion">
     <label>Existencia física:</label>
 
@@ -26,16 +39,16 @@
       [ngClass]="{ 'input-error': campoInvalido }"
       maxlength="3"
       (keydown.enter)="guardar()"
-      (input)="campoInvalido = (nuevaExistencia === null || nuevaExistencia === undefined || nuevaExistencia < 0)"
+      (input)="campoInvalido = (nuevaExistencia !== null && nuevaExistencia < 0)"
     />
 
-    <button class="btn-guardar-ex" (click)="guardar()">Guardar</button>
+    <button class="btn-guardar-ex" (click)="guardar()" [disabled]="guardando">Guardar</button>
   </div>
 </div>
 
 <hr>
 
 <div class="acciones-finales">
-  <button class="btn-siguiente" (click)="siguiente()">Siguiente</button>
-  <button class="btn-salir" (click)="salir()">{{ botonSalirTexto }} </button>
+  <button class="btn-siguiente" (click)="siguiente()" [disabled]="guardando">Siguiente</button>
+  <button class="btn-salir" (click)="salir()" [disabled]="guardando">{{ botonSalirTexto }} </button>
 </div>

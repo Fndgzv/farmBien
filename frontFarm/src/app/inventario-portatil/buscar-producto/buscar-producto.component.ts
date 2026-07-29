@@ -84,6 +84,7 @@ export class BuscarProductoComponent implements OnInit {
 
   salir() {
     const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+    this.invService.limpiarUbicacionTemporal();
 
     // Si es AJUSTA ALMACÉN → regresar a seleccionar farmacia
     if (usuario.rol === 'ajustaAlmacen') {

@@ -224,6 +224,26 @@ h4 {
   margin-bottom: 10px;
 }
 
+.ubicacion-edicion {
+  margin-bottom: 14px;
+}
+
+.ubicacion-edicion label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.input-ubicacion {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #7fa6ff;
+  border-radius: 6px;
+  background: white;
+  font-size: 1rem;
+}
+
 .existencia-edicion {
   display: flex;
   align-items: center;
@@ -259,6 +279,11 @@ h4 {
 
 .btn-guardar-ex:active {
   transform: scale(0.96);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 /* Responsive */

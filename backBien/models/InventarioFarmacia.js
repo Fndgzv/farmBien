@@ -71,6 +71,14 @@ InventarioFarmaciaSchema.post("findOneAndUpdate", async function (doc) {
   if (!doc) return;
 
   try {
+    const update = this.getUpdate() || {};
+    const actualizaExistencia =
+      Object.prototype.hasOwnProperty.call(update, "existencia") ||
+      Object.prototype.hasOwnProperty.call(update.$set || {}, "existencia");
+
+    // Cambiar solo ubicacionFarmacia nunca debe crear un movimiento físico.
+    if (!actualizaExistencia) return;
+
     // Nueva existencia (ya actualizada)
     const nuevaExistencia = doc.existencia;
 

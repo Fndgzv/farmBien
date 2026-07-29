@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventarioTitleService } from '../inventario-title.service';
 import { FarmaciaService } from '../../services/farmacia.service';
+import { InventarioPortatilService } from '../inventario-portatil.service';
 
 @Component({
   selector: 'app-seleccionar-farmacia',
@@ -20,10 +21,13 @@ export class SeleccionarFarmaciaComponent implements OnInit {
   constructor(
     private farmaciaService: FarmaciaService,
     private router: Router,
-    private titleService: InventarioTitleService
+    private titleService: InventarioTitleService,
+    private invService: InventarioPortatilService
   ) { }
 
   ngOnInit() {
+    this.invService.limpiarUbicacionTemporal();
+
     // Título inicial
     this.titleService.setTitulo('Inventario – Seleccionar ubicación');
 
@@ -51,6 +55,7 @@ export class SeleccionarFarmaciaComponent implements OnInit {
   }
 
   salir() {
+    this.invService.limpiarUbicacionTemporal();
     localStorage.removeItem('inventarioUbicacion');
     this.router.navigate(['/login']);
   }

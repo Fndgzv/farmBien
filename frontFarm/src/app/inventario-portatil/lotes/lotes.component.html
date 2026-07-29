@@ -1,3 +1,15 @@
+<div class="ubicacion-box">
+  <label for="ubicacionAlmacen">Ubicación:</label>
+  <input
+    id="ubicacionAlmacen"
+    type="text"
+    [(ngModel)]="ubicacion"
+    maxlength="120"
+    autocomplete="off"
+    placeholder="Ej. A-03-02"
+  />
+</div>
+
 <div class="header-lotes">
   <h2>Lotes del Producto</h2>
 </div>
@@ -40,13 +52,13 @@
     placeholder="Cantidad a registrar"
   />
 
-  <button *ngIf="modo==='agregar'" class="btn-guardar" (click)="guardarNuevo()">
+  <button *ngIf="modo==='agregar'" class="btn-guardar" (click)="guardarNuevo()" [disabled]="guardandoLote">
     Guardar nuevo lote
   </button>
 
-  <button *ngIf="modo==='editar'" class="btn-guardar" (click)="guardarEdicion()">
+  <button *ngIf="modo==='editar'" class="btn-guardar" (click)="guardarEdicion()" [disabled]="guardandoLote">
     Guardar cambios
   </button>
 
-  <button class="btn-cancelar" (click)="cancelar()">Cancelar</button>
+  <button class="btn-cancelar" (click)="cancelar()" [disabled]="guardandoLote">Cancelar</button>
 </div>

@@ -22,8 +22,15 @@ router.get("/buscar", auth, soloRoles("ajustaAlmacen", "ajustaFarma", "ajustaSol
 // Ajustar existencia farmacia
 router.put("/farmacia/:farmaciaId/producto/:productoId",
   auth,
-  soloRoles("ajustaAlmacen", "ajustaFarma", "ajustaSoloAlmacen"),
+  soloRoles("ajustaAlmacen", "ajustaFarma"),
   ctrl.ajustarExistenciaFarmacia
+);
+
+// Ubicación del producto en almacén, sin generar movimientos
+router.put("/producto/:productoId/ubicacion",
+  auth,
+  soloRoles("ajustaAlmacen", "ajustaSoloAlmacen"),
+  ctrl.actualizarUbicacionAlmacen
 );
 
 // Lotes (solo ajustaAlmacen)
@@ -59,7 +66,7 @@ router.get("/producto/:id",
 
 router.get("/farmacia/:farmaciaId/producto/:productoId",
   auth,
-  soloRoles("ajustaAlmacen", "ajustaFarma", "ajustaSoloAlmacen"),
+  soloRoles("ajustaAlmacen", "ajustaFarma"),
   ctrl.obtenerInventarioFarmacia
 );
 

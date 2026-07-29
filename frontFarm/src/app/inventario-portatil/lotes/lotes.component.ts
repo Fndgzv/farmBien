@@ -41,6 +41,7 @@ export class LotesComponent implements OnInit {
       cantidad: ''
     };
 
+  guardandoLote = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -108,6 +109,7 @@ export class LotesComponent implements OnInit {
   }
 
   guardarNuevo() {
+    if (this.guardandoLote) return;
 
     // 🔥 Si el usuario dejó vacío el nombre del lote → generar automático
     if (!this.formLote.lote || this.formLote.lote.trim() === "") {
@@ -139,11 +141,14 @@ export class LotesComponent implements OnInit {
     const data = {
       lote: this.formLote.lote,
       fechaCaducidad: this.formLote.fechaCaducidad,
-      cantidad: Number(this.formLote.cantidad || 0)
+      cantidad: Number(this.formLote.cantidad || 0),
+      ubicacion: this.ubicacion.trim() || undefined
     };
 
+    this.guardandoLote = true;
     this.invService.agregarLote(this.productoId, data).subscribe({
       next: () => {
+        this.marcarUbicacionGuardada();
         Swal.fire({
           icon: 'success',
           title: 'Éxito',
@@ -153,15 +158,25 @@ export class LotesComponent implements OnInit {
           allowOutsideClick: false,
           allowEscapeKey: false,
         });
+        this.guardandoLote = false;
         this.modo = 'listar';
         this.cargarLotes();
       },
-      error: () => Swal.fire("Error", "No se pudo agregar lote", "error")
+      error: () => {
+        this.guardandoLote = false;
+        Swal.fire(
+          "Error",
+          this.ubicacion.trim()
+            ? "No se pudo agregar el lote ni actualizar la ubicación"
+            : "No se pudo agregar lote",
+          "error"
+        );
+      }
     });
   }
 
   guardarEdicion() {
-    if (!this.loteIdEditando) return;
+    if (!this.loteIdEditando || this.guardandoLote) return;
 
     // 🔥 Si el nombre quedó vacío → generar uno nuevo
     if (!this.formLote.lote || this.formLote.lote.trim() === "") {
@@ -192,11 +207,14 @@ export class LotesComponent implements OnInit {
     const data = {
       lote: this.formLote.lote,
       fechaCaducidad: this.formLote.fechaCaducidad,
-      cantidad: Number(this.formLote.cantidad || 0)
+      cantidad: Number(this.formLote.cantidad || 0),
+      ubicacion: this.ubicacion.trim() || undefined
     };
 
+    this.guardandoLote = true;
     this.invService.editarLote(this.productoId, this.loteIdEditando, data).subscribe({
       next: () => {
+        this.marcarUbicacionGuardada();
         Swal.fire({
               icon: 'success',
               title: 'Éxito',
@@ -206,11 +224,39 @@ export class LotesComponent implements OnInit {
               allowOutsideClick: false,
               allowEscapeKey: false,
             });
+        this.guardandoLote = false;
         this.modo = 'listar';
         this.cargarLotes();
       },
-      error: () => Swal.fire("Error", "No se pudo actualizar lote", "error")
+      error: () => {
+        this.guardandoLote = false;
+        Swal.fire(
+          "Error",
+          this.ubicacion.trim()
+            ? "No se pudo actualizar el lote ni la ubicación"
+            : "No se pudo actualizar lote",
+          "error"
+        );
+      }
     });
+  }
+
+  get ubicacion(): string {
+    return this.invService.obtenerUbicacionTemporal();
+  }
+
+  set ubicacion(valor: string) {
+    this.invService.establecerUbicacionTemporal(valor);
+  }
+
+  private marcarUbicacionGuardada(): void {
+    const ubicacionLimpia = this.ubicacion.trim();
+    if (!ubicacionLimpia) return;
+
+    this.invService.marcarUbicacionGuardada(
+      this.invService.claveUbicacionAlmacen(this.productoId),
+      ubicacionLimpia
+    );
   }
 
   eliminarLote(l: Lote) {
