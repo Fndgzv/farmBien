@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 import { FormsModule } from '@angular/forms';
 import { InventarioTitleService } from '../inventario-title.service';
 import { LotesComponent } from '../lotes/lotes.component';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-ajustar-existencia',
@@ -39,7 +40,8 @@ export class AjustarExistenciaComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private invService: InventarioPortatilService,
-    private titleService: InventarioTitleService
+    private titleService: InventarioTitleService,
+    private authService: AuthService
   ) { }
 
   ngAfterViewInit() {
@@ -267,8 +269,7 @@ export class AjustarExistenciaComponent implements OnInit {
     if (this.rol === 'ajustaAlmacen') {
       this.router.navigate(['/inventario-portatil/seleccionar']);
     } else {
-      localStorage.clear();
-      window.location.href = '/login';
+      this.authService.logout();
     }
   }
 }

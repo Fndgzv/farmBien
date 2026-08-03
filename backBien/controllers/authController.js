@@ -10,9 +10,48 @@ const {
   isEnabled: isSessionSecurityEnabled,
   logInfo,
   logWarn,
+  renewAccessToken,
   revokeAllUserSessions,
   revokeSessionByTokenPayload,
 } = require("../utils/sessionSecurity");
+
+const FARMACIA_SESSION_FIELDS =
+  "nombre direccion telefono firmaHash titulo1 titulo2 imagen imagen2";
+const ROLES_SIN_FARMACIA_EN_SESION = new Set([
+  "admin",
+  "ajustaAlmacen",
+  "ajustaSoloAlmacen",
+]);
+
+function serializeSessionUser(usuario) {
+  const farmacia = usuario?.farmacia;
+  const incluirFarmacia = farmacia && !ROLES_SIN_FARMACIA_EN_SESION.has(usuario.rol);
+
+  return {
+    id: usuario._id,
+    nombre: usuario.nombre,
+    rol: usuario.rol,
+    telefono: usuario.telefono,
+    email: usuario.email || "",
+    domicilio: usuario.domicilio || "",
+    cedulaProfesional: usuario.cedulaProfesional || "",
+    titulo: usuario.titulo || "",
+    escuela: usuario.escuela || "",
+    logoescuela: usuario.logoescuela || "",
+    farmacia: incluirFarmacia
+      ? {
+          _id: farmacia._id,
+          nombre: farmacia.nombre,
+          direccion: farmacia.direccion,
+          telefono: farmacia.telefono,
+          titulo1: farmacia.titulo1,
+          titulo2: farmacia.titulo2,
+          imagen: farmacia.imagen,
+          imagen2: farmacia.imagen2,
+        }
+      : null,
+  };
+}
 
 async function emitirTokenLogin(usuarioExistente, req) {
   try {
@@ -42,7 +81,7 @@ exports.iniciarSesion = async (req, res) => {
   try {
     const usuarioExistente = await Usuario.findOne({ usuario }).populate(
       "farmacia",
-      "nombre direccion telefono firmaHash titulo1 titulo2 imagen imagen2"
+      FARMACIA_SESSION_FIELDS
     );
 
     if (!usuarioExistente) {
@@ -66,19 +105,7 @@ exports.iniciarSesion = async (req, res) => {
 
       return res.json({
         token,
-        user: {
-          id: usuarioExistente._id,
-          nombre: usuarioExistente.nombre,
-          rol: usuarioExistente.rol,
-          telefono: usuarioExistente.telefono,
-          email: usuarioExistente.email || "",
-          domicilio: usuarioExistente.domicilio || "",
-          cedulaProfesional: usuarioExistente.cedulaProfesional || "",
-          titulo: usuarioExistente.titulo || "",
-          escuela: usuarioExistente.escuela || "",
-          logoescuela: usuarioExistente.logoescuela || "",
-          farmacia: null,
-        },
+        user: serializeSessionUser(usuarioExistente),
       });
     }
 
@@ -127,30 +154,7 @@ exports.iniciarSesion = async (req, res) => {
 
     return res.json({
       token,
-      user: {
-        id: usuarioExistente._id,
-        nombre: usuarioExistente.nombre,
-        rol: usuarioExistente.rol,
-        telefono: usuarioExistente.telefono,
-        email: usuarioExistente.email || "",
-        domicilio: usuarioExistente.domicilio || "",
-        cedulaProfesional: usuarioExistente.cedulaProfesional || "",
-        titulo: usuarioExistente.titulo || "",
-        escuela: usuarioExistente.escuela || "",
-        logoescuela: usuarioExistente.logoescuela || "",
-        farmacia: farmaciaAsociada
-          ? {
-              _id: farmaciaAsociada._id,
-              nombre: farmaciaAsociada.nombre,
-              direccion: farmaciaAsociada.direccion,
-              telefono: farmaciaAsociada.telefono,
-              titulo1: farmaciaAsociada.titulo1,
-              titulo2: farmaciaAsociada.titulo2,
-              imagen: farmaciaAsociada.imagen,
-              imagen2: farmaciaAsociada.imagen2,
-            }
-          : null,
-      },
+      user: serializeSessionUser(usuarioExistente),
     });
   } catch (error) {
     if (error instanceof SessionSecurityError && error.code === "SESSION_ACTIVE_EXISTS") {
@@ -169,6 +173,59 @@ exports.iniciarSesion = async (req, res) => {
 
     console.error("Error en iniciarSesion:", error);
     return res.status(500).json({ mensaje: "Error en el servidor" });
+  }
+};
+
+exports.renovarToken = async (req, res) => {
+  try {
+    const currentExpiresAtMs = Number(req.auth?.exp) * 1000;
+    if (!Number.isFinite(currentExpiresAtMs) || currentExpiresAtMs <= Date.now()) {
+      return res.status(401).json({
+        codigo: "TOKEN_EXPIRED",
+        mensaje: "El token ya expiro y no puede renovarse.",
+      });
+    }
+
+    const usuario = await Usuario.findById(req.usuario._id).populate(
+      "farmacia",
+      FARMACIA_SESSION_FIELDS
+    );
+
+    if (!usuario) {
+      return res.status(401).json({
+        codigo: "USER_NOT_FOUND",
+        mensaje: "El usuario ya no existe.",
+      });
+    }
+
+    if (usuario.activo === false) {
+      return res.status(403).json({
+        codigo: "USER_DISABLED",
+        mensaje: "El usuario esta desactivado.",
+      });
+    }
+
+    const renewed = await renewAccessToken({ usuario, decoded: req.auth });
+
+    return res.json({
+      token: renewed.token,
+      expiresAt: renewed.expiresAt.toISOString(),
+      expiresAtMs: renewed.expiresAt.getTime(),
+      user: serializeSessionUser(usuario),
+    });
+  } catch (error) {
+    if (error instanceof SessionSecurityError) {
+      return res.status(error.status || 401).json({
+        codigo: error.code,
+        mensaje: error.message,
+      });
+    }
+
+    console.error("Error al renovar token:", error?.message || error);
+    return res.status(500).json({
+      codigo: "TOKEN_RENEWAL_ERROR",
+      mensaje: "No fue posible renovar la sesion.",
+    });
   }
 };
 

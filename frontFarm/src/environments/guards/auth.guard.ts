@@ -10,8 +10,7 @@ export const authGuard: CanActivateFn = (route) => {
   const router = inject(Router);
 
   if (!authService.isAuthenticated()) {
-    router.navigate(['/login']);
-    return false;
+    return router.createUrlTree(['/login']);
   }
 
   const userData = authService.getUserData();
@@ -20,8 +19,8 @@ export const authGuard: CanActivateFn = (route) => {
 
   if (!rolUsuario) {
     console.warn('Usuario invalido o sin rol:', userData);
-    router.navigate(['/login']);
-    return false;
+    authService.handleUnauthorized();
+    return router.createUrlTree(['/login']);
   }
 
   if (!rolesPermitidos || rolesPermitidos.includes(rolUsuario)) {

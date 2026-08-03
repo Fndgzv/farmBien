@@ -75,12 +75,14 @@ export class EditProfileComponent implements OnInit, AfterViewInit {
           next: (response: any) => {
 
             // 🔹 Actualizamos el localStorage con los nuevos datos
+            const usuarioActual = this.authService.getUserData();
             this.authService.setUserData(
               localStorage.getItem('auth_token')!, // Mantiene el mismo token
               response.usuario.nombre, // Datos actualizados desde el backend 
               //localStorage.getItem('user_password')!, // Mantiene el mismo password
               localStorage.getItem('user_rol')!, // Mantiene el mismo rol
               email,
+              usuarioActual?.farmacia || null,
               telefono,
               domicilio,
             );

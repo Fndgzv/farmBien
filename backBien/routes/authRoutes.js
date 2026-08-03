@@ -4,6 +4,7 @@ const { check } = require("express-validator");
 const auth = require("../middlewares/authMiddleware");
 const {
   iniciarSesion,
+  renovarToken,
   cerrarSesion,
   datosUsuarioAutenticado,
   actualizarDatosUsuarioAutenticado,
@@ -23,6 +24,7 @@ router.post(
 );
 
 router.get("/me", auth, datosUsuarioAutenticado);
+router.post("/renew", auth.forRenewal, renovarToken);
 router.post("/logout", auth, cerrarSesion);
 router.put("/update", auth, actualizarDatosUsuarioAutenticado);
 router.put("/change-password", auth, cambioContrasenia);

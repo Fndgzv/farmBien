@@ -156,9 +156,9 @@ export const routes: Routes = [
         data: { rolesPermitidos: ['admin'] },
         canActivate: [authGuard]
       },
-      { path: 'reporte/ventas-por-farmacia', component: ReporteVentasPorFarmaciaComponent },
-      { path: 'reporte/ventas-producto', component: ReporteVentasProductoComponent },
-      { path: 'reporte/ventas', component: ReporteVentasComponent },
+      { path: 'reporte/ventas-por-farmacia', component: ReporteVentasPorFarmaciaComponent, canActivate: [authGuard] },
+      { path: 'reporte/ventas-producto', component: ReporteVentasProductoComponent, canActivate: [authGuard] },
+      { path: 'reporte/ventas', component: ReporteVentasComponent, canActivate: [authGuard] },
       {
         path: 'reporte/ventas-por-categoria',
         loadComponent: () => import('./pages/ventas-por-categoria/ventas-por-categoria.component')
@@ -166,21 +166,23 @@ export const routes: Routes = [
         canActivate: [authGuard],
         data: { rolesPermitidos: ['admin'] }
       },
-      { path: 'reporte/pedidos', component: ReportePedidosComponent },
-      { path: 'reporte/resumen-utilidades', component: ReporteResumenUtilidadesComponent },
-      { path: 'reporte/utilidades', component: ReportesUtilidadComponent },
-      { path: 'reporte/compras', component: ReporteComprasComponent },
-      { path: 'reporte-presupuesto', component: ReportePresupuestoComponent },
+      { path: 'reporte/pedidos', component: ReportePedidosComponent, canActivate: [authGuard] },
+      { path: 'reporte/resumen-utilidades', component: ReporteResumenUtilidadesComponent, canActivate: [authGuard] },
+      { path: 'reporte/utilidades', component: ReportesUtilidadComponent, canActivate: [authGuard] },
+      { path: 'reporte/compras', component: ReporteComprasComponent, canActivate: [authGuard] },
+      { path: 'reporte-presupuesto', component: ReportePresupuestoComponent, canActivate: [authGuard] },
       {
         path: 'reportes/devoluciones',
         loadComponent: () => import('./reportes-devoluciones/devoluciones-page.component')
           .then(m => m.DevolucionesPageComponent),
+        canActivate: [authGuard],
         resolve: { cat: devolucionesCatalogosResolver }
       },
       {
         path: 'reportes-compras',
         loadComponent: () => import('./reportes-compras/compras-page.component')
-          .then(m => m.ComprasPageComponent)
+          .then(m => m.ComprasPageComponent),
+        canActivate: [authGuard]
       },
       {
         path: 'reporte/inventario-fisico',
@@ -192,16 +194,19 @@ export const routes: Routes = [
       },
       {
         path: 'reportes/compras-historial-producto',
-        component: HistorialProductoPageComponent
+        component: HistorialProductoPageComponent,
+        canActivate: [authGuard]
       },
       {
         path: 'reportes/cancelaciones',
         loadComponent: () => import('./reportes-cancelaciones/cancelaciones-page.component')
-          .then(m => m.CancelacionesPageComponent)
+          .then(m => m.CancelacionesPageComponent),
+        canActivate: [authGuard]
       },
       {
         path: 'reportes/compras-ventas',
-        component: ReporteComprasVentasComponent
+        component: ReporteComprasVentasComponent,
+        canActivate: [authGuard]
       },
       {
         path: 'reportes/surtidos',
@@ -219,17 +224,20 @@ export const routes: Routes = [
       },
       {
         path: 'etiquetas/print',
-        component: EtiquetasPrintComponent
+        component: EtiquetasPrintComponent,
+        canActivate: [authGuard]
       }
       ,
       {
         path: 'etiquetas/design',
-        component: LabelDesignerComponent
+        component: LabelDesignerComponent,
+        canActivate: [authGuard]
       },
 
       {
         path: 'inventario-portatil',
         component: InventarioPortatilComponent,
+        canActivate: [authGuard],
         children: [
           { path: '', redirectTo: 'seleccionar', pathMatch: 'full' },
           { path: 'seleccionar', component: SeleccionarFarmaciaComponent },
@@ -240,6 +248,7 @@ export const routes: Routes = [
       {
         path: 'dashboard',
         component: DashboardComponent,
+        canActivate: [authGuard],
         children: [
           {
             path: '',

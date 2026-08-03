@@ -7,6 +7,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { provideAnimations } from '@angular/platform-browser/animations';
+import { authInterceptor } from './app/services/auth.interceptor';
 
 registerLocaleData(localeEsMx);
 
@@ -16,23 +17,7 @@ bootstrapApplication(AppComponent, {
     { provide: DEFAULT_CURRENCY_CODE, useValue: 'MXN' },
     provideRouter(routes),
     provideAnimations(),
-    provideHttpClient(withInterceptors([
-      (req, next) => {
-        const token = localStorage.getItem('token');
-    
-        if (token) {
-          const authReq = req.clone({
-            setHeaders: {
-              'x-auth-token': token
-            }
-          });
-
-          return next(authReq);
-        }
-
-        return next(req);
-      }
-    ]))
+    provideHttpClient(withInterceptors([authInterceptor]))
     
   ]
 }).catch(err => console.error(err));

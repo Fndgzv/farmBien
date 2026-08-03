@@ -11,6 +11,7 @@ class SessionSecurityError extends Error {
 }
 
 const LOG_PREFIX = "[SESSION_SECURITY]";
+const DEFAULT_JWT_EXPIRES_IN = "12h";
 let cachedModel = null;
 
 function logInfo(message, extra = "") {
@@ -35,7 +36,7 @@ function isEnabled() {
 }
 
 function getJwtExpiresIn() {
-  return process.env.JWT_EXPIRES_IN || "12h";
+  return String(process.env.JWT_EXPIRES_IN || DEFAULT_JWT_EXPIRES_IN).trim();
 }
 
 function getRetentionHours() {
@@ -118,11 +119,56 @@ function getDeviceFingerprint(req, deviceId = "") {
 function decodeTokenExpiry(token) {
   try {
     const decoded = jwt.decode(token);
-    if (decoded?.exp) {
-      return new Date(Number(decoded.exp) * 1000);
+    const expiresAtMs = Number(decoded?.exp) * 1000;
+    if (Number.isFinite(expiresAtMs) && expiresAtMs > 0) {
+      return new Date(expiresAtMs);
     }
   } catch (_) {}
-  return new Date(Date.now() + 12 * 60 * 60 * 1000);
+  return null;
+}
+
+function getFarmaciaClaim(usuario) {
+  const farmaciaId = getFarmaciaId(usuario);
+  return farmaciaId || undefined;
+}
+
+function buildTokenPayload(usuario, sessionClaims = {}) {
+  const payload = {
+    id: String(usuario?._id || usuario?.id || ""),
+    rol: safeString(usuario?.rol, 64),
+  };
+
+  const farmaciaId = getFarmaciaClaim(usuario);
+  if (farmaciaId) payload.fid = farmaciaId;
+  if (sessionClaims.sid) payload.sid = safeString(sessionClaims.sid, 128);
+  if (sessionClaims.jti) payload.jti = safeString(sessionClaims.jti, 128);
+
+  return payload;
+}
+
+function signAccessToken(payload) {
+  if (!process.env.JWT_SECRET) {
+    throw new SessionSecurityError(
+      "JWT_SECRET no esta configurado.",
+      "JWT_SECRET_MISSING",
+      500
+    );
+  }
+
+  const token = jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: getJwtExpiresIn(),
+  });
+  const expiresAt = decodeTokenExpiry(token);
+
+  if (!expiresAt) {
+    throw new SessionSecurityError(
+      "No fue posible determinar la expiracion del token.",
+      "JWT_EXPIRATION_MISSING",
+      500
+    );
+  }
+
+  return { token, expiresAt };
 }
 
 function revokedExpiresAt(now = new Date()) {
@@ -165,8 +211,7 @@ async function cleanupSessionsBestEffort(model, usuarioId = null) {
 }
 
 function signLegacyToken(usuario) {
-  const payload = { id: usuario.id || usuario._id, rol: usuario.rol };
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: getJwtExpiresIn() });
+  return signAccessToken(buildTokenPayload(usuario)).token;
 }
 
 async function generateLoginToken({ usuario, req }) {
@@ -234,20 +279,10 @@ async function generateLoginToken({ usuario, req }) {
 
     const sessionId = randomId(16);
     const tokenJti = randomId(16);
-    const payload = {
-      id: usuarioId,
-      rol,
-      sid: sessionId,
-      jti: tokenJti,
-    };
-
     const farmaciaId = getFarmaciaId(usuario);
-    if (farmaciaId) {
-      payload.fid = farmaciaId;
-    }
-
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: getJwtExpiresIn() });
-    const expiresAt = decodeTokenExpiry(token);
+    const { token, expiresAt } = signAccessToken(
+      buildTokenPayload(usuario, { sid: sessionId, jti: tokenJti })
+    );
 
     await model.create({
       usuario: usuarioId,
@@ -292,6 +327,108 @@ async function generateLoginToken({ usuario, req }) {
       sessionReason: "session_registration_failed_fail_safe",
     };
   }
+}
+
+async function renewAccessToken({ usuario, decoded }) {
+  const now = new Date();
+  const currentExpiresAtMs = Number(decoded?.exp) * 1000;
+  const usuarioId = String(usuario?._id || usuario?.id || "");
+
+  if (!Number.isFinite(currentExpiresAtMs) || currentExpiresAtMs <= now.getTime()) {
+    throw new SessionSecurityError(
+      "El token ya expiro y no puede renovarse.",
+      "TOKEN_EXPIRED",
+      401
+    );
+  }
+
+  if (!usuarioId || String(decoded?.id || "") !== usuarioId) {
+    throw new SessionSecurityError(
+      "El token no corresponde al usuario autenticado.",
+      "TOKEN_USER_MISMATCH",
+      401
+    );
+  }
+
+  const sessionId = safeString(decoded?.sid, 128);
+  const currentTokenJti = safeString(decoded?.jti, 128);
+
+  // Compatibilidad con tokens emitidos antes de habilitar el registro de sesiones.
+  if (!isEnabled() || !sessionId) {
+    const signed = signAccessToken(buildTokenPayload(usuario));
+    return {
+      ...signed,
+      sessionSecurityEnabled: isEnabled(),
+      sessionRegistered: false,
+    };
+  }
+
+  if (!currentTokenJti) {
+    throw new SessionSecurityError(
+      "El token de sesion no contiene un identificador valido.",
+      "SESSION_JTI_MISSING",
+      401
+    );
+  }
+
+  const model = getSessionModelSafe();
+  if (!model) {
+    throw new SessionSecurityError(
+      "No fue posible validar la sesion para renovarla.",
+      "SESSION_STORE_UNAVAILABLE",
+      503
+    );
+  }
+
+  const newTokenJti = randomId(16);
+  const farmaciaId = getFarmaciaId(usuario);
+  const signed = signAccessToken(
+    buildTokenPayload(usuario, { sid: sessionId, jti: newTokenJti })
+  );
+
+  let updatedSession;
+  try {
+    updatedSession = await model.findOneAndUpdate(
+      {
+        sessionId,
+        usuario: usuarioId,
+        tokenJti: currentTokenJti,
+        estado: "active",
+        expiresAt: { $gt: now },
+      },
+      {
+        $set: {
+          tokenJti: newTokenJti,
+          rol: safeString(usuario.rol, 64),
+          farmacia: farmaciaId || null,
+          ultimoUsoEn: now,
+          expiresAt: signed.expiresAt,
+        },
+      },
+      { new: true }
+    );
+  } catch (error) {
+    logWarn("No fue posible actualizar la sesion durante la renovacion.", error?.message || "");
+    throw new SessionSecurityError(
+      "No fue posible validar la sesion para renovarla.",
+      "SESSION_RENEWAL_UNAVAILABLE",
+      503
+    );
+  }
+
+  if (!updatedSession) {
+    throw new SessionSecurityError(
+      "La sesion ya no esta activa o fue renovada desde otra pestaña.",
+      "SESSION_NOT_RENEWABLE",
+      401
+    );
+  }
+
+  return {
+    ...signed,
+    sessionSecurityEnabled: true,
+    sessionRegistered: true,
+  };
 }
 
 async function revokeSessionByTokenPayload(decoded, reason = "logged_out") {
@@ -349,7 +486,7 @@ async function revokeAllUserSessions(usuarioId, reason = "password_changed") {
   }
 }
 
-async function validateSessionOnRequest({ decoded, req, usuario }) {
+async function validateSessionOnRequest({ decoded, req, usuario, allowStaleSessionClaims = false }) {
   if (!isEnabled()) {
     return { allow: true, mode: "disabled" };
   }
@@ -416,7 +553,7 @@ async function validateSessionOnRequest({ decoded, req, usuario }) {
 
     const farmaciaUsuario = getFarmaciaId(usuario);
     const farmaciaToken = safeString(decoded?.fid, 64);
-    if (farmaciaToken && farmaciaUsuario && farmaciaToken !== farmaciaUsuario) {
+    if (!allowStaleSessionClaims && farmaciaToken && farmaciaUsuario && farmaciaToken !== farmaciaUsuario) {
       return {
         allow: false,
         status: 401,
@@ -449,11 +586,15 @@ async function validateSessionOnRequest({ decoded, req, usuario }) {
 
 module.exports = {
   SessionSecurityError,
+  DEFAULT_JWT_EXPIRES_IN,
   isEnabled,
   logInfo,
   logWarn,
+  getJwtExpiresIn,
   getTokenFromRequest,
+  decodeTokenExpiry,
   generateLoginToken,
+  renewAccessToken,
   validateSessionOnRequest,
   revokeSessionByTokenPayload,
   revokeAllUserSessions,

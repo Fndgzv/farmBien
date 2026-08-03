@@ -233,7 +233,6 @@ export class InicioTurnoComponent implements OnInit {
                       next: () => {
                         this.turnoCajaService.limpiarTurnoActivo();
                         this.authService.logout();
-                        this.router.navigate(['/home']);
                       },
                       error: err => {
                         console.error('Error al guardar corte:', err);
@@ -289,4 +288,3 @@ export class InicioTurnoComponent implements OnInit {
     }
   }
 }
-

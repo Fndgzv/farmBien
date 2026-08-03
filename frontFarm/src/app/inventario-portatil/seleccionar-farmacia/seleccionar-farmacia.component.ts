@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { InventarioTitleService } from '../inventario-title.service';
 import { FarmaciaService } from '../../services/farmacia.service';
 import { InventarioPortatilService } from '../inventario-portatil.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-seleccionar-farmacia',
@@ -22,7 +23,8 @@ export class SeleccionarFarmaciaComponent implements OnInit {
     private farmaciaService: FarmaciaService,
     private router: Router,
     private titleService: InventarioTitleService,
-    private invService: InventarioPortatilService
+    private invService: InventarioPortatilService,
+    private authService: AuthService
   ) { }
 
   ngOnInit() {
@@ -57,6 +59,6 @@ export class SeleccionarFarmaciaComponent implements OnInit {
   salir() {
     this.invService.limpiarUbicacionTemporal();
     localStorage.removeItem('inventarioUbicacion');
-    this.router.navigate(['/login']);
+    this.authService.logout();
   }
 }

@@ -4,6 +4,7 @@ import { InventarioPortatilService } from '../inventario-portatil.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventarioTitleService } from '../inventario-title.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-buscar-producto',
@@ -27,7 +28,8 @@ export class BuscarProductoComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private invService: InventarioPortatilService,
-    private titleService: InventarioTitleService
+    private titleService: InventarioTitleService,
+    private authService: AuthService
   ) { }
 
   ngAfterViewInit() {
@@ -93,8 +95,7 @@ export class BuscarProductoComponent implements OnInit {
     }
 
     // Si es AJUSTA FARMA → cerrar sesión
-    localStorage.clear();
-    window.location.href = '/login';
+    this.authService.logout();
   }
 
 

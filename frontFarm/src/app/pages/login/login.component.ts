@@ -75,16 +75,6 @@ export class LoginComponent {
         next: (response: any) => {
 
           if (response && response.token && response.user) {
-            this.authService.setUserData(
-              response.token,
-              response.user.nombre,
-              response.user.rol,
-              response.user.email,
-              response.user.farmacia,
-              response.user.telefono,
-              response.user.domicilio
-            );
-
             // Redirección según rol
             const rol = response.user.rol;
 

@@ -1,4 +1,3 @@
-import { Router } from '@angular/router';
 import { Component, Inject, OnInit } from '@angular/core';
 import { DatePipe, CurrencyPipe, CommonModule } from '@angular/common';
 import {
@@ -10,6 +9,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../src/environments/environment';
 import { MatButtonModule } from '@angular/material/button';
 import Swal from 'sweetalert2';
+import { AuthService } from '../../services/auth.service';
 
 type ModoDialog = 'cerrado' | 'previo';
 
@@ -44,7 +44,7 @@ export class CorteDetalleDialogComponent implements OnInit{
     },
     private http: HttpClient,
     private dialogRef: MatDialogRef<CorteDetalleDialogComponent>,
-    private router: Router
+    private authService: AuthService
   ) { }
 
 
@@ -108,20 +108,7 @@ export class CorteDetalleDialogComponent implements OnInit{
   }
 
   private logoutPorCierre() {
-    // Si tienes un AuthService con logout, úsalo:
-    // this.authService.logout();
-
-    // Fallback directo: limpiar storage y navegar
-    try {
-      localStorage.removeItem('corte_activo');
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('usuario');
-    } catch { /* ignore */ }
-
-    // Redirige a home o login (según tu app)
-    this.router.navigate(['/home']);
-    // Si quieres forzar recarga total:
-    location.reload();
+    this.authService.logout();
   }
 
   private num(v: any): number { return v == null ? 0 : Number(v); }
