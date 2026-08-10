@@ -368,6 +368,9 @@ export async function printNodeInIframe(
     fallbackMs?: number;
     settleMs?: number;   // micro-respiro antes de print
     feedMm?: number;     // espacio extra al final del ticket (evita encimado)
+    offscreenFrame?: boolean; // oculta fuera del viewport sin heredar visibility:hidden al documento
+    forceVisibleClone?: boolean;
+    printCss?: string;   // reglas específicas, insertadas después de los estilos globales
   }
 ): Promise<void> {
   const fallbackMs = opts?.fallbackMs ?? 25000; // 👈 más alto (evita “resolver” antes de tiempo)
@@ -390,12 +393,21 @@ export async function printNodeInIframe(
       // 1) Crear iframe oculto
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
       iframe.style.border = '0';
-      iframe.style.visibility = 'hidden';
+      if (opts?.offscreenFrame) {
+        // No usar visibility:hidden: el navegador la aplica también al contenido que debe pintar.
+        iframe.style.left = '-10000px';
+        iframe.style.top = '0';
+        iframe.style.width = '8.5in';
+        iframe.style.height = '1px';
+        iframe.style.pointerEvents = 'none';
+      } else {
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.visibility = 'hidden';
+      }
       document.body.appendChild(iframe);
 
       const win = iframe.contentWindow;
@@ -409,9 +421,19 @@ export async function printNodeInIframe(
 
       // 3) Copiar head (estilos globales, etc.)
       doc.head.innerHTML = document.head.innerHTML;
+      if (opts?.printCss) {
+        const style = doc.createElement('style');
+        style.textContent = opts.printCss;
+        doc.head.appendChild(style);
+      }
 
       // 4) Clonar el ticket
       const clone = node.cloneNode(true) as HTMLElement;
+      if (opts?.forceVisibleClone) {
+        clone.style.setProperty('display', 'block', 'important');
+        clone.style.setProperty('visibility', 'visible', 'important');
+        clone.style.setProperty('opacity', '1', 'important');
+      }
       doc.body.appendChild(clone);
 
       // 5) FEED al final (para separar trabajos y evitar encimado)

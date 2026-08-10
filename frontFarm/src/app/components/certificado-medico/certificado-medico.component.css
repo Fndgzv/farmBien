@@ -1,0 +1,671 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.certificado-modal {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f5f8fc;
+  color: #172033;
+}
+
+.modal-header-certificado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #032d62, #0758aa);
+  color: #fff;
+}
+
+.modal-header-certificado h2 {
+  margin: 0;
+  font-size: 21px;
+  letter-spacing: .3px;
+}
+
+.modal-header-certificado small {
+  color: #dbeafe;
+}
+
+.modo-badge {
+  border: 1px solid #bdd7ff;
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: rgba(255,255,255,.12);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.contenido-modal {
+  flex: 1;
+  overflow: auto;
+  padding: 14px 18px 24px;
+}
+
+.estado-modal {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  font-size: 16px;
+  color: #345;
+}
+
+.seccion-form {
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #cbd8e8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 48, 88, .06);
+}
+
+.seccion-form h3 {
+  margin: 0 0 12px;
+  padding-bottom: 7px;
+  border-bottom: 2px solid #0b5cab;
+  color: #173f78;
+  font-size: 17px;
+}
+
+.relaciones {
+  background: #eef6ff;
+}
+
+.grid-form {
+  display: grid;
+  gap: 10px 12px;
+}
+
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.span-2 { grid-column: span 2; }
+.span-3 { grid-column: span 3; }
+
+.grid-form label,
+.subseccion-card > label,
+.observaciones-bucales {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.grid-form label > span,
+.subseccion-card label > span,
+.observaciones-bucales > span {
+  color: #344866;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #aebed1;
+  border-radius: 6px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.mayusculas {
+  text-transform: uppercase;
+}
+
+.ayuda {
+  margin: -6px 0 10px;
+  color: #68788d;
+  font-size: 12px;
+}
+
+.antecedentes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.antecedente-card,
+.subseccion-card,
+.checks-panel {
+  padding: 10px;
+  border: 1px solid #d8e1ec;
+  border-radius: 8px;
+  background: #f9fbfd;
+}
+
+.checks-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.antecedente-titulo {
+  margin-bottom: 8px;
+  color: #173f78;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.otras-input {
+  margin-bottom: 8px;
+}
+
+.familiares-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.check-item {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 5px !important;
+  min-width: 0;
+  margin: 2px 18px 7px 0;
+  color: #2d3d52;
+  font-size: 12px;
+}
+
+.check-item input[type="checkbox"] {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+}
+
+.check-con-texto .check-item,
+.niega-hereditarios {
+  margin: 0;
+}
+
+.check-con-texto {
+  display: grid;
+  grid-template-columns: auto minmax(100px, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.subsecciones-examen {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.subseccion-card h4 {
+  margin: 0 0 8px;
+  color: #17467f;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.tratamiento-label {
+  margin-top: 7px;
+}
+
+.leyenda-dientes-captura {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #eef5fd;
+  font-size: 11px;
+}
+
+.odontograma-captura {
+  overflow-x: auto;
+  padding: 12px 0;
+}
+
+.odontograma-diagrama {
+  position: relative;
+  min-width: 980px;
+}
+
+.odontograma-diagrama::before {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px solid #7891b0;
+  content: "";
+  pointer-events: none;
+}
+
+.fila-dientes {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.odontograma-eje-horizontal,
+.odontograma-print-eje-horizontal {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #7891b0;
+  color: #1b365d;
+  font-size: 9px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.odontograma-eje-horizontal {
+  height: 10px;
+  margin: 15px 4px 0;
+}
+
+.odontograma-eje-horizontal span,
+.odontograma-print-eje-horizontal span {
+  padding: 0 4px;
+  background: #fff;
+  transform: translateY(-55%);
+}
+
+.diente-control {
+  width: 56px;
+  text-align: center;
+}
+
+.diente-control > span {
+  display: block;
+  color: #173f78;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.diente-control select {
+  height: 31px;
+  min-height: 31px;
+  padding: 3px;
+  font-size: 11px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 11px 18px;
+  border-top: 1px solid #c4d1e0;
+  background: #fff;
+}
+
+.modal-actions button {
+  min-width: 120px;
+}
+
+.certificado-print {
+  display: none;
+}
+
+/* Documento carta de dos páginas. */
+.print-page {
+  width: 8.5in;
+  height: 11in;
+  box-sizing: border-box;
+  padding: .30in .38in;
+  overflow: hidden;
+  background: #fff;
+  color: #294781;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8.2px;
+  line-height: 1.12;
+}
+
+.print-page + .print-page {
+  page-break-before: always;
+}
+
+.print-institutional-header img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.print-blue-rule {
+  height: 3px;
+  margin: 2px 0 12px;
+  background: #4162aa;
+}
+
+.print-title-row {
+  display: grid;
+  grid-template-columns: 1fr 4.4in;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 10px;
+}
+
+.print-title-row h1 {
+  margin: 0;
+  font-size: 19px;
+  color: #294781;
+}
+
+.revision-box {
+  display: grid;
+  grid-template-columns: 1.8in 1fr;
+  min-height: .40in;
+  border: 1px solid #506ac2;
+}
+
+.revision-box b,
+.revision-box span {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.revision-box b {
+  border-right: 1px solid #506ac2;
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0 4px;
+  color: #294781;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.section-title span,
+.section-title small {
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: #294781;
+}
+
+.print-table th,
+.print-table td {
+  height: 17px;
+  padding: 2px 5px;
+  border: .8px solid #506ac2;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+
+.print-table th {
+  font-weight: 800;
+}
+
+.datos-table td {
+  height: 19px;
+}
+
+.antecedentes-print-table th:nth-child(1),
+.antecedentes-print-table th:nth-child(4) { width: 6%; }
+.antecedentes-print-table th:nth-child(2),
+.antecedentes-print-table th:nth-child(5) { width: 24%; }
+.antecedentes-print-table th:nth-child(3),
+.antecedentes-print-table th:nth-child(6) { width: 20%; }
+
+.hereditarios-print-table th:nth-child(1),
+.hereditarios-print-table th:nth-child(4) { width: 5%; }
+.hereditarios-print-table th:nth-child(2),
+.hereditarios-print-table th:nth-child(5) { width: 17%; }
+.hereditarios-print-table th:nth-child(3),
+.hereditarios-print-table th:nth-child(6) { width: 28%; }
+
+.hereditarios-print-table td:nth-child(3),
+.hereditarios-print-table td:nth-child(6) {
+  font-size: 7.4px;
+  line-height: 1.18;
+  white-space: normal;
+}
+
+.mid-rule {
+  margin: 14px 0 10px;
+}
+
+.examen-base-table td {
+  height: 21px;
+}
+
+.three-print-panels,
+.four-print-panels {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 12px 8px;
+  border: 1px solid #506ac2;
+}
+
+.three-print-panels {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.four-print-panels {
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 0;
+}
+
+.mini-table th,
+.mini-table td {
+  height: 16px;
+  padding: 2px 4px;
+}
+
+.mini-table td:last-child {
+  width: 28%;
+  text-align: center;
+  font-weight: 800;
+}
+
+.page-two {
+  padding-top: .45in;
+}
+
+.salud-print-grid {
+  display: grid;
+  grid-template-columns: 2in 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.conceptos-table td:last-child {
+  width: 25%;
+  text-align: center;
+  font-weight: 800;
+}
+
+.observaciones-table {
+  margin-top: 12px;
+}
+
+.observaciones-table td {
+  height: 1.18in;
+  vertical-align: top;
+}
+
+.odontograma-print {
+  position: relative;
+  min-height: 3.16in;
+  padding: 12px 6px 20px;
+  border: 1px solid #506ac2;
+}
+
+.odontograma-print::before {
+  position: absolute;
+  z-index: 0;
+  top: 8px;
+  bottom: 12px;
+  left: 50%;
+  border-left: 1px solid #7d8fae;
+  content: "";
+  pointer-events: none;
+}
+
+.odontograma-print-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 3px 0 7px;
+}
+
+.odontograma-print-eje-horizontal {
+  height: 9px;
+  margin: 8px 5px 5px;
+}
+
+.diente-print {
+  display: grid;
+  justify-items: center;
+  width: 27px;
+}
+
+.diente-numero {
+  font-size: 6.5px;
+}
+
+.diente-figura {
+  display: block;
+  width: 18px;
+  height: 21px;
+  object-fit: contain;
+}
+
+.diente-print b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 12px;
+  margin-top: 2px;
+  background: #e8ecf3;
+  color: #172033;
+  font-size: 8px;
+}
+
+.diagnostico-table td:first-child {
+  width: 76%;
+}
+
+.diagnostico-table td:not(:first-child) {
+  text-align: center;
+}
+
+.diagnostico-observaciones-table {
+  margin-top: 14px;
+}
+
+.diagnostico-observaciones-table td {
+  height: .72in;
+  vertical-align: top;
+}
+
+.certificado-por {
+  position: relative;
+  height: 1.55in;
+  margin-top: 14px;
+  border: 1px solid #506ac2;
+  text-align: center;
+}
+
+.certificado-por > b {
+  display: block;
+  padding: 3px;
+  border-bottom: 1px solid #506ac2;
+  font-size: 10px;
+}
+
+.firma-medico {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #111;
+  font-size: 9px;
+}
+
+@media (max-width: 900px) {
+  .grid-4,
+  .subsecciones-examen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .familiares-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .span-3 { grid-column: span 2; }
+}
+
+@media (max-width: 620px) {
+  .contenido-modal { padding: 10px; }
+  .grid-2,
+  .grid-4,
+  .antecedentes-grid,
+  .subsecciones-examen {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2,
+  .span-3 { grid-column: span 1; }
+
+  .familiares-grid { grid-template-columns: 1fr; }
+  .modal-actions { justify-content: stretch; }
+  .modal-actions button { flex: 1; min-width: 0; }
+}
+
+@page {
+  size: letter portrait;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .certificado-print {
+    display: block !important;
+  }
+
+  .print-page {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}

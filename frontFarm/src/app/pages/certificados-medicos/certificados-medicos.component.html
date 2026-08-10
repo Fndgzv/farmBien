@@ -1,0 +1,136 @@
+<h1 class="titulo certificados-titulo">Certificados Médicos</h1>
+
+<form [formGroup]="formFiltros" (ngSubmit)="buscar()" class="filter-container">
+  <div class="filtros-grid">
+    <div class="filtro-campo">
+      <label>Farmacia</label>
+      <div class="control-limpiable">
+        <select class="form-control" formControlName="farmacia" (change)="onFarmaciaCambio()">
+          <option value="">Todas</option>
+          <option *ngFor="let farmacia of farmacias" [value]="farmacia._id">{{ farmacia.nombre }}</option>
+        </select>
+        <button *ngIf="esAdmin && formFiltros.get('farmacia')?.value" type="button" class="limpiar"
+          (click)="limpiarFiltro('farmacia')" matTooltip="Limpiar farmacia">×</button>
+      </div>
+    </div>
+
+    <div class="filtro-campo">
+      <label>Nombre</label>
+      <div class="control-limpiable">
+        <input class="form-control" formControlName="nombre" (keyup.enter)="buscar()">
+        <button *ngIf="formFiltros.get('nombre')?.value" type="button" class="limpiar"
+          (click)="limpiarFiltro('nombre')" matTooltip="Limpiar nombre">×</button>
+      </div>
+    </div>
+
+    <div class="filtro-campo">
+      <label>Responsable</label>
+      <div class="control-limpiable">
+        <input class="form-control" formControlName="responsable" (keyup.enter)="buscar()">
+        <button *ngIf="formFiltros.get('responsable')?.value" type="button" class="limpiar"
+          (click)="limpiarFiltro('responsable')" matTooltip="Limpiar responsable">×</button>
+      </div>
+    </div>
+
+    <div class="filtro-campo" *ngIf="esAdmin">
+      <label>Médico</label>
+      <div class="control-limpiable">
+        <select class="form-control" formControlName="medico">
+          <option value="">Todos</option>
+          <option *ngFor="let medico of medicosFarmacia" [value]="medico._id">{{ medico.nombre }}</option>
+        </select>
+        <button *ngIf="formFiltros.get('medico')?.value" type="button" class="limpiar"
+          (click)="limpiarFiltro('medico')" matTooltip="Limpiar médico">×</button>
+      </div>
+    </div>
+
+    <div class="filtro-campo">
+      <label>Fecha</label>
+      <div class="control-limpiable">
+        <input type="date" class="form-control" formControlName="fechaRevision" (keyup.enter)="buscar()">
+        <button *ngIf="formFiltros.get('fechaRevision')?.value" type="button" class="limpiar"
+          (click)="limpiarFiltro('fechaRevision')" matTooltip="Limpiar fecha">×</button>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-gris boton-buscar" [disabled]="cargando">
+      {{ cargando ? 'Buscando…' : 'Buscar' }}
+    </button>
+  </div>
+</form>
+
+<div class="acciones-listado">
+  <button type="button" class="btn-verde" (click)="agregar()">Agregar</button>
+</div>
+
+<div class="table-responsive certificados-tabla-wrap">
+  <table class="tabla certificados-tabla">
+    <thead>
+      <tr>
+        <th class="th-sort" (click)="ordenar('farmacia')">Farmacia <span>{{ indicadorOrden('farmacia') }}</span></th>
+        <th class="th-sort" (click)="ordenar('nombre')">Nombre <span>{{ indicadorOrden('nombre') }}</span></th>
+        <th class="th-sort" (click)="ordenar('responsable')">Responsable <span>{{ indicadorOrden('responsable') }}</span></th>
+        <th class="th-sort" (click)="ordenar('medico')">Médico <span>{{ indicadorOrden('medico') }}</span></th>
+        <th class="th-sort" (click)="ordenar('fechaRevision')">Fecha <span>{{ indicadorOrden('fechaRevision') }}</span></th>
+        <th>Acción</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let certificado of certificados">
+        <td>{{ certificado?.farmacia?.nombre || '—' }}</td>
+        <td>{{ certificado?.nombre || '—' }}</td>
+        <td>{{ certificado?.responsable || '—' }}</td>
+        <td>{{ certificado?.medico?.nombre || '—' }}</td>
+        <td>{{ fechaVisible(certificado?.fechaRevision) }}</td>
+        <td class="accion-cell">
+          <button type="button" class="btn-icon-chico btn-gris-chico" (click)="editar(certificado)" matTooltip="Editar">
+            ✎
+          </button>
+        </td>
+      </tr>
+      <tr *ngIf="!cargando && certificados.length === 0">
+        <td colspan="6" class="sin-resultados">No se encontraron certificados médicos.</td>
+      </tr>
+      <tr *ngIf="cargando">
+        <td colspan="6" class="sin-resultados">Cargando…</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="paginacion">
+  <button (click)="irAPrimera()" [disabled]="pagina === 1" matTooltip="Primera página">
+    <i class="fa fa-angle-double-left"></i>
+  </button>
+  <button (click)="paginaAnterior()" [disabled]="pagina === 1" matTooltip="Anterior">
+    <i class="fa fa-angle-left"></i>
+  </button>
+  <span>Página {{ pagina }} de {{ totalPaginas }} ({{ total }} certificados)</span>
+  <button (click)="paginaSiguiente()" [disabled]="pagina === totalPaginas" matTooltip="Siguiente">
+    <i class="fa fa-angle-right"></i>
+  </button>
+  <button (click)="irAUltima()" [disabled]="pagina === totalPaginas" matTooltip="Última página">
+    <i class="fa fa-angle-double-right"></i>
+  </button>
+</div>
+
+<!-- <div class="paginacion">
+    <button (click)="irAPrimera()" [disabled]="paginaActual === 1" matTooltip="Primera página">
+        <i class="fa fa-angle-double-left"></i>
+    </button>
+
+    <button (click)="paginaAnterior()" [disabled]="paginaActual === 1" matTooltip="Anterior">
+        <i class="fa fa-angle-left"></i>
+    </button>
+
+    Página {{ paginaActual }} de {{ totalPaginas }}
+    <span class="total-registros">({{ totalInventarioActivo }} productos)</span>
+
+    <button (click)="paginaSiguiente()" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
+        <i class="fa fa-angle-right"></i>
+    </button>
+
+    <button (click)="irAUltima()" [disabled]="paginaActual === totalPaginas" matTooltip="Última página">
+        <i class="fa fa-angle-double-right"></i>
+    </button>
+</div> -->

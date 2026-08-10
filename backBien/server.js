@@ -56,6 +56,7 @@ require('./models/Cliente');
 require('./models/Compra');
 require('./models/CorteCaja');
 require('./models/FichaConsultorio');
+require('./models/CertificadosMedico');
 require('./models/Paciente');
 require('./models/Receta');
 require('./models/PantallaTurnosConfig');
@@ -102,6 +103,7 @@ app.use('/api/reportes', require('./routes/reportesRoutes'));
 app.use('/api/reportes', require('./routes/reportesPresupuestoRoutes'));
 app.use('/api/inventario-fisico', require('./routes/inventarioFisico.routes'));
 app.use("/api/fichas-consultorio", require("./routes/fichasConsultorio.routes"));
+app.use("/api/certificados-medicos", require("./routes/certificadosMedicos.routes"));
 app.use("/api/admin/pacientes", require("./routes/adminPacientes.routes"));
 app.use("/api/pacientes", require("./routes/pacientes.routes"));
 app.use("/api/recetas", require("./routes/recetas.routes"));
@@ -203,6 +205,7 @@ mongoose.connection.once('open', async () => {
     const CorteCaja = mongoose.model('CorteCaja');
     const Paciente = mongoose.model('Paciente');
     const FichaConsultorio = mongoose.model('FichaConsultorio');
+    const CertificadosMedico = mongoose.model('CertificadosMedico');
     const PantallaTurnosConfig = mongoose.model('PantallaTurnosConfig');
     const TurnoConsultorioCounter = mongoose.model('TurnoConsultorioCounter');
 
@@ -218,6 +221,7 @@ mongoose.connection.once('open', async () => {
       CorteCaja.syncIndexes(),
       Paciente.syncIndexes(),
       FichaConsultorio.syncIndexes(),
+      CertificadosMedico.syncIndexes(),
       PantallaTurnosConfig.syncIndexes(),
       TurnoConsultorioCounter.syncIndexes(),
     ]);

@@ -44,6 +44,12 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         currentToken !== tokenAtRequest &&
         authService.isAuthenticated()
       ) {
+        // Mutations must not be resent automatically. The first request may have
+        // reached the server, so retrying it could apply the operation twice.
+        if (!isSafeMethod(request.method)) {
+          return throwError(() => error);
+        }
+
         const retryRequest = request.clone({
           setHeaders: { 'x-auth-token': currentToken },
         });
@@ -68,6 +74,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     })
   );
 };
+
+export function isSafeMethod(method: string): boolean {
+  return ['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+}
 
 function isAuthenticationFailure(error: HttpErrorResponse): boolean {
   const code = String(error.error?.codigo || error.error?.code || '').toUpperCase();

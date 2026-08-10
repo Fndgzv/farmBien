@@ -45,20 +45,20 @@
   </form>
 
   <div *ngIf="pendientes.length" class="toolbar" style="margin: .5rem 0; display:flex; gap:.5rem; align-items:center;">
-    <button class="btn-gris" (click)="omitirTodos()" matTooltip="Marca todos como omitidos">Omitir todos</button>
-    <button class="btn-gris" (click)="quitarOmisiones()" matTooltip="Quita todas las omisiones">Quitar
+    <button type="button" class="btn-gris" (click)="omitirTodos()" [disabled]="guardandoSurtido" matTooltip="Marca todos como omitidos">Omitir todos</button>
+    <button type="button" class="btn-gris" (click)="quitarOmisiones()" [disabled]="guardandoSurtido" matTooltip="Quita todas las omisiones">Quitar
       omisiones</button>
     <span style="margin-left:auto; font-size: .9rem;">
       Omitidos: <strong>{{ totalOmitidos }}</strong> / {{ rows.length }}
     </span>
     <div *ngIf="pendientes.length" class="toolbar"
       style="margin: .5rem 0; display:flex; gap:.5rem; align-items:center;">
-      <button class="btn-verde" (click)="imprimirPrevia()" matTooltip="Imprime la hoja de surtido con las omisiones">
+      <button type="button" class="btn-verde" (click)="imprimirPrevia()" [disabled]="guardandoSurtido" matTooltip="Imprime la hoja de surtido con las omisiones">
         Imprimir previa
       </button>
     </div>
 
-    <button class="btn-amarillo" (click)="exportarExcel()" [disabled]="!rows.length"
+    <button type="button" class="btn-amarillo" (click)="exportarExcel()" [disabled]="!rows.length || guardandoSurtido"
       matTooltip="Exporta todos los registros de la tabla">
       Exportar a Excel
     </button>
@@ -120,6 +120,7 @@
       <tr *ngFor="let p of pagedRows; trackBy: trackByProd" [class.omitido]="p.omitir">
         <td style="text-align:center;">
           <input type="checkbox" class="chk-omit" [(ngModel)]="p.omitir" name="omitir_{{ p.producto }}"
+            [disabled]="guardandoSurtido"
             [attr.aria-label]="'Omitir ' + p.nombre" matTooltip="Si está activado, este producto no se surtirá" />
         </td>
         <td>
@@ -162,10 +163,10 @@
   </div>
 
   <div *ngIf="pendientes.length" class="botones-accion">
-    <button (click)="onCancelar()" class="btn-rojo" matTooltip="Quitar lista sin surtir">Cancelar</button>
-    <button (click)="onSurtir()" class="btn-verde a-la-derecha"
-      [disabled]="rows.length > 0 && totalOmitidos === rows.length" matTooltip="Surtir los productos de la lista">
-      Surtir
+    <button type="button" (click)="onCancelar()" class="btn-rojo" [disabled]="guardandoSurtido" matTooltip="Quitar lista sin surtir">Cancelar</button>
+    <button type="button" (click)="onSurtir()" class="btn-verde a-la-derecha"
+      [disabled]="guardandoSurtido || (rows.length > 0 && totalOmitidos === rows.length)" matTooltip="Surtir los productos de la lista">
+      {{ guardandoSurtido ? 'Surtiendo...' : 'Surtir' }}
     </button>
   </div>
 </div>

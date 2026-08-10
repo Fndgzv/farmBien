@@ -1,0 +1,103 @@
+.certificados-titulo {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.filter-container {
+  border-bottom: 2px solid #0453b3;
+  padding-bottom: 12px;
+}
+
+.filtros-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.2fr) repeat(4, minmax(140px, 1fr)) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.filtro-campo label {
+  display: block;
+  color: #173c73;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.control-limpiable {
+  position: relative;
+}
+
+.control-limpiable .form-control {
+  padding-right: 30px;
+}
+
+.limpiar {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: #b42318;
+  color: #fff;
+  font-weight: 800;
+  line-height: 20px;
+}
+
+.boton-buscar {
+  min-width: 92px;
+}
+
+.acciones-listado {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px 0;
+}
+
+.certificados-tabla-wrap {
+  min-height: 220px;
+}
+
+.certificados-tabla {
+  width: 100%;
+}
+
+.th-sort {
+  cursor: pointer;
+  user-select: none;
+}
+
+.th-sort span {
+  color: #0453b3;
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.accion-cell,
+.sin-resultados {
+  text-align: center;
+}
+
+.sin-resultados {
+  color: #6b7280;
+  padding: 24px;
+}
+
+@media (max-width: 1100px) {
+  .filtros-grid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .filtros-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .boton-buscar {
+    width: 100%;
+  }
+}

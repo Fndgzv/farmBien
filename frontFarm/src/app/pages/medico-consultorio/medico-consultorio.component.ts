@@ -2,9 +2,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import Swal from 'sweetalert2';
 import { firstValueFrom } from 'rxjs';
 import { FichasConsultorioService } from '../../services/fichas-consultorio.service';
+import { CertificadosMedicosService } from '../../services/certificados-medicos.service';
 import { PacientesService } from '../../services/pacientes.service';
 import { RecetasService } from '../../services/recetas.service';
 import { ProductoService } from '../../services/producto.service';
@@ -12,6 +14,8 @@ import { environment } from '../../../environments/environment';
 import { buildImgUrl } from '../../shared/img-url';
 import { formatearTurnoConsultorioVisual } from '../../shared/utils/turno-visual';
 import { text } from '@fortawesome/fontawesome-svg-core';
+import { CertificadoMedicoComponent } from '../../components/certificado-medico/certificado-medico.component';
+import { soloFecha } from '../../models/certificado-medico.model';
 
 type ServicioMedico = { _id: string; nombre: string; precioVenta?: number; categoria?: string };
 
@@ -91,7 +95,7 @@ declare const bootstrap: any;
 @Component({
   selector: 'app-medico-consultorio',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatDialogModule],
   templateUrl: './medico-consultorio.component.html',
   styleUrls: ['./medico-consultorio.component.css'],
 })
@@ -351,9 +355,11 @@ export class MedicoConsultorioComponent implements OnInit {
 
   constructor(
     private fichasService: FichasConsultorioService,
+    private certificadosMedicosService: CertificadosMedicosService,
     private pacientesService: PacientesService,
     private recetasService: RecetasService,
-    private productosService: ProductoService) { }
+    private productosService: ProductoService,
+    private dialog: MatDialog) { }
 
   async ngOnInit() {
     // (opcional) mostrar farmacia del localStorage
@@ -657,6 +663,131 @@ export class MedicoConsultorioComponent implements OnInit {
   esMia(f: any): boolean {
     const miId = this.miUsuarioId;
     return !!miId && !!f?.medicoId && String(f.medicoId) === String(miId);
+  }
+
+  async abrirCertificadoMedico() {
+    const fichaId = String(this.fichaActual?._id || '').trim();
+    if (!fichaId) return;
+
+    try {
+      const resp: any = await firstValueFrom(this.certificadosMedicosService.obtenerPorFicha(fichaId));
+      const existente = resp?.certificado || null;
+
+      const dialogRef = this.dialog.open(CertificadoMedicoComponent, {
+        width: '98vw',
+        maxWidth: '1500px',
+        height: '95vh',
+        maxHeight: '95vh',
+        disableClose: true,
+        panelClass: 'certificado-medico-dialog',
+        data: existente
+          ? {
+              modo: 'edicion',
+              origen: 'medico-consultorio',
+              certificado: existente,
+              certificadoId: existente._id,
+            }
+          : {
+              modo: 'alta',
+              origen: 'medico-consultorio',
+              fichaConsultorioId: fichaId,
+              precarga: this.precargaCertificadoDesdeConsulta(),
+            },
+      });
+
+      dialogRef.afterClosed().subscribe(() => {
+        // Se conserva fichaActual y toda la captura de la consulta; no se navega ni se reinicia el formulario.
+      });
+    } catch (error: any) {
+      Swal.fire(
+        'No se pudo abrir el certificado',
+        error?.error?.mensaje || 'No se pudo consultar el certificado asociado a la ficha.',
+        'error'
+      );
+    }
+  }
+
+  private precargaCertificadoDesdeConsulta(): any {
+    const paciente = this.paciente || {};
+    const datos = paciente?.datosGenerales || {};
+    const contacto = paciente?.contacto || {};
+    const nombrePaciente = [paciente?.nombre, paciente?.apPaterno, paciente?.apMaterno]
+      .map((valor: any) => String(valor || '').trim())
+      .filter(Boolean)
+      .join(' ') || String(this.fichaActual?.pacienteNombre || '').trim();
+    const fechaNacimiento = soloFecha(datos?.fechaNacimiento);
+    const edad = fechaNacimiento ? this.calcularEdadCertificado(fechaNacimiento) : null;
+    const precarga: any = {};
+    const asignarTexto = (campo: string, valor: any) => {
+      if (valor == null) return;
+      const texto = String(valor).trim();
+      if (texto) precarga[campo] = texto;
+    };
+
+    asignarTexto('nombre', nombrePaciente);
+    asignarTexto('fechaNacimiento', fechaNacimiento);
+    asignarTexto('curp', datos?.curp);
+    asignarTexto('nivelEscolar', datos?.escolaridad);
+    asignarTexto('telefono', contacto?.telefono || this.fichaActual?.pacienteTelefono);
+    asignarTexto('domicilio', contacto?.direccion);
+
+    const genero = ({ M: 'MASCULINO', F: 'FEMENINO', Otro: 'OTRO' } as Record<string, string>)[
+      String(datos?.sexo || '')
+    ];
+    asignarTexto('genero', genero);
+    if (edad != null) {
+      precarga.edad = edad;
+      if (edad < 18) asignarTexto('responsable', contacto?.emergencia?.nombre);
+    }
+
+    const signos = this.hayAlgoEnSignos()
+      ? this.signos
+      : (this.obtenerSignosDeFichaActualEnExpediente() || this.getSignosPasoDeFicha(this.fichaActual?._id));
+    if (signos) {
+      const examenFisico: any = {};
+      const asignarSigno = (campo: string, valor: any) => {
+        if (valor == null || valor === '') return;
+        const texto = String(valor).trim();
+        if (texto) examenFisico[campo] = texto;
+      };
+
+      asignarSigno('talla', signos.tallaCm);
+      asignarSigno('peso', signos.pesoKg);
+      asignarSigno('fr', signos.fr);
+      asignarSigno('fc', signos.fc);
+      asignarSigno('temperatura', signos.temperatura);
+      asignarSigno('imc', signos.imc);
+      if (signos.presionSis != null && signos.presionDia != null) {
+        asignarSigno('tensionArterial', `${signos.presionSis}/${signos.presionDia}`);
+      }
+      if (Object.keys(examenFisico).length) precarga.examenFisico = examenFisico;
+    }
+
+    const alergias = this.obtenerAlergiasConsultaActual();
+    if (alergias.length) {
+      precarga.antecedentesPersonales = { alergias: alergias.join(', ') };
+    }
+
+    return precarga;
+  }
+
+  private calcularEdadCertificado(fechaNacimiento: string): number | null {
+    const match = String(fechaNacimiento || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+
+    const nacimiento = { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+    const partes = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const year = Number(partes.find(p => p.type === 'year')?.value);
+    const month = Number(partes.find(p => p.type === 'month')?.value);
+    const day = Number(partes.find(p => p.type === 'day')?.value);
+    let edad = year - nacimiento.year;
+    if (month < nacimiento.month || (month === nacimiento.month && day < nacimiento.day)) edad--;
+    return edad >= 0 && edad <= 150 ? edad : null;
   }
 
   private estadoFicha(f: any): string {

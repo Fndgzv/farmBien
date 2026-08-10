@@ -275,6 +275,13 @@ export const routes: Routes = [
         data: { rolesPermitidos: ['admin', 'medico'] }
       },
       {
+        path: 'certificados-medicos',
+        loadComponent: () => import('./pages/certificados-medicos/certificados-medicos.component')
+          .then(m => m.CertificadosMedicosComponent),
+        canActivate: [authGuard],
+        data: { rolesPermitidos: ['admin', 'medico'] }
+      },
+      {
         path: 'pantalla-turnos',
         loadComponent: () => import('./pages/pantalla-turnos/pantalla-turnos.component')
           .then(m => m.PantallaTurnosComponent),

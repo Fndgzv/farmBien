@@ -1199,11 +1199,16 @@
       </div>
     </div>
 
-    <div class="d-flex justify-content-end gap-2 flex-wrap">
-      <button class="btn-gris" (click)="regresarACola()">Regresar a fila de espera</button>
-      <button class="btn-verde" [disabled]="guardando" (click)="guardarYEnviarACaja()">
-        {{ guardando ? 'Guardando…' : 'Finalizar Consulta' }}
+    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+      <button class="btn-amarillo" type="button" (click)="abrirCertificadoMedico()" [disabled]="guardando">
+        Certificado médico
       </button>
+      <div class="d-flex justify-content-end gap-2 flex-wrap">
+        <button class="btn-gris" (click)="regresarACola()">Regresar a fila de espera</button>
+        <button class="btn-verde" [disabled]="guardando" (click)="guardarYEnviarACaja()">
+          {{ guardando ? 'Guardando…' : 'Finalizar Consulta' }}
+        </button>
+      </div>
     </div>
   </div>
 </div>

@@ -1,0 +1,366 @@
+<div class="certificado-modal">
+  <header class="modal-header-certificado">
+    <div>
+      <h2>{{ esEdicion ? 'EDITAR' : 'NUEVO' }} CERTIFICADO MÉDICO</h2>
+      <small>{{ data.origen === 'medico-consultorio' ? 'Generado desde consulta médica' : 'Módulo de certificados médicos' }}</small>
+    </div>
+    <span class="modo-badge">{{ esEdicion ? 'EDICIÓN' : 'ALTA' }}</span>
+  </header>
+
+  <div *ngIf="cargando" class="estado-modal">Cargando certificado…</div>
+
+  <div class="contenido-modal" *ngIf="!cargando && !errorCarga">
+    <section class="seccion-form relaciones" *ngIf="esAdmin">
+      <h3>Asignación</h3>
+      <div class="grid-form grid-2">
+        <label>
+          <span>Farmacia *</span>
+          <select [(ngModel)]="certificado.farmaciaId" (change)="onFarmaciaCambio()">
+            <option value="">Seleccione</option>
+            <option *ngFor="let farmacia of farmacias" [value]="farmacia._id">{{ farmacia.nombre }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Médico *</span>
+          <select [(ngModel)]="certificado.medicoId">
+            <option value="">Seleccione</option>
+            <option *ngFor="let medico of medicosFarmacia" [value]="medico._id">{{ medico.nombre }}</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="seccion-form" id="datos-generales-certificado">
+      <h3>1. Datos generales</h3>
+      <div class="grid-form grid-4">
+        <label><span>Fecha de revisión *</span><input type="date" [(ngModel)]="certificado.fechaRevision"></label>
+        <label>
+          <span>Tipo *</span>
+          <select [(ngModel)]="certificado.tipo">
+            <option value="ESCOLAR">ESCOLAR</option>
+            <option value="LABORAL">LABORAL</option>
+          </select>
+        </label>
+        <label class="span-2"><span>Nombre del instituto</span><input [(ngModel)]="certificado.nombreInstituto"></label>
+        <label><span>Turno</span><input [(ngModel)]="certificado.turno"></label>
+        <label><span>Grado</span><input [(ngModel)]="certificado.grado"></label>
+        <label><span>Nivel escolar</span><input [(ngModel)]="certificado.nivelEscolar"></label>
+        <label><span>Género</span><input [(ngModel)]="certificado.genero"></label>
+        <label class="span-2"><span>Nombre del paciente *</span><input [(ngModel)]="certificado.nombre"></label>
+        <label><span>Fecha de nacimiento</span><input type="date" [(ngModel)]="certificado.fechaNacimiento" (change)="onFechaNacimientoCambio()"></label>
+        <label><span>CURP</span><input maxlength="18" class="mayusculas" [(ngModel)]="certificado.curp"></label>
+        <label><span>Edad</span><input type="number" min="0" max="150" [(ngModel)]="certificado.edad"></label>
+        <label class="span-2"><span>Responsable (si es menor)</span><input [(ngModel)]="certificado.responsable"></label>
+        <label class="span-3"><span>Domicilio</span><input [(ngModel)]="certificado.domicilio"></label>
+        <label><span>Teléfono</span><input [(ngModel)]="certificado.telefono"></label>
+      </div>
+    </section>
+
+    <section class="seccion-form">
+      <h3>2. Antecedentes hereditarios y familiares</h3>
+      <p class="ayuda">Seleccione una o varias personas para cada patología, o marque que niega antecedentes.</p>
+      <div class="antecedentes-grid">
+        <article class="antecedente-card" *ngFor="let antecedente of antecedentesHereditarios">
+          <div *ngIf="antecedente.key !== 'niegaAntecedentes'" class="antecedente-titulo"><b>{{ antecedente.numero }}</b> {{ antecedente.label }}</div>
+          <input *ngIf="antecedente.key === 'otras'" class="otras-input" placeholder="Especifique el antecedente"
+            [(ngModel)]="certificado.antecedentesHereditarios.otras.texto">
+          <div *ngIf="antecedente.key !== 'niegaAntecedentes'" class="familiares-grid">
+            <label *ngFor="let familiar of familiares" class="check-item">
+              <input type="checkbox" [checked]="incluyeFamiliar(antecedente.key, familiar)"
+                (change)="cambiarFamiliar(antecedente.key, familiar, $any($event.target).checked)">
+              <span>{{ familiar }}</span>
+            </label>
+          </div>
+          <label *ngIf="antecedente.key === 'niegaAntecedentes'" class="check-item niega-hereditarios">
+            <input type="checkbox" [(ngModel)]="certificado.antecedentesHereditarios.niegaAntecedentes">
+            <span><b>{{ antecedente.numero }}</b> {{ antecedente.label }}</span>
+          </label>
+        </article>
+      </div>
+    </section>
+
+    <section class="seccion-form">
+      <h3>3. Antecedentes personales patológicos</h3>
+      <div class="grid-form grid-2">
+        <label><span>01 ALERGIAS</span><input [(ngModel)]="certificado.antecedentesPersonales.alergias"></label>
+        <div class="checks-panel">
+          <label *ngFor="let opcion of antecedentesPersonalesBooleanos" class="check-item">
+            <input type="checkbox" [(ngModel)]="certificado.antecedentesPersonales[opcion.key]">
+            <span>{{ opcion.numero }} {{ opcion.label }}</span>
+          </label>
+          <div class="check-con-texto">
+            <label class="check-item">
+              <input type="checkbox" [(ngModel)]="certificado.antecedentesPersonales.otros.activo">
+              <span>09 OTROS</span>
+            </label>
+            <input placeholder="Especifique" [(ngModel)]="certificado.antecedentesPersonales.otros.texto">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="seccion-form">
+      <h3>4. Examen físico</h3>
+      <div class="grid-form grid-4">
+        <label><span>Talla</span><input [(ngModel)]="certificado.examenFisico.talla"></label>
+        <label><span>F.R.</span><input [(ngModel)]="certificado.examenFisico.fr"></label>
+        <label><span>Temperatura</span><input [(ngModel)]="certificado.examenFisico.temperatura"></label>
+        <label><span>Tensión arterial</span><input [(ngModel)]="certificado.examenFisico.tensionArterial"></label>
+        <label><span>Peso</span><input [(ngModel)]="certificado.examenFisico.peso"></label>
+        <label><span>F.C.</span><input [(ngModel)]="certificado.examenFisico.fc"></label>
+        <label><span>IMC</span><input [(ngModel)]="certificado.examenFisico.imc"></label>
+        <label><span>Grupo sanguíneo</span><input [(ngModel)]="certificado.examenFisico.grupoSanguineo"></label>
+        <label class="span-2">
+          <span>Esquema de inmunizaciones</span>
+          <select [(ngModel)]="certificado.examenFisico.esquemaInmunizaciones">
+            <option [ngValue]="null">Sin seleccionar</option>
+            <option value="COMPLETO">COMPLETO</option>
+            <option value="INCOMPLETO">INCOMPLETO</option>
+            <option value="NULO">NULO</option>
+          </select>
+        </label>
+        <label class="span-2"><span>Limitantes físicas o intelectuales</span><input [(ngModel)]="certificado.examenFisico.limitantesFisicasIntelectuales"></label>
+      </div>
+
+      <div class="subsecciones-examen">
+        <article class="subseccion-card">
+          <h4>Estado nutricional</h4>
+          <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.estadoNutricional.normal"><span>Normal</span></label>
+          <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.estadoNutricional.malnutricion"><span>Malnutrición</span></label>
+          <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.estadoNutricional.sobrepeso"><span>Sobrepeso</span></label>
+          <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.estadoNutricional.obesidad"><span>Obesidad</span></label>
+          <div class="check-con-texto">
+            <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.estadoNutricional.otra.activo"><span>Otra</span></label>
+            <input [(ngModel)]="certificado.examenFisico.estadoNutricional.otra.texto" placeholder="Especifique">
+          </div>
+        </article>
+
+        <article class="subseccion-card">
+          <h4>Agudeza visual</h4>
+          <label><span>Graduación</span><input [(ngModel)]="certificado.examenFisico.agudezaVisual.graduacion"></label>
+          <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.agudezaVisual.normal"><span>Normal</span></label>
+          <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.agudezaVisual.lentes"><span>Lentes</span></label>
+          <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.agudezaVisual.disminuida"><span>Disminuida</span></label>
+          <div class="check-con-texto">
+            <label class="check-item"><input type="checkbox" [(ngModel)]="certificado.examenFisico.agudezaVisual.otra.activo"><span>Otra</span></label>
+            <input [(ngModel)]="certificado.examenFisico.agudezaVisual.otra.texto" placeholder="Especifique">
+          </div>
+        </article>
+
+        <article class="subseccion-card" *ngFor="let tabla of tablasExamen">
+          <h4>{{ tabla.titulo }}</h4>
+          <label *ngFor="let opcion of tabla.opciones" class="check-item">
+            <input type="checkbox" [(ngModel)]="certificado.examenFisico[tabla.key][opcion.key]">
+            <span>{{ opcion.label }}</span>
+          </label>
+          <label *ngIf="tabla.key === 'muscular'" class="tratamiento-label">
+            <span>Tratamiento</span><input [(ngModel)]="certificado.examenFisico.muscular.tratamiento">
+          </label>
+        </article>
+      </div>
+    </section>
+
+    <section class="seccion-form">
+      <h3>5. Salud bucal</h3>
+      <div class="leyenda-dientes-captura">
+        <span *ngFor="let opcion of valoresDiente"><b>{{ opcion.valor }}</b> {{ opcion.etiqueta }}</span>
+      </div>
+      <div class="odontograma-captura">
+        <div class="odontograma-diagrama">
+          <ng-container *ngFor="let fila of filasDientes; let filaIndex = index">
+            <div class="fila-dientes">
+              <label class="diente-control" *ngFor="let diente of fila">
+                <span>
+                  {{ diente }}
+                  <b class="badge ms-1" [ngClass]="certificado.saludBucal.dientes[diente] === 'S' ? 'bg-primary' : 'bg-danger'">{{ certificado.saludBucal.dientes[diente] }}</b>
+                </span>
+                <select [(ngModel)]="certificado.saludBucal.dientes[diente]">
+                  <option *ngFor="let opcion of valoresDiente" [value]="opcion.valor">{{ opcion.valor }} - {{ opcion.etiqueta }}</option>
+                </select>
+              </label>
+            </div>
+            <div *ngIf="filaIndex === 1" class="odontograma-eje-horizontal" aria-hidden="true">
+              <span>DERECHO</span><span>IZQUIERDO</span>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+      <label class="observaciones-bucales"><span>Observaciones</span><textarea rows="3" [(ngModel)]="certificado.saludBucal.observaciones"></textarea></label>
+    </section>
+
+    <section class="seccion-form">
+      <h3>6. Diagnóstico</h3>
+      <div class="grid-form grid-2">
+        <label>
+          <span>Clínicamente apto para labores escolares</span>
+          <select [(ngModel)]="certificado.aptoLaboresEscolares">
+            <option [ngValue]="null">Sin marcar</option>
+            <option [ngValue]="true">SI</option>
+            <option [ngValue]="false">NO</option>
+          </select>
+        </label>
+        <label>
+          <span>Clínicamente apto para labores físicas</span>
+          <select [(ngModel)]="certificado.aptoLaboresFisicas">
+            <option [ngValue]="null">Sin marcar</option>
+            <option [ngValue]="true">SI</option>
+            <option [ngValue]="false">NO</option>
+          </select>
+        </label>
+        <label><span>Vigencia desde</span><input type="date" [(ngModel)]="certificado.vigenciaDesde"></label>
+        <label><span>Vigencia hasta</span><input type="date" [(ngModel)]="certificado.vigenciaHasta"></label>
+        <label class="span-2"><span>Diagnóstico y observaciones</span><textarea rows="4" [(ngModel)]="certificado.diagnosticoObservaciones"></textarea></label>
+      </div>
+    </section>
+  </div>
+
+  <footer class="modal-actions" *ngIf="!cargando && !errorCarga">
+    <button type="button" class="btn-amarillo" (click)="imprimir()" [disabled]="imprimiendo || guardando">
+      {{ imprimiendo ? 'Imprimiendo…' : 'Imprimir' }}
+    </button>
+    <button type="button" class="btn-verde" (click)="grabar()" [disabled]="guardando">
+      {{ guardando ? 'Grabando…' : 'Grabar' }}
+    </button>
+    <button type="button" class="btn-rojo" (click)="salir()" [disabled]="guardando">Salir</button>
+  </footer>
+</div>
+
+<!-- Plantilla aislada para impresión; no contiene controles ni chrome del modal. -->
+<div #printDocument class="certificado-print">
+  <section class="print-page page-one">
+    <header class="print-institutional-header">
+      <img [src]="encabezadoCertificadoUrl" alt="SEP e Isidro Fabela">
+    </header>
+
+    <div class="print-title-row">
+      <h1>CERTIFICADO MÉDICO</h1>
+      <div class="revision-box"><b>FECHA DE REVISIÓN</b><span>{{ formatoFecha(certificado.fechaRevision) }}</span></div>
+    </div>
+
+    <div class="section-title">1.- DATOS GENERALES <span>TIPO: ESCOLAR ( {{ certificado.tipo === 'ESCOLAR' ? 'X' : '' }} ) &nbsp; LABORAL ( {{ certificado.tipo === 'LABORAL' ? 'X' : '' }} )</span></div>
+    <table class="print-table datos-table">
+      <tr><td colspan="4"><b>NOMBRE DEL INSTITUTO:</b> {{ certificado.nombreInstituto }}</td></tr>
+      <tr><td><b>TURNO:</b> {{ certificado.turno }}</td><td><b>GRADO:</b> {{ certificado.grado }}</td><td colspan="2"><b>NIVEL ESCOLAR:</b> {{ certificado.nivelEscolar }}</td></tr>
+      <tr><td colspan="3"><b>NOMBRE:</b> {{ certificado.nombre }}</td><td><b>GÉNERO:</b> {{ certificado.genero }}</td></tr>
+      <tr><td colspan="3"><b>FECHA DE NACIMIENTO O “CURP”:</b> {{ formatoFecha(certificado.fechaNacimiento) }}<span *ngIf="certificado.curp"> / {{ certificado.curp }}</span></td><td><b>EDAD:</b> {{ certificado.edad ?? '' }}</td></tr>
+      <tr><td colspan="4"><b>NOMBRE DEL RESPONSABLE (EN CASO DE SER MENOR):</b> {{ certificado.responsable }}</td></tr>
+      <tr><td colspan="3"><b>DOMICILIO:</b> {{ certificado.domicilio }}</td><td><b>TELÉFONO:</b> {{ certificado.telefono }}</td></tr>
+    </table>
+
+    <div class="section-title">2.- ANTECEDENTES HEREDITARIOS Y FAMILIARES <small>(Información proporcionada por el tutor)</small></div>
+    <table class="print-table antecedentes-print-table hereditarios-print-table">
+      <tr><th>No.</th><th>PATOLOGÍA</th><th>FAMILIARES</th><th>No.</th><th>PATOLOGÍA</th><th>FAMILIARES</th></tr>
+      <tr *ngFor="let izquierda of antecedentesHereditarios.slice(0, 5); let i = index">
+        <td>{{ izquierda.numero }}</td><td>{{ izquierda.label }}<span *ngIf="izquierda.key === 'otras' && certificado.antecedentesHereditarios.otras.texto">: {{ certificado.antecedentesHereditarios.otras.texto }}</span></td><td>{{ familiaresTexto(izquierda.key) }}</td>
+        <td>{{ antecedentesHereditarios[i + 5].numero }}</td>
+        <td>{{ antecedentesHereditarios[i + 5].label }}<span *ngIf="antecedentesHereditarios[i + 5].key === 'otras' && certificado.antecedentesHereditarios.otras.texto">: {{ certificado.antecedentesHereditarios.otras.texto }}</span></td>
+        <td>{{ antecedentesHereditarios[i + 5].key === 'niegaAntecedentes' ? marca(certificado.antecedentesHereditarios.niegaAntecedentes) : familiaresTexto(antecedentesHereditarios[i + 5].key) }}</td>
+      </tr>
+    </table>
+
+    <div class="section-title">3.- ANTECEDENTES PERSONALES PATOLÓGICOS <small>(Información proporcionada por el tutor)</small></div>
+    <table class="print-table antecedentes-print-table">
+      <tr><th>No.</th><th>PATOLOGÍA</th><th>1°</th><th>No.</th><th>PATOLOGÍA</th><th>1°</th></tr>
+      <tr><td>01</td><td>ALERGIAS</td><td>{{ certificado.antecedentesPersonales.alergias }}</td><td>06</td><td>CONVULSIONES</td><td>{{ marca(certificado.antecedentesPersonales.convulsiones) }}</td></tr>
+      <tr><td>02</td><td>OBESIDAD</td><td>{{ marca(certificado.antecedentesPersonales.obesidad) }}</td><td>07</td><td>ALCOHOLISMO</td><td>{{ marca(certificado.antecedentesPersonales.alcoholismo) }}</td></tr>
+      <tr><td>03</td><td>DIABETES</td><td>{{ marca(certificado.antecedentesPersonales.diabetes) }}</td><td>08</td><td>TABAQUISMO</td><td>{{ marca(certificado.antecedentesPersonales.tabaquismo) }}</td></tr>
+      <tr><td>04</td><td>HIPERTENSIÓN</td><td>{{ marca(certificado.antecedentesPersonales.hipertension) }}</td><td>09</td><td>OTROS: {{ certificado.antecedentesPersonales.otros.texto }}</td><td>{{ marca(certificado.antecedentesPersonales.otros.activo) }}</td></tr>
+      <tr><td>05</td><td>HEPATITIS</td><td>{{ marca(certificado.antecedentesPersonales.hepatitis) }}</td><td>10</td><td>NIEGA ANTECEDENTES</td><td>{{ marca(certificado.antecedentesPersonales.niegaAntecedentes) }}</td></tr>
+    </table>
+
+    <div class="print-blue-rule mid-rule"></div>
+    <div class="section-title">4.- EXAMEN FÍSICO</div>
+    <table class="print-table examen-base-table">
+      <tr><td><b>TALLA</b> {{ certificado.examenFisico.talla }}</td><td><b>F.R.</b> {{ certificado.examenFisico.fr }}</td><td><b>TEMP.</b> {{ certificado.examenFisico.temperatura }}</td><td><b>T/A</b> {{ certificado.examenFisico.tensionArterial }}</td></tr>
+      <tr><td><b>PESO</b> {{ certificado.examenFisico.peso }}</td><td><b>F.C.</b> {{ certificado.examenFisico.fc }}</td><td><b>IMC</b> {{ certificado.examenFisico.imc }}</td><td><b>GRUPO S.</b> {{ certificado.examenFisico.grupoSanguineo }}</td></tr>
+      <tr><td colspan="4"><b>ESQUEMA DE INMUNIZACIONES</b> &nbsp; COMPLETO ( {{ certificado.examenFisico.esquemaInmunizaciones === 'COMPLETO' ? 'X' : '' }} ) &nbsp; INCOMPLETO ( {{ certificado.examenFisico.esquemaInmunizaciones === 'INCOMPLETO' ? 'X' : '' }} ) &nbsp; NULO ( {{ certificado.examenFisico.esquemaInmunizaciones === 'NULO' ? 'X' : '' }} )</td></tr>
+      <tr><td colspan="4"><b>LIMITANTES FÍSICAS O INTELECTUALES:</b> {{ certificado.examenFisico.limitantesFisicasIntelectuales }}</td></tr>
+    </table>
+
+    <div class="three-print-panels">
+      <table class="print-table mini-table">
+        <tr><th colspan="2">ESTADO NUTRICIONAL</th></tr>
+        <tr><td>NORMAL</td><td>{{ marca(certificado.examenFisico.estadoNutricional.normal) }}</td></tr>
+        <tr><td>MALNUTRICIÓN</td><td>{{ marca(certificado.examenFisico.estadoNutricional.malnutricion) }}</td></tr>
+        <tr><td>SOBREPESO</td><td>{{ marca(certificado.examenFisico.estadoNutricional.sobrepeso) }}</td></tr>
+        <tr><td>OBESIDAD</td><td>{{ marca(certificado.examenFisico.estadoNutricional.obesidad) }}</td></tr>
+        <tr><td>OTRA: {{ certificado.examenFisico.estadoNutricional.otra.texto }}</td><td>{{ marca(certificado.examenFisico.estadoNutricional.otra.activo) }}</td></tr>
+      </table>
+      <table class="print-table mini-table">
+        <tr><th colspan="2">AGUDEZA VISUAL</th></tr>
+        <tr><td>GRADUACIÓN</td><td>{{ certificado.examenFisico.agudezaVisual.graduacion }}</td></tr>
+        <tr><td>NORMAL</td><td>{{ marca(certificado.examenFisico.agudezaVisual.normal) }}</td></tr>
+        <tr><td>LENTES</td><td>{{ marca(certificado.examenFisico.agudezaVisual.lentes) }}</td></tr>
+        <tr><td>DISMINUIDA</td><td>{{ marca(certificado.examenFisico.agudezaVisual.disminuida) }}</td></tr>
+        <tr><td>OTRA: {{ certificado.examenFisico.agudezaVisual.otra.texto }}</td><td>{{ marca(certificado.examenFisico.agudezaVisual.otra.activo) }}</td></tr>
+      </table>
+      <table class="print-table mini-table">
+        <tr><th colspan="2">PROBLEMAS DE DESARROLLO</th></tr>
+        <tr><td>MALTRATO</td><td>{{ marca(certificado.examenFisico.problemasDesarrollo.maltrato) }}</td></tr>
+        <tr><td>P. CONDUCTA</td><td>{{ marca(certificado.examenFisico.problemasDesarrollo.problemasConducta) }}</td></tr>
+        <tr><td>P. APRENDIZAJE</td><td>{{ marca(certificado.examenFisico.problemasDesarrollo.problemasAprendizaje) }}</td></tr>
+        <tr><td>P. LENGUAJE</td><td>{{ marca(certificado.examenFisico.problemasDesarrollo.problemasLenguaje) }}</td></tr>
+        <tr><td>NINGUNO</td><td>{{ marca(certificado.examenFisico.problemasDesarrollo.ninguno) }}</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="print-page page-two">
+    <div class="four-print-panels">
+      <table class="print-table mini-table" *ngFor="let tabla of tablasExamen.slice(1)">
+        <tr><th colspan="2">{{ tabla.titulo }}</th></tr>
+        <tr *ngFor="let opcion of tabla.opciones"><td>{{ opcion.label }}</td><td>{{ marca(valorTabla(tabla.key, opcion.key)) }}</td></tr>
+        <tr *ngIf="tabla.key === 'muscular'"><td>TRATAMIENTO</td><td>{{ certificado.examenFisico.muscular.tratamiento }}</td></tr>
+      </table>
+    </div>
+
+    <div class="print-blue-rule mid-rule"></div>
+    <div class="section-title">5.- SALUD BUCAL</div>
+    <div class="salud-print-grid">
+      <div>
+        <table class="print-table conceptos-table">
+          <tr><th colspan="2">CONCEPTO</th></tr>
+          <tr *ngFor="let opcion of valoresDiente"><td>{{ opcion.etiqueta }}</td><td>{{ opcion.valor }}</td></tr>
+        </table>
+        <table class="print-table observaciones-table">
+          <tr><th>OBSERVACIONES</th></tr>
+          <tr><td>{{ certificado.saludBucal.observaciones }}</td></tr>
+        </table>
+      </div>
+
+      <div class="odontograma-print">
+        <ng-container *ngFor="let fila of filasDientes; let filaIndex = index">
+          <div class="odontograma-print-row">
+            <div class="diente-print" *ngFor="let diente of fila">
+              <span class="diente-numero">{{ diente.substring(1) }}</span>
+              <img class="diente-figura" [src]="dienteOdontogramaUrl" alt="">
+              <b>{{ certificado.saludBucal.dientes[diente] }}</b>
+            </div>
+          </div>
+          <div *ngIf="filaIndex === 1" class="odontograma-print-eje-horizontal" aria-hidden="true">
+            <span>DERECHO</span><span>IZQUIERDO</span>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+
+    <div class="print-blue-rule mid-rule"></div>
+    <div class="section-title">6.- DIAGNÓSTICO</div>
+    <table class="print-table diagnostico-table">
+      <tr><td>CLÍNICAMENTE APTO PARA LABORES ESCOLARES</td><td>SI ( {{ marcaSi(certificado.aptoLaboresEscolares) }} )</td><td>NO ( {{ marcaNo(certificado.aptoLaboresEscolares) }} )</td></tr>
+      <tr><td>CLÍNICAMENTE APTO PARA LABORES FÍSICAS</td><td>SI ( {{ marcaSi(certificado.aptoLaboresFisicas) }} )</td><td>NO ( {{ marcaNo(certificado.aptoLaboresFisicas) }} )</td></tr>
+      <tr><td colspan="3">VIGENCIA DEL {{ formatoFecha(certificado.vigenciaDesde) }} AL {{ formatoFecha(certificado.vigenciaHasta) }}</td></tr>
+    </table>
+    <table class="print-table diagnostico-observaciones-table">
+      <tr><th>DIAGNÓSTICO Y OBSERVACIONES</th></tr>
+      <tr><td>{{ certificado.diagnosticoObservaciones }}</td></tr>
+    </table>
+    <div class="certificado-por">
+      <b>CERTIFICADO POR</b>
+      <div class="firma-medico">
+        <span>{{ medicoImpresion?.titulo || '' }} {{ medicoImpresion?.nombre || certificado.medicoSnapshot?.nombre || '' }}</span>
+        <span *ngIf="medicoImpresion?.cedulaProfesional || certificado.medicoSnapshot?.cedulaProfesional">CÉD. PROF. {{ medicoImpresion?.cedulaProfesional || certificado.medicoSnapshot?.cedulaProfesional }}</span>
+      </div>
+    </div>
+  </section>
+</div>

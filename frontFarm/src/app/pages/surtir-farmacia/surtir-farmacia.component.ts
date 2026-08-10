@@ -56,6 +56,7 @@ export class SurtirFarmaciaComponent implements OnInit {
   farmacias: any[] = [];
   pendientes: Pendiente[] = [];
   cargando = false;
+  guardandoSurtido = false;
   rows: Pendiente[] = [];
 
   // Paginación
@@ -168,7 +169,10 @@ export class SurtirFarmaciaComponent implements OnInit {
   }
 
   onSurtir() {
-    const { farmaciaId, categoria, ubicacion, ubicacionFarmacia } = this.form.value;
+    if (this.guardandoSurtido) return;
+    this.guardandoSurtido = true;
+
+    const { farmaciaId, categoria, ubicacion, ubicacionFarmacia } = this.form.getRawValue();
     const farmNombre = this.farmacias.find(f => f._id === farmaciaId)?.nombre || '';
 
     const detalles = this.rows.map(r => ({
@@ -190,6 +194,7 @@ export class SurtirFarmaciaComponent implements OnInit {
       allowEscapeKey: false
     }).then(result => {
       if (!result.isConfirmed) {
+        this.guardandoSurtido = false;
         this.toggleFarmacia(false);
         return;
       }
@@ -206,9 +211,7 @@ export class SurtirFarmaciaComponent implements OnInit {
       this.surtidoService.surtirFarmacia(farmaciaId, detalles, { categoria, ubicacion, ubicacionFarmacia })
         .pipe(
           // ¡OJO! aquí NO cerramos el Swal. Sólo limpiamos estado si quieres.
-          finalize(() => {
-            // cualquier bandera/estado UI que quieras restablecer
-          })
+          finalize(() => this.guardandoSurtido = false)
         )
         .subscribe({
           next: (res: any) => {
@@ -230,6 +233,7 @@ export class SurtirFarmaciaComponent implements OnInit {
                 this.imprimirReal(res.surtido);
               }
               this.pendientes = [];
+              this.rows = [];
               this.form.reset({ farmaciaId: null });
               this.toggleFarmacia(false);
             });
@@ -248,7 +252,9 @@ export class SurtirFarmaciaComponent implements OnInit {
   }
 
   onCancelar() {
+    if (this.guardandoSurtido) return;
     this.pendientes = [];
+    this.rows = [];
     this.form.reset({ farmaciaId: null });
     this.toggleFarmacia(false);
   }
