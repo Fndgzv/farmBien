@@ -3,6 +3,30 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 
+export interface SurtidoFarmaciaItemRespuesta {
+  producto: {
+    _id: string;
+    nombre: string;
+    codigoBarras: string;
+    categoria: string;
+    ubicacion: string;
+  };
+  lote: string;
+  cantidad: number;
+  precioUnitario?: number;
+  costo?: number | null;
+  ubicacionFarmacia?: string;
+}
+
+export interface SurtidoFarmaciaRespuesta {
+  _id: string;
+  farmacia: string;
+  usuarioSurtio: string;
+  fechaSurtido: string;
+  tipoMovimiento: string;
+  items: SurtidoFarmaciaItemRespuesta[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class SurtidoFarmaciaService {
   private apiUrl = `${environment.apiUrl}/surtirFarmacias`;
@@ -28,7 +52,11 @@ surtirFarmacia(
   if (filtros?.categoria) body.categoria = filtros.categoria;
   if (filtros?.ubicacion) body.ubicacion = filtros.ubicacion;
   if (filtros?.ubicacionFarmacia) body.ubicacionFarmacia = filtros.ubicacionFarmacia; // ✅
-  return this.http.put<{ mensaje: string; pendientes?: any[]; surtido?: any }>(this.apiUrl, body);
+  return this.http.put<{
+    mensaje: string;
+    pendientes?: any[];
+    surtido?: SurtidoFarmaciaRespuesta;
+  }>(this.apiUrl, body);
 }
 
 }

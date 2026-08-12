@@ -42,6 +42,7 @@
           <th>Farmacia</th>
           <th>Fecha</th>
           <th>Usuario</th>
+          <th class="text-end">Costo Total</th>
           <th style="width: 120px;">Acciones</th>
         </tr>
       </thead>
@@ -62,6 +63,7 @@
             <td>{{ r.farmacia || '-' }}</td>
             <td>{{ r.fechaSurtido | date:'dd/MM/yyyy HH:mm':'America/Mexico_City' }}</td>
             <td>{{ r.usuario || 'Usuario inexistente' }}</td>
+            <td class="text-end">{{ formatearCosto(costoTotalSurtido(r)) }}</td>
             <td>
               <button
                 type="button"
@@ -84,7 +86,7 @@
           </tr>
 
           <tr *ngIf="isExpanded(r)">
-            <td colspan="5" class="detalle-cell">
+            <td colspan="6" class="detalle-cell">
               <div class="table-responsive">
                 <table class="detalle-tabla">
                   <thead>
@@ -103,6 +105,8 @@
                       <th class="th-sort" (click)="sortDetalle(r, 'ubicacionFarmacia')">
                         Ubic. Farma <i class="fa sort-icon" [ngClass]="getDetalleSortIcon(r, 'ubicacionFarmacia')"></i>
                       </th>
+                      <th class="text-end">Costo U.</th>
+                      <th class="text-end">Costo Tot</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -113,9 +117,15 @@
                       <td>{{ it.categoria || '-' }}</td>
                       <td>{{ it.ubicacionAlmacen || '-' }}</td>
                       <td>{{ it.ubicacionFarmacia || '-' }}</td>
+                      <td class="text-end">{{ formatearCosto(costoUnitario(it)) }}</td>
+                      <td class="text-end">{{ formatearCosto(costoTotalItem(it)) }}</td>
                     </tr>
                     <tr *ngIf="!r.items || r.items.length === 0">
-                      <td colspan="6" class="text-center text-muted py-2">Sin items</td>
+                      <td colspan="8" class="text-center text-muted py-2">Sin items</td>
+                    </tr>
+                    <tr class="costo-total-row">
+                      <td colspan="7" class="text-end">COSTO TOTAL del SURTIDO:</td>
+                      <td class="text-end">{{ formatearCosto(costoTotalSurtido(r)) }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -125,7 +135,7 @@
         </ng-container>
 
         <tr *ngIf="rows.length === 0">
-          <td colspan="5" class="text-center text-muted py-3">
+          <td colspan="6" class="text-center text-muted py-3">
             {{ cargando ? 'Cargando...' : 'Sin resultados' }}
           </td>
         </tr>

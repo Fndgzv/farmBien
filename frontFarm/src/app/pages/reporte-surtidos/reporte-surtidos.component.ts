@@ -6,26 +6,12 @@ import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 
 import { Farmacia, FarmaciaService } from '../../services/farmacia.service';
-import { ReportesService } from '../../services/reportes.service';
+import {
+  ReportesService,
+  SurtidoReporteItem,
+  SurtidoReporteRow,
+} from '../../services/reportes.service';
 import { finalize } from 'rxjs';
-
-interface SurtidoReporteItem {
-  producto: string;
-  codigoBarras: string;
-  categoria: string;
-  cantidad: number;
-  ubicacionAlmacen: string;
-  ubicacionFarmacia: string;
-}
-
-interface SurtidoReporteRow {
-  _id: string;
-  farmacia: string;
-  fechaSurtido: string;
-  usuario: string;
-  usuarioExiste: boolean;
-  items: SurtidoReporteItem[];
-}
 
 type DetalleSortKey = 'producto' | 'categoria' | 'ubicacionAlmacen' | 'ubicacionFarmacia';
 
@@ -199,6 +185,48 @@ export class ReporteSurtidosComponent implements OnInit {
     }).format(d);
   }
 
+  costoUnitario(item: SurtidoReporteItem): number | null {
+    return this.numeroCosto(item?.costo);
+  }
+
+  costoTotalItem(item: SurtidoReporteItem): number | null {
+    const costo = this.costoUnitario(item);
+    if (costo === null || item?.cantidad === null || item?.cantidad === undefined) return null;
+
+    const cantidad = Number(item.cantidad);
+    return Number.isFinite(cantidad) ? costo * cantidad : null;
+  }
+
+  costoTotalSurtido(row: SurtidoReporteRow): number | null {
+    let total = 0;
+    let tieneImportes = false;
+
+    for (const item of row?.items || []) {
+      const importe = this.costoTotalItem(item);
+      if (importe === null) continue;
+      total += importe;
+      tieneImportes = true;
+    }
+
+    return tieneImportes ? total : null;
+  }
+
+  formatearCosto(valor: number | null): string {
+    if (valor === null) return '-';
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(valor);
+  }
+
+  private numeroCosto(valor: number | null | undefined): number | null {
+    if (valor === null || valor === undefined) return null;
+    const costo = Number(valor);
+    return Number.isFinite(costo) ? costo : null;
+  }
+
   exportarExcel(row: SurtidoReporteRow): void {
     const items = Array.isArray(row?.items) ? row.items : [];
     if (!items.length) {
@@ -206,14 +234,21 @@ export class ReporteSurtidosComponent implements OnInit {
       return;
     }
 
-    const data = items.map((it) => ({
-      'Cant.': Number(it.cantidad || 0),
-      Producto: it.producto || '',
-      'Código': it.codigoBarras || '',
-      'Categoría': it.categoria || '',
-      'Ubic. Almac': it.ubicacionAlmacen || '',
-      'Ubic. Farma': it.ubicacionFarmacia || '',
-    }));
+    const data = items.map((it) => {
+      const costoUnitario = this.costoUnitario(it);
+      const costoTotal = this.costoTotalItem(it);
+
+      return {
+        'Cant.': Number(it.cantidad || 0),
+        Producto: it.producto || '',
+        'Código': it.codigoBarras || '',
+        'Categoría': it.categoria || '',
+        'Ubic. Almac': it.ubicacionAlmacen || '',
+        'Ubic. Farma': it.ubicacionFarmacia || '',
+        'Costo U.': costoUnitario ?? '-',
+        'Costo Tot': costoTotal ?? '-',
+      };
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [
@@ -223,7 +258,16 @@ export class ReporteSurtidosComponent implements OnInit {
       { wch: 22 },
       { wch: 22 },
       { wch: 22 },
+      { wch: 14 },
+      { wch: 14 },
     ];
+
+    for (let rowIndex = 2; rowIndex <= data.length + 1; rowIndex++) {
+      for (const column of ['G', 'H']) {
+        const cell = ws[`${column}${rowIndex}`];
+        if (cell?.t === 'n') cell.z = '$#,##0.00';
+      }
+    }
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Surtido');

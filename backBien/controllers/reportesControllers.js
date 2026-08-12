@@ -236,6 +236,7 @@ exports.reporteSurtidos = async (req, res) => {
               cantidad: { $ifNull: ['$items.cantidad', 0] },
               ubicacionAlmacen: { $ifNull: ['$prod.ubicacion', ''] },
               ubicacionFarmacia: { $ifNull: ['$inv.ubicacionFarmacia', ''] },
+              costo: '$items.costo',
             }
           }
         }

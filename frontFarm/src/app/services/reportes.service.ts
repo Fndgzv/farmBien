@@ -37,6 +37,32 @@ export interface ConsultarVentasResponse {
   ventas: any[];
 }
 
+export interface SurtidoReporteItem {
+  producto: string;
+  codigoBarras: string;
+  categoria: string;
+  cantidad: number;
+  ubicacionAlmacen: string;
+  ubicacionFarmacia: string;
+  costo?: number | null;
+}
+
+export interface SurtidoReporteRow {
+  _id: string;
+  farmacia: string;
+  fechaSurtido: string;
+  usuario: string;
+  usuarioExiste: boolean;
+  items: SurtidoReporteItem[];
+}
+
+export interface SurtidosReporteResponse {
+  ok: boolean;
+  rango: { fechaIni: string; fechaFin: string };
+  filtros: { farmaciaId: string | null };
+  rows: SurtidoReporteRow[];
+}
+
 export interface ResumenUtilidadesRow {
   concepto: 'Ventas' | 'Pedidos' | 'Devoluciones' | 'Cancelaciones';
   cantidad: number;
@@ -128,7 +154,7 @@ export class ReportesService {
     fechaFin?: string | Date;
   }) {
     const httpParams = this.buildParams(params);
-    return this.http.get<any>(
+    return this.http.get<SurtidosReporteResponse>(
       `${this.url}/surtidos`,
       { params: httpParams }
     );

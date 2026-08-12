@@ -13,9 +13,11 @@ import {
   FILAS_DIENTES,
   VALORES_DIENTE,
   crearCertificadoMedicoVacio,
+  fechaHoyCiudadMexico,
   idRelacionado,
   mezclarCertificadoMedico,
   soloFecha,
+  sumarDiasCalendario,
 } from '../../models/certificado-medico.model';
 import { AuthService } from '../../services/auth.service';
 import { CertificadosMedicosService } from '../../services/certificados-medicos.service';
@@ -336,9 +338,22 @@ export class CertificadoMedicoComponent implements OnInit {
 
   private inicializarAlta(): void {
     const precarga = this.data?.precarga || {};
+    const vigenciaDesdePrecargada = sumarDiasCalendario(
+      soloFecha((precarga as any)?.vigenciaDesde),
+      0,
+    );
+    const vigenciaDesde = vigenciaDesdePrecargada || fechaHoyCiudadMexico();
+    const vigenciaHastaPrecargada = sumarDiasCalendario(
+      soloFecha((precarga as any)?.vigenciaHasta),
+      0,
+    );
+    const vigenciaHasta = vigenciaHastaPrecargada || sumarDiasCalendario(vigenciaDesde, 90);
+
     this.certificado = mezclarCertificadoMedico({
       ...crearCertificadoMedicoVacio(),
       ...precarga,
+      vigenciaDesde,
+      vigenciaHasta,
       fichaConsultorioId: this.data?.fichaConsultorioId || (precarga as any)?.fichaConsultorioId,
     });
   }

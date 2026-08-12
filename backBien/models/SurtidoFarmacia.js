@@ -20,6 +20,10 @@ const SurtidoItemSchema = new Schema({
   // precio de venta al momento del surtido
   precioUnitario: {
     type: Number
+  },
+  // costo unitario del producto al momento del surtido (snapshot historico)
+  costo: {
+    type: Number
   }
 }, { _id: false });
 

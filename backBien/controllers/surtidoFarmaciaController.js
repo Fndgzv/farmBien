@@ -206,6 +206,15 @@ exports.surtirFarmacia = async (req, res) => {
             : 0;
           if (disponible <= 0) continue;
 
+          if (
+            producto.costo === null ||
+            producto.costo === undefined ||
+            !Number.isFinite(Number(producto.costo))
+          ) {
+            throw new Error(`El producto ${productoId} no tiene un costo valido para el surtido.`);
+          }
+          const costoProducto = Number(producto.costo);
+
           producto.lotes.sort(
             (a, b) => new Date(a.fechaCaducidad) - new Date(b.fechaCaducidad)
           );
@@ -226,7 +235,8 @@ exports.surtirFarmacia = async (req, res) => {
               producto: producto._id,
               lote: lote.lote || 'SIN-LOTE',
               cantidad,
-              precioUnitario: inventario.precioVenta ?? producto.precio ?? 0
+              precioUnitario: inventario.precioVenta ?? producto.precio ?? 0,
+              costo: costoProducto
             });
           }
 

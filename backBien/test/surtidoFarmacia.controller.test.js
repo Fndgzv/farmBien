@@ -32,7 +32,7 @@ function crearPeticion(detalles = []) {
   };
 }
 
-function crearProducto({ id, nombre, lotes, precio = 10 }) {
+function crearProducto({ id, nombre, lotes, precio = 10, costo = 7.5 }) {
   const guardados = [];
   return {
     _id: id,
@@ -41,6 +41,7 @@ function crearProducto({ id, nombre, lotes, precio = 10 }) {
     categoria: 'General',
     ubicacion: 'A-1',
     precio,
+    costo,
     lotes: lotes.map((lote) => ({ ...lote })),
     guardados,
     async save(options) {
@@ -148,6 +149,7 @@ test('surte un producto en una sola transaccion y cierra la sesion una vez', asy
   const producto = crearProducto({
     id: '64b000000000000000000011',
     nombre: 'Producto uno',
+    costo: 125.5,
     lotes: [{ lote: 'L1', cantidad: 8, fechaCaducidad: '2027-01-01' }]
   });
   const inventario = crearInventario({
@@ -176,6 +178,7 @@ test('surte un producto en una sola transaccion y cierra la sesion una vez', asy
   assert.equal(producto.lotes[0].cantidad, 3);
   assert.equal(creacion.data.items.length, 1);
   assert.equal(creacion.data.items[0].cantidad, 5);
+  assert.equal(creacion.data.items[0].costo, 125.5);
   assert.equal(creacion.options.session, session);
   assert.equal(producto.guardados[0].session, session);
   assert.equal(inventario.guardados[0].session, session);
@@ -198,6 +201,7 @@ test('surte varios productos y lotes en un unico movimiento', async (t) => {
   const productoB = crearProducto({
     id: '64b000000000000000000022',
     nombre: 'Producto B',
+    costo: 0,
     lotes: [{ lote: 'B1', cantidad: 4, fechaCaducidad: '2027-06-01' }]
   });
   const inventarios = [
@@ -226,10 +230,26 @@ test('surte varios productos y lotes en un unico movimiento', async (t) => {
     ['A2', 3],
     ['B1', 3]
   ]);
+  assert.equal(itemsCreados.find((item) => item.lote === 'B1').costo, 0);
   assert.deepEqual(inventarios.map((inventario) => inventario.existencia), [6, 5]);
   assert.equal(res.body.surtido.items.length, 3);
   assert.equal(session.commits, 1);
   assert.equal(session.cierres, 1);
+});
+
+test('el esquema conserva sin costo los documentos historicos', () => {
+  const historico = new SurtidoFarmacia({
+    farmacia: FARMACIA_ID,
+    usuarioSurtio: USUARIO_ID,
+    items: [{
+      producto: '64b000000000000000000011',
+      lote: 'HISTORICO',
+      cantidad: 1
+    }]
+  });
+
+  assert.equal(historico.items[0].costo, undefined);
+  assert.equal(historico.validateSync(), undefined);
 });
 
 test('sin existencia no crea movimientos ni intenta abortar dos veces', async (t) => {
@@ -290,6 +310,37 @@ test('un producto sin lotes no genera cambios parciales', async (t) => {
   assert.equal(crearMovimiento.mock.callCount(), 0);
   assert.equal(session.abortosAutomaticos, 1);
   assert.equal(session.abortosManuales, 0);
+  assert.equal(session.cierres, 1);
+});
+
+test('un producto sin costo no crea un surtido nuevo incompleto', async (t) => {
+  t.mock.method(console, 'error', () => undefined);
+  const producto = crearProducto({
+    id: '64b000000000000000000038',
+    nombre: 'Sin costo',
+    costo: null,
+    lotes: [{ lote: 'SC', cantidad: 5, fechaCaducidad: '2027-01-01' }]
+  });
+  const inventario = crearInventario({
+    producto,
+    existencia: 0,
+    stockMin: 1,
+    stockMax: 5
+  });
+  const inventarios = [inventario];
+  const session = crearSession(inventarios);
+  instalarInventarios(t, inventarios);
+  t.mock.method(mongoose, 'startSession', async () => session);
+  const crearMovimiento = t.mock.method(SurtidoFarmacia, 'create', async () => undefined);
+
+  const res = crearRespuesta();
+  await controller.surtirFarmacia(crearPeticion(), res);
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(inventario.existencia, 0);
+  assert.equal(producto.lotes[0].cantidad, 5);
+  assert.equal(crearMovimiento.mock.callCount(), 0);
+  assert.equal(session.abortosAutomaticos, 1);
   assert.equal(session.cierres, 1);
 });
 

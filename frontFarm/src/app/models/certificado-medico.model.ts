@@ -79,6 +79,28 @@ export function fechaHoyCiudadMexico(): string {
   return `${year}-${month}-${day}`;
 }
 
+export function sumarDiasCalendario(fecha: string, dias: number): string {
+  const match = String(fecha || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match || !Number.isInteger(dias)) return '';
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const calendario = new Date(Date.UTC(year, month - 1, day));
+  if (
+    calendario.getUTCFullYear() !== year ||
+    calendario.getUTCMonth() !== month - 1 ||
+    calendario.getUTCDate() !== day
+  ) return '';
+
+  calendario.setUTCDate(calendario.getUTCDate() + dias);
+  return [
+    calendario.getUTCFullYear(),
+    String(calendario.getUTCMonth() + 1).padStart(2, '0'),
+    String(calendario.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 export function crearCertificadoMedicoVacio(): CertificadoMedico {
   const familiaresVacios = () => [] as string[];
   const dientes = Object.fromEntries(

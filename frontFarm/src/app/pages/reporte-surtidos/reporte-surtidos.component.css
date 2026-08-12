@@ -31,6 +31,12 @@
   background: #f3f4f6;
 }
 
+.detalle-tabla .costo-total-row td {
+  background: #f3f4f6;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .detalle-tabla th.th-sort {
   cursor: pointer;
   user-select: none;
