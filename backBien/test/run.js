@@ -3,3 +3,4 @@ require("./sessionSecurity.test");
 require("./surtidoFarmacia.controller.test");
 require("./reporteSurtidos.controller.test");
 require("./certificadosMedicos.controller.test");
+require("./ajusteInventario.ubicacionFarmacia.test");

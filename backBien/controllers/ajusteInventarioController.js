@@ -162,25 +162,15 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
     // 3) Dirección de orden
     const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
 
-    // 3.1) Filtro por ubicacionFarmacia (todas las palabras)
-    const andUbic = [];
-    if (ubicacionFarmacia) {
-      const ws = String(ubicacionFarmacia)
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tolera acentos
-        .toLowerCase().trim().replace(/\s+/g, ' ')
-        .split(' ')
-        .filter(Boolean);
-      for (const w of ws) {
-        andUbic.push({ ubicacionFarmacia: { $regex: w, $options: 'i' } });
-      }
-    }
+    // 3.1) Palabras de ubicación normalizadas para comparación literal en Node.
+    // No se envía este input como regex a MongoDB.
+    const palabrasUbicacion = splitWords(ubicacionFarmacia);
 
     // 4) Pipeline inventario + producto
     const baseMatch = { farmacia: new ObjectId(farmacia), producto: { $in: productosIds } };
-    const matchInventario = andUbic.length ? { $and: [baseMatch, ...andUbic] } : baseMatch;
 
     const pipe = [
-      { $match: matchInventario },
+      { $match: baseMatch },
       {
         $lookup: {
           from: 'productos',
@@ -238,7 +228,14 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
     ];
 
     const inventario = await InventarioFarmacia.aggregate(pipe).allowDiskUse(true);
-    return res.json(inventario);
+    const inventarioFiltrado = palabrasUbicacion.length
+      ? inventario.filter((item) => {
+          const ubicacionNormalizada = normLatin(item?.ubicacionFarmacia);
+          return palabrasUbicacion.every((palabra) => ubicacionNormalizada.includes(palabra));
+        })
+      : inventario;
+
+    return res.json(inventarioFiltrado);
   } catch (error) {
     console.error('[obtenerInventarioFarmacia][ERROR]', error);
     return res.status(500).json({ mensaje: "Error al obtener inventario" });

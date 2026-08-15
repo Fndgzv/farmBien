@@ -15,7 +15,7 @@
     </div>
 
     <div class="filtro-campo">
-      <label>Nombre</label>
+      <label>Paciente</label>
       <div class="control-limpiable">
         <input class="form-control" formControlName="nombre" (keyup.enter)="buscar()">
         <button *ngIf="formFiltros.get('nombre')?.value" type="button" class="limpiar"
@@ -68,7 +68,7 @@
     <thead>
       <tr>
         <th class="th-sort" (click)="ordenar('farmacia')">Farmacia <span>{{ indicadorOrden('farmacia') }}</span></th>
-        <th class="th-sort" (click)="ordenar('nombre')">Nombre <span>{{ indicadorOrden('nombre') }}</span></th>
+        <th class="th-sort" (click)="ordenar('nombre')">Paciente <span>{{ indicadorOrden('nombre') }}</span></th>
         <th class="th-sort" (click)="ordenar('responsable')">Responsable <span>{{ indicadorOrden('responsable') }}</span></th>
         <th class="th-sort" (click)="ordenar('medico')">Médico <span>{{ indicadorOrden('medico') }}</span></th>
         <th class="th-sort" (click)="ordenar('fechaRevision')">Fecha <span>{{ indicadorOrden('fechaRevision') }}</span></th>
