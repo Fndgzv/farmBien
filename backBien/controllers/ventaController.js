@@ -6,6 +6,7 @@ const Venta = require("../models/Venta");
 const Cliente = require("../models/Cliente");
 const InventarioFarmacia = require("../models/InventarioFarmacia");
 const FichaConsultorio = require("../models/FichaConsultorio");
+const { controlaInventario } = require('../utils/controlInventario');
 
 const ZONE = process.env.APP_TZ || 'America/Mexico_City';
 
@@ -345,7 +346,7 @@ const crearVenta = async (req, res) => {
       farmacia: farmaciaId,
       producto: { $in: uniqueIds }
     })
-      .populate("producto", "nombre costo categoria iva")
+      .populate("producto", "nombre costo categoria iva inventario")
       .exec();
 
     const invByProd = new Map();
@@ -361,7 +362,7 @@ const crearVenta = async (req, res) => {
         return res.status(400).json({ mensaje: `** El producto ${pid} no existe en inventario de la farmacia **` });
       }
       const reqQty = qtyByProd.get(pid) || 0;
-      if (toNumber(inv.existencia) < reqQty) {
+      if (controlaInventario(inv.producto) && toNumber(inv.existencia) < reqQty) {
         return res.status(400).json({
           mensaje: `** No hay suficiente stock en la farmacia para ${inv.producto.nombre} (req: ${reqQty}, disp: ${inv.existencia}) **`
         });
@@ -596,6 +597,7 @@ const crearVenta = async (req, res) => {
 
           const inv = invByProd.get(pid);
           if (!inv) throw new Error(`Inventario no encontrado para producto ${pid}`);
+          if (!controlaInventario(inv.producto)) continue;
 
           bulkOps.push({
             updateOne: {

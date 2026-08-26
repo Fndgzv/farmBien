@@ -44,6 +44,7 @@ export interface Producto {
   laboratorio?: string | { _id?: string; laboratorio?: string } | null;
   laboratorioNombre?: string | null;
   generico: boolean;
+  inventario?: boolean;
   descuentoINAPAM: boolean;
 
   promoLunes: PromoDia;

@@ -125,6 +125,7 @@ export class ModalEditarProductoComponent implements OnInit {
       costoInsumosMedicos: [(this.producto as any).costoInsumosMedicos ?? 0, [Validators.min(0)]],
       iva: [this.producto.iva],
       generico: [this.producto.generico],
+      inventario: [(this.producto as any).inventario !== false],
       descuentoINAPAM: [this.producto.descuentoINAPAM],
       stockMinimo: [this.producto.stockMinimo, [Validators.required, Validators.min(0)]],
       stockMaximo: [this.producto.stockMaximo, [Validators.required, Validators.min(0)]],

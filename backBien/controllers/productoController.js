@@ -498,7 +498,7 @@ exports.crearProducto = async (req, res) => {
   try {
     const {
       nombre, ingreActivo, renglon1, renglon2, codigoBarras, unidad, precio, costo, iva,
-      stockMinimo, stockMaximo, ubicacion, categoria, generico,
+      stockMinimo, stockMaximo, ubicacion, categoria, generico, inventario,
       costoHonorariosMedicos, costoInsumosMedicos, laboratorio, sintomas, descripcionUso,
       ultimoProveedorId, proveedor
     } = req.body;
@@ -563,6 +563,7 @@ exports.crearProducto = async (req, res) => {
       laboratorio: laboratorioValidado.definido ? laboratorioValidado.valor : null,
       ultimoProveedorId: proveedorValidado.definido ? proveedorValidado.valor : null,
       generico,
+      inventario: inventario === false ? false : true,
       costoHonorariosMedicos: honorariosMedicos,
       costoInsumosMedicos: insumosMedicos
     }], { session });
@@ -915,7 +916,7 @@ exports.obtenerExistenciaEnFarmacia = async (req, res) => {
       .lean();
 
     // obtenemos el nombre del producto
-    const producto = await Producto.findById(productoId).select('nombre').lean();
+    const producto = await Producto.findById(productoId).select('nombre inventario').lean();
     const nombreProducto = producto ? producto.nombre : null;
 
     // Obtener nombre de la farmacia
@@ -927,6 +928,7 @@ exports.obtenerExistenciaEnFarmacia = async (req, res) => {
       return res.json({
         producto: nombreProducto,
         farmacia: nombreFarmacia,
+        inventario: producto?.inventario,
         existencia: 0,
         precioVenta: null,
         ubicacionFarmacia: null,
@@ -952,6 +954,7 @@ exports.obtenerExistenciaEnFarmacia = async (req, res) => {
     return res.json({
       producto: nombreProducto,
       farmacia: nombreFarmacia,
+      inventario: producto?.inventario,
 
       existencia: inv.existencia,
       precioVenta: inv.precioVenta,
@@ -1042,6 +1045,7 @@ exports.actualizarProductos = async (req, res) => {
           productoActual.ultimoProveedorId = proveedorValidado.valor;
         }
         if (typeof prod.generico !== 'undefined') productoActual.generico = prod.generico;
+        if (typeof prod.inventario !== 'undefined') productoActual.inventario = prod.inventario === false ? false : true;
         if (typeof prod.descuentoINAPAM !== 'undefined') productoActual.descuentoINAPAM = prod.descuentoINAPAM;
 
         // Promos por día y temporada
@@ -1463,6 +1467,10 @@ exports.actualizarProducto = async (req, res) => {
         return res.status(400).json({ mensaje: laboratorioValidado.error });
       }
       productoActual.laboratorio = laboratorioValidado.valor;
+    }
+
+    if (typeof prod.inventario !== 'undefined') {
+      productoActual.inventario = prod.inventario === false ? false : true;
     }
 
     // Lotes

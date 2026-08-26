@@ -55,6 +55,7 @@ export class AjustesInventarioComponent implements OnInit {
     categoria: string;
     ubicacion: string;
     generico: boolean | null;
+    inventario: boolean | null;
     bajoStock: boolean | null;
     duplicadosCB: boolean | null;
     laboratorioId: string | null;
@@ -68,6 +69,7 @@ export class AjustesInventarioComponent implements OnInit {
       categoria: '',
       ubicacion: '',
       generico: null,
+      inventario: null,
       bajoStock: false,
       duplicadosCB: false,
       laboratorioId: null,
@@ -164,7 +166,8 @@ export class AjustesInventarioComponent implements OnInit {
       categoria: ['', Validators.required],
       ultimoProveedorId: [null],
       laboratorio: [null],
-      generico: [false]
+      generico: [false],
+      inventario: [true]
     });
 
     this.nuevoProductoForm.get('categoria')?.valueChanges.subscribe((categoria) => {
@@ -534,6 +537,9 @@ export class AjustesInventarioComponent implements OnInit {
         const coincideGenerico = f.generico === null
           ? true
           : p.generico === f.generico;
+        const coincideInventario = f.inventario === null
+          ? true
+          : (p.inventario !== false) === f.inventario;
         const coincideBajoStock = f.bajoStock
           ? p.existencia < (p.stockMinimo ?? 0)
           : true;
@@ -549,6 +555,7 @@ export class AjustesInventarioComponent implements OnInit {
           coincideUbicacion &&
           /* coincideINAPAM && */
           coincideGenerico &&
+          coincideInventario &&
           coincideBajoStock &&
           coincideDuplicadosCB &&
           coincideCaducados &&
@@ -646,6 +653,7 @@ export class AjustesInventarioComponent implements OnInit {
       case 'categoria': this.filtros.categoria = ''; break;
       case 'ubicacion': this.filtros.ubicacion = ''; break;
       case 'generico': this.filtros.generico = null; break;
+      case 'inventario': this.filtros.inventario = null; break;
       case 'bajoStock': this.filtros.bajoStock = false; break;
       case 'duplicadosCB': this.filtros.duplicadosCB = false; break;
       case 'laboratorioId': this.filtros.laboratorioId = null; break;
@@ -1258,7 +1266,8 @@ export class AjustesInventarioComponent implements OnInit {
       categoria: '',
       ultimoProveedorId: null,
       laboratorio: null,
-      generico: false
+      generico: false,
+      inventario: true
     });
     this.mostrarAltaLaboratorioNuevo = false;
     this.nuevoLaboratorioRapido = '';
@@ -1507,7 +1516,7 @@ export class AjustesInventarioComponent implements OnInit {
           this.filtros = {
             nombre: '', codigoBarras: '', categoria: '',
             ubicacion: '',
-            /* descuentoINAPAM: null,*/ generico: null,
+            /* descuentoINAPAM: null,*/ generico: null, inventario: null,
             bajoStock: false, duplicadosCB: false,
             laboratorioId: null,
             caducados: false, caducanEnMeses: null, ultimoProveedorId: null

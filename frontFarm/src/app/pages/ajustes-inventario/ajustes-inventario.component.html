@@ -99,6 +99,23 @@
             </div>
         </div>
 
+        <div class="col-md-1">
+            <label class="me-2 mb-0" style="white-space: nowrap;">Inventario</label>
+            <div class="position-relative">
+                <select [(ngModel)]="filtros.inventario" name="inventario"
+                    class="form-control pe-4 flex-grow-1" (change)="aplicarFiltros()">
+                    <option [ngValue]="null">Todos</option>
+                    <option [ngValue]="true">SI</option>
+                    <option [ngValue]="false">NO</option>
+                </select>
+                <button *ngIf="filtros.inventario !== null" type="button" matTooltip="Limpiar inventario"
+                    class="btn-icon-chico btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico"
+                    (click)="limpiarFiltro('inventario')">
+                    <fa-icon [icon]="faTimes"></fa-icon>
+                </button>
+            </div>
+        </div>
+
         <div class="col-md-2">
             <label class="me-2 mb-0" style="white-space: nowrap;">Solo bajo stock</label>
             <div class="position-relative">
@@ -293,6 +310,7 @@
                         'bi-caret-up': columnaOrden !== 'nombre'
                     }" class="icono-orden"></i>
                 </th>
+                <th class="col-inventario" matTooltip="Producto de inventario">I</th>
 
                 <th (click)="ordenar('categoria')">
                     Categoría
@@ -406,6 +424,10 @@
                 <td class="col-producto">
                     <div class="prod-nombre">{{ p.nombre }}</div>
                     <small class="prod-ubicacion" *ngIf="p.codigoBarras">{{ p.codigoBarras }}</small>
+                </td>
+                <td class="col-inventario">
+                    <input type="checkbox" [checked]="p.inventario !== false" disabled
+                        [attr.aria-label]="(p.inventario !== false ? 'Sí' : 'No') + ' es producto de inventario'">
                 </td>
                 <td>{{ p.categoria }}</td>
                 <td>{{ nombreLaboratorioProducto(p) }}</td>
@@ -623,6 +645,11 @@
                     <div class="col-1 form-check-vertical">
                         <label for="chkGen" class="form-label">Genérico</label>
                         <input type="checkbox" class="form-check-input" formControlName="generico" id="chkGen" />
+                    </div>
+
+                    <div class="col-1 form-check-vertical">
+                        <label for="chkInventario" class="form-label">Inventario</label>
+                        <input type="checkbox" class="form-check-input" formControlName="inventario" id="chkInventario" />
                     </div>
 
                 </div>

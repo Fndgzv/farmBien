@@ -36,6 +36,7 @@ type InvInfo = {
   precioVenta: number;
   ubicacionFarmacia?: string;
   existencia: number;
+  inventario?: boolean;
 
   descuentoINAPAM?: boolean;
 
@@ -1597,9 +1598,11 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.existenciaProducto(this.farmaciaId, item.producto, 1, /*quiet*/ true)
       .then((existencia) => {
         // Máximo que puedo poner en el input respetando stock (y promo)
-        const maxPagadas = esPromoCant
-          ? this.maxPagablesConPromo(existencia, req)
-          : existencia;
+        const maxPagadas = this.invCache[item.producto]?.inventario === false
+          ? solicitada
+          : esPromoCant
+            ? this.maxPagablesConPromo(existencia, req)
+            : existencia;
 
         const nueva = Math.min(solicitada, Math.max(1, maxPagadas));
 
@@ -2388,11 +2391,15 @@ export class VentasComponent implements OnInit, AfterViewInit {
     return new Promise((resolve, reject) => {
       this.productoService.existenciaPorFarmaciaYProducto(idFarmacia, idProducto).subscribe({
         next: (data) => {
+          const productoLocal = this.productos.find(p => String(p?._id) === String(idProducto));
+          const controlaInventario = data?.inventario !== false && productoLocal?.inventario !== false;
+
           // ✅ cachea inventario COMPLETO (incluye promos)
           this.invCache[idProducto] = {
             precioVenta: Number(data?.precioVenta ?? 0),
             ubicacionFarmacia: data?.ubicacionFarmacia ?? '',
             existencia: Number(data?.existencia ?? 0),
+            inventario: controlaInventario,
 
             descuentoINAPAM: !!data?.descuentoINAPAM,
 
@@ -2418,7 +2425,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
           const existencia = this.invCache[idProducto].existencia;
           this.existencias[idProducto] = existencia;
 
-          if (existencia >= cantRequerida) {
+          if (!controlaInventario || existencia >= cantRequerida) {
             this.hayProducto = true;
           } else {
             this.hayProducto = false;

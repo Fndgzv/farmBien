@@ -21,6 +21,11 @@
   overflow-wrap: anywhere; /* por si es larga */
 }
 
+.tabla .col-inventario {
+  text-align: center;
+  width: 34px;
+}
+
 .masivos {
   /* font-size: small; */
   width: 100%;
