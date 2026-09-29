@@ -838,6 +838,22 @@ body {
 }
 
 /* ✅ Aumenta tipografía del panel de opciones del mat-select (global) */
+/* El autocomplete vive fuera del modal; elevar sólo los paneles de consulta de ventas. */
+.cdk-overlay-container:has(.ventas-consulta-opciones) {
+  z-index: 1300;
+}
+
+.mat-mdc-autocomplete-panel.ventas-consulta-opciones {
+  max-height: min(256px, 40vh);
+  max-height: min(256px, 40dvh);
+}
+
+.ventas-consulta-opciones .mat-mdc-option {
+  min-height: 48px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .cdk-overlay-container .mat-mdc-select-panel {
   /* Tokens de MDC que usa mat-select para las opciones */
   --mdc-typography-body2-font-size: 1.3rem;

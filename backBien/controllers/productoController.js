@@ -997,23 +997,27 @@ exports.actualizarProductos = async (req, res) => {
       return res.status(400).json({ mensaje: 'No hay productos para actualizar.' });
     }
 
-    const opsInventario = []; // acumulamos operaciones bulkWrite para InventarioFarmacia
-
     await session.withTransaction(async () => {
+      // La transacción puede reintentarse; no acumular operaciones de otro intento.
+      const opsInventario = [];
       for (const prod of productos) {
         // Validaciones básicas
-        const validacion = validarProducto(prod);
+        const validacion = validarProducto({ ...prod, lotes: prod.lotes ?? [] });
         if (!validacion.valido) {
           // si alguna validación falla, abortamos toda la transacción
           throw new Error(validacion.mensaje || 'Producto inválido');
         }
 
         const productoActual = await Producto.findById(prod._id).session(session);
-        if (!productoActual) continue;
+        if (!productoActual) {
+          const err = new Error('Producto no encontrado. Actualiza la lista e intenta nuevamente.');
+          err.status = 404;
+          throw err;
+        }
 
         // Actualizaciones en Producto
-        productoActual.nombre = prod.nombre;
-        productoActual.unidad = prod.unidad;
+        if (typeof prod.nombre !== 'undefined') productoActual.nombre = prod.nombre;
+        if (typeof prod.unidad !== 'undefined') productoActual.unidad = prod.unidad;
         if (typeof prod.precio === 'number') productoActual.precio = prod.precio;
         if (typeof prod.costo === 'number') productoActual.costo = prod.costo;
         if (typeof prod.iva !== 'undefined') productoActual.iva = prod.iva;
@@ -1048,24 +1052,19 @@ exports.actualizarProductos = async (req, res) => {
         if (typeof prod.inventario !== 'undefined') productoActual.inventario = prod.inventario === false ? false : true;
         if (typeof prod.descuentoINAPAM !== 'undefined') productoActual.descuentoINAPAM = prod.descuentoINAPAM;
 
-        // Promos por día y temporada
-        productoActual.promoLunes = prod.promoLunes;
-        productoActual.promoMartes = prod.promoMartes;
-        productoActual.promoMiercoles = prod.promoMiercoles;
-        productoActual.promoJueves = prod.promoJueves;
-        productoActual.promoViernes = prod.promoViernes;
-        productoActual.promoSabado = prod.promoSabado;
-        productoActual.promoDomingo = prod.promoDomingo;
+        // Un campo omitido en una actualización parcial conserva su valor actual.
+        for (const campo of [
+          'promoLunes', 'promoMartes', 'promoMiercoles', 'promoJueves',
+          'promoViernes', 'promoSabado', 'promoDomingo', 'promoDeTemporada',
+          'promoCantidadRequerida', 'inicioPromoCantidad', 'finPromoCantidad'
+        ]) {
+          if (typeof prod[campo] !== 'undefined') productoActual[campo] = prod[campo];
+        }
 
-        productoActual.promoDeTemporada = prod.promoDeTemporada;
-
-        // Promo por cantidad
-        productoActual.promoCantidadRequerida = prod.promoCantidadRequerida;
-        productoActual.inicioPromoCantidad = prod.inicioPromoCantidad;
-        productoActual.finPromoCantidad = prod.finPromoCantidad;
-
-        // Lotes (reemplazo completo)
-        productoActual.lotes = Array.isArray(prod.lotes) ? prod.lotes : [];
+        // Los lotes sólo se reemplazan cuando vienen explícitamente en el payload.
+        if (typeof prod.lotes !== 'undefined') {
+          productoActual.lotes = Array.isArray(prod.lotes) ? prod.lotes : [];
+        }
 
         await productoActual.save({ session });
 

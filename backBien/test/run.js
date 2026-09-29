@@ -7,3 +7,4 @@ require("./ajusteInventario.ubicacionFarmacia.test");
 require("./exportarViabilidad.test");
 require("./controlInventario.test");
 require("./ventaInventario.test");
+require("./producto.actualizacionMasiva.test");

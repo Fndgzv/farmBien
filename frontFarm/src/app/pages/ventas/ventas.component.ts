@@ -19,6 +19,7 @@ import { faTimes } from '@fortawesome/free-solid-svg-icons';
 import { MatAutocompleteModule, MatAutocompleteTrigger } from '@angular/material/autocomplete';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 
 import Swal from 'sweetalert2';
 import { VentaService } from '../../services/venta.service';
@@ -95,6 +96,7 @@ export interface ConsultaPrecioResp {
     MatAutocompleteModule,
     MatInputModule,
     MatFormFieldModule,
+    ScrollingModule,
     MatTooltip
   ],
   templateUrl: './ventas.component.html',
@@ -2341,8 +2343,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   // Llamar cuando se teclea en "Buscar Cód. barras"
-  filtrarConsultaPorCodigo() {
-    const t = (this.busquedaConsultaCodigo || '').trim();
+  filtrarConsultaPorCodigo(valor: string = this.busquedaConsultaCodigo) {
+    const t = (valor || '').trim();
     if (!t) {
       this.productosConsultaFiltradosPorCodigo = [];
       return;
@@ -2353,8 +2355,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   // Llamar cuando se teclea en "Buscar producto por nombre"
-  filtrarConsultaPorNombre() {
-    const t = (this.busquedaConsultaNombre || '').trim().toLowerCase();
+  filtrarConsultaPorNombre(valor: string = this.busquedaConsultaNombre) {
+    const t = (valor || '').trim().toLowerCase();
     if (!t) {
       this.productosConsultaFiltradosPorNombre = [];
       return;

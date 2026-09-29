@@ -118,12 +118,13 @@
   </div>
 
 
-  <div *ngIf="mostrarModalConsultaPrecio" class="modal-overlay">
-    <div class="modal-content" style="width: 600px;">
-      <h4>Consultar Precio</h4>
+  <div *ngIf="mostrarModalConsultaPrecio" class="modal-overlay consulta-precio-overlay">
+    <div class="modal-content consulta-precio-modal" cdkScrollable role="dialog" aria-modal="true"
+      aria-labelledby="tituloConsultaPrecio">
+      <h4 id="tituloConsultaPrecio">Consultar Precio</h4>
       <div class="input-container position-relative">
         <input #codigoConsultaRef type="text" [(ngModel)]="codigoConsulta" (keyup.enter)="consultarPrecio()" placeholder="Código de barras"
-          class="input-field">
+          class="input-field" inputmode="numeric" autocomplete="off">
         <button (click)="limpiarBarras()" matTooltip="Limpiar cód. barras"
           class="btn-limpiar btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
           <fa-icon [icon]="faTimes"></fa-icon>
@@ -142,12 +143,14 @@
         </div>
       </div>
 
-      <div *ngIf="!consultaEncontrado">
+      <div *ngIf="!consultaEncontrado" class="consulta-precio-buscadores">
         <!-- 🔎 Filtro por CÓDIGO -->
         <mat-form-field appearance="outline" class="w-100 mb-1 compact-field">
+          <mat-label>Buscar Cód. barras</mat-label>
           <input matInput [(ngModel)]="busquedaConsultaCodigo" [matAutocomplete]="autoConsCodigo"
-            placeholder="Buscar Cód. barras" (input)="filtrarConsultaPorCodigo()" />
-          <mat-autocomplete #autoConsCodigo="matAutocomplete" (optionSelected)="onSelectConsultaCodigo($event)">
+            inputmode="numeric" autocomplete="off" (ngModelChange)="filtrarConsultaPorCodigo($event)" />
+          <mat-autocomplete #autoConsCodigo="matAutocomplete" class="ventas-consulta-opciones"
+            (optionSelected)="onSelectConsultaCodigo($event)">
             <mat-option *ngFor="let p of productosConsultaFiltradosPorCodigo" [value]="p.codigoBarras">
               {{ p.codigoBarras }} — {{ p.nombre }}
             </mat-option>
@@ -156,9 +159,11 @@
 
         <!-- 🔎 Filtro por NOMBRE -->
         <mat-form-field appearance="outline" class="w-100 mb-1 compact-field">
+          <mat-label>Buscar producto por nombre</mat-label>
           <input matInput [(ngModel)]="busquedaConsultaNombre" [matAutocomplete]="autoConsNombre"
-            placeholder="Buscar producto por nombre" (input)="filtrarConsultaPorNombre()" />
-          <mat-autocomplete #autoConsNombre="matAutocomplete" (optionSelected)="onSelectConsultaNombre($event)">
+            autocomplete="off" (ngModelChange)="filtrarConsultaPorNombre($event)" />
+          <mat-autocomplete #autoConsNombre="matAutocomplete" class="ventas-consulta-opciones"
+            (optionSelected)="onSelectConsultaNombre($event)">
             <mat-option *ngFor="let p of productosConsultaFiltradosPorNombre" [value]="p.codigoBarras">
               {{ p.nombre }}
             </mat-option>
@@ -571,7 +576,8 @@
 </div>
 <!-- =================== FIN MODAL INSUMOS CONSULTA =================== -->
 
-  <div class="ventas-container" [style.--thumb-scale]="thumbScale">
+  <div class="ventas-container" [style.--thumb-scale]="thumbScale" role="region"
+    aria-label="Productos de la venta. Desliza horizontalmente para ver todas las columnas." tabindex="0">
     <table class="tabla">
       <colgroup>
         <col class="col-acciones">

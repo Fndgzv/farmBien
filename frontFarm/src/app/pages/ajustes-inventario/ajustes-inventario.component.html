@@ -265,7 +265,16 @@
                 <input type="number" formControlName="stockMaximo" class="form-control form-control-sm">
             </div>
 
-            <div class="col-md-3" style="text-align: end;">
+            <div class="col-md-2">
+                <label for="inventarioMasivo" class="form-label mb-1">¿Es de inventario?</label>
+                <select id="inventarioMasivo" formControlName="inventario" class="form-select form-select-sm">
+                    <option [ngValue]="null">Sin cambios</option>
+                    <option [ngValue]="true">Sí</option>
+                    <option [ngValue]="false">No</option>
+                </select>
+            </div>
+
+            <div class="col-md-auto ms-auto mt-2" style="text-align: end;">
                 <button class="btn-rojo-chico w-80" type="button" [disabled]="quitandoLotes"
                     matTooltip="Dejar las existencias en CERO" (click)="quitarLotesSeleccionados()">
                     <i class="fa fa-spinner fa-spin me-1" *ngIf="quitandoLotes"></i>
@@ -281,7 +290,7 @@
             </button>
             <button class="btn-verde-chico" style="margin-right: 4rem;" type="button"
                 matTooltip="Aplica cambios a los productos seleccionados en la tabla"
-                [disabled]="!cambiosMasivosValidos" (click)="aplicarCambiosMasivos()">
+                [disabled]="guardandoMasivo || !cambiosMasivosValidos" (click)="aplicarCambiosMasivos()">
                 Aplicar Cambios
             </button>
         </div>

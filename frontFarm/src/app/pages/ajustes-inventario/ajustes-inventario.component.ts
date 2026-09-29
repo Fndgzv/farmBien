@@ -4,7 +4,7 @@ import { FormsModule, ReactiveFormsModule, Validators, FormBuilder, FormGroup } 
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Producto } from '../../models/producto.model';
 import { ModalOverlayService } from '../../services/modal-overlay.service';
-import { ProductoService } from '../../services/producto.service';
+import { CambioProductoMasivo, ProductoService } from '../../services/producto.service';
 import { ProveedorService } from '../../services/proveedor.service';
 import { FarmaciaService } from '../../services/farmacia.service';
 import { Laboratorio, LaboratoriosService } from '../../services/laboratorios.service';
@@ -43,6 +43,7 @@ export class AjustesInventarioComponent implements OnInit {
   productos: ProductoUI[] = [];
   productosFiltrados: ProductoUI[] = [];
   formularioMasivo!: FormGroup;
+  guardandoMasivo = false;
 
   filtrando = false;
   iniciando = false;
@@ -200,7 +201,7 @@ export class AjustesInventarioComponent implements OnInit {
     });
 
     this.formularioMasivo = this.fb.group({
-      categoria: [null], laboratorio: [null], ubicacion: [null], descuentoINAPAM: [null], stockMinimo: [null], stockMaximo: [null],
+      categoria: [null], laboratorio: [null], ubicacion: [null], inventario: [null], descuentoINAPAM: [null], stockMinimo: [null], stockMaximo: [null],
       ajustePrecioModo: [null], ajustePrecioPorcentaje: [null], ajustePrecioCantidad: [null],
       promoCantidadRequerida: [null], inicioPromoCantidad: [null], finPromoCantidad: [null],
       promoDeTemporadaPorcentaje: [null], promoDeTemporadaInicio: [null], promoDeTemporadaFin: [null],
@@ -894,7 +895,8 @@ export class AjustesInventarioComponent implements OnInit {
     }
   }
 
-  aplicarCambiosMasivos() {
+  async aplicarCambiosMasivos(): Promise<void> {
+    if (this.guardandoMasivo || !this.cambiosMasivosValidos) return;
     const cambios = this.formularioMasivo.value;
     const productosSeleccionados = this.productosFiltrados.filter(p => p.seleccionado);
 
@@ -911,15 +913,15 @@ export class AjustesInventarioComponent implements OnInit {
       return;
     }
 
-    productosSeleccionados.forEach(producto => {
+    const productosPayload = productosSeleccionados.map(original => {
+      const producto: CambioProductoMasivo = { _id: original._id };
       Object.keys(cambios).forEach(campo => {
-        if (cambios[campo] !== null && !['ajustePrecioModo', 'ajustePrecioPorcentaje', 'ajustePrecioCantidad'].includes(campo) && campo !== 'promosPorDia') {
+        if (cambios[campo] != null && ![
+          'ajustePrecioModo', 'ajustePrecioPorcentaje', 'ajustePrecioCantidad', 'promosPorDia',
+          'promoDeTemporadaPorcentaje', 'promoDeTemporadaInicio', 'promoDeTemporadaFin', 'promoDeTemporadaMonedero'
+        ].includes(campo)) {
           if (campo === 'laboratorio') {
-            const laboratorioId = cambios[campo] === '__SIN__' ? null : cambios[campo];
-            (producto as any).laboratorio = laboratorioId;
-            (producto as any).laboratorioNombre = laboratorioId
-              ? this.laboratorios.find(l => l._id === laboratorioId)?.laboratorio || null
-              : null;
+            producto.laboratorio = this.normalizarLaboratorioPayload(cambios[campo]);
             return;
           }
 
@@ -929,12 +931,12 @@ export class AjustesInventarioComponent implements OnInit {
 
       if (cambios.ajustePrecioModo === 'porcentaje' && cambios.ajustePrecioPorcentaje != null) {
         const porcentaje = cambios.ajustePrecioPorcentaje;
-        const nuevoPrecio = producto.precio + (producto.precio * (porcentaje / 100));
+        const nuevoPrecio = original.precio + (original.precio * (porcentaje / 100));
         producto.precio = parseFloat(nuevoPrecio.toFixed(2));
       }
       if (cambios.ajustePrecioModo === 'cantidad' && cambios.ajustePrecioCantidad != null) {
         const cantidad = cambios.ajustePrecioCantidad;
-        const nuevoPrecio = producto.precio + cantidad;
+        const nuevoPrecio = original.precio + cantidad;
         producto.precio = parseFloat(nuevoPrecio.toFixed(2));
       }
 
@@ -967,12 +969,10 @@ export class AjustesInventarioComponent implements OnInit {
         }
       });
 
-      producto.modificado = true;
+      return producto;
     });
 
-    this.formularioMasivo.reset();
-
-    this.grabarCambios();
+    await this.grabarCambios(productosPayload);
 
   }
 
@@ -983,11 +983,11 @@ export class AjustesInventarioComponent implements OnInit {
 
   get cambiosMasivosValidos(): boolean {
     const form = this.formularioMasivo.value;
-    const { categoria, laboratorio, ubicacion, stockMinimo, stockMaximo, descuentoINAPAM, ajustePrecioModo, ajustePrecioPorcentaje, ajustePrecioCantidad,
+    const { categoria, laboratorio, ubicacion, inventario, stockMinimo, stockMaximo, descuentoINAPAM, ajustePrecioModo, ajustePrecioPorcentaje, ajustePrecioCantidad,
       promoCantidadRequerida, inicioPromoCantidad, finPromoCantidad,
       promoDeTemporadaPorcentaje, promoDeTemporadaInicio, promoDeTemporadaFin, promoDeTemporadaMonedero } = form;
 
-    const hayAlgunCambio = categoria != null || laboratorio != null || ubicacion != null || stockMinimo != null || stockMaximo != null || descuentoINAPAM != null || ajustePrecioModo != null ||
+    const hayAlgunCambio = categoria != null || laboratorio != null || ubicacion != null || inventario != null || stockMinimo != null || stockMaximo != null || descuentoINAPAM != null || ajustePrecioModo != null ||
       promoCantidadRequerida != null || inicioPromoCantidad != null || finPromoCantidad != null ||
       promoDeTemporadaPorcentaje != null || promoDeTemporadaInicio != null || promoDeTemporadaFin != null || promoDeTemporadaMonedero != null ||
       this.hayCambiosEnPromosPorDia();
@@ -1124,89 +1124,59 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
 
-  grabarCambios() {
+  async grabarCambios(productosPayload: CambioProductoMasivo[]): Promise<void> {
+    if (this.guardandoMasivo) return;
+    this.guardandoMasivo = true;
     try {
-      const productosModificados: ProductoUI[] = this.productos.filter(p => p.seleccionado);
+      if (!productosPayload.length) return;
 
-      if (!productosModificados || productosModificados.length === 0) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'Sin selección',
-          text: 'No hay productos seleccionados para actualizar.',
-          timer: 1600,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-        });
-        return;
-      }
-
-      Swal.fire({
+      const result = await Swal.fire({
         title: '¿Deseas guardar los cambios?',
-        html: `Se actualizarán <b>${productosModificados.length}</b> productos.`,
+        html: `Se actualizarán <b>${productosPayload.length}</b> productos.`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, guardar',
         cancelButtonText: 'Cancelar',
         heightAuto: false
-      }).then(result => {
-        if (!result.isConfirmed) return;
-
-        // ← opcional: forzar a que el popup quede arriba si tienes overlays personalizados
-        Swal.fire({
-          title: 'Guardando...',
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          heightAuto: false,
-          didOpen: () => Swal.showLoading()
-        });
-
-        // ⚠️ IMPORTANTE: el backend espera { productos: [...] }
-        const productosPayload = productosModificados.map((p) => ({
-          ...p,
-          descripcionUso: String((p as any).descripcionUso ?? ''),
-          sintomas: this.limpiarSintomas((p as any).sintomas),
-          laboratorio: this.normalizarLaboratorioPayload((p as any).laboratorio)
-        }));
-
-        this.productoService.actualizarProductos({ productos: productosPayload as unknown as Producto[] }).subscribe({
-          next: () => {
-            Swal.close(); // cierra el loading
-            Swal.fire({
-              icon: 'success',
-              title: 'Actualización exitosa',
-              text: 'Los productos fueron actualizados correctamente.',
-              timer: 1600,
-              timerProgressBar: true,
-              allowOutsideClick: false,
-              allowEscapeKey: false,
-            });
-            // refrescamos sin limpiar filtros
-            this.cargarProductos(false);
-            // limpiamos selección y el form de masivos
-            this.productos.forEach(p => p.seleccionado = false);
-            this.formularioMasivo.reset();
-            // re-aplicar filtros por si el usuario tenía alguno
-            this.aplicarFiltros();
-          },
-          error: (err) => {
-            console.error('[grabarCambios] error HTTP:', err);
-            Swal.close();
-            Swal.fire({
-              icon: 'error',
-              title: 'Error',
-              text: err?.error?.mensaje || 'Ocurrió un error inesperado al actualizar los productos.'
-            });
-          }
-        });
       });
-    } catch (e) {
-      console.error('[grabarCambios] excepción:', e);
+      if (!result.isConfirmed) return;
+
+      Swal.fire({
+        title: 'Guardando...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        heightAuto: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      await firstValueFrom(this.productoService.actualizarProductos({ productos: productosPayload }));
+      Swal.close();
+      Swal.fire({
+        icon: 'success',
+        title: 'Actualización exitosa',
+        text: 'Los productos fueron actualizados correctamente.',
+        timer: 1600,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      });
+      this.productos.forEach(p => p.seleccionado = false);
+      this.formularioMasivo.reset();
+      this.cargarProductos(false);
+    } catch (err: any) {
+      console.error('[grabarCambios] error:', err);
+      Swal.close();
+      const confirmados = err?.productosConfirmados?.length || 0;
+      const mensaje = err?.error?.detalle || err?.error?.mensaje || err?.message || 'No se pudo completar la actualización.';
+      // Refrescar permite ver lo persistido antes de volver a aplicar un ajuste de precio.
+      this.cargarProductos(false);
       Swal.fire({
         icon: 'error',
-        title: 'Error',
-        text: 'Hubo un problema al preparar la actualización.'
+        title: confirmados ? 'Actualización incompleta' : 'Error',
+        text: `${confirmados ? `Se confirmó la actualización de ${confirmados} de ${productosPayload.length} productos. ` : ''}${mensaje} Revisa los registros antes de volver a aplicar los cambios.`
       });
+    } finally {
+      this.guardandoMasivo = false;
     }
   }
 

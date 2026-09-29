@@ -1,12 +1,14 @@
 // services/producto.service.ts
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, defer, firstValueFrom } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { Producto } from '../models/producto.model';
 import { ProductoLite } from '../models/producto-lite.model';
+
+export type CambioProductoMasivo = Pick<Producto, '_id'> & Partial<Producto>;
 
 @Injectable({
   providedIn: 'root'
@@ -109,8 +111,48 @@ export class ProductoService {
     return this.http.get<any>(`${this.apiUrl}/inventario/${idFarmacia}/${idProducto}`);
   }
 
-  actualizarProductos(payload: { productos: Producto[] }) {
-    return this.http.put(`${this.apiUrl}/actualizar-masivo`, payload);
+  actualizarProductos(payload: { productos: CambioProductoMasivo[] }) {
+    return defer(async () => {
+      // Se mide el JSON en UTF-8, incluyendo el contenedor y las comas.
+      // También se acota el trabajo de cada transacción del servidor.
+      const limiteBytes = 64 * 1024;
+      const encoder = new TextEncoder();
+      const bytesBase = encoder.encode('{"productos":[]}').length;
+      const lotes: CambioProductoMasivo[][] = [];
+      let lote: CambioProductoMasivo[] = [];
+      let bytes = bytesBase;
+
+      for (const producto of payload.productos) {
+        const bytesProducto = encoder.encode(JSON.stringify(producto)).length;
+        if (bytesBase + bytesProducto > limiteBytes) {
+          throw new Error('Los cambios de un producto exceden el tamaño permitido. Reduce los datos e intenta nuevamente.');
+        }
+        if (lote.length && (lote.length >= 200 || bytes + 1 + bytesProducto > limiteBytes)) {
+          lotes.push(lote);
+          lote = [];
+          bytes = bytesBase;
+        }
+        bytes += bytesProducto + (lote.length ? 1 : 0);
+        lote.push(producto);
+      }
+      if (lote.length) lotes.push(lote);
+
+      const productosConfirmados: string[] = [];
+      try {
+        for (const productos of lotes) {
+          await firstValueFrom(this.http.put(`${this.apiUrl}/actualizar-masivo`, { productos }));
+          productosConfirmados.push(...productos.map(p => p._id));
+        }
+      } catch (error: any) {
+        // No reintentamos escrituras: los lotes anteriores ya pudieron guardarse.
+        throw Object.assign(new Error(error?.message || 'No se pudo completar la actualización.'), {
+          error: error?.error,
+          status: error?.status,
+          productosConfirmados
+        });
+      }
+      return { actualizados: productosConfirmados.length };
+    });
   }
 
   quitarLotesMasivo(payload: { productoIds: string[] }) {
