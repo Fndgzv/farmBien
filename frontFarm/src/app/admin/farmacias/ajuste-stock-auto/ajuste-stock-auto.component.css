@@ -1,8 +1,29 @@
+:host {
+  display: block;
+  container-type: inline-size;
+}
+
+.ajuste-stock {
+  position: relative;
+  min-height: 220px;
+}
+
+.controles-stock {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.controles-stock:disabled {
+  opacity: 0.55;
+}
+
 /* Contenedor principal de filtros */
 .filtros-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) repeat(2, minmax(135px, 1fr)) 90px auto;
+  gap: 10px;
   align-items: end;
   margin-bottom: 20px;
 }
@@ -10,6 +31,7 @@
 /* Cada campo */
 .campo {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 4px;
 }
@@ -24,6 +46,9 @@
 /* Inputs y select */
 .campo input,
 .campo select {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
   height: 42px;              /* 👈 misma altura que botón */
   padding: 6px 10px;
   font-size: 14px;
@@ -39,9 +64,75 @@
   box-shadow: 0 0 0 1px rgba(63, 81, 181, 0.15);
 }
 
-/* Campo del botón */
-.campo.accion {
-  justify-content: flex-end;
+/* Ambos botones comparten la fila con los filtros en pantallas amplias. */
+.acciones-filtros {
+  display: flex;
+  gap: 8px;
+}
+
+.acciones-filtros button {
+  height: 42px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.btn-limpiar {
+  border: 1px solid #bfc5cc;
+  background: #f3f4f6;
+  color: #333;
+}
+
+.btn-limpiar:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.cargando-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #333;
+  cursor: wait;
+}
+
+.cargando-spinner {
+  width: 36px;
+  height: 36px;
+  border: 4px solid #dce1f5;
+  border-top-color: #3f51b5;
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cargando-spinner { animation: none; }
+}
+
+@container (max-width: 1000px) {
+  .filtros-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .acciones-filtros { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+@container (max-width: 600px) {
+  .filtros-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .acciones-filtros button { flex: 1; }
+}
+
+@container (max-width: 360px) {
+  .filtros-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 table {

@@ -2,6 +2,7 @@
 const InventarioFarmacia = require('../models/InventarioFarmacia');
 const Producto = require('../models/Producto');
 const Venta = require('../models/Venta');
+const { controlaInventario } = require('../utils/controlInventario');
 const mongoose = require('mongoose');
 const { Types } = mongoose;
 const ObjectId = Types.ObjectId;
@@ -463,14 +464,7 @@ exports.stockPropuesto = async (req, res) => {
     /* ================= FILTRO PRODUCTO (AND) ================= */
 
     const andProducto = [];
-
-    if (categoria) {
-      for (const w of splitWords(categoria)) {
-        andProducto.push({
-          'producto.categoriaNorm': { $regex: `^${escapeRegex(w)}` }
-        });
-      }
-    }
+    const prefijoCategoria = norm(categoria);
 
     if (productoNombre) {
       for (const w of splitWords(productoNombre)) {
@@ -509,13 +503,19 @@ exports.stockPropuesto = async (req, res) => {
       },
       { $unwind: '$producto' },
 
-      // 🔍 filtros AND por nombre/categoría
+      // 🔍 filtros AND por nombre
       ...(andProducto.length
         ? [{ $match: { $and: andProducto } }]
         : [])
     ];
 
-    const ventasAgrupadas = await Venta.aggregate(pipeline);
+    const ventas = await Venta.aggregate(pipeline);
+    // categoria pertenece al producto enlazado. Comparar el prefijo completo
+    // evita exigir que cada palabra esté al inicio y no depende de categoriaNorm.
+    const ventasAgrupadas = ventas.filter(({ producto }) =>
+      controlaInventario(producto)
+      && (!prefijoCategoria || norm(producto.categoria).startsWith(prefijoCategoria))
+    );
     if (!ventasAgrupadas.length) return res.json([]);
 
     const productoIds = ventasAgrupadas.map(v => v._id);

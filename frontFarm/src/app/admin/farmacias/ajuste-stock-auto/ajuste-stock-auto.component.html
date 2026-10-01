@@ -1,10 +1,13 @@
 <h3 class="titulo" style="text-align: center;">Ajuste automático de stock</h3>
 
+<div class="ajuste-stock" [attr.aria-busy]="cargando">
+<fieldset class="controles-stock" [disabled]="cargando" [attr.inert]="cargando ? '' : null"
+    aria-label="Filtros y resultados del ajuste de stock">
 <div class="filtros-grid">
 
     <div class="campo">
-        <label>Farmacia</label>
-        <select [(ngModel)]="farmaciaId">
+        <label for="stock-farmacia">Farmacia</label>
+        <select id="stock-farmacia" [(ngModel)]="farmaciaId">
             <option *ngFor="let f of farmacias" [ngValue]="f._id">
                 {{ f.nombre }}
             </option>
@@ -12,39 +15,40 @@
     </div>
 
     <div class="campo">
-        <label>Producto</label>
-        <input type="text" placeholder="Nombre opcional" [(ngModel)]="nombre">
+        <label for="stock-producto">Producto</label>
+        <input id="stock-producto" type="text" placeholder="Nombre opcional" [(ngModel)]="nombre">
     </div>
 
     <div class="campo">
-        <label>Categoría</label>
-        <input type="text" placeholder="Opcional" [(ngModel)]="categoria">
+        <label for="stock-categoria">Categoría</label>
+        <input id="stock-categoria" type="text" placeholder="Opcional" [(ngModel)]="categoria">
     </div>
 
     <div class="campo">
-        <label>Ventas desde</label>
-        <input type="date" [(ngModel)]="desde">
+        <label for="stock-desde">Ventas desde</label>
+        <input id="stock-desde" type="date" [(ngModel)]="desde">
     </div>
 
     <div class="campo">
-        <label>hasta</label>
-        <input type="date" [(ngModel)]="hasta">
+        <label for="stock-hasta">Hasta</label>
+        <input id="stock-hasta" type="date" [(ngModel)]="hasta">
     </div>
 
     <div class="campo">
-        <label>Días a surtir</label>
-        <input type="number" min="1" [(ngModel)]="diasSurtir">
+        <label for="stock-dias">Días a surtir</label>
+        <input id="stock-dias" type="number" min="1" [(ngModel)]="diasSurtir">
     </div>
 
-    <div class="campo accion">
-        <label>&nbsp;</label>
-        <button class="btn-gris" (click)="buscar()" matTooltip="Obtener stock max y min conforme a la cantidad vendida">
+    <div class="acciones-filtros">
+        <button type="button" class="btn-gris" (click)="buscar()" matTooltip="Obtener stock max y min conforme a la cantidad vendida">
             Calcular
+        </button>
+        <button type="button" class="btn-limpiar" (click)="limpiar()" matTooltip="Restablecer los valores iniciales">
+            Limpiar
         </button>
     </div>
 
 </div>
-
 <div class="acciones-stock" *ngIf="tabla.length">
 
     <button class="btn-negro" matTooltip="Marca / desmarca página actual" (click)="togglePaginaActual()">
@@ -163,4 +167,12 @@
     <button (click)="page = totalPages" [disabled]="page === totalPages" matTooltip="Última página">
         <i class="fa fa-angle-double-right"></i>
     </button>
+</div>
+</fieldset>
+
+<div class="cargando-overlay" *ngIf="cargando" role="status" aria-live="polite" aria-atomic="true">
+    <span class="cargando-spinner" aria-hidden="true"></span>
+    <strong>Calculando stocks…</strong>
+    <span>Espera un momento.</span>
+</div>
 </div>

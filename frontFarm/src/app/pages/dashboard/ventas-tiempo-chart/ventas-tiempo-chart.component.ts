@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { catchError, forkJoin, of, Subscription } from 'rxjs';
 
 import {
     NgApexchartsModule,
@@ -43,6 +44,11 @@ type PromediosVentasTiempo = {
     utilidad: number;
 };
 
+type PuntoComparacionAnual = {
+    actual?: any;
+    anterior?: any;
+};
+
 @Component({
     selector: 'app-ventas-tiempo-chart',
     standalone: true,
@@ -50,14 +56,21 @@ type PromediosVentasTiempo = {
     templateUrl: './ventas-tiempo-chart.component.html',
     styleUrls: ['./ventas-tiempo-chart.component.css']
 })
-export class VentasTiempoChartComponent implements OnInit {
+export class VentasTiempoChartComponent implements OnInit, OnDestroy {
 
     data: any[] = [];
 
     escala: EscalaVentasTiempo = 'hora';
     comparacionSeleccionada = '';
+    compararAnioAnterior = false;
+    cargando = false;
+    mensajeError = '';
     desde!: string;
     hasta!: string;
+
+    private dataAnioAnterior: any[] = [];
+    private comparacionAnualCargada = false;
+    private cargaSubscription?: Subscription;
 
     readonly horasComparacion: OpcionComparacion[] = Array.from({ length: 17 }, (_, index) => {
         const hora = index + 6;
@@ -164,23 +177,90 @@ export class VentasTiempoChartComponent implements OnInit {
        DATOS
        ========================= */
     cargar() {
+        // Cancela respuestas pendientes al cambiar filtros o apagar la comparación.
+        this.cargaSubscription?.unsubscribe();
+        this.mensajeError = '';
+
         if (!this.mostrarComparacion && this.comparacionSeleccionada) {
             this.comparacionSeleccionada = '';
         }
 
-        this.reportesService.ventasPorTiempo({
+        if (!this.desde || !this.hasta) {
+            this.cargando = false;
+            this.data = [];
+            this.dataAnioAnterior = [];
+            this.promediosApi = null;
+            this.comparacionAnualCargada = false;
+            this.buildChart();
+            return;
+        }
+
+        const params = {
             desde: this.desde,
             hasta: this.hasta,
             escala: this.escala,
             farmacia: this.farmaciaSeleccionada,
             comparar: this.mostrarComparacion ? this.comparacionSeleccionada : undefined,
             incluirPromedios: true
-        }).subscribe(res => {
-            const payload: any = res || [];
-            this.data = Array.isArray(payload) ? payload : (payload.data || []);
-            this.promediosApi = Array.isArray(payload) ? null : (payload.promedios || null);
-            this.buildChart();
+        };
+
+        this.cargando = true;
+        const anterior$ = this.compararAnioAnterior
+            ? this.reportesService.ventasPorTiempo({
+                ...params,
+                desde: this.fechaAnioAnterior(this.desde),
+                hasta: this.fechaAnioAnterior(this.hasta)
+            }).pipe(catchError(() => {
+                this.mensajeError = 'No se pudo cargar el año anterior. Pulsa Aplicar para reintentar.';
+                return of(null);
+            }))
+            : of(null);
+
+        this.cargaSubscription = forkJoin({
+            actual: this.reportesService.ventasPorTiempo(params),
+            anterior: anterior$
+        }).subscribe({
+            next: ({ actual, anterior }) => {
+                const payload: any = actual || [];
+                this.data = Array.isArray(payload) ? payload : (payload.data || []);
+                this.promediosApi = Array.isArray(payload) ? null : (payload.promedios || null);
+                this.dataAnioAnterior = Array.isArray(anterior) ? anterior : (anterior?.data || []);
+                this.comparacionAnualCargada = anterior !== null;
+                this.cargando = false;
+                this.buildChart();
+            },
+            error: () => {
+                this.cargando = false;
+                this.mensajeError = 'No se pudieron cargar los datos. Pulsa Aplicar para reintentar.';
+                this.data = [];
+                this.dataAnioAnterior = [];
+                this.promediosApi = null;
+                this.comparacionAnualCargada = false;
+                this.buildChart();
+            }
         });
+    }
+
+    ngOnDestroy() {
+        this.cargaSubscription?.unsubscribe();
+    }
+
+    alternarComparacionAnual() {
+        this.compararAnioAnterior = !this.compararAnioAnterior;
+        if (!this.compararAnioAnterior) {
+            this.dataAnioAnterior = [];
+            this.comparacionAnualCargada = false;
+            this.buildChart();
+        }
+        this.cargar();
+    }
+
+    fechaAnioAnterior(fecha: string): string {
+        if (!fecha) return '';
+        const [anio, mes, dia] = fecha.split('-').map(Number);
+        // El 29 de febrero se ajusta al último día de febrero si el año no es bisiesto.
+        const ultimoDia = new Date(anio - 1, mes, 0).getDate();
+        return `${anio - 1}-${String(mes).padStart(2, '0')}-${String(Math.min(dia, ultimoDia)).padStart(2, '0')}`;
     }
 
     onEscalaChange() {
@@ -209,7 +289,6 @@ export class VentasTiempoChartComponent implements OnInit {
 
         this.data = this.ordenarData(this.data);
         this.promedios = this.promediosApi || this.calcularPromedios(this.data);
-        this.promediosApi = null;
         const hasData = this.data.length > 0;
 
         /* ================= KPIs ================= */
@@ -239,16 +318,26 @@ export class VentasTiempoChartComponent implements OnInit {
             : 0;
 
         /* ================= DATA ================= */
-        const categorias = hasData
-            ? this.data.map(d => this.formatearPeriodo(d.periodo, d))
-            : [];
+        const comparar = this.compararAnioAnterior && this.comparacionAnualCargada;
+        const puntos = comparar
+            ? this.alinearComparacionAnual()
+            : this.data.map(actual => ({ actual } as PuntoComparacionAnual));
+        const categorias = puntos.map(({ actual, anterior }) => actual
+            ? this.formatearPeriodo(actual.periodo, actual)
+            : `${this.formatearPeriodo(anterior.periodo, anterior)} (año anterior)`);
+        const valores = (campo: string, periodo: 'actual' | 'anterior') =>
+            puntos.map(punto => punto[periodo] ? (punto[periodo][campo] ?? 0) : null);
 
-        const ventas = hasData ? this.data.map(d => d.ingresos ?? 0) : [];
-        const utilidad = hasData ? this.data.map(d => d.utilidad ?? 0) : [];
-        const conteo = hasData ? this.data.map(d => d.ventas ?? 0) : [];
-
-        const maxVentas = ventas.length ? Math.max(...ventas) : 0;
-        const maxConteo = conteo.length ? Math.max(...conteo) : 0;
+        const ventas = valores('ingresos', 'actual');
+        const utilidad = valores('utilidad', 'actual');
+        const conteo = valores('ventas', 'actual');
+        const ventasAnteriores = valores('ingresos', 'anterior');
+        const utilidadAnterior = valores('utilidad', 'anterior');
+        const conteoAnterior = valores('ventas', 'anterior');
+        const maximo = (valores: (number | null)[]) => valores.reduce<number>((max, valor) => Math.max(max, valor ?? 0), 0);
+        const maxVentas = maximo([...ventas, ...ventasAnteriores]);
+        const maxUtilidad = maximo([...utilidad, ...utilidadAnterior]);
+        const maxConteo = maximo([...conteo, ...conteoAnterior]);
         const safeMaxConteo = Math.max(1, maxConteo);
 
         const tickConteo = safeMaxConteo <= 5 ? safeMaxConteo : 5;
@@ -263,9 +352,14 @@ export class VentasTiempoChartComponent implements OnInit {
             },
 
             series: [
-                { name: 'Ingresos netos ($)', data: ventas, yAxisIndex: 0 },
-                { name: 'Utilidad ($)', data: utilidad, yAxisIndex: 1 },
-                { name: 'Número de ventas', data: conteo, yAxisIndex: 2 }
+                { name: 'Ingresos netos ($)', data: ventas },
+                { name: 'Utilidad ($)', data: utilidad },
+                { name: 'Número de ventas', data: conteo },
+                ...(comparar ? [
+                    { name: 'Ingresos netos ($) · Año anterior', data: ventasAnteriores },
+                    { name: 'Utilidad ($) · Año anterior', data: utilidadAnterior },
+                    { name: 'Número de ventas · Año anterior', data: conteoAnterior }
+                ] : [])
             ],
 
             xaxis: {
@@ -276,21 +370,24 @@ export class VentasTiempoChartComponent implements OnInit {
 
             yaxis: [
                 {
+                    seriesName: 'Ingresos netos ($)',
                     min: 0,
-                    max: Math.ceil(maxVentas * 1),
+                    max: Math.max(1, Math.ceil(maxVentas)),
                     title: { text: 'Ingresos ($)' },
                     labels: { formatter: v => `$${Math.round(v)}` }
                 },
                 {
+                    seriesName: 'Utilidad ($)',
                     min: 0,
-                    max: Math.ceil((utilidad.length ? Math.max(...utilidad) : 0) * 1.6),
+                    max: Math.max(1, Math.ceil(maxUtilidad * 1.6)),
                     title: { text: 'Utilidad ($)' },
                     labels: { formatter: v => `$${Math.round(v)}` }
                 },
                 {
+                    seriesName: 'Número de ventas',
                     opposite: true,
                     min: 0,
-                    max: Math.ceil(maxConteo * 1.2),
+                    max: Math.max(1, Math.ceil(maxConteo * 1.2)),
                     tickAmount: tickConteo,
                     forceNiceScale: true,
                     title: { text: 'Número de ventas' },
@@ -298,14 +395,68 @@ export class VentasTiempoChartComponent implements OnInit {
                 }
             ],
 
-            stroke: { curve: 'smooth', width: [3, 3, 2] },
-            markers: { size: 4 },
-            tooltip: { shared: true },
+            stroke: {
+                curve: 'smooth',
+                width: comparar ? [3, 3, 2, 2, 2, 2] : [3, 3, 2],
+                dashArray: comparar ? [0, 0, 0, 6, 6, 6] : [0, 0, 0]
+            },
+            markers: { size: comparar ? [4, 4, 4, 2, 2, 2] : 4 },
+            tooltip: {
+                shared: true,
+                intersect: false,
+                ...(comparar ? {
+                    x: {
+                        formatter: (_: number, opts: any) => {
+                            const punto = puntos[opts.dataPointIndex];
+                            return punto
+                                ? `Actual: ${this.etiquetaPeriodoAnual(punto.actual)} · Año anterior: ${this.etiquetaPeriodoAnual(punto.anterior)}`
+                                : '';
+                        }
+                    }
+                } : {})
+            },
             dataLabels: { enabled: false },
-            colors: ['#1E88E5', '#2E7D32', '#F57C00']
+            colors: comparar
+                ? ['#1E88E5', '#2E7D32', '#F57C00', '#1E88E5', '#2E7D32', '#F57C00']
+                : ['#1E88E5', '#2E7D32', '#F57C00']
         };
 
+        if (comparar) {
+            // ApexCharts 3 requiere un eje por serie; los ejes ocultos comparten
+            // nombre y límites con la métrica actual para dibujar la misma escala.
+            this.chartOptions.yaxis.push(...this.chartOptions.yaxis.map(eje => ({ ...eje, show: false })));
+        }
+
         this.calcularHorasClave();
+    }
+
+    private alinearComparacionAnual(): PuntoComparacionAnual[] {
+        const anteriores = this.ordenarData(this.dataAnioAnterior);
+        if (this.escala === 'semana' || (this.escala === 'dia' && this.comparacionSeleccionada)) {
+            // El API completa estas secuencias. Se empareja la primera semana/día
+            // seleccionado de cada rango, ya que cambia de fecha entre años.
+            return Array.from({ length: Math.max(this.data.length, anteriores.length) }, (_, index) => ({
+                actual: this.data[index],
+                anterior: anteriores[index]
+            }));
+        }
+
+        const porPeriodo = new Map<string, PuntoComparacionAnual>();
+        this.data.forEach(actual => porPeriodo.set(String(actual.periodo), { actual }));
+        anteriores.forEach(anterior => {
+            // Conserva mes, día y hora. No desplaza puntos si faltan ventas en una
+            // fecha, ni mezcla el 29 de febrero con los datos del día 28.
+            const clave = String(anterior.periodo).replace(/^\d{4}(?=-|$)/, anio => String(Number(anio) + 1));
+            porPeriodo.set(clave, { ...porPeriodo.get(clave), anterior });
+        });
+        return this.ordenarData(Array.from(porPeriodo, ([periodo, punto]) => ({ periodo, ...punto })));
+    }
+
+    private etiquetaPeriodoAnual(item: any): string {
+        if (!item) return 'Sin datos';
+        if (this.escala === 'semana') return this.formatearPeriodo(item.periodo, item);
+        // Incluye el año también cuando el filtro de hora/día usa etiquetas cortas.
+        return String(item.periodo).replace(/^(\d{4})-(\d{2})-(\d{2})/, '$3/$2/$1');
     }
 
     calcularPromedios(data: any[]): PromediosVentasTiempo {

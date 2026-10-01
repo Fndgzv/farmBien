@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs';
 import Swal from 'sweetalert2';
 import { AjusteStockAutoService } from './ajuste-stock-auto.service';
 import { FarmaciaService } from '../../../services/farmacia.service';
@@ -35,6 +36,7 @@ export class AjusteStockAutoComponent implements OnInit {
 
     farmacias: any[] = [];
     farmaciaNombre: string = '';
+    private farmaciaInicial = { id: '', nombre: '' };
 
     page = 1;
     pageSize = 20;
@@ -60,24 +62,44 @@ export class AjusteStockAutoComponent implements OnInit {
             return;
         }
 
-        this.farmaciaId = farmacia._id;
-        this.farmaciaNombre = farmacia.nombre || '';
+        this.farmaciaInicial = { id: farmacia._id, nombre: farmacia.nombre || '' };
+        this.limpiar();
 
         this.farmaciaService.obtenerFarmacias().subscribe({
             next: (data) => (this.farmacias = data),
             error: () => Swal.fire('Error', 'No se pudieron cargar las farmacias', 'error')
         });
 
-        // ✅ Inicializar fechas
+    }
+
+    limpiar(): void {
+        if (this.cargando) return;
+
+        this.farmaciaId = this.farmaciaInicial.id;
+        this.farmaciaNombre = this.farmaciaInicial.nombre;
+        this.nombre = '';
+        this.categoria = '';
+        this.diasSurtir = 7;
+
         const hoy = new Date();
         const hace30Dias = new Date();
         hace30Dias.setDate(hoy.getDate() - 30);
 
         this.hasta = this.formatDate(hoy);
         this.desde = this.formatDate(hace30Dias);
+
+        this.tabla = [];
+        this.seleccionados.clear();
+        this.seleccionarTodos = false;
+        this.page = 1;
+        this.totalPages = 1;
+        this.ordenCampo = 'productoNombre';
+        this.ordenDir = 'asc';
     }
 
     buscar() {
+        if (this.cargando) return;
+
         if (!this.farmaciaId || !this.desde || !this.hasta || !this.diasSurtir) {
             Swal.fire('Faltan datos', 'Todos los campos obligatorios deben llenarse', 'warning');
             return;
@@ -87,6 +109,8 @@ export class AjusteStockAutoComponent implements OnInit {
         this.tabla = [];
         this.seleccionados.clear();
         this.seleccionarTodos = false;
+        this.page = 1;
+        this.totalPages = 1;
 
         this.service.calcularTabla({
             farmaciaId: this.farmaciaId,
@@ -95,7 +119,9 @@ export class AjusteStockAutoComponent implements OnInit {
             diasSurtir: this.diasSurtir,
             categoria: this.categoria || undefined,
             nombre: this.nombre || undefined,
-        }).subscribe({
+        }).pipe(
+            finalize(() => this.cargando = false)
+        ).subscribe({
             next: data => {
 
                 this.tabla = data.map(r => ({
@@ -108,13 +134,10 @@ export class AjusteStockAutoComponent implements OnInit {
                     // (opcional pero recomendado)
                     aplicar: false
                 }));
-                console.log('Datos de la tabla ===>', this.tabla)
                 this.page = 1;
-                this.totalPages = Math.ceil(this.tabla.length / this.pageSize);
-                this.cargando = false;
+                this.totalPages = Math.max(1, Math.ceil(this.tabla.length / this.pageSize));
             },
             error: () => {
-                this.cargando = false;
                 Swal.fire('Error', 'No se pudo calcular el stock', 'error');
             }
         });

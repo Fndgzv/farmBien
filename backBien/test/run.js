@@ -4,6 +4,7 @@ require("./surtidoFarmacia.controller.test");
 require("./reporteSurtidos.controller.test");
 require("./certificadosMedicos.controller.test");
 require("./ajusteInventario.ubicacionFarmacia.test");
+require("./ajusteInventario.stockAuto.test");
 require("./exportarViabilidad.test");
 require("./controlInventario.test");
 require("./ventaInventario.test");

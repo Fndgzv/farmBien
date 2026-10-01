@@ -10,6 +10,69 @@
   font-size: .85rem;
 }
 
+.comparacion-anual-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .45rem .7rem;
+  border: 1px solid #b0bec5;
+  border-radius: 6px;
+  background: #fff;
+  color: #37474f;
+  font-size: .85rem;
+  cursor: pointer;
+}
+
+.comparacion-anual-toggle.activa {
+  border-color: #1565c0;
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+.comparacion-anual-toggle:focus-visible {
+  outline: 2px solid #1565c0;
+  outline-offset: 3px;
+}
+
+.interruptor {
+  width: 30px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #78909c;
+  position: relative;
+}
+
+.interruptor::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.activa .interruptor { background: #1565c0; }
+.activa .interruptor::after { transform: translateX(12px); }
+
+.comparacion-anual-info, .estado-carga {
+  margin: .5rem 0;
+  color: #455a64;
+  font-size: .85rem;
+}
+
+.muestra-punteada {
+  display: inline-block;
+  width: 26px;
+  margin-right: .4rem;
+  vertical-align: middle;
+  border-top: 2px dashed #455a64;
+}
+
+.error-carga { color: #b71c1c; }
+
 select, input {
   padding: .3rem .4rem;
 }

@@ -38,7 +38,19 @@
                 matTooltip="Recalcular datos" (click)="cargar()">Aplicar
         </button>
     <!-- </div> -->
+
+    <button type="button" class="comparacion-anual-toggle"
+            role="switch"
+            [attr.aria-checked]="compararAnioAnterior"
+            [class.activa]="compararAnioAnterior"
+            (click)="alternarComparacionAnual()">
+        <span class="interruptor" aria-hidden="true"></span>
+        Comparar con el año anterior
+    </button>
 </div>
+
+<p class="estado-carga" role="status" *ngIf="cargando">Cargando datos de la gráfica…</p>
+<p class="error-carga" role="alert" *ngIf="mensajeError">{{ mensajeError }}</p>
 
 <div class="kpis">
   <div class="kpi-card ventas" matTooltip="ventas + pedidos − devoluciones">
@@ -154,7 +166,16 @@
 </div>
 
 
-<div class="chart-wrapper">
+<p class="comparacion-anual-info" *ngIf="compararAnioAnterior && desde && hasta">
+  <span class="muestra-punteada" aria-hidden="true"></span>
+  Líneas punteadas: del {{ fechaAnioAnterior(desde) | date:'dd/MM/yyyy' }}
+  al {{ fechaAnioAnterior(hasta) | date:'dd/MM/yyyy' }}.
+  <span *ngIf="escala === 'semana' || (escala === 'dia' && comparacionSeleccionada)">
+    Los periodos se comparan en orden dentro de cada rango; consulta las fechas al pasar sobre los puntos.
+  </span>
+</p>
+
+<div class="chart-wrapper" [attr.aria-busy]="cargando">
   <apx-chart
     style="width: 100%; height: 100%; display: block"
     [series]="chartOptions.series"
