@@ -2661,12 +2661,12 @@ export class MedicoConsultorioComponent implements OnInit {
   private categoriaMedicamentoPermitida(categoriaNorm: any): boolean {
     const categoria = this.normalizarTextoCategoria(categoriaNorm);
     return (
-      categoria === 'antibiotico' ||
-      categoria === 'iv' ||
-      categoria === 'vi' ||
-      categoria.startsWith('vi ') ||
-      categoria === 'suplementos' ||
-      categoria.startsWith('suplementos')
+      categoria === 'm - antibiotico' ||
+      categoria === 'm - iv' ||
+      categoria === 'm - vi' ||
+      categoria.startsWith('m - vi ') ||
+      categoria === 'm - suplementos' ||
+      categoria.startsWith('m - suplementos')
     );
   }
 

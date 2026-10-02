@@ -1,3 +1,4 @@
+<app-panel-carga [activo]="ocupado" [mensaje]="mensajeCarga">
 <h1 class="titulo" style="text-align: center;">Ajustes de Inventario en {{ nombreFarmaciaSeleccionada }}</h1>
 
 <form [formGroup]="formFiltros" (ngSubmit)="buscar()" class="filter-container">
@@ -576,3 +577,4 @@
         <i class="fa fa-angle-double-right"></i>
     </button>
 </div>
+</app-panel-carga>

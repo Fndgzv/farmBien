@@ -8,6 +8,7 @@ import { CambioProductoMasivo, ProductoService } from '../../services/producto.s
 import { ProveedorService } from '../../services/proveedor.service';
 import { FarmaciaService } from '../../services/farmacia.service';
 import { Laboratorio, LaboratoriosService } from '../../services/laboratorios.service';
+import { PanelCargaComponent } from '../../components/panel-carga/panel-carga.component';
 
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
@@ -15,7 +16,7 @@ import { faPen, faTimes, faPlus } from '@fortawesome/free-solid-svg-icons';
 import { environment } from '../../../environments/environment';
 import * as XLSX from 'xlsx';
 
-import { firstValueFrom } from 'rxjs';
+import { finalize, firstValueFrom } from 'rxjs';
 import Swal from 'sweetalert2';
 
 type ColumnaOrden = '' | keyof Producto | 'existencia' | 'laboratorioNombre';
@@ -31,7 +32,7 @@ type ProductoUI = Omit<Producto, 'imagen'> & {
 @Component({
   selector: 'app-ajuste-inventario',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, FontAwesomeModule, MatTooltipModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, FontAwesomeModule, MatTooltipModule, PanelCargaComponent],
   templateUrl: './ajustes-inventario.component.html',
   styleUrls: ['./ajustes-inventario.component.css']
 })
@@ -47,6 +48,28 @@ export class AjustesInventarioComponent implements OnInit {
 
   filtrando = false;
   iniciando = false;
+  cargandoProveedores = false;
+  cargandoLaboratorios = false;
+  guardandoProducto = false;
+
+  get ocupado(): boolean {
+    return this.iniciando || this.cargandoProveedores || this.cargandoLaboratorios
+      || this.filtrando || this.guardandoMasivo || this.guardandoProducto
+      || this.guardandoNuevo || this.guardandoLaboratorioRapido || this.quitandoLotes
+      || this.eliminandoId !== null || this.subiendoId !== null;
+  }
+
+  get mensajeCarga(): string {
+    if (this.iniciando) return 'Cargando productos…';
+    if (this.cargandoProveedores || this.cargandoLaboratorios) return 'Cargando proveedores y laboratorios…';
+    if (this.filtrando) return 'Filtrando inventario…';
+    if (this.quitandoLotes) return 'Quitando lotes…';
+    if (this.eliminandoId) return 'Eliminando producto…';
+    if (this.subiendoId) return 'Guardando imagen…';
+    if (this.guardandoLaboratorioRapido) return 'Guardando laboratorio…';
+    if (this.guardandoMasivo) return 'Aplicando ajustes de inventario…';
+    return 'Guardando producto…';
+  }
 
   mesesCaducidad = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -133,7 +156,6 @@ export class AjustesInventarioComponent implements OnInit {
   ) { library.addIcons(faPen, faTimes, faPlus); }
 
   ngOnInit(): void {
-    this.iniciando = true;
     this.inicializarFormulario();
     this.cargarProductos(true);
     this.cargarProveedores();
@@ -298,10 +320,15 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   async refrescarLaboratorios(): Promise<Laboratorio[]> {
-    const data = await firstValueFrom(this.laboratoriosService.obtenerLaboratorios());
-    this.laboratorios = this.ordenarLaboratorios(data || []);
-    this.cdr.detectChanges();
-    return this.laboratorios;
+    this.cargandoLaboratorios = true;
+    try {
+      const data = await firstValueFrom(this.laboratoriosService.obtenerLaboratorios());
+      this.laboratorios = this.ordenarLaboratorios(data || []);
+      return this.laboratorios;
+    } finally {
+      this.cargandoLaboratorios = false;
+      this.cdr.detectChanges();
+    }
   }
 
   cargarLaboratorios(): void {
@@ -476,98 +503,101 @@ export class AjustesInventarioComponent implements OnInit {
     this.cdr.detectChanges();
 
     setTimeout(() => {
-      const f = this.filtros;
-      const palabras = f?.nombre ? this.splitWords(f.nombre) : [];
-      const palabrasCategoria = f?.categoria ? this.splitWords(f.categoria) : [];
-      const palabrasUbicacion = f?.ubicacion ? this.splitWords(f.ubicacion) : [];
-      this.productosFiltrados = (this.productos || []).filter(p => {
+      try {
+        const f = this.filtros;
+        const palabras = f?.nombre ? this.splitWords(f.nombre) : [];
+        const palabrasCategoria = f?.categoria ? this.splitWords(f.categoria) : [];
+        const palabrasUbicacion = f?.ubicacion ? this.splitWords(f.ubicacion) : [];
+        this.productosFiltrados = (this.productos || []).filter(p => {
 
-        const coincideCaducados = f.caducados
-          ? (Number((p as any).cantidadCaducada ?? 0) > 0)
-          : true;
+          const coincideCaducados = f.caducados
+            ? (Number((p as any).cantidadCaducada ?? 0) > 0)
+            : true;
 
-        const provIdProd =
-          (p as any).ultimoProveedorId?._id ??
-          (p as any).ultimoProveedorId ??
-          null;
+          const provIdProd =
+            (p as any).ultimoProveedorId?._id ??
+            (p as any).ultimoProveedorId ??
+            null;
 
-        const coincideProveedor =
-          f.ultimoProveedorId === null
+          const coincideProveedor =
+            f.ultimoProveedorId === null
+              ? true
+              : f.ultimoProveedorId === '__SIN__'
+                ? (provIdProd === null || provIdProd === undefined || provIdProd === '')
+                : String(provIdProd ?? '') === String(f.ultimoProveedorId);
+
+          const laboratorioIdProd = this.obtenerLaboratorioId((p as any).laboratorio);
+          const coincideLaboratorio = (() => {
+            if (f.laboratorioId === null) return true;
+            if (f.laboratorioId === this.valorLaboratorioSinAsignar) return laboratorioIdProd === null;
+            return String(laboratorioIdProd ?? '') === String(f.laboratorioId);
+          })();
+
+          const coincideCaducanEn = (() => {
+            if (f.caducanEnMeses === null) return true;
+
+            const prox = this.toDate((p as any).proximaCaducidad);
+            if (!prox) return false;
+
+            // "fin de hoy" CDMX => inicio de mañana 00:00 local
+            const inicioManana = this.inicioMananaLocal(new Date());
+            // tope = inicio de mañana + N meses
+            const limite = this.addMonths(inicioManana, f.caducanEnMeses);
+
+            // solo FUTURAS (>= mañana 00:00) y dentro del rango
+            return prox >= inicioManana && prox < limite;
+          })();
+
+          const nombreNorm = (p as any)._normNombre ?? this.normTxt(p?.nombre);
+          const coincideNombre = palabras.length
+            ? palabras.every(w => nombreNorm.includes(w))
+            : true;
+          const coincideCodigo = f.codigoBarras
+            ? (p.codigoBarras || '').toLowerCase().includes(f.codigoBarras.toLowerCase())
+            : true;
+          const categoriaNorm = (p as any)._normCategoria ?? this.normTxt(p?.categoria);
+          const coincideCategoria = palabrasCategoria.length
+            ? palabrasCategoria.every(w => categoriaNorm.includes(w))
+            : true;
+          const ubicacionNorm = (p as any)._normUbicacion ?? this.normTxt(p?.ubicacion);
+          const coincideUbicacion = palabrasUbicacion.length
+            ? palabrasUbicacion.every(w => ubicacionNorm.includes(w))
+            : true;
+          const coincideGenerico = f.generico === null
             ? true
-            : f.ultimoProveedorId === '__SIN__'
-              ? (provIdProd === null || provIdProd === undefined || provIdProd === '')
-              : String(provIdProd ?? '') === String(f.ultimoProveedorId);
+            : p.generico === f.generico;
+          const coincideInventario = f.inventario === null
+            ? true
+            : (p.inventario !== false) === f.inventario;
+          const coincideBajoStock = f.bajoStock
+            ? p.existencia < (p.stockMinimo ?? 0)
+            : true;
+          // 🔹 SOLO productos cuyo CB está repetido en la carga
+          const coincideDuplicadosCB = f.duplicadosCB
+            ? this.cbDuplicados.has(this.normCB(p?.codigoBarras))
+            : true;
 
-        const laboratorioIdProd = this.obtenerLaboratorioId((p as any).laboratorio);
-        const coincideLaboratorio = (() => {
-          if (f.laboratorioId === null) return true;
-          if (f.laboratorioId === this.valorLaboratorioSinAsignar) return laboratorioIdProd === null;
-          return String(laboratorioIdProd ?? '') === String(f.laboratorioId);
-        })();
+          return (
+            coincideNombre &&
+            coincideCodigo &&
+            coincideCategoria &&
+            coincideUbicacion &&
+            /* coincideINAPAM && */
+            coincideGenerico &&
+            coincideInventario &&
+            coincideBajoStock &&
+            coincideDuplicadosCB &&
+            coincideCaducados &&
+            coincideCaducanEn &&
+            coincideLaboratorio &&
+            coincideProveedor
+          );
+        });
 
-        const coincideCaducanEn = (() => {
-          if (f.caducanEnMeses === null) return true;
-
-          const prox = this.toDate((p as any).proximaCaducidad);
-          if (!prox) return false;
-
-          // "fin de hoy" CDMX => inicio de mañana 00:00 local
-          const inicioManana = this.inicioMananaLocal(new Date());
-          // tope = inicio de mañana + N meses
-          const limite = this.addMonths(inicioManana, f.caducanEnMeses);
-
-          // solo FUTURAS (>= mañana 00:00) y dentro del rango
-          return prox >= inicioManana && prox < limite;
-        })();
-
-        const nombreNorm = (p as any)._normNombre ?? this.normTxt(p?.nombre);
-        const coincideNombre = palabras.length
-          ? palabras.every(w => nombreNorm.includes(w))
-          : true;
-        const coincideCodigo = f.codigoBarras
-          ? (p.codigoBarras || '').toLowerCase().includes(f.codigoBarras.toLowerCase())
-          : true;
-        const categoriaNorm = (p as any)._normCategoria ?? this.normTxt(p?.categoria);
-        const coincideCategoria = palabrasCategoria.length
-          ? palabrasCategoria.every(w => categoriaNorm.includes(w))
-          : true;
-        const ubicacionNorm = (p as any)._normUbicacion ?? this.normTxt(p?.ubicacion);
-        const coincideUbicacion = palabrasUbicacion.length
-          ? palabrasUbicacion.every(w => ubicacionNorm.includes(w))
-          : true;
-        const coincideGenerico = f.generico === null
-          ? true
-          : p.generico === f.generico;
-        const coincideInventario = f.inventario === null
-          ? true
-          : (p.inventario !== false) === f.inventario;
-        const coincideBajoStock = f.bajoStock
-          ? p.existencia < (p.stockMinimo ?? 0)
-          : true;
-        // 🔹 SOLO productos cuyo CB está repetido en la carga
-        const coincideDuplicadosCB = f.duplicadosCB
-          ? this.cbDuplicados.has(this.normCB(p?.codigoBarras))
-          : true;
-
-        return (
-          coincideNombre &&
-          coincideCodigo &&
-          coincideCategoria &&
-          coincideUbicacion &&
-          /* coincideINAPAM && */
-          coincideGenerico &&
-          coincideInventario &&
-          coincideBajoStock &&
-          coincideDuplicadosCB &&
-          coincideCaducados &&
-          coincideCaducanEn &&
-          coincideLaboratorio &&
-          coincideProveedor
-        );
-      });
-
-      this.paginaActual = 1;
-      this.filtrando = false;
+        this.paginaActual = 1;
+      } finally {
+        this.filtrando = false;
+      }
     }, 0);
   }
 
@@ -817,6 +847,7 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   async quitarLotesSeleccionados() {
+    if (this.ocupado) return;
     const productosSeleccionados = this.productosFiltrados.filter(p => p.seleccionado);
 
     if (!productosSeleccionados.length) {
@@ -867,16 +898,8 @@ export class AjustesInventarioComponent implements OnInit {
     this.quitandoLotes = true;
 
     try {
-      Swal.fire({
-        title: 'Quitando lotes...',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        didOpen: () => Swal.showLoading()
-      });
-
       const resp: any = await firstValueFrom(this.productoService.quitarLotesMasivo({ productoIds }));
 
-      Swal.close();
       await Swal.fire(
         'Listo',
         resp?.mensaje || 'Se quitaron los lotes de los productos seleccionados y las existencias quedaron en cero.',
@@ -887,7 +910,6 @@ export class AjustesInventarioComponent implements OnInit {
       this.productos.forEach(p => p.seleccionado = false);
       this.productosFiltrados.forEach(p => p.seleccionado = false);
     } catch (err: any) {
-      Swal.close();
       const msg = err?.error?.mensaje || err?.error?.msg || err?.message || 'No se pudieron quitar los lotes seleccionados.';
       await Swal.fire('Error', msg, 'error');
     } finally {
@@ -1078,6 +1100,7 @@ export class AjustesInventarioComponent implements OnInit {
 
 
   guardarProductoEditado(productoActualizado: ProductoUI) {
+    if (this.ocupado) return;
 
     const id = (productoActualizado as any)._id;
     const payload: any = { ...productoActualizado };
@@ -1102,7 +1125,10 @@ export class AjustesInventarioComponent implements OnInit {
     // ultimoProveedorId se manda tal cual (string o null)
     if (payload.ultimoProveedorId === '') payload.ultimoProveedorId = null;
     payload.laboratorio = this.normalizarLaboratorioPayload(payload.laboratorio);
-    this.productoService.actualizarProductoIndividual(id, payload).subscribe({
+    this.guardandoProducto = true;
+    this.productoService.actualizarProductoIndividual(id, payload).pipe(
+      finalize(() => this.guardandoProducto = false)
+    ).subscribe({
       next: () => {
         Swal.fire({
           icon: 'success',
@@ -1141,16 +1167,7 @@ export class AjustesInventarioComponent implements OnInit {
       });
       if (!result.isConfirmed) return;
 
-      Swal.fire({
-        title: 'Guardando...',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        heightAuto: false,
-        didOpen: () => Swal.showLoading()
-      });
-
       await firstValueFrom(this.productoService.actualizarProductos({ productos: productosPayload }));
-      Swal.close();
       Swal.fire({
         icon: 'success',
         title: 'Actualización exitosa',
@@ -1165,7 +1182,6 @@ export class AjustesInventarioComponent implements OnInit {
       this.cargarProductos(false);
     } catch (err: any) {
       console.error('[grabarCambios] error:', err);
-      Swal.close();
       const confirmados = err?.productosConfirmados?.length || 0;
       const mensaje = err?.error?.detalle || err?.error?.mensaje || err?.message || 'No se pudo completar la actualización.';
       // Refrescar permite ver lo persistido antes de volver a aplicar un ajuste de precio.
@@ -1255,6 +1271,7 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   cerrarNuevoProducto() {
+    if (this.guardandoNuevo || this.guardandoLaboratorioRapido) return;
     this.mostrarNuevoProducto = false;
     this.mostrarAltaLaboratorioNuevo = false;
     this.nuevoLaboratorioRapido = '';
@@ -1265,6 +1282,7 @@ export class AjustesInventarioComponent implements OnInit {
 
   // guardar
   guardarNuevoProducto() {
+    if (this.ocupado) return;
     if (this.nuevoProductoForm.invalid) {
       this.nuevoProductoForm.markAllAsTouched();
       return;
@@ -1286,10 +1304,12 @@ export class AjustesInventarioComponent implements OnInit {
 
     this.guardandoNuevo = true;
 
-    this.productoService.crearProducto(payload).subscribe({
+    this.productoService.crearProducto(payload).pipe(
+      finalize(() => this.guardandoNuevo = false)
+    ).subscribe({
       next: (resp) => {
         this.guardandoNuevo = false;
-        this.mostrarNuevoProducto = false;
+        this.cerrarNuevoProducto();
         Swal.fire({
           icon: 'success',
           title: 'Listo',
@@ -1305,7 +1325,6 @@ export class AjustesInventarioComponent implements OnInit {
         this.cargarProductos(false);
       },
       error: (err) => {
-        this.guardandoNuevo = false;
         console.error(err);
         Swal.fire('Error', err?.error?.mensaje || 'No se pudo crear el producto.', 'error');
       }
@@ -1314,7 +1333,7 @@ export class AjustesInventarioComponent implements OnInit {
 
   @HostListener('document:keydown', ['$event'])
   trapTab(e: KeyboardEvent) {
-    if (!this.mostrarNuevoProducto || e.key !== 'Tab' || !this.backdrop) return;
+    if (this.ocupado || !this.mostrarNuevoProducto || e.key !== 'Tab' || !this.backdrop) return;
     const nodes: NodeListOf<HTMLElement> =
       this.backdrop.nativeElement.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
@@ -1327,6 +1346,7 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   async confirmarEliminar(p: any) {
+    if (this.ocupado) return;
     const { isConfirmed } = await Swal.fire({
       icon: 'warning',
       title: 'Eliminar producto',
@@ -1398,7 +1418,7 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   async onPickImage(file: File, p: ProductoUI) {
-    if (!file || !p?._id) return;
+    if (this.ocupado || !file || !p?._id) return;
 
     // 1) preview local
     const dataURL = await new Promise<string>((res, rej) => {
@@ -1465,9 +1485,12 @@ export class AjustesInventarioComponent implements OnInit {
   }
 
   cargarProductos(borrarFiltros: boolean) {
+    if (this.iniciando) return;
     this.iniciando = true;
     this.cdr.detectChanges();
-    this.productoService.obtenerProductos().subscribe({
+    this.productoService.obtenerProductos().pipe(
+      finalize(() => this.iniciando = false)
+    ).subscribe({
       next: (productos) => {
         this.productos = (productos || []).map((p: any) => ({
           ...p,
@@ -1492,21 +1515,26 @@ export class AjustesInventarioComponent implements OnInit {
             caducados: false, caducanEnMeses: null, ultimoProveedorId: null
           };
         }
+        this.iniciando = false;
         this.aplicarFiltros();
       },
-      error: (err) => console.error('Error al cargar productos:', err)
+      error: (err) => {
+        console.error('Error al cargar productos:', err);
+        Swal.fire('Error', 'No se pudo cargar el inventario de productos.', 'error');
+      }
     });
-    this.iniciando = false;
   }
 
   cargarProveedores(): void {
-    this.proveedorService.obtenerProveedores().subscribe({
+    if (this.cargandoProveedores) return;
+    this.cargandoProveedores = true;
+    this.proveedorService.obtenerProveedores().pipe(
+      finalize(() => this.cargandoProveedores = false)
+    ).subscribe({
       next: (data: any[]) => {
         this.proveedores = (data || []).sort((a, b) =>
           (a?.nombre ?? '').localeCompare(b?.nombre ?? '', 'es', { sensitivity: 'base' })
         );
-        console.log('proveedores cargados:', this.proveedores);
-        this.iniciando = false;
         this.cdr.detectChanges(); // por si acaso
       },
       error: (err) => {

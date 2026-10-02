@@ -14,6 +14,7 @@ import { FaIconComponent } from '@fortawesome/angular-fontawesome';
 import { FaIconLibrary } from '@fortawesome/angular-fontawesome';
 import { faSpinner, faCheck, faSave, faPen, faTimes, faTags } from '@fortawesome/free-solid-svg-icons';
 import { PromosInventarioDialogComponent } from './promos-inventario-dialog.component';
+import { PanelCargaComponent } from '../../../components/panel-carga/panel-carga.component';
 
 type VistaInventario = 'sinCeros' | 'completa';
 
@@ -25,7 +26,8 @@ type VistaInventario = 'sinCeros' | 'completa';
     ReactiveFormsModule,
     FaIconComponent,
     MatTooltipModule,
-    MatDialogModule
+    MatDialogModule,
+    PanelCargaComponent
   ],
   templateUrl: './ajustes-inventario-farmacia.component.html',
   styleUrl: './ajustes-inventario-farmacia.component.css'
@@ -82,7 +84,22 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
 
   estadoGuardado: { [key: string]: 'idle' | 'guardando' | 'exito' } = {};
   cargando = false;
+  cargandoFarmacias = false;
   aplicandoCambiosMasivos = false;
+
+  get ocupado(): boolean {
+    return this.cargandoFarmacias || this.cargando || this.aplicandoCambiosMasivos
+      || this.aplicandoMasivoPromosPrecio
+      || Object.values(this.estadoGuardado).includes('guardando');
+  }
+
+  get mensajeCarga(): string {
+    if (this.cargandoFarmacias) return 'Cargando farmacias…';
+    if (this.cargando) return 'Cargando inventario de la farmacia…';
+    if (this.aplicandoMasivoPromosPrecio) return 'Aplicando promociones y precios…';
+    if (this.aplicandoCambiosMasivos) return 'Aplicando ajustes de inventario…';
+    return 'Guardando producto…';
+  }
 
   sortBy: 'existencia' | 'nombre' = 'existencia';
   sortDir: 'asc' | 'desc' = 'asc';
@@ -134,7 +151,11 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   }
   
   cargarFarmacias() {
-    this.farmaciaService.obtenerFarmacias().subscribe({
+    if (this.cargandoFarmacias) return;
+    this.cargandoFarmacias = true;
+    this.farmaciaService.obtenerFarmacias().pipe(
+      finalize(() => this.cargandoFarmacias = false)
+    ).subscribe({
       next: (resp) => {
         this.farmacias = Array.isArray(resp) ? resp : [];
 
@@ -156,11 +177,13 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       error: () => {
         this.farmacias = [];
         this.formFiltros.get('farmacia')?.reset('');
+        Swal.fire('Error', 'No se pudieron cargar las farmacias.', 'error');
       }
     });
   }
 
   buscar() {
+    if (this.cargando) return;
     const filtros = this.formFiltros.value;
     if (!filtros.farmacia) {
       Swal.fire({
@@ -183,7 +206,9 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       sortDir: this.sortDir
     };
 
-    this.inventarioService.buscarInventarioFarmacia(params).subscribe({
+    this.inventarioService.buscarInventarioFarmacia(params).pipe(
+      finalize(() => this.cargando = false)
+    ).subscribe({
       next: (resp) => {
         this.estadoEdicion = {};
         this.inventario = resp.map((item: any) => ({
@@ -199,12 +224,11 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
         this.buildThumbsInventario();
         this.vistaInventario = 'sinCeros';
         this.paginaActual = 1;
-        this.cargando = false;
       },
       error: (err) => {
         console.error('Error al buscar inventario', err);
         this.inventario = [];
-        this.cargando = false;
+        Swal.fire('Error', 'No se pudo cargar el inventario de la farmacia.', 'error');
       }
     });
   }
@@ -343,6 +367,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   }
 
   guardarAjusteMasivo() {
+    if (this.ocupado) return;
     const farmacia = this.formFiltros.get('farmacia')?.value;
     if (!farmacia) return;
 
@@ -441,21 +466,10 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       return c;
     });
 
-    // 8) UI
-    void Swal.fire({
-      title: 'Aplicando ajustes...',
-      html: 'Esto puede tardar unos segundos.',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => Swal.showLoading()
-    });
-
     this.inventarioService.actualizarMasivo(farmacia, cambios).pipe(
       finalize(() => { this.aplicandoCambiosMasivos = false; })
     ).subscribe({
       next: () => {
-        Swal.close();
-
         // Reflejo en UI
         for (const p of productosAjustar) {
           if (hasEx) { p.existencia = exNum; p.copiaOriginal.existencia = exNum; }
@@ -479,7 +493,6 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       },
       error: (err) => {
         console.error('Error en ajuste masivo', err);
-        Swal.close();
         Swal.fire('Error', 'No se pudieron aplicar los ajustes.', 'error');
       }
     });
@@ -495,6 +508,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   }
 
   guardarFila(i: any) {
+    if (this.ocupado) return;
     const id = i._id;
 
     // Validaciones numéricas
@@ -553,7 +567,11 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       ubicacionFarmacia: (i.ubicacionFarmacia ?? '').toString().trim()
     };
 
-    this.inventarioService.actualizarUno(id, payload).subscribe({
+    this.inventarioService.actualizarUno(id, payload).pipe(
+      finalize(() => {
+        if (this.estadoGuardado[id] === 'guardando') this.estadoGuardado[id] = 'idle';
+      })
+    ).subscribe({
       next: () => {
         i.copiaOriginal = {
           existencia: i.existencia,
@@ -1055,6 +1073,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
   }
 
   aplicarMasivoPromosPrecio() {
+    if (this.ocupado) return;
     const farmacia = this.formFiltros.get('farmacia')?.value;
     if (!farmacia) return;
 
@@ -1072,21 +1091,12 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
       return;
     }
 
-    void Swal.fire({
-      title: 'Aplicando cambios masivos…',
-      html: 'Esto puede tardar unos segundos.',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      didOpen: () => Swal.showLoading()
-    });
-
     this.aplicandoMasivoPromosPrecio = true;
 
     this.inventarioService.aplicarPromosYPrecioMasivo(farmacia, payload).pipe(
       finalize(() => this.aplicandoMasivoPromosPrecio = false)
     ).subscribe({
       next: () => {
-        Swal.close();
         Swal.fire({ icon: 'success', title: 'Listo', text: 'Cambios masivos aplicados', timer: 1400, timerProgressBar: true });
 
         // Opciones:
@@ -1097,7 +1107,6 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
         this.resetMasivoPromosPrecio();
       },
       error: (err) => {
-        Swal.close();
         console.error(err);
         Swal.fire('Error', err?.error?.mensaje || 'No se pudieron aplicar cambios masivos', 'error');
       }
