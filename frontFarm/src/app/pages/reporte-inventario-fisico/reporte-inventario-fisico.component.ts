@@ -19,6 +19,7 @@ export class ReporteInventarioFisicoComponent implements OnInit {
     cargando = false;
     registros: any[] = [];
     total = 0;
+    diferenciaTotal = 0;
 
     page = 1;
     limit = 50;
@@ -163,7 +164,8 @@ export class ReporteInventarioFisicoComponent implements OnInit {
     // ======================================
     // BÚSQUEDA PRINCIPAL
     // ======================================
-    buscar() {
+    buscar(reiniciarPagina = true) {
+        if (reiniciarPagina) this.page = 1;
         this.cargando = true;
 
         const params: Record<string, string> = {
@@ -180,24 +182,9 @@ export class ReporteInventarioFisicoComponent implements OnInit {
         this.invFisicoService.obtenerRegistros(params)
             .subscribe((resp: any) => {
 
-                // 🔥 Convertir farmaNombre ID → nombre real
-                this.registros = resp.resultados.map((r: { farmaNombre: string; }) => {
-
-                    // si es Almacén, dejarlo así
-                    if (r.farmaNombre === "Almacén") {
-                        return r;
-                    }
-
-                    // buscar nombre de farmacia en this.farmacias
-                    const f = this.farmacias.find(x => x._id === r.farmaNombre);
-
-                    return {
-                        ...r,
-                        farmaNombre: f ? f.nombre : r.farmaNombre   // ← si no existe, dejar el ID
-                    };
-                });
-
+                this.registros = resp.resultados;
                 this.total = resp.total;
+                this.diferenciaTotal = Number(resp.diferenciaTotal ?? 0);
                 this.totalPaginas = Math.max(1, Math.ceil(this.total / this.limit));
                 this.cargando = false;
             });
@@ -210,25 +197,25 @@ export class ReporteInventarioFisicoComponent implements OnInit {
     primera() {
         if (this.page === 1) return;
         this.page = 1;
-        this.buscar();
+        this.buscar(false);
     }
 
     anterior() {
         if (this.page === 1) return;
         this.page--;
-        this.buscar();
+        this.buscar(false);
     }
 
     siguiente() {
         if (this.page >= this.totalPaginas) return;
         this.page++;
-        this.buscar();
+        this.buscar(false);
     }
 
     ultima() {
         if (this.page === this.totalPaginas) return;
         this.page = this.totalPaginas;
-        this.buscar();
+        this.buscar(false);
     }
 
     // ======================================

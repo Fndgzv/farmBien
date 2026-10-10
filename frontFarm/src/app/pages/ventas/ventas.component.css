@@ -15,6 +15,11 @@
   font-size: large;
 }
 
+.cliente-buscador {
+  flex: 1;
+  min-width: 0;
+}
+
 /* 📌 Estilo Especial para Nombre del Cliente */
 .cliente-nombre {
   background-color: rgb(2, 4, 124);

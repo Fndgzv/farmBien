@@ -10,3 +10,5 @@ require("./controlInventario.test");
 require("./ventaInventario.test");
 require("./producto.actualizacionMasiva.test");
 require("./medicoConsultorio.categorias.test");
+require("./cliente.ventas.test");
+require("./inventarioFisico.reporte.test");

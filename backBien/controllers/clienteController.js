@@ -85,8 +85,8 @@ function dayRangeUtcFromQuery(fechaIni, fechaFin, tzMinParam) {
 
 /**
  * GET /api/clientes/buscar?q=texto&limit=20
- * Devuelve una lista (limitada) de clientes cuyo nombre
- * coincide con el texto, ignorando acentos y mayúsculas.
+ * Busca por teléfono (incluyendo fragmentos) o por nombre,
+ * ignorando acentos y mayúsculas.
  * Ej: "Noe" coincide con "Noé", "Maria" con "María", etc.
  */
 exports.buscarClientesPorNombre = async (req, res) => {
@@ -96,11 +96,13 @@ exports.buscarClientesPorNombre = async (req, res) => {
 
     if (!qRaw) return res.json({ ok: true, rows: [] });
 
-    // Construye un regex que contempla acentos (tanto si los teclean como si no)
-    const rx = buildAccentInsensitiveRegex(qRaw);
+    const esTelefono = /^[\d\s()+.-]+$/.test(qRaw) && /\d/.test(qRaw);
+    const filtro = esTelefono
+      ? { telefono: { $regex: patronTelefonoFlexible(qRaw) } }
+      : { nombre: buildAccentInsensitiveRegex(qRaw) };
 
     const rows = await Cliente.find(
-      { nombre: rx },
+      filtro,
       { _id: 1, nombre: 1, telefono: 1, totalMonedero: 1 }
     )
       // NO usamos collation para que el control de acentos dependa del regex
@@ -146,15 +148,20 @@ function buildAccentInsensitiveRegex(text) {
 // Crear un nuevo cliente, desde una venta, con telefono y nombre
 exports.crearClienteDesdeVenta = async (req, res) => {
   try {
-    const { nombre, telefono } = req.body;
+    const nombre = String(req.body.nombre || '').trim();
+    const telefono = String(req.body.telefono || '').replace(/\D/g, '');
 
     if (!nombre || !telefono) {
       return res.status(400).json({ mensaje: "Nombre y teléfono son obligatorios" });
     }
 
+    if (!/^\d{10}$/.test(telefono)) {
+      return res.status(400).json({ mensaje: "El teléfono debe contener exactamente 10 dígitos" });
+    }
+
     let clienteExistente = await Cliente.findOne({ telefono });
     if (clienteExistente) {
-      return res.status(400).json({ mensaje: "El cliente ya está registrado" });
+      return res.status(409).json({ mensaje: "El teléfono ya está registrado para otro cliente" });
     }
 
     // 🔹 Encriptar la contraseña
@@ -168,6 +175,9 @@ exports.crearClienteDesdeVenta = async (req, res) => {
     await nuevoCliente.save();
     res.status(201).json(nuevoCliente);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ mensaje: "El teléfono ya está registrado para otro cliente" });
+    }
     console.error(error);
     res.status(500).json({ mensaje: "Error al crear cliente" });
   }

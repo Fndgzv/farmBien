@@ -33,10 +33,16 @@
 
   <div class="row align-items-center mb-0">
 
-    <div class="col-md-2">
-      <mat-form-field class="compact-field" appearance="outline">
-        <mat-label>Busca cliente, nombre</mat-label>
-        <input type="text" matInput [formControl]="clienteNombreCtrl" [matAutocomplete]="autoClientes" />
+    <div class="col-md-5 d-flex align-items-center gap-2">
+      <mat-form-field class="compact-field cliente-buscador" appearance="outline">
+        <mat-label>Buscar cliente por nombre o teléfono</mat-label>
+        <input type="text" matInput [formControl]="clienteNombreCtrl" [matAutocomplete]="autoClientes"
+          #cliTrigger="matAutocompleteTrigger" (input)="onClienteInput()"
+          (keydown.enter)="onBuscarClienteEnter($event)" autocomplete="off" />
+        <button *ngIf="clienteNombreCtrl.value" matSuffix type="button" (click)="limpiarCliente()"
+          matTooltip="Limpiar cliente" aria-label="Limpiar cliente" class="btn-rojo-chico">
+          <fa-icon [icon]="faTimes"></fa-icon>
+        </button>
 
         <mat-autocomplete #autoClientes="matAutocomplete" [displayWith]="displayCliente"
           (optionSelected)="onClienteSelected($event.option.value)">
@@ -45,32 +51,21 @@
             <small *ngIf="c.telefono"> — {{ c.telefono }}</small>
           </mat-option>
 
-          <mat-option *ngIf="(filteredClientes$ | async)?.length === 0">
-            Sin coincidencias
+          <mat-option *ngIf="buscandoCliente" disabled>Buscando cliente…</mat-option>
+          <mat-option *ngIf="errorBusquedaCliente" disabled>{{ errorBusquedaCliente }}</mat-option>
+          <mat-option *ngIf="busquedaClienteSinCoincidencias"
+            [value]="{ nuevo: true, termino: terminoBusquedaCliente }">
+            Sin coincidencias. Registrar cliente
           </mat-option>
         </mat-autocomplete>
       </mat-form-field>
 
-      <!-- Sugerencias nativas del navegador -->
-      <datalist id="clientesList">
-        <option *ngFor="let c of opcionesClientes" [value]="c.nombre + (c.telefono ? ' — ' + c.telefono : '')">
-        </option>
-      </datalist>
-    </div>
-
-    <div class="col-md-1 text-end">
-      <label class="cliente-tel">Tel.:</label>
-    </div>
-
-    <div class="col-md-2 position-relative">
-      <input type="text" [(ngModel)]="telefonoCliente" (input)="buscarCliente()" class="form-control pe-5" />
-      <button *ngIf="telefonoCliente" type="button" (click)="limpiarCliente()" matTooltip="Limpiar cliente"
-        class="btn-limpiar btn-sm btn-light position-absolute top-50 end-0 translate-middle-y btn-rojo-chico">
-        <fa-icon [icon]="faTimes"></fa-icon>
-      </button>
+      <button type="button" class="btn-gris-chico" (click)="buscarCliente()"
+        [disabled]="buscandoCliente || !clienteNombreCtrl.value || hayCliente">Buscar</button>
     </div>
 
     <div class="col-md-3">
+      <!-- <span *ngIf="nombreCliente" class="cliente-nombre">{{ nombreCliente }} — {{ telefonoCliente }}</span> -->
       <span *ngIf="nombreCliente" class="cliente-nombre">{{ nombreCliente }}</span>
     </div>
 

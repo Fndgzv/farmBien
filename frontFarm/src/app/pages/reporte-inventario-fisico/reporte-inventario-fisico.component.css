@@ -42,6 +42,12 @@
   margin-top: 15px;
 }
 
+.diferencia-total {
+  text-align: right;
+  margin-top: 12px;
+  font-size: 18px;
+}
+
 /* ===========================
    📌 INPUT AUTOCOMPLETE
    =========================== */

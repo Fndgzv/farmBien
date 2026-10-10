@@ -400,8 +400,32 @@
                         }" style="margin-left:.25rem;">
                     </i>
                 </th>
-                <th>Ubicación</th>
-                <th>Categoria</th>
+                <th (click)="clickSortColumna('ubicacionFarmacia')" class="th-sort" tabindex="0"
+                    (keydown.enter)="clickSortColumna('ubicacionFarmacia')"
+                    (keydown.space)="$event.preventDefault(); clickSortColumna('ubicacionFarmacia')"
+                    [attr.aria-sort]="sortBy === 'ubicacionFarmacia' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    title="Ordenar por ubicación en farmacia">
+                    Ubicación
+                    <i class="bi" [ngClass]="{
+                        'bi-caret-up-fill': sortBy === 'ubicacionFarmacia' && sortDir === 'asc',
+                        'bi-caret-down-fill': sortBy === 'ubicacionFarmacia' && sortDir === 'desc',
+                        'bi-caret-up': sortBy !== 'ubicacionFarmacia'
+                        }" style="margin-left:.25rem;" aria-hidden="true">
+                    </i>
+                </th>
+                <th (click)="clickSortColumna('categoria')" class="th-sort" tabindex="0"
+                    (keydown.enter)="clickSortColumna('categoria')"
+                    (keydown.space)="$event.preventDefault(); clickSortColumna('categoria')"
+                    [attr.aria-sort]="sortBy === 'categoria' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    title="Ordenar por categoría">
+                    Categoría
+                    <i class="bi" [ngClass]="{
+                        'bi-caret-up-fill': sortBy === 'categoria' && sortDir === 'asc',
+                        'bi-caret-down-fill': sortBy === 'categoria' && sortDir === 'desc',
+                        'bi-caret-up': sortBy !== 'categoria'
+                        }" style="margin-left:.25rem;" aria-hidden="true">
+                    </i>
+                </th>
                 <th title="Generico">Gen.</th>
                 <th title="INAPAM">INPM</th>
                 <th (click)="clickSortExistencia()" class="th-sort text-center" title="Ordenar por existencia">

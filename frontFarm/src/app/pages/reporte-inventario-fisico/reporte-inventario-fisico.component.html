@@ -80,8 +80,8 @@
   <thead>
     <tr>
       <th>Fecha</th>
-      <th>Farmacia</th>
       <th>Producto</th>
+      <th>Ubicación</th>
       <th>Sistema</th>
       <th>Físico</th>
       <th>Diferencia</th>
@@ -94,13 +94,13 @@
     <tr *ngFor="let r of registros">
 
       <td>{{ r.fechaInv | date:'MMM d, y HH:mm' }}</td>
-      <td>{{ r.farmaNombre }}</td>
 
       <td>
         {{ r.producto?.nombre }}
         <br><small>CB: {{ r.producto?.codigoBarras }}</small>
       </td>
 
+      <td>{{ r.ubicacion }}</td>
       <td>{{ r.existenciaSistema }}</td>
       <td>{{ r.existenciaFisica }}</td>
 
@@ -119,6 +119,13 @@
     </tr>
   </tbody>
 </table>
+
+<p class="diferencia-total" *ngIf="registros.length">
+  Diferencia total:
+  <strong [class.pos]="diferenciaTotal >= 0" [class.neg]="diferenciaTotal < 0">
+    {{ diferenciaTotal | currency:'MXN' }}
+  </strong>
+</p>
 
 <!-- PAGINADOR -->
 <div class="paginacion" *ngIf="registros.length">

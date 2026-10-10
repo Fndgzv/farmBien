@@ -1,6 +1,6 @@
 // ventas.component.ts
 import { Component, OnInit, ElementRef, ViewChild, AfterViewInit, ChangeDetectorRef, NgZone } from '@angular/core';
-import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap } from 'rxjs/operators';
+import { distinctUntilChanged, debounceTime, startWith, map, catchError, switchMap, tap, shareReplay } from 'rxjs/operators';
 import { of, Observable, firstValueFrom, timer } from 'rxjs';
 import { FormBuilder, FormGroup, FormControl, FormsModule, ReactiveFormsModule, NgForm } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -214,6 +214,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
   clienteNombreCtrl = new FormControl<string | any>({ value: '', disabled: false });
   filteredClientes$: Observable<any[]> = of([]);
+  buscandoCliente = false;
+  busquedaClienteSinCoincidencias = false;
+  errorBusquedaCliente = '';
+  terminoBusquedaCliente = '';
 
   productosCargando = true;
   pendingScan: string | null = null;
@@ -390,19 +394,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   ngAfterViewInit(): void {
     // foco inicial al entrar al componente
     this.focusBarcode();
-    // 👇 Fuerza abrir el panel mientras el usuario escribe
-    this.clienteNombreCtrl.valueChanges
-      .pipe(
-        startWith(this.clienteNombreCtrl.value ?? ''),
-        debounceTime(50),
-        distinctUntilChanged()
-      )
-      .subscribe(() => {
-        if (this.clienteNombreCtrl.enabled && this.cliTrigger) {
-          if (!this.cliTrigger.panelOpen) this.cliTrigger.openPanel();
-          else this.cliTrigger.updatePosition();
-        }
-      });
   }
 
   ngAfterViewChecked() {
@@ -433,37 +424,40 @@ export class VentasComponent implements OnInit, AfterViewInit {
 
     this.ventasPausadas = this.ventaService.getVentasPausadas();
 
+    this.configurarBusquedaClientes();
+  }
+
+  configurarBusquedaClientes() {
     this.filteredClientes$ = this.clienteNombreCtrl.valueChanges.pipe(
-      map(v => (typeof v === 'string' ? v : (v?.nombre ?? '')) as string),
-      map(txt => txt.trim()),
-      debounceTime(200),
-      distinctUntilChanged(),
-      switchMap(term => {
+      startWith(this.clienteNombreCtrl.value),
+      switchMap(value => {
+        const term = typeof value === 'string' ? value.trim() : '';
+        this.terminoBusquedaCliente = term;
+        this.busquedaClienteSinCoincidencias = false;
+        this.errorBusquedaCliente = '';
+        this.opcionesClientes = [];
+        this.buscandoCliente = term.length >= 2;
         if (term.length < 2) return of([]);
-        // 👇 mandamos el texto tal cual lo escribe el usuario
-        return this.clienteService.buscarClientesPorNombre(term, 20).pipe(
+
+        // Cambiar el texto cancela de inmediato la consulta anterior.
+        return timer(200).pipe(
+          switchMap(() => this.clienteService.buscarClientes(term, 20)),
           map(resp => resp?.rows ?? []),
-          catchError(() => of([]))
+          tap(rows => {
+            this.buscandoCliente = false;
+            this.opcionesClientes = rows;
+            this.busquedaClienteSinCoincidencias = rows.length === 0;
+          }),
+          catchError(() => {
+            this.buscandoCliente = false;
+            this.errorBusquedaCliente = 'No se pudo buscar al cliente. Intente de nuevo.';
+            return of([]);
+          }),
+          startWith([])
         );
-      })
+      }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
-
-
-    this.clienteNombreCtrl.valueChanges.pipe(
-      startWith(''),
-      debounceTime(120),
-      distinctUntilChanged(),
-      map(v => typeof v === 'string' ? v : (v?.nombre ?? ''))
-    ).subscribe(txt => {
-      this.opcionesClientes = this.filtraClientesLocal(txt);
-      // abre/cierra panel solo del campo cliente
-      if ((txt || '').length && this.opcionesClientes.length && !this.clienteNombreCtrl.disabled) {
-        this.cliTrigger?.openPanel();
-      } else {
-        this.cliTrigger?.closePanel();
-      }
-    });
-
   }
 
   onSubmitVenta(form: NgForm) {
@@ -492,23 +486,42 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   onClienteInput() {
+    if (this.hayCliente) {
+      this.resetClienteSeleccionado();
+      this.recalcularRenglones();
+    }
     const v = this.clienteNombreCtrl.value;
     if (typeof v === 'string' && v.trim()) {
       this.cliTrigger?.openPanel();
     }
   }
 
-  displayCliente = (c: any) => (c?.nombre || '');
+  displayCliente = (c: any) => typeof c === 'string' ? c
+    : (c?.nombre ? `${c.nombre}${c.telefono ? ' — ' + c.telefono : ''}` : '');
 
   onClienteSelected(c: any) {
+    if (c?.nuevo) {
+      this.clienteNombreCtrl.setValue(c.termino, { emitEvent: false });
+      this.mostrarModalCrearCliente(c.termino);
+      return;
+    }
     if (!c) return;
     this.cliente = c._id;
     this.nombreCliente = c.nombre || '';
     this.telefonoCliente = c.telefono || '';
     this.montoMonederoCliente = Number(c.totalMonedero || 0);
     this.hayCliente = true;
+    this.ventaForm.controls['cliente'].setValue(c._id);
+    this.clienteNombreCtrl.setValue(c);
+    this.cliTrigger?.closePanel();
     this.recalcularRenglones();
     this.focusBarcode(60, true);
+  }
+
+  onBuscarClienteEnter(event: Event) {
+    if (this.cliTrigger?.activeOption) return;
+    event.preventDefault();
+    this.buscarCliente();
   }
 
   ngOnDestroy(): void {
@@ -725,170 +738,142 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.calcularTotal();
   }
 
-  buscarCliente() {
-    if (this.telefonoCliente.length === 10) {
-      this.clienteService.buscarClientePorTelefono(this.telefonoCliente).subscribe({
-        next: (cliente: any) => {
-          if (cliente && cliente.nombre) {
-            this.nombreCliente = cliente.nombre;
-            this.ventaForm.controls['cliente'].setValue(cliente._id);
-            this.cliente = cliente._id;
-            this.montoMonederoCliente = cliente.totalMonedero;
-            this.hayCliente = true;
-
-            this.recalcularRenglones();
-
-            this.focusBarcode(0, true);
-          } else {
-            this.mostrarModalCrearCliente();
-          }
-        },
-        error: (error) => {
-          console.error("❌ Error al buscar cliente:", error);
-          this.mostrarModalCrearCliente();
-        }
-      });
-    } else {
-      this.cliente = '';
-      this.nombreCliente = '';
-      this.montoMonederoCliente = 0;
-      this.hayCliente = false;
-      this.ventaForm.controls['cliente'].setValue('');
-      this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
-      this.recalcularRenglones();
+  async buscarCliente() {
+    const valor = this.clienteNombreCtrl.value;
+    const termino = typeof valor === 'string' ? valor.trim() : '';
+    if (!termino || this.isSwalOpen) return;
+    this.clearBarcodeFocusTimer();
+    this.buscandoCliente = true;
+    this.busquedaClienteSinCoincidencias = false;
+    this.errorBusquedaCliente = '';
+    try {
+      const resp = await firstValueFrom(this.clienteService.buscarClientes(termino, 20));
+      if (this.clienteNombreCtrl.value !== valor) return;
+      const rows = resp?.rows ?? [];
+      this.opcionesClientes = rows;
+      if (rows.length === 1) {
+        this.onClienteSelected(rows[0]);
+      } else if (rows.length) {
+        this.cliTrigger?.openPanel();
+      } else {
+        this.busquedaClienteSinCoincidencias = true;
+        await this.mostrarModalCrearCliente(termino);
+      }
+    } catch {
+      if (this.clienteNombreCtrl.value !== valor) return;
+      this.errorBusquedaCliente = 'No se pudo buscar al cliente. Intente de nuevo.';
+      Swal.fire('Error', this.errorBusquedaCliente, 'error');
+    } finally {
+      this.buscandoCliente = false;
     }
   }
 
-  mostrarModalCrearCliente() {
-    Swal.fire({
-      icon: 'warning',
-      title: 'Cliente no encontrado',
-      text: '¿Desea registrar un nuevo cliente?',
-      showCancelButton: true,
-      confirmButtonText: 'Crear Cliente',
-      cancelButtonText: 'Cancelar',
-      allowOutsideClick: false,
-      allowEscapeKey: false
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.abrirFormularioNuevoCliente();
-      } else {
-        this.cliente = '';
-        this.nombreCliente = '';
-        this.montoMonederoCliente = 0;
-        this.hayCliente = false;
-        this.ventaForm.controls['cliente'].setValue('');
-        this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
-        this.recalcularRenglones();
-      }
-    });
+  mostrarModalCrearCliente(termino = this.terminoBusquedaCliente) {
+    return this.abrirFormularioNuevoCliente(termino);
   }
 
-  abrirFormularioNuevoCliente() {
-    Swal.fire({
-      title: 'Registrar Cliente',
-      html:
-        '<input id="nuevoNombreCliente" class="swal2-input" style="width: 80%;" placeholder="Ap. paterno Ap. materno Nombre(s)">',
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      cancelButtonText: 'Cancelar',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      preConfirm: () => {
-        const nombreCliente = (document.getElementById('nuevoNombreCliente') as HTMLInputElement).value;
-        if (!nombreCliente) {
-          Swal.showValidationMessage('El nombre es obligatorio');
-        }
-        return { nombre: nombreCliente, telefono: this.telefonoCliente, totalMonedero: this.montoMonederoCliente };
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        this.registrarNuevoCliente(result.value);
-      } else if (result.dismiss === Swal.DismissReason.cancel) {
-        this.limpiarCliente();
-        this.focusBarcode(0, true);
-      }
-    });
-  }
-
-  registrarNuevoCliente(nuevoCliente: any) {
-    this.clienteService.crearCliente(nuevoCliente).subscribe({
-      next: (resp: any) => {
-        // normalización de formatos comunes
-        const candidato =
-          resp?.cliente ??
-          resp?.data ??
-          resp?.result ??
-          resp; // si ya viene plano
-
-        const _id = candidato?._id ?? resp?.insertedId ?? resp?._id ?? null;
-        const nombre = candidato?.nombre ?? nuevoCliente?.nombre ?? '';
-        const telefono = candidato?.telefono ?? nuevoCliente?.telefono ?? '';
-        const totalMonedero = Number(candidato?.totalMonedero ?? 0);
-
-        if (_id && nombre) {
-          // setea estado de la venta
-          this.nombreCliente = nombre;
-          this.ventaForm.controls['cliente'].setValue(_id);
-          this.hayCliente = true;
-          this.cliente = _id;
-          this.montoMonederoCliente = totalMonedero;
-
-          // opcional: refrescar/inyectar en cache local para el autocomplete
+  async abrirFormularioNuevoCliente(termino = this.terminoBusquedaCliente) {
+    if (this.isSwalOpen) return;
+    const esTelefono = /^[\d\s()+.-]+$/.test(termino) && /\d/.test(termino);
+    const telefonoInicial = esTelefono ? termino.replace(/\D/g, '') : '';
+    const nombreInicial = !/\d/.test(termino) ? termino.trim() : '';
+    this.isSwalOpen = true;
+    this.clearBarcodeFocusTimer();
+    this.cliTrigger?.closePanel();
+    try {
+      const result = await Swal.fire({
+        title: 'Registrar cliente',
+        html: '<p>No se encontraron coincidencias. Capture ambos datos para registrar al cliente.</p>' +
+          '<label for="nuevoNombreCliente">Nombre del cliente</label>' +
+          '<input id="nuevoNombreCliente" class="swal2-input" style="width: 80%;" placeholder="Ap. paterno Ap. materno Nombre(s)" required>' +
+          '<label for="nuevoTelefonoCliente">Teléfono (10 dígitos)</label>' +
+          '<input id="nuevoTelefonoCliente" type="tel" inputmode="tel" class="swal2-input" style="width: 80%;" placeholder="Teléfono" required>',
+        showCancelButton: true,
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        showLoaderOnConfirm: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          const nombreInput = document.getElementById('nuevoNombreCliente') as HTMLInputElement;
+          const telefonoInput = document.getElementById('nuevoTelefonoCliente') as HTMLInputElement;
+          nombreInput.value = nombreInicial;
+          telefonoInput.value = telefonoInicial;
+          (nombreInicial ? telefonoInput : nombreInput).focus();
+        },
+        preConfirm: async () => {
+          const nombre = (document.getElementById('nuevoNombreCliente') as HTMLInputElement).value.trim();
+          const telefono = (document.getElementById('nuevoTelefonoCliente') as HTMLInputElement).value.replace(/\D/g, '');
+          if (!nombre) {
+            Swal.showValidationMessage('El nombre es obligatorio');
+            return false;
+          }
+          if (!/^\d{10}$/.test(telefono)) {
+            Swal.showValidationMessage('El teléfono es obligatorio y debe contener exactamente 10 dígitos');
+            return false;
+          }
           try {
-            const yaExiste = (this.clientes || []).some((c: any) => c?._id === _id);
-            if (!yaExiste) {
-              this.clientes = [
-                { _id, nombre, telefono, totalMonedero: totalMonedero },
-                ...(this.clientes || [])
-              ];
+            const existente = await firstValueFrom(this.clienteService.buscarClientePorTelefono(telefono));
+            if (existente?._id) {
+              Swal.showValidationMessage('Este teléfono ya está registrado. Cancele el alta y busque al cliente por su teléfono.');
+              return false;
             }
-          } catch { }
-
-          this.recalcularRenglones();
-
-          Swal.fire({
-            icon: 'success',
-            title: 'Cliente registrado',
-            text: `El cliente ${nombre} ha sido registrado correctamente.`,
-            timer: 1500,
-            showConfirmButton: false
-          });
-        } else {
-          // No logramos extraer el id/nombre: log y aviso amable
-          console.error('⚠️ Respuesta inesperada del backend:', resp);
-          Swal.fire({
-            icon: 'warning',
-            title: 'Cliente registrado',
-            text: 'Se registró el cliente, pero no pude leer su ID desde la respuesta.',
-            confirmButtonText: 'OK',
-            allowOutsideClick: false,
-            allowEscapeKey: false
-          });
+          } catch (error: any) {
+            if (error.status !== 404) {
+              Swal.showValidationMessage('No se pudo comprobar el teléfono. Intente de nuevo.');
+              return false;
+            }
+          }
+          try {
+            return await this.registrarNuevoCliente({ nombre, telefono });
+          } catch (error: any) {
+            Swal.showValidationMessage(error?.error?.mensaje || error?.message || 'No se pudo registrar el cliente. Intente de nuevo.');
+            return false;
+          }
         }
-      },
-      error: (error) => {
-        console.error('❌ Error al registrar cliente:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudo registrar el cliente. Inténtelo de nuevo.',
-          confirmButtonText: 'OK',
-          allowOutsideClick: false,
-          allowEscapeKey: false,
+      });
+      if (result.isConfirmed && result.value) {
+        this.onClienteSelected(result.value);
+        await Swal.fire({
+          icon: 'success',
+          title: 'Cliente registrado',
+          text: 'El cliente ha sido registrado correctamente.',
+          timer: 1500,
+          showConfirmButton: false
         });
       }
-    });
+    } finally {
+      this.isSwalOpen = false;
+      this.focusBarcode(0, true);
+    }
   }
 
-  limpiarCliente() {
+  async registrarNuevoCliente(nuevoCliente: any) {
+    const resp = await firstValueFrom(this.clienteService.crearCliente(nuevoCliente));
+    const candidato = resp?.cliente ?? resp?.data ?? resp?.result ?? resp;
+    const _id = candidato?._id ?? resp?.insertedId ?? resp?._id;
+    if (!_id) throw new Error('Se registró el cliente, pero no se recibió su ID. Búsquelo por teléfono.');
+    return {
+      _id,
+      nombre: candidato?.nombre ?? nuevoCliente.nombre,
+      telefono: candidato?.telefono ?? nuevoCliente.telefono,
+      totalMonedero: Number(candidato?.totalMonedero ?? 0)
+    };
+  }
+
+  private resetClienteSeleccionado() {
     this.cliente = '';
     this.telefonoCliente = '';
     this.nombreCliente = '';
     this.montoMonederoCliente = 0;
+    this.usarMonedero = false;
     this.hayCliente = false;
     this.ventaForm.controls['cliente'].setValue('');
-    this.clienteNombreCtrl.setValue(''); // limpia el autocompleto
+  }
+
+  limpiarCliente() {
+    this.resetClienteSeleccionado();
+    this.clienteNombreCtrl.setValue('');
     this.recalcularRenglones();
     this.focusBarcode(60, true);
   }
@@ -1123,6 +1108,10 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.nombreCliente = venta.nombreCliente;
     this.montoMonederoCliente = venta.montoMonederoCliente;
     this.cliente = venta.clienteId;
+    this.hayCliente = !!this.cliente;
+    this.clienteNombreCtrl.setValue(this.hayCliente ? {
+      _id: this.cliente, nombre: this.nombreCliente, telefono: this.telefonoCliente
+    } : '');
     this.total = venta.total;
     this.totalArticulos = venta.totalArticulos;
     this.totalDescuento = venta.totalDescuento;

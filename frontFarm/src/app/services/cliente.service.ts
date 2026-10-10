@@ -74,6 +74,10 @@ export class ClienteService {
   }
 
   buscarClientesPorNombre(termino: string, limit = 20) {
+    return this.buscarClientes(termino, limit);
+  }
+
+  buscarClientes(termino: string, limit = 20) {
     const params = new HttpParams().set('q', termino).set('limit', limit.toString());
     return this.http.get<{ ok: boolean; rows: any[] }>(`${this.apiUrl}/buscar`, { params });
   }

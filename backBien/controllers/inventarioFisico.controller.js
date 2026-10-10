@@ -1,7 +1,32 @@
 // backBien/controllers/inventarioFisico.controller.js
 const InventarioFisico = require("../models/InventarioFisico");
+const InventarioFarmacia = require("../models/InventarioFarmacia");
 const mongoose = require("mongoose");
 const ExcelJS = require("exceljs");
+
+async function agregarUbicaciones(registros) {
+  const pares = new Map();
+  for (const r of registros) {
+    const farmacia = r.farmaNombre;
+    const producto = r.producto?._id;
+    if (mongoose.isValidObjectId(farmacia) && producto) {
+      pares.set(`${farmacia}:${producto}`, { farmacia, producto });
+    }
+  }
+  const inventarios = pares.size
+    ? await InventarioFarmacia.find({ $or: [...pares.values()] })
+      .select('farmacia producto ubicacionFarmacia').lean()
+    : [];
+  const ubicaciones = new Map(inventarios.map(inv => [
+    `${inv.farmacia}:${inv.producto}`, inv.ubicacionFarmacia || ''
+  ]));
+  return registros.map(r => ({
+    ...r,
+    ubicacion: r.farmaNombre === 'Almacén'
+      ? (r.producto?.ubicacion || '')
+      : (ubicaciones.get(`${r.farmaNombre}:${r.producto?._id}`) || '')
+  }));
+}
 
 exports.exportarExcel = async (req, res) => {
   try {
@@ -35,9 +60,9 @@ exports.exportarExcel = async (req, res) => {
       if (hasta) filtro.fechaInv.$lte = new Date(hasta + "T23:59:59");
     }
 
-    const registros = await InventarioFisico.find(filtro)
-      .populate("producto", "nombre codigoBarras categoria costo")
-      .populate("usuario", "nombre usuario");
+    const registros = await agregarUbicaciones(await InventarioFisico.find(filtro)
+      .populate("producto", "nombre codigoBarras categoria costo ubicacion")
+      .populate("usuario", "nombre usuario").lean());
 
     // 🧾 Crear archivo Excel
     const workbook = new ExcelJS.Workbook();
@@ -46,21 +71,21 @@ exports.exportarExcel = async (req, res) => {
     // ENCABEZADOS
     sheet.addRow([
       "Fecha",
-      "Farmacia",
       "Producto",
+      "Ubicación",
       "Código Barras",
       "Sistema",
       "Físico",
       "Diferencia",
-      "Costo Perdida",
+      "Difer. $",
       "Usuario"
     ]);
 
     registros.forEach((r) => {
       sheet.addRow([
         r.fechaInv?.toLocaleString("es-MX") ?? "",
-        r.farmaNombre ?? "",
         r.producto?.nombre ?? "",
+        r.ubicacion,
         r.producto?.codigoBarras ?? "",
 
         // 🔥 CAMPOS CORRECTOS:
@@ -74,6 +99,11 @@ exports.exportarExcel = async (req, res) => {
         r.usuario?.nombre ?? ""
       ]);
     });
+
+    const diferenciaTotal = registros.reduce((suma, r) => suma + Number(r.perdida || 0), 0);
+    const filaTotal = sheet.addRow(['Diferencia total:', '', '', '', '', '', '', diferenciaTotal, '']);
+    filaTotal.font = { bold: true };
+    sheet.getColumn(8).numFmt = '"$"#,##0.00;[Red]-"$"#,##0.00';
 
     sheet.columns.forEach(col => { col.width = 25 });
 
@@ -156,21 +186,32 @@ exports.obtenerInventarioFisico = async (req, res) => {
     /* =====================================================
        🔎 CONSULTAR REGISTROS
     ====================================================== */
-    const registros = await InventarioFisico.find(filtro)
+    const filtroTotal = { ...filtro };
+    for (const campo of ['producto', 'usuario']) {
+      if (filtroTotal[campo]) filtroTotal[campo] = new mongoose.Types.ObjectId(filtroTotal[campo]);
+    }
+
+    const [registros, total, totales] = await Promise.all([
+      InventarioFisico.find(filtro)
       .populate('usuario', 'nombre')
-      .populate("producto", "nombre codigoBarras categoria costo")
+      .populate("producto", "nombre codigoBarras categoria costo ubicacion")
       .sort({ [sortBy]: sortDir === "asc" ? 1 : -1 })
       .skip(skip)
-      .limit(limitNum);
-
-    const total = await InventarioFisico.countDocuments(filtro);
+      .limit(limitNum).lean(),
+      InventarioFisico.countDocuments(filtro),
+      InventarioFisico.aggregate([
+        { $match: filtroTotal },
+        { $group: { _id: null, diferenciaTotal: { $sum: '$perdida' } } }
+      ])
+    ]);
 
     res.json({
       total,
+      diferenciaTotal: totales[0]?.diferenciaTotal ?? 0,
       page: pageNum,
       pages: Math.ceil(total / limitNum),
       limit: limitNum,
-      resultados: registros
+      resultados: await agregarUbicaciones(registros)
     });
 
   } catch (error) {

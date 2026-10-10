@@ -140,7 +140,7 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
   const {
     farmacia,
     nombre, codigoBarras, categoria, inapam, generico, ubicacionFarmacia,
-    sortBy = 'existencia',          // 'existencia' | 'nombre'
+    sortBy = 'existencia',          // 'existencia' | 'nombre' | 'ubicacionFarmacia' | 'categoria'
     sortDir = 'asc'                 // 'asc' | 'desc'
   } = req.query;
 
@@ -162,6 +162,13 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
 
     // 3) Dirección de orden
     const dir = String(sortDir).toLowerCase() === 'desc' ? -1 : 1;
+    const camposOrden = new Map([
+      ['existencia', 'existencia'],
+      ['nombre', 'prod.nombre'],
+      ['ubicacionFarmacia', 'ubicacionFarmacia'],
+      ['categoria', 'prod.categoria']
+    ]);
+    const campoOrden = camposOrden.get(String(sortBy)) || 'existencia';
 
     // 3.1) Palabras de ubicación normalizadas para comparación literal en Node.
     // No se envía este input como regex a MongoDB.
@@ -182,9 +189,7 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
       },
       { $unwind: { path: '$prod', preserveNullAndEmptyArrays: true } },
       // Orden dinámico
-      (String(sortBy) === 'nombre')
-        ? { $sort: { 'prod.nombre': dir, _id: 1 } }
-        : { $sort: { existencia: dir, _id: 1 } },
+      { $sort: { [campoOrden]: dir, _id: 1 } },
       // Proyección con la forma que espera el front
       {
         $project: {
