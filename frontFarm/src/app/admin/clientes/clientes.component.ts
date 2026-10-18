@@ -1,5 +1,5 @@
 // src/app/pages/clientes/clientes.component.ts
-import { Component, OnInit, ViewChild, ChangeDetectorRef, ElementRef, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef, ElementRef, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTable, MatTableModule } from '@angular/material/table';
@@ -11,7 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FontAwesomeModule } from '@fortawesome/angular-fontawesome';
 import { faEdit, faSave, faTimes, faEye, faPlus, faWallet } from '@fortawesome/free-solid-svg-icons';
-import { Observable } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 
 import { ClienteService } from '../../services/cliente.service';
 
@@ -50,7 +50,7 @@ export function paginatorEs(): MatPaginatorIntl {
 })
 
 
-export class ClientesComponent implements OnInit {
+export class ClientesComponent implements OnInit, OnDestroy {
   faEdit = faEdit;
   faSave = faSave;
   faTimes = faTimes;
@@ -77,14 +77,14 @@ export class ClientesComponent implements OnInit {
 
   paginacion = { total: 0, page: 1, limit: 20 };
 
-  // rango de fechas para subtablas
+  // Rango de fechas para el total de monedero y las subtablas.
   fechaIni = '';
   fechaFin = '';
 
   // guarda la última subtabla abierta para poder recargarla al cambiar fechas
   lastExpandedKey: string | null = null;
 
-  displayedColumns = ['nombre', 'telefono', 'email', 'domicilio', 'monedero', 'acciones'];
+  displayedColumns = ['nombre', 'telefono', 'email', 'domicilio', 'totalMonederoCliente', 'monedero', 'acciones'];
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild('filtroInput') filtroInput!: ElementRef<HTMLInputElement>;
@@ -116,6 +116,7 @@ export class ClientesComponent implements OnInit {
   trackById = (_: number, row: any) => row?._id ?? _;
 
   private subFetchers: Record<SubKind, (id: string, params: any) => Observable<any>>;
+  private listadoSub?: Subscription;
 
   constructor(private clienteSrv: ClienteService, private cdr: ChangeDetectorRef) {
     this.subFetchers = {
@@ -151,8 +152,15 @@ export class ClientesComponent implements OnInit {
     this.buscar();
   }
 
-  /** Si hay subtabla abierta, la recargamos con el nuevo rango */
+  ngOnDestroy(): void {
+    this.listadoSub?.unsubscribe();
+  }
+
+  /** Actualiza los totales y la subtabla abierta con el nuevo rango. */
   onChangeFechas() {
+    this.page = 1;
+    this.buscar();
+
     // Si hay una subtabla abierta, recárgala con las nuevas fechas
     const key = this.expandedRow;
     if (!key) return;
@@ -178,21 +186,25 @@ export class ClientesComponent implements OnInit {
   }
 
   buscar(): void {
+    // Evita que una respuesta anterior reemplace los totales del rango actual.
+    this.listadoSub?.unsubscribe();
     this.cargando = true;
 
     const baseParams: any = {
       q: this.filtro,
       telefono: this.filtroTelefono,
       page: this.page,
-      limit: this.limit
+      limit: this.limit,
+      fechaIni: this.fechaIni,
+      fechaFin: this.fechaFin
     };
 
-    // Solo mandamos sort si es por totalMonedero; por nombre es el default del back
-    const sortParams = (this.sortBy === 'totalMonedero')
-      ? { sortBy: 'totalMonedero', sortDir: this.sortDir }
+    // Por nombre se usa el orden predeterminado del backend.
+    const sortParams = (this.sortBy !== 'nombre')
+      ? { sortBy: this.sortBy, sortDir: this.sortDir }
       : {};
 
-    this.clienteSrv.listar({ ...baseParams, ...sortParams })
+    this.listadoSub = this.clienteSrv.listar({ ...baseParams, ...sortParams })
       .subscribe({
         next: (resp: any) => {
           const rows = resp?.rows ?? [];
@@ -222,14 +234,14 @@ export class ClientesComponent implements OnInit {
   }
 
   // Estado de orden
-  sortBy: 'nombre' | 'totalMonedero' = 'nombre';
+  sortBy: 'nombre' | 'totalMonedero' | 'totalMonederoCliente' = 'nombre';
   sortDir: 'asc' | 'desc' = 'asc';
 
-  // Toggle en la columna Monedero
-  toggleMonederoSort(): void {
-    if (this.sortBy !== 'totalMonedero') {
-      this.sortBy = 'totalMonedero';
-      this.sortDir = 'desc';          // default: más saldo primero
+  // Alterna el orden del total del período o del saldo disponible.
+  toggleMonederoSort(campo: 'totalMonedero' | 'totalMonederoCliente' = 'totalMonedero'): void {
+    if (this.sortBy !== campo) {
+      this.sortBy = campo;
+      this.sortDir = 'desc';          // default: mayor importe primero
     } else {
       this.sortDir = this.sortDir === 'desc' ? 'asc' : 'desc';
     }

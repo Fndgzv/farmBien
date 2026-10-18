@@ -195,7 +195,7 @@ exports.listarClientes = async (req, res) => {
       telefono = "",    // filtro por telefono
       page = 1,         // página
       limit = 20,       // documentos por página
-      sortBy = "nombre",// "nombre" | "totalMonedero"
+      sortBy = "nombre",// "nombre" | "totalMonedero" | "totalMonederoCliente"
       sortDir = "asc"   // "asc" | "desc"
     } = req.query;
 
@@ -211,21 +211,50 @@ exports.listarClientes = async (req, res) => {
     if (telefonoRegex) filtro.telefono = { $regex: telefonoRegex };
 
     // Validación y armado de sort
-    const allowed = new Set(["nombre", "totalMonedero"]);
+    const allowed = new Set(["nombre", "totalMonedero", "totalMonederoCliente"]);
     const sortField = allowed.has(String(sortBy)) ? String(sortBy) : "nombre";
     const dir = String(sortDir).toLowerCase() === "desc" ? -1 : 1;
 
-    // Tiebreaker: si ordenas por totalMonedero, empatados se ordenan por nombre asc
-    const sortObj = { [sortField]: dir, ...(sortField !== "nombre" ? { nombre: 1 } : {}) };
+    // Desempatar por nombre e id mantiene estable la paginación.
+    const sortObj = { [sortField]: dir, ...(sortField !== "nombre" ? { nombre: 1 } : {}), _id: 1 };
+    const { gte, lt } = dayRangeUtcFromQuery(req.query.fechaIni, req.query.fechaFin, req.query.tz);
+    const paginar = [{ $sort: sortObj }, { $skip: skip }, { $limit: limitNum }];
+    const ordenarPorCompras = sortField === "totalMonederoCliente";
+    const pipeline = [
+      { $match: filtro },
+      // Para nombre o saldo solo calculamos los totales de la página solicitada.
+      ...(!ordenarPorCompras ? paginar : []),
+      { $project: { nombre: 1, telefono: 1, email: 1, domicilio: 1, totalMonedero: 1 } },
+      {
+        $lookup: {
+          from: Venta.collection.name,
+          let: { clienteId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$cliente', '$$clienteId'] },
+                fecha: { $gte: gte, $lt: lt }
+              }
+            },
+            { $group: { _id: null, total: { $sum: { $ifNull: ['$totalMonederoCliente', 0] } } } }
+          ],
+          as: 'monederoCompras'
+        }
+      },
+      {
+        $addFields: {
+          totalMonederoCliente: { $ifNull: [{ $arrayElemAt: ['$monederoCompras.total', 0] }, 0] }
+        }
+      },
+      { $project: { monederoCompras: 0 } },
+      // El total del período debe ordenarse antes de aplicar la paginación.
+      ...(ordenarPorCompras ? paginar : [])
+    ];
 
     const [rows, total] = await Promise.all([
-      Cliente.find(filtro)
-        .collation({ locale: "es", strength: 1 })   // orden alfabético español para 'nombre'
-        .sort(sortObj)
-        .skip(skip)
-        .limit(limitNum)
-        .select("nombre telefono email domicilio totalMonedero")
-        .lean(),
+      Cliente.aggregate(pipeline)
+        .collation({ locale: "es", strength: 1 })
+        .allowDiskUse(true),
       Cliente.countDocuments(filtro)
     ]);
 

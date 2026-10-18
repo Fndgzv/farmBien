@@ -5,7 +5,7 @@ const isAdmin = require('../middlewares/isAdmin');
 const c = require('../controllers/clienteController');
 
 // LISTA / paginada (la que usa tu tabla principal)
-router.get('/', auth, c.listarClientes); // ?q=&page=&limit=&sortBy=nombre|totalMonedero&sortDir=asc|desc
+router.get('/', auth, c.listarClientes); // ?q=&telefono=&page=&limit=&fechaIni=&fechaFin=&tz=&sortBy=nombre|totalMonedero|totalMonederoCliente&sortDir=asc|desc
 
 // Búsquedas y obtención puntual
 router.get('/buscar', auth, c.buscarClientesPorNombre);     // ?q=

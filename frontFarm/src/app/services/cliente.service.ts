@@ -12,6 +12,7 @@ export interface Cliente {
   nombre: string;
   direccion?: string;
   totalMonedero?: number;
+  totalMonederoCliente?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -91,8 +92,8 @@ export class ClienteService {
   }
 
 
-  listar(params: { q?: string; telefono?: string; page?: number; limit?: number; sortBy?: string; sortDir?: string }) {
-    let httpParams = new HttpParams()
+  listar(params: { q?: string; telefono?: string; page?: number; limit?: number; sortBy?: string; sortDir?: string; fechaIni?: string; fechaFin?: string }) {
+    let httpParams = this.withTz()
       .set('page', String(params.page ?? 1))
       .set('limit', String(params.limit ?? 20));
 
@@ -100,6 +101,8 @@ export class ClienteService {
     if (params.telefono) httpParams = httpParams.set('telefono', params.telefono);
     if (params.sortBy) httpParams = httpParams.set('sortBy', params.sortBy);
     if (params.sortDir) httpParams = httpParams.set('sortDir', params.sortDir);
+    if (params.fechaIni) httpParams = httpParams.set('fechaIni', params.fechaIni);
+    if (params.fechaFin) httpParams = httpParams.set('fechaFin', params.fechaFin);
 
     return this.http.get(this.apiUrl, { params: httpParams });
   }

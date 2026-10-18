@@ -129,12 +129,34 @@
         </td>
     </ng-container>
 
-    <!-- Monedero -->
+    <!-- Total de monedero generado por compras en el rango de fechas -->
+    <ng-container matColumnDef="totalMonederoCliente">
+        <th mat-header-cell *matHeaderCellDef>
+            Total monedero
+            <button class="btn-orden" type="button" (click)="toggleMonederoSort('totalMonederoCliente')"
+                [disabled]="cargando" matTooltip="Ordenar por total monedero" aria-label="Ordenar por total monedero">
+                <i class="fas" [ngClass]="{
+                    'fa-sort': sortBy !== 'totalMonederoCliente',
+                    'fa-sort-amount-down': sortBy === 'totalMonederoCliente' && sortDir === 'desc',
+                    'fa-sort-amount-up-alt': sortBy === 'totalMonederoCliente' && sortDir === 'asc'
+                }"></i>
+            </button>
+            <button *ngIf="sortBy === 'totalMonederoCliente'" class="btn-orden limpiar" type="button"
+                (click)="clearSort()" [disabled]="cargando" matTooltip="Quitar orden" aria-label="Quitar orden de total monedero">
+                <i class="fas fa-times"></i>
+            </button>
+        </th>
+        <td mat-cell *matCellDef="let c">
+            {{ (c.totalMonederoCliente ?? 0) | currency }}
+        </td>
+    </ng-container>
+
+    <!-- Saldo monedero -->
     <ng-container matColumnDef="monedero">
         <th mat-header-cell *matHeaderCellDef>
-            Monedero
+            Saldo monedero
             <button class="btn-orden" type="button" (click)="toggleMonederoSort()" [disabled]="cargando"
-                matTooltip="Ordenar por monedero">
+                matTooltip="Ordenar por saldo monedero" aria-label="Ordenar por saldo monedero">
                 <i class="fas" [ngClass]="{
            'fa-sort'                 : sortBy !== 'totalMonedero',
            'fa-sort-amount-down'     : sortBy === 'totalMonedero' && sortDir === 'desc',
