@@ -12,4 +12,8 @@ import { TicketFooterComponent } from "../ticket-footer/ticket-footer.component"
 })
 export class VentaTicketComponent {
   @Input() venta: any;
+
+  get clienteParaTicket(): string {
+    return this.venta?.cliente?.trim().split(/\s+/)[0] || 'Público general';
+  }
 }

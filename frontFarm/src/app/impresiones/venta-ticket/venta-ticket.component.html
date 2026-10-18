@@ -85,7 +85,7 @@
     <div class = "folio-ticket">Folio: {{ venta.folio }}</div>
     Fecha: {{ venta.fecha | date:'dd/MM/yyyy HH:mm' }} hrs.<br />
     Atendió: {{ venta.usuario }}<br />
-    Cliente: {{ venta.cliente || 'Público general' }}
+    Cliente: {{ clienteParaTicket }}
   </div>
 
 
