@@ -166,7 +166,8 @@ exports.obtenerInventarioFarmacia = async (req, res) => {
       ['existencia', 'existencia'],
       ['nombre', 'prod.nombre'],
       ['ubicacionFarmacia', 'ubicacionFarmacia'],
-      ['categoria', 'prod.categoria']
+      ['categoria', 'prod.categoria'],
+      ['precioVenta', 'precioVenta']
     ]);
     const campoOrden = camposOrden.get(String(sortBy)) || 'existencia';
 

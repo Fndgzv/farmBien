@@ -101,7 +101,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     return 'Guardando producto…';
   }
 
-  sortBy: 'existencia' | 'nombre' | 'ubicacionFarmacia' | 'categoria' = 'existencia';
+  sortBy: 'existencia' | 'nombre' | 'ubicacionFarmacia' | 'categoria' | 'precioVenta' = 'existencia';
   sortDir: 'asc' | 'desc' = 'asc';
 
   constructor(
@@ -361,7 +361,7 @@ export class AjustesInventarioFarmaciaComponent implements OnInit {
     this.buscar();
   }
 
-  clickSortColumna(campo: 'ubicacionFarmacia' | 'categoria') {
+  clickSortColumna(campo: 'ubicacionFarmacia' | 'categoria' | 'precioVenta') {
     if (this.ocupado) return;
     this.sortDir = this.sortBy === campo && this.sortDir === 'asc' ? 'desc' : 'asc';
     this.sortBy = campo;

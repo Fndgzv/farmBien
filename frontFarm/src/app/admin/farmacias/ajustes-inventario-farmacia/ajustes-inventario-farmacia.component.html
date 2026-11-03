@@ -440,8 +440,18 @@
                 <th>Stock Mín</th>
                 <th>Stock Máx</th>
                 <th>Costo</th>
-                <th>
+                <th (click)="clickSortColumna('precioVenta')" class="th-sort" tabindex="0"
+                    (keydown.enter)="clickSortColumna('precioVenta')"
+                    (keydown.space)="$event.preventDefault(); clickSortColumna('precioVenta')"
+                    [attr.aria-sort]="sortBy === 'precioVenta' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    title="Ordenar por precio de venta">
                     Precio Venta
+                    <i class="bi" [ngClass]="{
+                        'bi-caret-up-fill': sortBy === 'precioVenta' && sortDir === 'asc',
+                        'bi-caret-down-fill': sortBy === 'precioVenta' && sortDir === 'desc',
+                        'bi-caret-up': sortBy !== 'precioVenta'
+                        }" style="margin-left:.25rem;" aria-hidden="true">
+                    </i>
                 </th>
                 <th>Acciones</th>
             </tr>
