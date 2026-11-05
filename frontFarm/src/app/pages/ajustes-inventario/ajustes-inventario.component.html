@@ -306,12 +306,13 @@
 
     <table class="tabla" style="font-size: small;">
         <thead>
+<tr class="fila-sumas"><th colspan="9"></th><th colspan="2"><span *ngIf="columnasVisibles.costo">Σ Costo: {{ sumaCosto | currency }}</span></th><th colspan="2"><span *ngIf="columnasVisibles.total">Σ Total: {{ sumaTotal | currency }}</span></th><th colspan="5"></th></tr>
             <tr>
-                <th>
+                <th [class.columna-oculta]="!columnasVisibles.seleccion"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Seleccionar" [attr.aria-checked]="columnasVisibles.seleccion" [matTooltip]="columnasVisibles.seleccion ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.seleccion = !columnasVisibles.seleccion"><i class="bi" [ngClass]="columnasVisibles.seleccion ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.seleccion">
                     <input type="checkbox" (change)="seleccionarTodos($event)">
-                </th>
-                <th>Imagen</th>
-                <th (click)="ordenar('nombre')">
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.imagen"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Imagen" [attr.aria-checked]="columnasVisibles.imagen" [matTooltip]="columnasVisibles.imagen ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.imagen = !columnasVisibles.imagen"><i class="bi" [ngClass]="columnasVisibles.imagen ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.imagen">Imagen</ng-container></th>
+                <th (click)="ordenar('nombre')" [class.columna-oculta]="!columnasVisibles.nombre"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Nombre / Código barras" [attr.aria-checked]="columnasVisibles.nombre" [matTooltip]="columnasVisibles.nombre ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.nombre = !columnasVisibles.nombre"><i class="bi" [ngClass]="columnasVisibles.nombre ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.nombre">
                     Nombre / Código barras
                     <i [ngClass]="{
                         'bi': true,
@@ -319,10 +320,10 @@
                         'bi-caret-down-fill': columnaOrden === 'nombre' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'nombre'
                     }" class="icono-orden"></i>
-                </th>
-                <th class="col-inventario" matTooltip="Producto de inventario">I</th>
+                </ng-container></th>
+                <th class="col-inventario" matTooltip="Producto de inventario" [class.columna-oculta]="!columnasVisibles.inventario"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="I" [attr.aria-checked]="columnasVisibles.inventario" [matTooltip]="columnasVisibles.inventario ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.inventario = !columnasVisibles.inventario"><i class="bi" [ngClass]="columnasVisibles.inventario ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.inventario">I</ng-container></th>
 
-                <th (click)="ordenar('categoria')">
+                <th (click)="ordenar('categoria')" [class.columna-oculta]="!columnasVisibles.categoria"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Categoría" [attr.aria-checked]="columnasVisibles.categoria" [matTooltip]="columnasVisibles.categoria ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.categoria = !columnasVisibles.categoria"><i class="bi" [ngClass]="columnasVisibles.categoria ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.categoria">
                     Categoría
                     <i [ngClass]="{
                         'bi': true,
@@ -330,8 +331,8 @@
                         'bi-caret-down-fill': columnaOrden === 'categoria' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'categoria'
                     }" class="icono-orden"></i>
-                </th>
-                <th (click)="ordenar('laboratorioNombre')">
+                </ng-container></th>
+                <th (click)="ordenar('laboratorioNombre')" [class.columna-oculta]="!columnasVisibles.laboratorio"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Laboratorio" [attr.aria-checked]="columnasVisibles.laboratorio" [matTooltip]="columnasVisibles.laboratorio ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.laboratorio = !columnasVisibles.laboratorio"><i class="bi" [ngClass]="columnasVisibles.laboratorio ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.laboratorio">
                     Laboratorio
                     <i [ngClass]="{
                         'bi': true,
@@ -339,8 +340,8 @@
                         'bi-caret-down-fill': columnaOrden === 'laboratorioNombre' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'laboratorioNombre'
                     }" class="icono-orden"></i>
-                </th>
-                <th (click)="ordenar('ubicacion')">
+                </ng-container></th>
+                <th (click)="ordenar('ubicacion')" [class.columna-oculta]="!columnasVisibles.ubicacion"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Ubicación" [attr.aria-checked]="columnasVisibles.ubicacion" [matTooltip]="columnasVisibles.ubicacion ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.ubicacion = !columnasVisibles.ubicacion"><i class="bi" [ngClass]="columnasVisibles.ubicacion ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.ubicacion">
                     Ubicación
                     <i [ngClass]="{
                         'bi': true,
@@ -348,9 +349,9 @@
                         'bi-caret-down-fill': columnaOrden === 'ubicacion' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'ubicacion'
                     }" class="icono-orden"></i>
-                </th>
-                <!-- <th>Genérico</th> -->
-                <th (click)="ordenar('existencia')">
+                </ng-container></th>
+
+                <th (click)="ordenar('existencia')" [class.columna-oculta]="!columnasVisibles.existencia"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Existencia" [attr.aria-checked]="columnasVisibles.existencia" [matTooltip]="columnasVisibles.existencia ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.existencia = !columnasVisibles.existencia"><i class="bi" [ngClass]="columnasVisibles.existencia ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.existencia">
                     Existencia
                     <i [ngClass]="{
                         'bi': true,
@@ -358,13 +359,13 @@
                         'bi-caret-down-fill': columnaOrden === 'existencia' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'existencia'
                     }" class="icono-orden"></i>
-                </th>
-                <th>Stock Mín.</th>
-                <th>Stock Máx.</th>
-                <!-- <th>INAPAM</th> -->
-                <th>Costo</th>
-                <!-- <th title="Precio sugerido">Precio</th> -->
-                <th (click)="ordenar('ultimoProveedorNombre')">
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.stockMin"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Stock Mín." [attr.aria-checked]="columnasVisibles.stockMin" [matTooltip]="columnasVisibles.stockMin ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.stockMin = !columnasVisibles.stockMin"><i class="bi" [ngClass]="columnasVisibles.stockMin ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.stockMin">Stock Mín.</ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.stockMax"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Stock Máx." [attr.aria-checked]="columnasVisibles.stockMax" [matTooltip]="columnasVisibles.stockMax ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.stockMax = !columnasVisibles.stockMax"><i class="bi" [ngClass]="columnasVisibles.stockMax ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.stockMax">Stock Máx.</ng-container></th>
+
+                <th [class.columna-oculta]="!columnasVisibles.costo"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" [attr.aria-label]="'Costo'" [attr.aria-checked]="columnasVisibles.costo" [matTooltip]="columnasVisibles.costo ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.costo = !columnasVisibles.costo"><i class="bi" [ngClass]="columnasVisibles.costo ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.costo">Costo</ng-container></th><th [class.columna-oculta]="!columnasVisibles.total"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" [attr.aria-label]="'Total'" [attr.aria-checked]="columnasVisibles.total" [matTooltip]="columnasVisibles.total ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.total = !columnasVisibles.total"><i class="bi" [ngClass]="columnasVisibles.total ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.total">Total</ng-container></th>
+
+                <th (click)="ordenar('ultimoProveedorNombre')" [class.columna-oculta]="!columnasVisibles.proveedor"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Proveedor" [attr.aria-checked]="columnasVisibles.proveedor" [matTooltip]="columnasVisibles.proveedor ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.proveedor = !columnasVisibles.proveedor"><i class="bi" [ngClass]="columnasVisibles.proveedor ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.proveedor">
                     Ultimo proveedor
                     <i [ngClass]="{
                         'bi': true,
@@ -372,8 +373,8 @@
                         'bi-caret-down-fill': columnaOrden === 'ultimoProveedorNombre' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'ultimoProveedorNombre'
                     }" class="icono-orden"></i>
-                </th>
-                <th (click)="ordenar('proximaCaducidad')" matTooltip="Fecha de caducidad más próxima">
+                </ng-container></th>
+                <th (click)="ordenar('proximaCaducidad')" matTooltip="Fecha de caducidad más próxima" [class.columna-oculta]="!columnasVisibles.proximaCaducidad"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Fecha prox. cad." [attr.aria-checked]="columnasVisibles.proximaCaducidad" [matTooltip]="columnasVisibles.proximaCaducidad ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.proximaCaducidad = !columnasVisibles.proximaCaducidad"><i class="bi" [ngClass]="columnasVisibles.proximaCaducidad ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.proximaCaducidad">
                     Fecha prox. cad.
                     <i [ngClass]="{
                         'bi': true,
@@ -381,9 +382,9 @@
                         'bi-caret-down-fill': columnaOrden === 'proximaCaducidad' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'proximaCaducidad'
                     }" class="icono-orden"></i>
-                </th>
-                <th matTooltip="Cantidad de productos por caducar">Cant. prox. caduc.</th>
-                <th (click)="ordenar('fechaCaducos')" matTooltip="Fecha mas reciente de caducados">
+                </ng-container></th>
+                <th matTooltip="Cantidad de productos por caducar" [class.columna-oculta]="!columnasVisibles.cantidadProxima"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Cant. prox. caduc." [attr.aria-checked]="columnasVisibles.cantidadProxima" [matTooltip]="columnasVisibles.cantidadProxima ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.cantidadProxima = !columnasVisibles.cantidadProxima"><i class="bi" [ngClass]="columnasVisibles.cantidadProxima ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.cantidadProxima">Cant. prox. caduc.</ng-container></th>
+                <th (click)="ordenar('fechaCaducos')" matTooltip="Fecha mas reciente de caducados" [class.columna-oculta]="!columnasVisibles.fechaCaducos"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Fecha caducos" [attr.aria-checked]="columnasVisibles.fechaCaducos" [matTooltip]="columnasVisibles.fechaCaducos ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.fechaCaducos = !columnasVisibles.fechaCaducos"><i class="bi" [ngClass]="columnasVisibles.fechaCaducos ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.fechaCaducos">
                     Fecha caducos
                     <i [ngClass]="{
                         'bi': true,
@@ -391,18 +392,18 @@
                         'bi-caret-down-fill': columnaOrden === 'fechaCaducos' && direccionOrden === 'desc',
                         'bi-caret-up': columnaOrden !== 'fechaCaducos'
                     }" class="icono-orden"></i>
-                </th>
-                <th matTooltip="Cantidad de productos caducos">Cant. caduc.</th>
-                <th>Acciones</th>
+                </ng-container></th>
+                <th matTooltip="Cantidad de productos caducos" [class.columna-oculta]="!columnasVisibles.cantidadCaducada"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Cant. caduc." [attr.aria-checked]="columnasVisibles.cantidadCaducada" [matTooltip]="columnasVisibles.cantidadCaducada ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.cantidadCaducada = !columnasVisibles.cantidadCaducada"><i class="bi" [ngClass]="columnasVisibles.cantidadCaducada ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.cantidadCaducada">Cant. caduc.</ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.acciones"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Acciones" [attr.aria-checked]="columnasVisibles.acciones" [matTooltip]="columnasVisibles.acciones ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.acciones = !columnasVisibles.acciones"><i class="bi" [ngClass]="columnasVisibles.acciones ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.acciones">Acciones</ng-container></th>
             </tr>
         </thead>
         <tbody>
             <tr *ngFor="let p of productosPagina; trackBy: trackProdBy" [class.fila-modificada]="p['modificado']">
-                <td><input type="checkbox" [(ngModel)]="p.seleccionado"></td>
-                <td>
+                <td [class.columna-oculta]="!columnasVisibles.seleccion"><ng-container *ngIf="columnasVisibles.seleccion"><input type="checkbox" [(ngModel)]="p.seleccionado"></ng-container></td>
+                <td [class.columna-oculta]="!columnasVisibles.imagen"><ng-container *ngIf="columnasVisibles.imagen">
                     <div class="img-cell" [class.loading]="subiendoId === p._id">
 
-                        <!-- botón-imagen (abre file) -->
+
                         <button type="button" class="img-button" (click)="file.click()"
                             [disabled]="subiendoId === p._id"
                             [attr.aria-label]="p.imagen ? 'Cambiar imagen' : 'Agregar imagen'"
@@ -418,50 +419,46 @@
                             </span>
                         </button>
 
-                        <!-- 🔍 lupa: abre preview grande (NO dispara el file) -->
+
                         <button type="button" class="zoom-btn" (click)="$event.stopPropagation(); openPreview(p)"
                             [disabled]="subiendoId === p._id" matTooltip="Ver imagen">
                             <i class="fas fa-search-plus"></i>
                         </button>
 
-                        <!-- input file oculto -->
+
                         <input #file type="file" accept="image/*" style="display:none"
                             (change)="onFileChange($event, p)" />
                     </div>
-                </td>
+                </ng-container></td>
 
 
-                <td class="col-producto">
+                <td class="col-producto" [class.columna-oculta]="!columnasVisibles.nombre"><ng-container *ngIf="columnasVisibles.nombre">
                     <div class="prod-nombre">{{ p.nombre }}</div>
                     <small class="prod-ubicacion" *ngIf="p.codigoBarras">{{ p.codigoBarras }}</small>
-                </td>
-                <td class="col-inventario">
+                </ng-container></td>
+                <td class="col-inventario" [class.columna-oculta]="!columnasVisibles.inventario"><ng-container *ngIf="columnasVisibles.inventario">
                     <input type="checkbox" [checked]="p.inventario !== false" disabled
                         [attr.aria-label]="(p.inventario !== false ? 'Sí' : 'No') + ' es producto de inventario'">
-                </td>
-                <td>{{ p.categoria }}</td>
-                <td>{{ nombreLaboratorioProducto(p) }}</td>
-                <td>{{ p.ubicacion }}</td>
-                <!-- <td style="text-align: center;">
-                    <input type="checkbox" [checked]="p.generico" disabled>
-                </td> -->
-                <td style="text-align: right" [class.text-danger]="p.existencia < (p.stockMinimo || 0)">
-                    {{ p.existencia }}
-                </td>
-                <td style="text-align: right">{{ p.stockMinimo }}</td>
-                <td style="text-align: right">{{ p.stockMaximo }}</td>
+                </ng-container></td>
+                <td [class.columna-oculta]="!columnasVisibles.categoria"><ng-container *ngIf="columnasVisibles.categoria">{{ p.categoria }}</ng-container></td>
+                <td [class.columna-oculta]="!columnasVisibles.laboratorio"><ng-container *ngIf="columnasVisibles.laboratorio">{{ nombreLaboratorioProducto(p) }}</ng-container></td>
+                <td [class.columna-oculta]="!columnasVisibles.ubicacion"><ng-container *ngIf="columnasVisibles.ubicacion">{{ p.ubicacion }}</ng-container></td>
 
-                <!-- <td style="text-align: center;">
-                    <input type="checkbox" [checked]="p.descuentoINAPAM" disabled>
-                </td> -->
-                <td>{{ p.costo | currency }}</td>
-                <!-- <td>{{ p.precio |currency }}</td> -->
-                <td>{{ p.ultimoProveedorNombre }}</td>
-                <td>{{ p.proximaCaducidad | date:'MMM/yyyy' | titlecase }}</td>
-                <td style="text-align: right">{{ p.cantidadProximaCaducidad }}</td>
-                <td>{{ p.fechaCaducos | date:'MMM/yyyy' | titlecase }}</td>
-                <td style="text-align: right">{{ p.cantidadCaducada }}</td>
-                <td>
+                <td style="text-align: right" [class.text-danger]="p.existencia < (p.stockMinimo || 0)" [class.columna-oculta]="!columnasVisibles.existencia"><ng-container *ngIf="columnasVisibles.existencia">
+                    {{ p.existencia }}
+                </ng-container></td>
+                <td style="text-align: right" [class.columna-oculta]="!columnasVisibles.stockMin"><ng-container *ngIf="columnasVisibles.stockMin">{{ p.stockMinimo }}</ng-container></td>
+                <td style="text-align: right" [class.columna-oculta]="!columnasVisibles.stockMax"><ng-container *ngIf="columnasVisibles.stockMax">{{ p.stockMaximo }}</ng-container></td>
+
+
+                <td [class.columna-oculta]="!columnasVisibles.costo"><ng-container *ngIf="columnasVisibles.costo">{{ p.costo | currency }}</ng-container></td><td [class.columna-oculta]="!columnasVisibles.total"><ng-container *ngIf="columnasVisibles.total">{{ (p.costo ?? 0) * (p.existencia ?? 0) | currency }}</ng-container></td>
+
+                <td [class.columna-oculta]="!columnasVisibles.proveedor"><ng-container *ngIf="columnasVisibles.proveedor">{{ p.ultimoProveedorNombre }}</ng-container></td>
+                <td [class.columna-oculta]="!columnasVisibles.proximaCaducidad"><ng-container *ngIf="columnasVisibles.proximaCaducidad">{{ p.proximaCaducidad | date:'MMM/yyyy' | titlecase }}</ng-container></td>
+                <td style="text-align: right" [class.columna-oculta]="!columnasVisibles.cantidadProxima"><ng-container *ngIf="columnasVisibles.cantidadProxima">{{ p.cantidadProximaCaducidad }}</ng-container></td>
+                <td [class.columna-oculta]="!columnasVisibles.fechaCaducos"><ng-container *ngIf="columnasVisibles.fechaCaducos">{{ p.fechaCaducos | date:'MMM/yyyy' | titlecase }}</ng-container></td>
+                <td style="text-align: right" [class.columna-oculta]="!columnasVisibles.cantidadCaducada"><ng-container *ngIf="columnasVisibles.cantidadCaducada">{{ p.cantidadCaducada }}</ng-container></td>
+                <td [class.columna-oculta]="!columnasVisibles.acciones"><ng-container *ngIf="columnasVisibles.acciones">
                     <button class="btn-icon-chico btn-gris-chico" (click)="editarProducto(p)"
                         matTooltip="Editar producto">
                         <fa-icon [icon]="'pen'"></fa-icon>
@@ -471,7 +468,7 @@
                         <i *ngIf="eliminandoId !== p._id" class="fas fa-trash"></i>
                         <i *ngIf="eliminandoId === p._id" class="fa fa-spinner fa-spin"></i>
                     </button>
-                </td>
+                </ng-container></td>
 
             </tr>
         </tbody>

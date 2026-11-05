@@ -69,7 +69,7 @@ button:disabled {
     /*  margin-right: 10px; */
 }
 
-tfoot td {
+.fila-totales td {
   background-color: #f9f9f9;
   border-top: 2px solid #ccc;
   font-weight: bold;

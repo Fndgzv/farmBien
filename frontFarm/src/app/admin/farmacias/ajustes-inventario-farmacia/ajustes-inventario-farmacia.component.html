@@ -345,53 +345,54 @@
     <table class="tabla">
         <thead class="text-center">
             <tr style="color: blue;">
-                <th style="font-size: smaller;">Ajuste Masivo</th>
-                <th class="col-img-ajuste"></th>
-                <th></th>
-                <th>
+                <th style="font-size: smaller;" [class.columna-oculta]="!columnasVisibles.seleccion"><ng-container *ngIf="columnasVisibles.seleccion">Ajuste Masivo</ng-container></th>
+                <th class="col-img-ajuste" [class.columna-oculta]="!columnasVisibles.imagen"><ng-container *ngIf="columnasVisibles.imagen"></ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.nombre"><ng-container *ngIf="columnasVisibles.nombre"></ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.ubicacion"><ng-container *ngIf="columnasVisibles.ubicacion">
                     <input [(ngModel)]="ajusteMasivo.ubicacionFarmacia" class="form-control form-control-sm" type="text"
                         placeholder="Ubic farma">
-                </th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th>
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.categoria"><ng-container *ngIf="columnasVisibles.categoria"></ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.generico"><ng-container *ngIf="columnasVisibles.generico"></ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.inapam"><ng-container *ngIf="columnasVisibles.inapam"></ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.existencia"><ng-container *ngIf="columnasVisibles.existencia">
                     <input [(ngModel)]="ajusteMasivo.existencia" class="form-control form-control-sm" type="number"
                         style="width: 60px;" placeholder="Exis">
-                </th>
-                <th>
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.stockMin"><ng-container *ngIf="columnasVisibles.stockMin">
                     <input [(ngModel)]="ajusteMasivo.stockMin" class="form-control form-control-sm" type="number"
                         style="width: 60px;" placeholder="Mín">
-                </th>
-                <th>
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.stockMax"><ng-container *ngIf="columnasVisibles.stockMax">
                     <input [(ngModel)]="ajusteMasivo.stockMax" class="form-control form-control-sm" type="number"
                         style="width: 60px;" placeholder="Máx">
-                </th>
-                <th>
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.costo"><ng-container *ngIf="columnasVisibles.costo">
                     <button class="btn-icon-chico btn-rojo-chico" (click)="resetInputsMasivos()"
                         matTooltip="Limpiar parámetros de ajustes masivos"
                         [disabled]="deshabilitarBotonAplicar || aplicandoCambiosMasivos">
                         <fa-icon [icon]="faTimes"></fa-icon>
                     </button>
-                </th>
-                <th>
+                </ng-container></th><th [class.columna-oculta]="!columnasVisibles.total"></th>
+                <th [class.columna-oculta]="!columnasVisibles.precioVenta"><ng-container *ngIf="columnasVisibles.precioVenta">
                     <input [(ngModel)]="ajusteMasivo.precioVenta" class="form-control form-control-sm" type="number"
                         style="width: 72px;" placeholder="Precio">
-                </th>
-                <th>
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.acciones"><ng-container *ngIf="columnasVisibles.acciones">
                     <button class="btn-verde-chico" (click)="guardarAjusteMasivo()"
                         [disabled]="deshabilitarBotonAplicar || aplicandoCambiosMasivos">
                         {{ aplicandoCambiosMasivos ? 'Guardando…' : 'Aplicar a todos' }}
                     </button>
-                </th>
+                </ng-container></th>
 
             </tr>
-            <tr>
-                <th>
+            <tr class="fila-sumas"><th colspan="10"></th><th [class.columna-oculta]="!columnasVisibles.costo"><span *ngIf="columnasVisibles.costo">Σ Costo: {{ sumaCosto | currency:'MXN':'symbol-narrow':'1.2-2' }}</span></th><th [class.columna-oculta]="!columnasVisibles.total"><span *ngIf="columnasVisibles.total">Σ Total: {{ sumaTotal | currency:'MXN':'symbol-narrow':'1.2-2' }}</span></th><th colspan="2"></th></tr>
+<tr>
+                <th [class.columna-oculta]="!columnasVisibles.seleccion"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Seleccionar" [attr.aria-checked]="columnasVisibles.seleccion" [matTooltip]="columnasVisibles.seleccion ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.seleccion = !columnasVisibles.seleccion"><i class="bi" [ngClass]="columnasVisibles.seleccion ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.seleccion">
                     <input type="checkbox" (change)="seleccionarTodos($event)">
-                </th>
-                <th class="col-img-ajuste">Imagen</th>
-                <th (click)="clickSortNombre()" class="th-sort" title="Ordenar por nombre">
+                </ng-container></th>
+                <th class="col-img-ajuste" [class.columna-oculta]="!columnasVisibles.imagen"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Imagen" [attr.aria-checked]="columnasVisibles.imagen" [matTooltip]="columnasVisibles.imagen ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.imagen = !columnasVisibles.imagen"><i class="bi" [ngClass]="columnasVisibles.imagen ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.imagen">Imagen</ng-container></th>
+                <th (click)="clickSortNombre()" class="th-sort" title="Ordenar por nombre" [class.columna-oculta]="!columnasVisibles.nombre"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Nombre" [attr.aria-checked]="columnasVisibles.nombre" [matTooltip]="columnasVisibles.nombre ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.nombre = !columnasVisibles.nombre"><i class="bi" [ngClass]="columnasVisibles.nombre ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.nombre">
                     Nombre
                     <i class="bi" [ngClass]="{
                         'bi-caret-up-fill':   sortBy === 'nombre' && sortDir === 'asc',
@@ -399,12 +400,12 @@
                         'bi-caret-up':        sortBy !== 'nombre'
                         }" style="margin-left:.25rem;">
                     </i>
-                </th>
+                </ng-container></th>
                 <th (click)="clickSortColumna('ubicacionFarmacia')" class="th-sort" tabindex="0"
                     (keydown.enter)="clickSortColumna('ubicacionFarmacia')"
                     (keydown.space)="$event.preventDefault(); clickSortColumna('ubicacionFarmacia')"
                     [attr.aria-sort]="sortBy === 'ubicacionFarmacia' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                    title="Ordenar por ubicación en farmacia">
+                    title="Ordenar por ubicación en farmacia" [class.columna-oculta]="!columnasVisibles.ubicacion"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Ubicación" [attr.aria-checked]="columnasVisibles.ubicacion" [matTooltip]="columnasVisibles.ubicacion ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.ubicacion = !columnasVisibles.ubicacion"><i class="bi" [ngClass]="columnasVisibles.ubicacion ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.ubicacion">
                     Ubicación
                     <i class="bi" [ngClass]="{
                         'bi-caret-up-fill': sortBy === 'ubicacionFarmacia' && sortDir === 'asc',
@@ -412,12 +413,12 @@
                         'bi-caret-up': sortBy !== 'ubicacionFarmacia'
                         }" style="margin-left:.25rem;" aria-hidden="true">
                     </i>
-                </th>
+                </ng-container></th>
                 <th (click)="clickSortColumna('categoria')" class="th-sort" tabindex="0"
                     (keydown.enter)="clickSortColumna('categoria')"
                     (keydown.space)="$event.preventDefault(); clickSortColumna('categoria')"
                     [attr.aria-sort]="sortBy === 'categoria' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                    title="Ordenar por categoría">
+                    title="Ordenar por categoría" [class.columna-oculta]="!columnasVisibles.categoria"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Categoría" [attr.aria-checked]="columnasVisibles.categoria" [matTooltip]="columnasVisibles.categoria ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.categoria = !columnasVisibles.categoria"><i class="bi" [ngClass]="columnasVisibles.categoria ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.categoria">
                     Categoría
                     <i class="bi" [ngClass]="{
                         'bi-caret-up-fill': sortBy === 'categoria' && sortDir === 'asc',
@@ -425,10 +426,10 @@
                         'bi-caret-up': sortBy !== 'categoria'
                         }" style="margin-left:.25rem;" aria-hidden="true">
                     </i>
-                </th>
-                <th title="Generico">Gen.</th>
-                <th title="INAPAM">INPM</th>
-                <th (click)="clickSortExistencia()" class="th-sort text-center" title="Ordenar por existencia">
+                </ng-container></th>
+                <th title="Generico" [class.columna-oculta]="!columnasVisibles.generico"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Gen." [attr.aria-checked]="columnasVisibles.generico" [matTooltip]="columnasVisibles.generico ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.generico = !columnasVisibles.generico"><i class="bi" [ngClass]="columnasVisibles.generico ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.generico">Gen.</ng-container></th>
+                <th title="INAPAM" [class.columna-oculta]="!columnasVisibles.inapam"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="INPM" [attr.aria-checked]="columnasVisibles.inapam" [matTooltip]="columnasVisibles.inapam ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.inapam = !columnasVisibles.inapam"><i class="bi" [ngClass]="columnasVisibles.inapam ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.inapam">INPM</ng-container></th>
+                <th (click)="clickSortExistencia()" class="th-sort text-center" title="Ordenar por existencia" [class.columna-oculta]="!columnasVisibles.existencia"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" [attr.aria-label]="'Exis.'" [attr.aria-checked]="columnasVisibles.existencia" [matTooltip]="columnasVisibles.existencia ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.existencia = !columnasVisibles.existencia"><i class="bi" [ngClass]="columnasVisibles.existencia ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.existencia">
                     Exis.
                     <i class="bi" [ngClass]="{
                             'bi-caret-up-fill':   sortBy === 'existencia' && sortDir === 'asc',
@@ -436,15 +437,15 @@
                             'bi-caret-up':        sortBy !== 'existencia'
                             }" style="margin-left:.25rem;">
                     </i>
-                </th>
-                <th>Stock Mín</th>
-                <th>Stock Máx</th>
-                <th>Costo</th>
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.stockMin"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Stock Mín" [attr.aria-checked]="columnasVisibles.stockMin" [matTooltip]="columnasVisibles.stockMin ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.stockMin = !columnasVisibles.stockMin"><i class="bi" [ngClass]="columnasVisibles.stockMin ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.stockMin">Stock Mín</ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.stockMax"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Stock Máx" [attr.aria-checked]="columnasVisibles.stockMax" [matTooltip]="columnasVisibles.stockMax ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.stockMax = !columnasVisibles.stockMax"><i class="bi" [ngClass]="columnasVisibles.stockMax ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.stockMax">Stock Máx</ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.costo"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" [attr.aria-label]="'Costo'" [attr.aria-checked]="columnasVisibles.costo" [matTooltip]="columnasVisibles.costo ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.costo = !columnasVisibles.costo"><i class="bi" [ngClass]="columnasVisibles.costo ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.costo">Costo</ng-container></th><th [class.columna-oculta]="!columnasVisibles.total"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" [attr.aria-label]="'Total'" [attr.aria-checked]="columnasVisibles.total" [matTooltip]="columnasVisibles.total ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.total = !columnasVisibles.total"><i class="bi" [ngClass]="columnasVisibles.total ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.total">Total</ng-container></th>
                 <th (click)="clickSortColumna('precioVenta')" class="th-sort" tabindex="0"
                     (keydown.enter)="clickSortColumna('precioVenta')"
                     (keydown.space)="$event.preventDefault(); clickSortColumna('precioVenta')"
                     [attr.aria-sort]="sortBy === 'precioVenta' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                    title="Ordenar por precio de venta">
+                    title="Ordenar por precio de venta" [class.columna-oculta]="!columnasVisibles.precioVenta"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" [attr.aria-label]="'Precio Venta'" [attr.aria-checked]="columnasVisibles.precioVenta" [matTooltip]="columnasVisibles.precioVenta ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.precioVenta = !columnasVisibles.precioVenta"><i class="bi" [ngClass]="columnasVisibles.precioVenta ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.precioVenta">
                     Precio Venta
                     <i class="bi" [ngClass]="{
                         'bi-caret-up-fill': sortBy === 'precioVenta' && sortDir === 'asc',
@@ -452,17 +453,17 @@
                         'bi-caret-up': sortBy !== 'precioVenta'
                         }" style="margin-left:.25rem;" aria-hidden="true">
                     </i>
-                </th>
-                <th>Acciones</th>
+                </ng-container></th>
+                <th [class.columna-oculta]="!columnasVisibles.acciones"><button type="button" class="columna-apagador" (keydown)="$event.stopPropagation()" role="switch" aria-label="Acciones" [attr.aria-checked]="columnasVisibles.acciones" [matTooltip]="columnasVisibles.acciones ? 'Ocultar' : 'Mostrar'" (click)="$event.stopPropagation(); columnasVisibles.acciones = !columnasVisibles.acciones"><i class="bi" [ngClass]="columnasVisibles.acciones ? 'bi-toggle-on' : 'bi-toggle-off'" aria-hidden="true"></i></button><ng-container *ngIf="columnasVisibles.acciones">Acciones</ng-container></th>
             </tr>
         </thead>
         <tbody>
             <tr *ngFor="let i of inventarioPaginado;">
-                <td>
+                <td [class.columna-oculta]="!columnasVisibles.seleccion"><ng-container *ngIf="columnasVisibles.seleccion">
                     <input type="checkbox" [(ngModel)]="i.seleccionado">
-                </td>
+                </ng-container></td>
 
-                <td class="col-img-ajuste">
+                <td class="col-img-ajuste" [class.columna-oculta]="!columnasVisibles.imagen"><ng-container *ngIf="columnasVisibles.imagen">
                     <div class="img-cell">
                         <button type="button" class="img-button" (click)="openPreviewInventario(i)"
                             matTooltip="Ver imagen">
@@ -470,14 +471,14 @@
                                 [alt]="i.producto?.nombre || 'Producto'" loading="lazy" decoding="async">
                         </button>
                     </div>
-                </td>
+                </ng-container></td>
 
-                <td class="nombre-cell">
+                <td class="nombre-cell" [class.columna-oculta]="!columnasVisibles.nombre"><ng-container *ngIf="columnasVisibles.nombre">
                     <div class="nombre-text" style="font-size: small;" >{{ i.producto?.nombre }}</div>
                     <small class="codigo-mini">{{ i.producto?.codigoBarras || '—' }}</small>
-                </td>
+                </ng-container></td>
 
-                <td>
+                <td [class.columna-oculta]="!columnasVisibles.ubicacion"><ng-container *ngIf="columnasVisibles.ubicacion">
                     <ng-container *ngIf="estadoEdicion[i._id]; else verUbicacionFarmacia">
                         <input [(ngModel)]="i.ubicacionFarmacia" class="form-control form-control-sm" type="text"
                             placeholder="Ubic farma">
@@ -485,19 +486,19 @@
                     <ng-template #verUbicacionFarmacia>
                         {{ i.ubicacionFarmacia || '—' }}
                     </ng-template>
-                </td>
+                </ng-container></td>
 
-                <td>{{ i.producto?.categoria }}</td>
+                <td [class.columna-oculta]="!columnasVisibles.categoria"><ng-container *ngIf="columnasVisibles.categoria">{{ i.producto?.categoria }}</ng-container></td>
 
-                <td class="text-center">
+                <td class="text-center" [class.columna-oculta]="!columnasVisibles.generico"><ng-container *ngIf="columnasVisibles.generico">
                     {{ i.producto?.generico ? 'Sí' : 'No' }}
-                </td>
+                </ng-container></td>
 
-                <td class="text-center">
+                <td class="text-center" [class.columna-oculta]="!columnasVisibles.inapam"><ng-container *ngIf="columnasVisibles.inapam">
                     {{ (i.descuentoINAPAM ?? i.producto?.descuentoINAPAM) ? 'Sí' : 'No' }}
-                </td>
+                </ng-container></td>
 
-                <td class="text-end">
+                <td class="text-end" [class.columna-oculta]="!columnasVisibles.existencia"><ng-container *ngIf="columnasVisibles.existencia">
                     <ng-container *ngIf="estadoEdicion[i._id]; else existenciaVista">
                         <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.existencia" type="number"
                             class="form-control form-control-sm text-end">
@@ -506,9 +507,9 @@
                     <ng-template #existenciaVista>
                         <span>{{ i.existencia }}</span>
                     </ng-template>
-                </td>
+                </ng-container></td>
 
-                <td class="text-end">
+                <td class="text-end" [class.columna-oculta]="!columnasVisibles.stockMin"><ng-container *ngIf="columnasVisibles.stockMin">
                     <ng-container *ngIf="estadoEdicion[i._id]; else stockMinVista">
                         <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMin" type="number"
                             class="form-control form-control-sm text-end">
@@ -517,9 +518,9 @@
                     <ng-template #stockMinVista>
                         <span>{{ i.stockMin }}</span>
                     </ng-template>
-                </td>
+                </ng-container></td>
 
-                <td class="text-end">
+                <td class="text-end" [class.columna-oculta]="!columnasVisibles.stockMax"><ng-container *ngIf="columnasVisibles.stockMax">
                     <ng-container *ngIf="estadoEdicion[i._id]; else stockMaxVista">
                         <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.stockMax" type="number"
                             class="form-control form-control-sm text-end">
@@ -528,11 +529,11 @@
                     <ng-template #stockMaxVista>
                         <span>{{ i.stockMax }}</span>
                     </ng-template>
-                </td>
-                <td class="text-end">
+                </ng-container></td>
+                <td class="text-end" [class.columna-oculta]="!columnasVisibles.costo"><ng-container *ngIf="columnasVisibles.costo">
                     {{ i.producto.costo | currency:'MXN':'symbol-narrow':'1.2-2' }}
-                </td>
-                <td class="text-end">
+                </ng-container></td><td [class.columna-oculta]="!columnasVisibles.total"><ng-container *ngIf="columnasVisibles.total">{{ (i.producto?.costo ?? 0) * (i.existencia ?? 0) | currency:'MXN':'symbol-narrow':'1.2-2' }}</ng-container></td>
+                <td class="text-end" [class.columna-oculta]="!columnasVisibles.precioVenta"><ng-container *ngIf="columnasVisibles.precioVenta">
                     <ng-container *ngIf="estadoEdicion[i._id]; else precioVista">
                         <input [disabled]="!estadoEdicion[i._id]" [(ngModel)]="i.precioVenta" type="number"
                             class="form-control form-control-sm text-end" step="0.01">
@@ -542,18 +543,18 @@
                         <span>{{ i.precioVenta | currency:'MXN':'symbol-narrow':'1.2-2' }}</span>
                     </ng-template>
 
-                </td>
+                </ng-container></td>
 
 
-                <td>
+                <td [class.columna-oculta]="!columnasVisibles.acciones"><ng-container *ngIf="columnasVisibles.acciones">
                     <div class="d-flex justify-content-center">
-                        <!-- Botón Editar -->
+
                         <button class="btn-icon-chico btn-gris-chico" [disabled]="estadoEdicion[i._id]"
                             (click)="habilitarEdicion(i._id)" matTooltip="Editar renglón">
                             <fa-icon [icon]="faEdit"></fa-icon>
                         </button>
 
-                        <!-- Botón Guardar -->
+
                         <button class="btn-icon-chico btn-verde-chico"
                             [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
                             (click)="guardarFila(i)" matTooltip="Guardar renglón">
@@ -564,25 +565,25 @@
                                 [icon]="faSave"></fa-icon>
                         </button>
 
-                        <!-- Botón Cancelar -->
+
                         <button class="btn-icon-chico btn-rojo-chico"
                             [disabled]="estadoGuardado[i._id] === 'guardando' || !estadoEdicion[i._id]"
                             (click)="cancelarEdicion(i)" matTooltip="Cancelar edición">
                             <fa-icon [icon]="faTimes"></fa-icon>
                         </button>
 
-                        <!-- Botón Editar Promociones -->
+
                         <button class="btn-icon-chico btn-amarillo-chico" [disabled]="!edicionPromos"
                             (click)="abrirEditarPromos(i)" matTooltip="Editar promociones del producto">
                             <fa-icon [icon]="faTags"></fa-icon>
                         </button>
 
                     </div>
-                </td>
+                </ng-container></td>
 
             </tr>
             <tr *ngIf="inventarioPaginado.length === 0">
-                <td colspan="13" class="text-center text-muted py-3">
+                <td colspan="14" class="text-center text-muted py-3">
                     Sin productos en la vista {{ etiquetaVistaInventario }}.
                 </td>
             </tr>

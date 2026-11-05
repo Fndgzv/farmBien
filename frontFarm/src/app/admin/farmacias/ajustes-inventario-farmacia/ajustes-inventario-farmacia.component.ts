@@ -33,6 +33,16 @@ type VistaInventario = 'sinCeros' | 'completa';
   styleUrl: './ajustes-inventario-farmacia.component.css'
 })
 export class AjustesInventarioFarmaciaComponent implements OnInit {
+  columnasVisibles = { seleccion: true, imagen: true, nombre: true, ubicacion: true, categoria: true, generico: true, inapam: true, existencia: true, stockMin: true, stockMax: true, costo: true, total: true, precioVenta: true, acciones: true };
+
+  get sumaCosto(): number {
+    return this.inventarioActivo.reduce((suma, p) => suma + Number(p.producto?.costo ?? 0), 0);
+  }
+
+  get sumaTotal(): number {
+    return this.inventarioActivo.reduce((suma, p) => suma + Number(p.producto?.costo ?? 0) * Number(p.existencia ?? 0), 0);
+  }
+
 
   farmaciaId: string | null = null;
 

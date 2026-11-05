@@ -95,3 +95,5 @@
 .sem-yellow { color: #b8860b; }   /* amarillo oscuro para contraste */
 .sem-red    { color: #dc3545; }   /* rojo */
 .sem-muted  { color: #6c757d; }   /* gris cuando no hay umbrales */
+
+.fila-totales td { background-color: #f8f9fa; font-weight: 600; }

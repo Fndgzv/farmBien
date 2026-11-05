@@ -767,6 +767,9 @@ const consultarVentas = async (req, res) => {
       usuarioId,
       totalDesde,
       totalHasta,
+      utilidadDesde,
+      utilidadHasta,
+      formaPago,
       page = 1,
       limit = 20,
       porServicioMedico,
@@ -787,6 +790,40 @@ const consultarVentas = async (req, res) => {
       if (tHasta !== null && !Number.isNaN(tHasta)) filtro.total.$lte = tHasta;
       if (Object.keys(filtro.total).length === 0) delete filtro.total;
     }
+
+    const costoVentaExpr = {
+      $sum: {
+        $map: {
+          input: { $ifNull: ['$productos', []] },
+          as: 'p',
+          in: {
+            $multiply: [
+              { $ifNull: ['$$p.costo', 0] },
+              { $ifNull: ['$$p.cantidad', 0] }
+            ]
+          }
+        }
+      }
+    };
+    // La columna muestra la utilidad redondeada de la venta menos el monedero utilizado.
+    const utilidadVisibleExpr = {
+      $subtract: [
+        { $round: [{ $subtract: [{ $ifNull: ['$total', 0] }, costoVentaExpr] }, 2] },
+        { $ifNull: ['$formaPago.vale', 0] }
+      ]
+    };
+    const uDesde = utilidadDesde !== undefined && utilidadDesde !== '' ? Number(utilidadDesde) : null;
+    const uHasta = utilidadHasta !== undefined && utilidadHasta !== '' ? Number(utilidadHasta) : null;
+    const rangoUtilidad = [];
+    if (uDesde !== null && Number.isFinite(uDesde)) rangoUtilidad.push({ $gte: [utilidadVisibleExpr, uDesde] });
+    if (uHasta !== null && Number.isFinite(uHasta)) rangoUtilidad.push({ $lte: [utilidadVisibleExpr, uHasta] });
+    if (rangoUtilidad.length) filtro.$expr = { $and: rangoUtilidad };
+
+    const formasPago = new Set(['efectivo', 'tarjeta', 'transferencia', 'vale']);
+    if (formaPago && !formasPago.has(formaPago)) {
+      return res.status(400).json({ ok: false, mensaje: 'Forma de pago inválida' });
+    }
+    if (formaPago) filtro[`formaPago.${formaPago}`] = { $gt: 0 };
 
     const orNoServicio = [
       { porServicioMedico: { $exists: false } },
@@ -824,6 +861,8 @@ const consultarVentas = async (req, res) => {
     if (clienteOid) matchAgg.cliente = clienteOid;
     if (usuarioOid) matchAgg.usuario = usuarioOid;
     if (filtro.total) matchAgg.total = filtro.total;
+    if (filtro.$expr) matchAgg.$expr = filtro.$expr;
+    if (formaPago) matchAgg[`formaPago.${formaPago}`] = filtro[`formaPago.${formaPago}`];
 
     if (String(porServicioMedico).toLowerCase() === 'true') {
       matchAgg.porServicioMedico = true;
@@ -847,20 +886,7 @@ const consultarVentas = async (req, res) => {
         { $match: matchAgg },
         {
           $addFields: {
-            costoVenta: {
-              $sum: {
-                $map: {
-                  input: { $ifNull: ['$productos', []] },
-                  as: 'p',
-                  in: {
-                    $multiply: [
-                      { $ifNull: ['$$p.costo', 0] },
-                      { $ifNull: ['$$p.cantidad', 0] }
-                    ]
-                  }
-                }
-              }
-            }
+            costoVenta: costoVentaExpr
           }
         },
         {
@@ -922,6 +948,9 @@ const consultarVentas = async (req, res) => {
         fechaFinal: lt,
         totalDesde: tDesde,
         totalHasta: tHasta,
+        utilidadDesde: uDesde,
+        utilidadHasta: uHasta,
+        formaPago: formaPago || null,
         porServicioMedico:
           (porServicioMedico === undefined ? null : String(porServicioMedico).toLowerCase() === 'true')
 

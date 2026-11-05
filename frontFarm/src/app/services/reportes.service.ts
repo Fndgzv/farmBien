@@ -18,6 +18,9 @@ export interface ConsultarVentasParams {
   usuarioId?: string;
   totalDesde?: number | string;
   totalHasta?: number | string;
+  utilidadDesde?: number | string;
+  utilidadHasta?: number | string;
+  formaPago?: 'efectivo' | 'tarjeta' | 'transferencia' | 'vale';
   page?: number;
   limit?: number;
   porServicioMedico?: boolean;
@@ -210,6 +213,9 @@ export class ReportesService {
       usuarioId: p.usuarioId,
       totalDesde: p.totalDesde != null ? String(p.totalDesde) : undefined,
       totalHasta: p.totalHasta != null ? String(p.totalHasta) : undefined,
+      utilidadDesde: p.utilidadDesde != null ? String(p.utilidadDesde) : undefined,
+      utilidadHasta: p.utilidadHasta != null ? String(p.utilidadHasta) : undefined,
+      formaPago: p.formaPago,
       // 💡 UNA SOLA normalización aquí:
       fechaInicial: this.toYmdLocal(p.fechaInicial),
       fechaFinal: this.toYmdLocal(p.fechaFinal),

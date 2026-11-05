@@ -30,6 +30,57 @@ export class UsuariosComponent implements OnInit {
   logoEscuelaActualRuta = '';
   logoEscuelaPreview = '';
 
+  filtroFarmacia = '';
+  filtroRol = '';
+  tamanoPagina = 10;
+  paginaActual = 1;
+  sortBy: 'usuario' | 'nombre' | 'rol' | 'farmacia' = 'usuario';
+  sortDir: 'asc' | 'desc' = 'asc';
+  rolesFiltro = [
+    { valor: 'admin', nombre: 'Admin' },
+    { valor: 'empleado', nombre: 'Empleado' },
+    { valor: 'medico', nombre: 'Médico' },
+    { valor: 'turnos', nombre: 'Turnos' },
+    { valor: 'ajustaAlmacen', nombre: 'Ajusta almacén y farmacias' },
+    { valor: 'ajustaSoloAlmacen', nombre: 'Ajusta sólo almacén' },
+    { valor: 'ajustaFarma', nombre: 'Ajusta farmacia' }
+  ];
+
+  get usuariosFiltrados(): Usuario[] {
+    return this.usuarios.filter(u => {
+      const farmaciaId = typeof u.farmacia === 'object' ? u.farmacia?._id : u.farmacia;
+      return (!this.filtroFarmacia || farmaciaId === this.filtroFarmacia)
+        && (!this.filtroRol || u.rol === this.filtroRol);
+    }).sort((a, b) => {
+      const valor = (u: Usuario) => this.sortBy === 'farmacia'
+        ? this.obtenerNombreFarmacia(u.farmacia) : u[this.sortBy];
+      const comparacion = valor(a).localeCompare(valor(b), 'es', { sensitivity: 'base', numeric: true });
+      return (this.sortDir === 'asc' ? comparacion : -comparacion)
+        || String(a._id || '').localeCompare(String(b._id || ''));
+    });
+  }
+
+  get totalPaginas(): number {
+    return Math.max(1, Math.ceil(this.usuariosFiltrados.length / this.tamanoPagina));
+  }
+
+  get usuariosPaginados(): Usuario[] {
+    const inicio = (this.paginaActual - 1) * this.tamanoPagina;
+    return this.usuariosFiltrados.slice(inicio, inicio + this.tamanoPagina);
+  }
+
+  cambiarFiltros(): void { this.paginaActual = 1; }
+
+  irAPagina(pagina: number): void {
+    this.paginaActual = Math.max(1, Math.min(pagina, this.totalPaginas));
+  }
+
+  ordenar(campo: 'usuario' | 'nombre' | 'rol' | 'farmacia'): void {
+    this.sortDir = this.sortBy === campo && this.sortDir === 'asc' ? 'desc' : 'asc';
+    this.sortBy = campo;
+    this.paginaActual = 1;
+  }
+
   constructor(
     private fb: FormBuilder,
     private usuarioService: UsuarioService,
@@ -40,6 +91,12 @@ export class UsuariosComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    try {
+      const farmacia = JSON.parse(localStorage.getItem('user_farmacia') || 'null');
+      this.filtroFarmacia = typeof farmacia === 'string' ? farmacia : farmacia?._id || '';
+    } catch {
+      this.filtroFarmacia = '';
+    }
     this.inicializarFormulario();
     this.configurarValidacionesPorRol();
     this.cargarUsuarios();
@@ -142,12 +199,15 @@ export class UsuariosComponent implements OnInit {
     if (typeof farmacia === 'object' && farmacia?.nombre) {
       return farmacia.nombre;
     }
-    return '-';
+    return this.farmacias.find(f => f._id === farmacia)?.nombre || '-';
   }
 
   cargarUsuarios() {
     this.usuarioService.obtenerUsuarios().subscribe({
-      next: (usuarios) => (this.usuarios = usuarios),
+      next: (usuarios) => {
+        this.usuarios = usuarios;
+        this.irAPagina(this.paginaActual);
+      },
       error: () => Swal.fire('Error', 'No se pudieron cargar los usuarios', 'error')
     });
   }

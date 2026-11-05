@@ -37,6 +37,16 @@ type ProductoUI = Omit<Producto, 'imagen'> & {
   styleUrls: ['./ajustes-inventario.component.css']
 })
 export class AjustesInventarioComponent implements OnInit {
+  columnasVisibles = { seleccion: true, imagen: true, nombre: true, inventario: true, categoria: true, laboratorio: true, ubicacion: true, existencia: true, stockMin: true, stockMax: true, costo: true, total: true, proveedor: true, proximaCaducidad: true, cantidadProxima: true, fechaCaducos: true, cantidadCaducada: true, acciones: true };
+
+  get sumaCosto(): number {
+    return this.productosFiltrados.reduce((suma, p) => suma + Number(p.costo ?? 0), 0);
+  }
+
+  get sumaTotal(): number {
+    return this.productosFiltrados.reduce((suma, p) => suma + Number(p.costo ?? 0) * Number(p.existencia ?? 0), 0);
+  }
+
   @ViewChild('backdrop') backdrop!: ElementRef<HTMLDivElement>;
   @ViewChild('firstInput') firstInput!: ElementRef<HTMLInputElement>;
 

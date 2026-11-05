@@ -88,6 +88,19 @@
   <div class="table-responsive mt-3">
     <table class="tabla">
       <thead>
+        <tr class="fila-totales fw-bold" *ngIf="rows.length">
+          <td colspan="5" class="text-end">Totales:</td>
+          <td class="text-end">{{ totalCantidad }}</td>
+          <td class="text-end">{{ totalImporte | currency }}</td>
+          <td class="text-end">{{ totalCosto | currency }}</td>
+          <td class="text-end" [ngClass]="{ 'text-danger': totalUtilidad < 0 }">
+            {{ totalUtilidad | currency }}
+          </td>
+          <td class="text-end">
+            {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
+          </td>
+          <td></td>
+        </tr>
         <tr>
           <th>Fecha</th>
           <th>Farmacia</th>
@@ -126,24 +139,7 @@
           <td colspan="11" class="text-center text-muted">Sin resultados</td>
         </tr>
       </tbody>
-
-      <tfoot *ngIf="rows.length">
-        <tr class="fw-bold">
-          <td colspan="5" class="text-end">Totales:</td>
-          <td class="text-end">{{ totalCantidad }}</td>
-          <td class="text-end">{{ totalImporte | currency }}</td>
-          <td class="text-end">{{ totalCosto | currency }}</td>
-          <td class="text-end" [ngClass]="{ 'text-danger': totalUtilidad < 0 }">
-            {{ totalUtilidad | currency }}
-          </td>
-          <td class="text-end">
-            {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
-          </td>
-          <td></td>
-        </tr>
-      </tfoot>
     </table>
-
 
     <div class="paginacion" *ngIf="totalItems > 0">
       <button (click)="goFirst()" [disabled]="page === 1" matTooltip="Inicio">

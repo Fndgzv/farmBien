@@ -92,9 +92,19 @@
         </button>
     </div>
 
-
     <table *ngIf="pedidos.length > 0" class="tabla">
         <thead>
+            <tr class="fila-totales">
+                <td colspan="6" class="text-end fw-bold">Totales:</td>
+                <td class="fw-bold">{{ totalCosto | currency }}</td>
+                <td class="fw-bold">{{ totalPrecio | currency }}</td>
+                <td class="fw-bold">{{ totalAcuenta | currency }}</td>
+                <td class="fw-bold">{{ totalResta | currency }}</td>
+                <td class="fw-bold">{{ totalIngreso | currency }}</td>
+                <td class="fw-bold">{{ utilidadTotal | currency }}</td>
+                <td class="fw-bold">{{ porcentajeUtilidad | number:'1.1-2' }}%</td>
+                <td></td>
+            </tr>
             <tr>
                 <th></th>
                 <th>Folio</th>
@@ -327,20 +337,6 @@
 
             </ng-container>
         </tbody>
-
-        <tfoot>
-            <tr>
-                <td colspan="6" class="text-end fw-bold">Totales:</td>
-                <td class="fw-bold">{{ totalCosto | currency }}</td>
-                <td class="fw-bold">{{ totalPrecio | currency }}</td>
-                <td class="fw-bold">{{ totalAcuenta | currency }}</td>
-                <td class="fw-bold">{{ totalResta | currency }}</td>
-                <td class="fw-bold">{{ totalIngreso | currency }}</td>
-                <td class="fw-bold">{{ utilidadTotal | currency }}</td>
-                <td class="fw-bold">{{ porcentajeUtilidad | number:'1.1-2' }}%</td>
-                <td></td>
-            </tr>
-        </tfoot>
     </table>
 
     <div class="paginacion" *ngIf="paginacion?.pages">

@@ -3,8 +3,8 @@
     <h2 class="mb-3 titulo">Ventas por categoría</h2>
   </div>
 
-  <form (ngSubmit)="buscar()" class="row filtros align-items-end">
-    <div class="col-md-2">
+  <form (ngSubmit)="buscar()" class="filtros filtros-categoria">
+    <div class="filtro-campo">
       <label class="form-label">Farmacia</label>
       <select class="form-select" [(ngModel)]="farmaciaId" name="farmaciaId">
         <option value="">Todas</option>
@@ -12,7 +12,7 @@
       </select>
     </div>
 
-    <div class="col-md-2">
+    <div class="filtro-campo">
       <label class="form-label">Categoría</label>
       <div class="d-flex gap-2">
         <input
@@ -27,17 +27,24 @@
       </div>
     </div>
 
-    <div class="col-md-2">
+    <div class="filtro-campo">
       <label class="form-label">Fecha inicial</label>
       <input type="date" class="form-control" [(ngModel)]="fechaIni" name="fechaIni" />
     </div>
 
-    <div class="col-md-2">
+    <div class="filtro-campo">
       <label class="form-label">Fecha final</label>
       <input type="date" class="form-control" [(ngModel)]="fechaFin" name="fechaFin" />
     </div>
 
-    <div class="col-md-4 d-flex gap-2 justify-content-end align-items-end acciones-reporte">
+    <div class="filtro-campo">
+      <label class="form-label">Ventas/pág</label>
+      <select class="form-select" [(ngModel)]="limit" name="limit" (ngModelChange)="cambiarLimite()" [disabled]="cargando">
+        <option *ngFor="let cantidad of [10, 20, 50, 100, 200]" [ngValue]="cantidad">{{ cantidad }}</option>
+      </select>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-end align-items-end acciones-reporte">
       <button type="button" class="btn-rojo" (click)="limpiarFiltros()" [disabled]="cargando" matTooltip="Limpiar filtro">
         <i class="fas fa-times"></i>
       </button>
@@ -56,6 +63,16 @@
   <div class="mt-2">
     <table class="align-middle tabla">
       <thead>
+        <tr class="fila-totales fw-bold" *ngIf="rows.length">
+          <td colspan="2" class="text-end">Totales:</td>
+          <td class="text-end">{{ totalCantidad | number }}</td>
+          <td class="text-end">{{ totalCosto | currency }}</td>
+          <td class="text-end">{{ totalImporte | currency }}</td>
+          <td class="text-end">{{ totalUtilidad | currency }}</td>
+          <td class="text-end">
+            {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
+          </td>
+        </tr>
         <tr>
           <th class="sortable" (click)="setSort('farmacia')">
             Farmacia <i class="fa sort-icon" [ngClass]="sortIcon('farmacia')"></i>
@@ -82,7 +99,7 @@
       </thead>
 
       <tbody>
-        <tr *ngFor="let r of sortedRows; trackBy: trackByRow">
+        <tr *ngFor="let r of rowsPagina; trackBy: trackByRow">
           <td>{{ r.farmacia || '-' }}</td>
           <td>{{ r.categoria || 'Sin categoría' }}</td>
           <td class="text-end">{{ r.cantidadVendida | number }}</td>
@@ -102,19 +119,22 @@
           </td>
         </tr>
       </tbody>
-
-      <tfoot *ngIf="rows.length">
-        <tr class="fw-bold">
-          <td colspan="2" class="text-end">Totales:</td>
-          <td class="text-end">{{ totalCantidad | number }}</td>
-          <td class="text-end">{{ totalCosto | currency }}</td>
-          <td class="text-end">{{ totalImporte | currency }}</td>
-          <td class="text-end">{{ totalUtilidad | currency }}</td>
-          <td class="text-end">
-            {{ totalMargenPct == null ? '—' : (totalMargenPct | number:'1.0-2') + '%' }}
-          </td>
-        </tr>
-      </tfoot>
     </table>
+    <div class="paginacion">
+      <button type="button" (click)="cambiarPagina(1)" [disabled]="cargando || page === 1" matTooltip="Inicio">
+        <i class="fa fa-angle-double-left"></i>
+      </button>
+      <button type="button" (click)="cambiarPagina(page - 1)" [disabled]="cargando || page === 1" matTooltip="Anterior">
+        <i class="fa fa-angle-left"></i>
+      </button>
+      Ventas: {{ rows.length }}
+      &nbsp; | &nbsp; Página: {{ page }} / {{ totalPaginas }}
+      <button type="button" (click)="cambiarPagina(page + 1)" [disabled]="cargando || page === totalPaginas" matTooltip="Siguiente">
+        <i class="fa fa-angle-right"></i>
+      </button>
+      <button type="button" (click)="cambiarPagina(totalPaginas)" [disabled]="cargando || page === totalPaginas" matTooltip="Fin">
+        <i class="fa fa-angle-double-right"></i>
+      </button>
+    </div>
   </div>
 </div>

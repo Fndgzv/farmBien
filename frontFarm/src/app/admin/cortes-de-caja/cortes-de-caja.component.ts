@@ -177,6 +177,14 @@ export class CortesDeCajaComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    try {
+      const farmacia = JSON.parse(localStorage.getItem('user_farmacia') || 'null');
+      this.filtroForm.patchValue({
+        farmacia: typeof farmacia === 'string' ? farmacia : farmacia?._id || ''
+      });
+    } catch {
+      this.filtroForm.patchValue({ farmacia: '' });
+    }
     this.cargarFarmacias();
     this.buscarCortes();
   }

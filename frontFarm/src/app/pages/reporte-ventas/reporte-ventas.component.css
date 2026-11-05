@@ -55,3 +55,17 @@
   opacity: 0;
   pointer-events: none;
 }
+
+.fila-totales td { background-color: #f8f9fa; font-weight: 600; }
+
+.filtros-reporte { display: grid; gap: 12px; }
+.filtros-principales { display: grid; grid-template-columns: 1.2fr 1.8fr 1.2fr 1fr .7fr; gap: 12px; align-items: end; }
+.filtros-adicionales { display: grid; grid-template-columns: 1.2fr 1.2fr repeat(4, 1fr) 1.2fr; gap: 12px; align-items: end; }
+.filtros-principales > div, .filtros-adicionales > div { min-width: 0; }
+.filtros-acciones { display: flex; gap: 8px; justify-content: flex-end; }
+@media (max-width: 1199px) {
+  .filtros-principales, .filtros-adicionales { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 575px) {
+  .filtros-principales, .filtros-adicionales { grid-template-columns: 1fr; }
+}

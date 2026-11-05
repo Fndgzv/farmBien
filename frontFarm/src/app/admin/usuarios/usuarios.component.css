@@ -1,0 +1,5 @@
+
+.th-sort { cursor: pointer; user-select: none; }
+.usuarios-barra { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.usuarios-barra label { display: flex; flex-direction: column; gap: 4px; }
+.usuarios-agregar { margin-left: auto; }

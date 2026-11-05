@@ -1,24 +1,83 @@
 <div class="container">
     <h2 class="titulo" style="text-align: center;">Mantenimiento de Usuarios</h2>
 
-    <button class="btn-verde mb-3" (click)="abrirModalAgregar()">
-        <fa-icon [icon]="'plus'"></fa-icon> Agregar Usuario
-    </button>
+    <div class="usuarios-barra">
+        <label>Farmacia
+            <select class="form-select" [(ngModel)]="filtroFarmacia" (ngModelChange)="cambiarFiltros()">
+                <option value="">Todas las farmacias</option>
+                <option *ngFor="let f of farmacias" [value]="f._id">{{ f.nombre }}</option>
+            </select>
+        </label>
+        <label>Rol
+            <select class="form-select" [(ngModel)]="filtroRol" (ngModelChange)="cambiarFiltros()">
+                <option value="">Todos los roles</option>
+                <option *ngFor="let r of rolesFiltro" [value]="r.valor">{{ r.nombre }}</option>
+            </select>
+        </label>
+        <label>Usuarios/pág.
+            <select class="form-select" [(ngModel)]="tamanoPagina" (ngModelChange)="cambiarFiltros()">
+                <option *ngFor="let cantidad of [10, 15, 25, 50, 100]" [ngValue]="cantidad">{{ cantidad }}</option>
+            </select>
+        </label>
+        <button type="button" class="btn-verde usuarios-agregar" (click)="abrirModalAgregar()">
+            <fa-icon [icon]="'plus'"></fa-icon> Agregar Usuario
+        </button>
+    </div>
 
     <table class="tabla">
         <thead>
             <tr>
-                <th>Nombre</th>
-                <th>Usuario</th>
-                <th>Rol</th>
+                <th class="th-sort" tabindex="0" (click)="ordenar('nombre')"
+                    (keydown.enter)="ordenar('nombre')" (keydown.space)="$event.preventDefault(); ordenar('nombre')"
+                    [attr.aria-sort]="sortBy === 'nombre' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    title="Ordenar por nombre">
+                    Nombre
+                    <i class="bi" [ngClass]="{
+                        'bi-caret-up-fill': sortBy === 'nombre' && sortDir === 'asc',
+                        'bi-caret-down-fill': sortBy === 'nombre' && sortDir === 'desc',
+                        'bi-caret-up': sortBy !== 'nombre'
+                    }" style="margin-left:.25rem;" aria-hidden="true"></i>
+                </th>
+                <th class="th-sort" tabindex="0" (click)="ordenar('usuario')"
+                    (keydown.enter)="ordenar('usuario')" (keydown.space)="$event.preventDefault(); ordenar('usuario')"
+                    [attr.aria-sort]="sortBy === 'usuario' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    title="Ordenar por usuario">
+                    Usuario
+                    <i class="bi" [ngClass]="{
+                        'bi-caret-up-fill': sortBy === 'usuario' && sortDir === 'asc',
+                        'bi-caret-down-fill': sortBy === 'usuario' && sortDir === 'desc',
+                        'bi-caret-up': sortBy !== 'usuario'
+                    }" style="margin-left:.25rem;" aria-hidden="true"></i>
+                </th>
+                <th class="th-sort" tabindex="0" (click)="ordenar('rol')"
+                    (keydown.enter)="ordenar('rol')" (keydown.space)="$event.preventDefault(); ordenar('rol')"
+                    [attr.aria-sort]="sortBy === 'rol' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    title="Ordenar por rol">
+                    Rol
+                    <i class="bi" [ngClass]="{
+                        'bi-caret-up-fill': sortBy === 'rol' && sortDir === 'asc',
+                        'bi-caret-down-fill': sortBy === 'rol' && sortDir === 'desc',
+                        'bi-caret-up': sortBy !== 'rol'
+                    }" style="margin-left:.25rem;" aria-hidden="true"></i>
+                </th>
                 <th>Teléfono</th>
                 <th>Email</th>
-                <th>Farmacia</th>
+                <th class="th-sort" tabindex="0" (click)="ordenar('farmacia')"
+                    (keydown.enter)="ordenar('farmacia')" (keydown.space)="$event.preventDefault(); ordenar('farmacia')"
+                    [attr.aria-sort]="sortBy === 'farmacia' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                    title="Ordenar por farmacia">
+                    Farmacia
+                    <i class="bi" [ngClass]="{
+                        'bi-caret-up-fill': sortBy === 'farmacia' && sortDir === 'asc',
+                        'bi-caret-down-fill': sortBy === 'farmacia' && sortDir === 'desc',
+                        'bi-caret-up': sortBy !== 'farmacia'
+                    }" style="margin-left:.25rem;" aria-hidden="true"></i>
+                </th>
                 <th>Acciones</th>
             </tr>
         </thead>
         <tbody>
-            <tr *ngFor="let u of usuarios">
+            <tr *ngFor="let u of usuariosPaginados">
                 <td>{{ u.nombre }}</td>
                 <td>{{ u.usuario }}</td>
                 <td>{{ u.rol }}</td>
@@ -31,8 +90,27 @@
                     </button>
                 </td>
             </tr>
+            <tr *ngIf="usuariosFiltrados.length === 0">
+                <td colspan="7" class="text-center text-muted">Sin usuarios para los filtros seleccionados.</td>
+            </tr>
         </tbody>
     </table>
+    <div class="paginacion">
+        <button type="button" (click)="irAPagina(1)" [disabled]="paginaActual === 1" matTooltip="Primera página">
+            <i class="fa fa-angle-double-left"></i>
+        </button>
+        <button type="button" (click)="irAPagina(paginaActual - 1)" [disabled]="paginaActual === 1" matTooltip="Anterior">
+            <i class="fa fa-angle-left"></i>
+        </button>
+        Página {{ paginaActual }} de {{ totalPaginas }}
+        <span class="total-registros">(usuarios: {{ usuariosFiltrados.length }})</span>
+        <button type="button" (click)="irAPagina(paginaActual + 1)" [disabled]="paginaActual === totalPaginas" matTooltip="Siguiente">
+            <i class="fa fa-angle-right"></i>
+        </button>
+        <button type="button" (click)="irAPagina(totalPaginas)" [disabled]="paginaActual === totalPaginas" matTooltip="Última página">
+            <i class="fa fa-angle-double-right"></i>
+        </button>
+    </div>
 </div>
 
 <!-- MODAL -->

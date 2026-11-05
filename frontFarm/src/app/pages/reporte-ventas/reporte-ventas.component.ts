@@ -135,6 +135,9 @@ export class ReporteVentasComponent implements OnInit {
       usuarioId: [''],
       totalDesde: [''],
       totalHasta: [''],
+      utilidadDesde: [''],
+      utilidadHasta: [''],
+      formaPago: [''],
       limit: [this.limit],
       porServicioMedico: ['']   // '' = TODOS | 'true' | 'false'
     });
@@ -388,6 +391,9 @@ export class ReporteVentasComponent implements OnInit {
       usuarioId: '',
       totalDesde: '',
       totalHasta: '',
+      utilidadDesde: '',
+      utilidadHasta: '',
+      formaPago: '',
       limit: this.limit,
       porServicioMedico: ''   // <- TODOS
     });
@@ -410,6 +416,9 @@ export class ReporteVentasComponent implements OnInit {
       usuarioId: val.usuarioId || undefined,
       totalDesde: (val.totalDesde !== '' && val.totalDesde != null) ? Number(val.totalDesde) : undefined,
       totalHasta: (val.totalHasta !== '' && val.totalHasta != null) ? Number(val.totalHasta) : undefined,
+      utilidadDesde: (val.utilidadDesde !== '' && val.utilidadDesde != null) ? Number(val.utilidadDesde) : undefined,
+      utilidadHasta: (val.utilidadHasta !== '' && val.utilidadHasta != null) ? Number(val.utilidadHasta) : undefined,
+      formaPago: val.formaPago || undefined,
       fechaInicial: val.fechaInicial as any, // Date o string; el service lo normaliza
       fechaFinal: val.fechaFinal as any, // Date o string; el service lo normaliza
       page: this.page,

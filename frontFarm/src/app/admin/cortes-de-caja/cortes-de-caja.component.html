@@ -58,6 +58,23 @@
     <div class="mt-3 d-flex justify-content-center" *ngIf="cortes && cortes.length > 0; else sinResultados">
         <table class="tabla mx-auto">
             <thead>
+                <tr class="fila-totales">
+                    <!-- Texto "Totales" ocupa las columnas no numéricas -->
+                    <td colspan="2" class="text-end fw-bold">Totales:</td>
+
+                    <!-- Columnas numéricas en el mismo orden que el thead -->
+                    <td class="text-end fw-bold">{{ (totales.efectivoInicial || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.totalEfectivoEnCaja || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.ingresoEfectivo || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.totalTarjeta || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.totalTransferencia || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.totalVale || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.ingresoTotal || 0) | currency }}</td>
+                    <td class="text-end fw-bold">{{ (totales.abonosMonederos || 0) | currency }}</td>
+
+                    <!-- Fechas + acciones no aplican (vacías) -->
+                    <td colspan="3" class="text-muted">Cortes de caja: {{ totales.conteo || 0 }}</td>
+                </tr>
                 <tr>
                     <th class="sortable" (click)="ordenarPor('farmaciaNombre')"
                         [attr.aria-sort]="ariaSortFor('farmaciaNombre')" role="button"
@@ -160,27 +177,6 @@
                     </td>
                 </tr>
             </tbody>
-
-            <tfoot>
-                <tr>
-                    <!-- Texto "Totales" ocupa las columnas no numéricas -->
-                    <td colspan="2" class="text-end fw-bold">Totales:</td>
-
-                    <!-- Columnas numéricas en el mismo orden que el thead -->
-                    <td class="text-end fw-bold">{{ (totales.efectivoInicial || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales.totalEfectivoEnCaja || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales.ingresoEfectivo || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales.totalTarjeta || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales.totalTransferencia || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales.totalVale || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales.ingresoTotal || 0) | currency }}</td>
-                    <td class="text-end fw-bold">{{ (totales.abonosMonederos || 0) | currency }}</td>
-
-                    <!-- Fechas + acciones no aplican (vacías) -->
-                    <td colspan="3" class="text-muted">Cortes de caja: {{ totales.conteo || 0 }}</td>
-                </tr>
-            </tfoot>
-
         </table>
 
     </div>

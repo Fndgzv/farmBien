@@ -37,6 +37,25 @@ export class VentasPorCategoriaComponent implements OnInit {
 
   cargando = false;
   rows: VentaCategoriaRow[] = [];
+  page = 1;
+  limit = 20;
+
+  get totalPaginas(): number {
+    return Math.max(1, Math.ceil(this.rows.length / this.limit));
+  }
+
+  get rowsPagina(): VentaCategoriaRow[] {
+    const inicio = (this.page - 1) * this.limit;
+    return this.sortedRows.slice(inicio, inicio + this.limit);
+  }
+
+  cambiarLimite(): void {
+    this.page = 1;
+  }
+
+  cambiarPagina(pagina: number): void {
+    this.page = Math.max(1, Math.min(pagina, this.totalPaginas));
+  }
 
   totalCantidad = 0;
   totalCosto = 0;
@@ -75,6 +94,7 @@ export class VentasPorCategoriaComponent implements OnInit {
   }
 
   buscar(): void {
+    this.page = 1;
     this.cargando = true;
 
     this.reportes.getVentasPorCategoria({
@@ -151,6 +171,7 @@ export class VentasPorCategoriaComponent implements OnInit {
   }
 
   setSort(col: SortCol): void {
+    this.page = 1;
     const map: Record<SortCol, SortKey> = {
       farmacia: 'farmacia',
       categoria: 'categoria',

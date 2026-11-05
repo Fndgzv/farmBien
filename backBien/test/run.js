@@ -8,6 +8,7 @@ require("./ajusteInventario.stockAuto.test");
 require("./exportarViabilidad.test");
 require("./controlInventario.test");
 require("./ventaInventario.test");
+require("./venta.consultaFiltros.test");
 require("./producto.actualizacionMasiva.test");
 require("./medicoConsultorio.categorias.test");
 require("./cliente.ventas.test");

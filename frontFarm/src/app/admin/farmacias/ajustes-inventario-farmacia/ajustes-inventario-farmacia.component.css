@@ -325,3 +325,9 @@ td.col-ubicacion {
   color:#fced20;
   margin-left: 2rem;
  }
+
+.columna-apagador { border: 0; background: transparent; color: inherit; padding: 2px 4px; cursor: pointer; font-size: 1.2rem; }
+.columna-apagador[aria-checked="true"] { color: #198754; }
+table .columna-oculta { width: 36px !important; min-width: 36px !important; max-width: 36px !important; padding-left: 2px !important; padding-right: 2px !important; text-align: center; }
+
+.fila-sumas th { text-align: right; font-weight: 700; }
