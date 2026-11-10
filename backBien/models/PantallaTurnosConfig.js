@@ -10,6 +10,7 @@ const PantallaTurnosConfigSchema = new Schema(
       unique: true,
       index: true,
     },
+    videoUrls: { type: [String], default: undefined },
     videoUrl: {
       type: String,
       required: true,

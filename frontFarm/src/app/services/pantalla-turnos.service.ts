@@ -21,6 +21,7 @@ export interface PantallaTurnosResumenResponse {
   siguientesTurnos: TurnoPantallaItem[];
   pendientesTotales: number;
   videoPromocionalUrl?: string;
+  videoPromocionalUrls?: string[];
   usaVideoDefault?: boolean;
   actualizadoEn?: string;
 }
@@ -75,10 +76,10 @@ export class PantallaTurnosService {
     });
   }
 
-  actualizarVideoPromocional(farmaciaId: string, videoUrl: string): Observable<any> {
+  actualizarVideoPromocional(farmaciaId: string, videoUrls: string[]): Observable<any> {
     return this.http.put(
       `${this.baseUrl}/video`,
-      { farmaciaId, videoUrl },
+      { farmaciaId, videoUrls },
       { headers: this.headers(farmaciaId) }
     );
   }

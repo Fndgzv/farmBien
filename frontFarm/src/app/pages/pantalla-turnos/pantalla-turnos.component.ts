@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, ViewChild, NgZone, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -38,6 +38,73 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
   pendientesTotales = 0;
   actualizadoEn = '';
 
+  videos: string[] = [];
+  indiceVideo = 0;
+  youtubeId = '';
+  youtubeAudioBloqueado = false;
+  private youtubePlayer: any;
+  private destruido = false;
+  @ViewChild('youtubeHost') set youtubeHost(host: ElementRef | undefined) {
+    if (host) void this.iniciarYoutube(host.nativeElement);
+  }
+  private async iniciarYoutube(host: HTMLElement): Promise<void> {
+    try {
+      if (!(window as any).YT?.Player) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://www.youtube.com/iframe_api';
+          const timeout = setTimeout(() => { clearInterval(check); reject(); }, 15000);
+          const check = setInterval(() => {
+            if ((window as any).YT?.Player) { clearInterval(check); clearTimeout(timeout); resolve(); }
+          }, 100);
+          document.head.appendChild(script);
+        });
+      }
+      if (this.destruido || !host.isConnected || !this.youtubeId) return;
+      this.youtubePlayer = new (window as any).YT.Player(host, {
+        videoId: this.youtubeId, width: '100%', height: '100%',
+        playerVars: { autoplay: 1, playsinline: 1, origin: window.location.origin },
+        events: {
+          onReady: (e: any) => { e.target.unMute(); e.target.setVolume(100); e.target.playVideo(); },
+          onAutoplayBlocked: () => this.zone.run(() => { this.youtubeAudioBloqueado = true; }),
+          onStateChange: (e: any) => { if (e.data === 0) this.zone.run(() => this.siguienteVideo()); },
+          onError: () => this.zone.run(() => { this.videoError = 'YouTube no permite reproducir este video. Puedes avanzar al siguiente.'; })
+        }
+      });
+    } catch { this.zone.run(() => { this.videoError = 'No se pudo cargar el reproductor de YouTube.'; }); }
+  }
+  private obtenerYoutubeId(raw: string): string {
+    try {
+      const url = new URL(raw);
+      const host = url.hostname.toLowerCase();
+      let id = '';
+      if (host === 'youtu.be') id = url.pathname.slice(1);
+      if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(host)) {
+        id = url.searchParams.get('v') || (/^\/(embed|shorts|live)\//.test(url.pathname) ? url.pathname.split('/')[2] : '');
+      }
+      return /^[\w-]{11}$/.test(id) ? id : '';
+    } catch { return ''; }
+  }
+  activarAudioYoutube(): void {
+    if (!this.youtubePlayer?.unMute) return;
+    this.youtubePlayer.unMute();
+    this.youtubePlayer.setVolume(100);
+    this.youtubePlayer.playVideo();
+    this.youtubeAudioBloqueado = false;
+  }
+  siguienteVideo(): void {
+    if (!this.videos.length) return;
+    this.indiceVideo = (this.indiceVideo + 1) % this.videos.length;
+    this.aplicarVideoUrl(this.videos[this.indiceVideo]);
+  }
+  private aplicarLista(resp: any): void {
+    const lista: string[] = resp.videoPromocionalUrls ?? (resp.videoPromocionalUrl ? [resp.videoPromocionalUrl] : []);
+    if (JSON.stringify(lista) === JSON.stringify(this.videos)) return;
+    this.videos = lista;
+    this.indiceVideo = 0;
+    this.aplicarVideoUrl(lista[0] || '');
+  }
+  private listaDraft(): string[] { return this.videoDraft.split(/\r?\n/).map(v => v.trim()).filter(Boolean); }
   videoPromocionalUrl = '';
   videoMimeType = 'video/mp4';
   usaVideoDefault = false;
@@ -65,6 +132,7 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
 
   constructor(
     private pantallaTurnosService: PantallaTurnosService,
+    private zone: NgZone,
     private farmaciaService: FarmaciaService
   ) {}
 
@@ -81,6 +149,8 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destruido = true;
+    this.youtubePlayer?.destroy();
     if (this.pollingRef) {
       clearInterval(this.pollingRef);
       this.pollingRef = null;
@@ -109,7 +179,7 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
   }
 
   get videoDraftValido(): boolean {
-    return this.esVideoUrlValida(this.videoDraft);
+    return this.listaDraft().every(v => this.esVideoUrlValida(v));
   }
 
   onFarmaciaSeleccionadaChange(): void {
@@ -195,8 +265,7 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const videoDraft = String(this.videoDraft || '').trim();
-    if (!this.esVideoUrlValida(videoDraft)) {
+    if (!this.videoDraftValido) {
       await Swal.fire(
         'Ruta de video invalida',
         'Usa una URL http(s) o una ruta local /assets/... o /uploads/...',
@@ -210,13 +279,13 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
       const resp = await firstValueFrom(
         this.pantallaTurnosService.actualizarVideoPromocional(
           this.farmaciaSeleccionadaId,
-          videoDraft
+          this.listaDraft()
         )
       );
 
-      this.aplicarVideoUrl(String(resp?.videoPromocionalUrl || '').trim());
+      this.aplicarLista(resp);
       this.usaVideoDefault = !!resp?.usaVideoDefault;
-      this.videoDraft = this.videoPromocionalUrl;
+      this.videoDraft = this.videos.join('\n');
       this.videoDraftDirty = false;
 
       await Swal.fire('Listo', resp?.msg || 'Video actualizado.', 'success');
@@ -462,9 +531,9 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
     this.actualizadoEn = String(resp?.actualizadoEn || '');
     this.usaVideoDefault = !!resp?.usaVideoDefault;
 
-    this.aplicarVideoUrl(String(resp?.videoPromocionalUrl || '').trim());
+    this.aplicarLista(resp);
     if (!this.videoDraftDirty) {
-      this.videoDraft = this.videoPromocionalUrl;
+      this.videoDraft = this.videos.join('\n');
     }
   }
 
@@ -501,6 +570,14 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
 
   private aplicarVideoUrl(urlRaw: string): void {
     const videoUrl = this.normalizarVideoUrl(urlRaw);
+    this.youtubeId = this.obtenerYoutubeId(videoUrl);
+    this.youtubeAudioBloqueado = false;
+    if (this.youtubeId && this.youtubePlayer) {
+      this.youtubePlayer.unMute();
+      this.youtubePlayer.setVolume(100);
+      this.youtubePlayer.loadVideoById(this.youtubeId);
+    }
+    if (!this.youtubeId && this.youtubePlayer) { this.youtubePlayer.destroy(); this.youtubePlayer = null; }
     this.videoPromocionalUrl = videoUrl;
     this.videoMimeType = this.obtenerVideoMimeType(videoUrl);
     this.videoError = '';
@@ -516,7 +593,7 @@ export class PantallaTurnosComponent implements OnInit, OnDestroy {
     }
 
     this.ultimaUrlValidada = videoUrl;
-    void this.validarRutaVideo(videoUrl);
+    if (!this.youtubeId) void this.validarRutaVideo(videoUrl);
   }
 
   private normalizarVideoUrl(urlRaw: string): string {

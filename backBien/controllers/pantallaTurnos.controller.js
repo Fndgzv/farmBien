@@ -67,7 +67,7 @@ function extensionVideoSoportada(videoUrl) {
 
 async function resolverVideoPromocional(farmaciaId) {
   const config = await PantallaTurnosConfig.findOne({ farmaciaId })
-    .select("videoUrl")
+    .select("videoUrl videoUrls")
     .lean();
 
   const videoConfig = normalizarVideoUrl(config?.videoUrl);
@@ -75,12 +75,14 @@ async function resolverVideoPromocional(farmaciaId) {
   if (videoConfig) {
     return {
       videoPromocionalUrl: videoConfig,
+      videoPromocionalUrls: config?.videoUrls?.length ? config.videoUrls : [videoConfig],
       usaVideoDefault: false,
     };
   }
 
   return {
     videoPromocionalUrl: normalizarVideoUrl(VIDEO_DEFAULT_URL),
+    videoPromocionalUrls: VIDEO_DEFAULT_URL ? [normalizarVideoUrl(VIDEO_DEFAULT_URL)] : [],
     usaVideoDefault: true,
   };
 }
@@ -162,7 +164,9 @@ exports.actualizarVideoPromocional = async (req, res) => {
       return res.status(404).json({ msg: "Farmacia no encontrada o inactiva" });
     }
 
-    const videoUrl = normalizarVideoUrl(req.body?.videoUrl);
+    if (req.body?.videoUrls !== undefined && (!Array.isArray(req.body.videoUrls) || req.body.videoUrls.some(v => typeof v !== "string"))) return res.status(400).json({msg: "videoUrls debe ser una lista de rutas"});
+    const videoUrls = (req.body?.videoUrls ?? [req.body?.videoUrl]).map(normalizarVideoUrl).filter(Boolean);
+    const videoUrl = videoUrls[0] || "";
 
     if (!videoUrl) {
       await PantallaTurnosConfig.deleteOne({ farmaciaId });
@@ -176,13 +180,13 @@ exports.actualizarVideoPromocional = async (req, res) => {
       });
     }
 
-    if (!esVideoUrlValida(videoUrl)) {
+    if (videoUrls.some(v => !esVideoUrlValida(v))) {
       return res.status(400).json({
         msg: "videoUrl invalida. Usa una URL http(s) o una ruta local /uploads/... o /assets/...",
       });
     }
 
-    if (!extensionVideoSoportada(videoUrl)) {
+    if (videoUrls.some(v => !extensionVideoSoportada(v))) {
       return res.status(400).json({
         msg: "Formato de video no soportado. Usa .mp4, .webm, .ogg/.ogv o .mov.",
       });
@@ -193,6 +197,7 @@ exports.actualizarVideoPromocional = async (req, res) => {
       {
         $set: {
           videoUrl,
+          videoUrls,
           actualizadaPor: req.usuario?._id || null,
         },
       },
@@ -207,6 +212,7 @@ exports.actualizarVideoPromocional = async (req, res) => {
       ok: true,
       farmacia,
       videoPromocionalUrl: videoUrl,
+      videoPromocionalUrls: videoUrls,
       usaVideoDefault: false,
       msg: "Video promocional actualizado.",
     });

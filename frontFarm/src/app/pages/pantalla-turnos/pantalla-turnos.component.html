@@ -34,18 +34,22 @@
   <div class="pt-main-grid">
     <section class="pt-card pt-video-card">
       <div class="pt-video-wrap" *ngIf="videoPromocionalUrl; else noVideo">
+        <div *ngIf="youtubeId" class="pt-video"><div #youtubeHost></div></div>
         <video
+          *ngIf="!youtubeId"
+          [src]="videoPromocionalUrl"
+          (ended)="videos.length === 1 ? videoLocal.play() : siguienteVideo()"
+          #videoLocal
           class="pt-video"
           autoplay
           muted
-          loop
           controls
           playsinline
           preload="metadata"
           (loadeddata)="onVideoLoadedData()"
           (error)="onVideoError($event)"
         >
-          <source [src]="videoPromocionalUrl" [type]="videoMimeType" />
+
           Tu navegador no soporta reproduccion de video.
         </video>
       </div>
@@ -57,6 +61,9 @@
         </div>
       </ng-template>
 
+      <button class="pt-btn" *ngIf="videos.length" (click)="siguienteVideo()">Siguiente video ({{ indiceVideo + 1 }}/{{ videos.length }})</button>
+      <button class="pt-btn" type="button" *ngIf="youtubeId" (click)="activarAudioYoutube()">Activar sonido</button>
+      <p class="pt-video-status" *ngIf="youtubeId && youtubeAudioBloqueado">El navegador bloqueó la reproducción automática. Pulsa Activar sonido para continuar con volumen.</p>
       <div class="pt-video-meta">
         <span *ngIf="usaVideoDefault" class="pt-default-note">
           Usando video por defecto del sistema.
@@ -113,9 +120,9 @@
   </div>
 
   <section class="pt-card pt-video-config" *ngIf="esAdmin">
-    <div class="pt-card-header">Configurar video</div>
+    <div class="pt-card-header">Configurar lista de videos</div>
     <p class="pt-help">
-      Formatos soportados por el reproductor: {{ formatosVideoAceptados }}.
+      Escribe un enlace por lÃ­nea. Se reproducen en orden y vuelven al inicio. Admite YouTube y archivos: {{ formatosVideoAceptados }}.
       Recomendado para mayor compatibilidad: <code>.mp4</code> con codificacion H.264/AAC.
     </p>
     <p class="pt-help">
@@ -128,13 +135,14 @@
     </p>
 
     <div class="pt-video-form">
-      <input
-        type="text"
+      <textarea
+        rows="5"
+        aria-label="Videos, uno por lÃ­nea"
         class="pt-input"
         [(ngModel)]="videoDraft"
         (ngModelChange)="onVideoDraftInput()"
-        placeholder="/assets/images/mi-video.mp4 o https://.../video.mp4"
-      />
+        placeholder="Una URL de YouTube o archivo de video por lÃ­nea"
+      ></textarea>
 
       <button
         type="button"
@@ -142,7 +150,7 @@
         (click)="guardarVideoPromocional()"
         [disabled]="guardandoVideo || !farmaciaSeleccionadaId || !videoDraftValido"
       >
-        {{ guardandoVideo ? 'Guardando...' : 'Guardar video' }}
+        {{ guardandoVideo ? 'Guardando...' : 'Guardar lista' }}
       </button>
     </div>
 
