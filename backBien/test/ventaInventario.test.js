@@ -102,3 +102,27 @@ test('una venta sin el campo inventario conserva la validación de existencia', 
   assert.equal(res.statusCode, 400);
   assert.match(res.body?.mensaje || '', /No hay suficiente stock/);
 });
+
+test('un folio duplicado devuelve el conflicto específico y cierra la sesión', async (t) => {
+  instalarInventario(t, { inventario: false });
+  const session = {
+    async withTransaction(callback) {
+      await callback();
+    },
+    endSession: t.mock.fn(),
+  };
+  t.mock.method(mongoose, 'startSession', async () => session);
+  t.mock.method(Venta, 'create', async () => {
+    throw Object.assign(new Error('Duplicate key'), {
+      code: 11000,
+      keyPattern: { folio: 1 },
+    });
+  });
+
+  const res = crearRespuesta();
+  await crearVenta(crearRequest(), res);
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.codigo, 'FOLIO_DUPLICADO');
+  assert.equal(session.endSession.mock.callCount(), 1);
+});

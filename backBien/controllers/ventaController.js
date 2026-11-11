@@ -691,6 +691,12 @@ const crearVenta = async (req, res) => {
       return res.status(201).json({ mensaje: 'Venta realizada con éxito', venta: ventaCreada });
 
     } catch (err) {
+      if (err.code === 11000 && (err.keyPattern?.folio === 1 || Object.hasOwn(err.keyValue || {}, 'folio'))) {
+        return res.status(409).json({
+          codigo: 'FOLIO_DUPLICADO',
+          mensaje: 'El folio de la venta ya existe. Intenta finalizar la venta de nuevo.'
+        });
+      }
       if (String(err.message) === "STOCK_INSUFICIENTE_CONCURRENCIA") {
         return res.status(400).json({ mensaje: "** Ya no hay suficiente stock (venta concurrente). **" });
       }

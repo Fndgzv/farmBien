@@ -207,7 +207,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
   mostrarTicket: boolean = false;
   mostrarTicketTurno = false;
   ticketTurnoData: { folio: string } | null = null;
-  folioVentaGenerado: string | null = null;
 
   venta: any = null;
   ventaEnProceso: boolean = false;
@@ -1860,7 +1859,6 @@ export class VentasComponent implements OnInit, AfterViewInit {
     this.aplicaInapam = false;
     this.yaPreguntoInapam = false;
 
-    this.folioVentaGenerado = null;
     this.limpiarCliente();
 
     this.montoTarjeta = 0;
@@ -2046,6 +2044,8 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   cancelarPago() {
+    if (this.isPrinting) return;
+
     this.efectivoRecibido = 0;
     this.montoTarjeta = 0;
     this.montoTransferencia = 0;
@@ -2057,7 +2057,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
   }
 
   async finalizarVenta() {
-    if (this.isPrinting) return;
+    if (this.isPrinting || !this.carrito.length) return;
 
     // --- Validaciones/pagos (idénticas a las tuyas) ---
     this.efectivoRecibido = Math.max(0, this.pagoEfectivo);
@@ -2072,75 +2072,94 @@ export class VentasComponent implements OnInit, AfterViewInit {
     if (pagosDigitales > this.total) { await Swal.fire('Error', 'El monto con tarjeta, transferencia y/o monedero no puede exceder el total.', 'error'); return; }
     if (totalPagado < this.total) { await Swal.fire('Pago incompleto', 'La suma de pagos no cubre el total de la venta.', 'warning'); return; }
 
-    const folio = this.folioVentaGenerado || this.generarFolioLocal();
-    this.folioVentaGenerado = folio;
-
-    const productos = this.carrito.map(p => ({
-      producto: p.producto,
-      nombre: p.nombre,
-      barrasYNombre: `${(p.codBarras ?? '').slice(-3)} ${p.nombre}`,
-      cantidad: p.cantidad,
-      precio: p.precioFinal,
-      totalRen: p.precioFinal * p.cantidad,
-      precioOriginal: p.precioOriginal,
-      iva: p.iva,
-      tipoDescuento: p.tipoDescuento,
-      descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
-      cadenaDescuento: p.cadDesc ?? '',
-      monederoCliente: (p.almonedero ?? 0) * p.cantidad,
-    }));
-
-    const farma = await this.ventaTicketPrintService.construirFarmaciaTicket({
-      nombre: this.farmaciaNombre,
-      direccion: this.farmaciaDireccion,
-      telefono: this.farmaciaTelefono,
-      titulo1: this.farmaciaTitulo1,
-      titulo2: this.farmaciaTitulo2,
-      imagen: this.farmaciaImagen,
-    });
-
-    this.ventaParaImpresion = {
-      folio,
-      cliente: this.nombreCliente,
-      farmacia: farma,
-      productos,
-      cantidadProductos: this.totalArticulos,
-      total: this.total,
-      totalDescuento: this.totalDescuento,
-      totalMonederoCliente: this.totalAlmonedero,
-      formaPago: {
-        efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
-        tarjeta: this.montoTarjeta,
-        transferencia: this.montoTransferencia,
-        vale: this.montoVale
-      },
-      AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
-      elcambio: this.cambio,
-      fecha: new Date().toISOString(),
-      usuario: this.nombreUs
-    };
-
-    // --- Mostrar el ticket en el DOM (para clonar) ---
-    this.mostrarModalPago = false;
-    this.mostrarTicket = true;
-    this.cdRef.detectChanges();
-    await whenDomStable();
-
     this.isPrinting = true;
-
+    let ventaGuardada = false;
     try {
+      const productos = this.carrito.map(p => ({
+        producto: p.producto,
+        nombre: p.nombre,
+        barrasYNombre: `${(p.codBarras ?? '').slice(-3)} ${p.nombre}`,
+        cantidad: p.cantidad,
+        precio: p.precioFinal,
+        totalRen: p.precioFinal * p.cantidad,
+        precioOriginal: p.precioOriginal,
+        iva: p.iva,
+        tipoDescuento: p.tipoDescuento,
+        descuento: (p.descuentoUnitario ?? 0) * p.cantidad,
+        cadenaDescuento: p.cadDesc ?? '',
+        monederoCliente: (p.almonedero ?? 0) * p.cantidad,
+      }));
+
+      const farma = await this.ventaTicketPrintService.construirFarmaciaTicket({
+        nombre: this.farmaciaNombre,
+        direccion: this.farmaciaDireccion,
+        telefono: this.farmaciaTelefono,
+        titulo1: this.farmaciaTitulo1,
+        titulo2: this.farmaciaTitulo2,
+        imagen: this.farmaciaImagen,
+      });
+
+      this.ventaParaImpresion = {
+        folio: this.generarFolioLocal(),
+        cliente: this.nombreCliente,
+        farmacia: farma,
+        productos,
+        cantidadProductos: this.totalArticulos,
+        total: this.total,
+        totalDescuento: this.totalDescuento,
+        totalMonederoCliente: this.totalAlmonedero,
+        formaPago: {
+          efectivo: this.total - this.montoTarjeta - this.montoTransferencia - this.montoVale,
+          tarjeta: this.montoTarjeta,
+          transferencia: this.montoTransferencia,
+          vale: this.montoVale
+        },
+        AsiQuedaMonedero: this.montoMonederoCliente - this.montoVale + this.totalAlmonedero,
+        elcambio: this.cambio,
+        fecha: new Date().toISOString(),
+        usuario: this.nombreUs
+      };
+
+      const respuesta = await this.guardarVenta(this.ventaParaImpresion.folio);
+      ventaGuardada = true;
+      this.ventaParaImpresion.folio = respuesta.venta.folio;
+
+      this.mostrarModalPago = false;
+      this.mostrarTicket = true;
+      this.cdRef.detectChanges();
+      await whenDomStable();
+
       const el = document.getElementById('ticketVenta');
       if (!el) throw new Error('ticketVenta no encontrado');
+      await this.ventaTicketPrintService.imprimirNodoTicket(el, this.ventaParaImpresion.formaPago);
 
-      await this.ventaTicketPrintService.imprimirNodoTicket(el, this.ventaParaImpresion?.formaPago);
-
-
-      // Guardar **después** de imprimir
-      this.guardarVentaDespuesDeImpresion(this.folioVentaGenerado!);
+      await Swal.fire({
+        icon: 'success',
+        title: 'Venta Registrada',
+        text: 'Venta finalizada correctamente',
+        timer: 1300,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false
+      });
+    } catch (error: any) {
+      if (ventaGuardada) {
+        await Swal.fire('Venta registrada', 'No se pudo imprimir el ticket. Puedes reimprimirlo desde el reporte de ventas.', 'warning');
+      } else {
+        const mensaje = error?.error?.mensaje ||
+          'No se pudo confirmar la venta. Verifica el reporte de ventas antes de volver a intentar.';
+        await Swal.fire('Error', mensaje, 'error');
+      }
     } finally {
+      if (ventaGuardada) {
+        this.limpiarFichasLigadas();
+        this.limpiarVenta();
+        this.ventaService.setVentasPausadas(this.ventasPausadas);
+      }
       this.mostrarTicket = false;
       this.isPrinting = false;
       this.cdRef.detectChanges();
+      if (ventaGuardada) this.focusBarcode(50, true);
     }
   }
 
@@ -2181,7 +2200,7 @@ export class VentasComponent implements OnInit, AfterViewInit {
     return `${baseFolio}${fechaFormateada}-${cadenaAleatoria}`;
   }
 
-  guardarVentaDespuesDeImpresion(folio: string) {
+  private async guardarVenta(folio: string) {
     const fichasConsultorioIds = this.obtenerFichasLigadasIds();
 
     const productosPayload = this.carrito.map(p => ({
@@ -2210,44 +2229,16 @@ export class VentasComponent implements OnInit, AfterViewInit {
       fichasConsultorioIds
     };
 
-    this.ventasService.crearVenta(venta).subscribe({
-      next: () => {
-        this.folioVentaGenerado = null;
-
-        // ✅ limpiar vínculo de ficha
-        this.limpiarFichasLigadas();
-
-        this.limpiarVenta();
-        this.mostrarModalPago = false;
-
-        this.ventaService.setVentasPausadas(this.ventasPausadas);
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Venta Registrada',
-          text: 'Venta finalizada correctamente',
-          timer: 1300,
-          timerProgressBar: true,
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          didClose: () => {
-            //this.syncClienteCtrlDisabled();
-            this.focusBarcode(50, true);
-          }
-        });
-      },
-      error: (error) => {
-        const mensaje = error?.error?.mensaje || 'Error al finalizar la venta';
-        Swal.fire('Error', mensaje, 'error');
-        const esErrorDeVale = mensaje.includes('**');
-        if (!esErrorDeVale) {
-          this.mostrarModalPago = false;
-          this.limpiarVenta(); //this.syncClienteCtrlDisabled();
-          setTimeout(() => this.focusBarcode(50, true), 0);
+    for (let intento = 1; ; intento++) {
+      try {
+        return await firstValueFrom(this.ventasService.crearVenta(venta));
+      } catch (error: any) {
+        if (intento >= 3 || error?.status !== 409 || error?.error?.codigo !== 'FOLIO_DUPLICADO') {
+          throw error;
         }
+        venta.folio = this.generarFolioLocal();
       }
-    });
-
+    }
   }
 
   abrirModalConsultaPrecio() {

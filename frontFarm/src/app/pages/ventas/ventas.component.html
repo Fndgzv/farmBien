@@ -767,10 +767,10 @@
       </div>
 
       <div class="btns-container">
-        <button type="button" class="btn-rojo-tache" (click)="cancelarPago()">Cancelar</button>
+        <button type="button" class="btn-rojo-tache" (click)="cancelarPago()" [disabled]="isPrinting">Cancelar</button>
         <button type="submit" class="btn-gris"
           [disabled]="isPrinting || (pagoEfectivo + pagoTarjeta1 + pagoTransferencia1 + pagoVale1 < total)">
-          {{ isPrinting ? 'Imprimiendo…' : 'Imprimir' }}
+          {{ isPrinting ? 'Procesando venta…' : 'Imprimir' }}
         </button>
       </div>
 
